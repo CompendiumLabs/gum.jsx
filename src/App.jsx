@@ -6,6 +6,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import ErrorBoundary from './Error'
 import Gum from './gum'
+
 //
 // babel
 //
@@ -37,7 +38,7 @@ function DynamicJSX({ code }) {
       // set the element
       setElement(element)
     } catch (error) {
-      setError(error.message)
+      // setError(error.message)
     }
   }, [code])
 
@@ -85,13 +86,15 @@ function CodeEditor({ editorRef, className, code, setCode }) {
 export default function App() {
   const [code, setCode] = useState(`
 <Svg>
-  <HStack>
-    <VStack size={1/3}>
-      <Circle></Circle>
-      <Circle stroke="red"></Circle>
-    </VStack>
-    <Ellipse stroke="blue"></Ellipse>
-  </HStack>
+  <Frame padding="0.05" margin="0.05" border="3">
+    <HStack>
+      <VStack size={1/3}>
+        <Circle></Circle>
+        <Circle stroke="red"></Circle>
+      </VStack>
+      <Ellipse stroke="blue"></Ellipse>
+    </HStack>
+  </Frame>
 </Svg>
 `.trim())
   const editorRef = useRef(null)
