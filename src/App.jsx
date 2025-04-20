@@ -25,14 +25,6 @@ function DynamicJSX({ code }) {
         presets: ['react']
       }).code
 
-      console.log('GUM:')
-      console.log(Gum)
-      console.log()
-
-      console.log('TRANSFORMED:')
-      console.log(transformedCode)
-      console.log()
-
       // get inputs
       const keys = Object.keys(Gum)
       const vals = Object.values(Gum)
@@ -41,11 +33,6 @@ function DynamicJSX({ code }) {
       // create a function that returns the React element
       const executeFunction = new Function('React', ...keys, functionBody)
       const element = executeFunction(React, ...vals)
-
-      // log the element
-      console.log('ELEMENT:')
-      console.log(element)
-      console.log()
 
       // set the element
       setElement(element)
@@ -96,7 +83,17 @@ function CodeEditor({ editorRef, className, code, setCode }) {
 //
 
 export default function App() {
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(`
+<Svg>
+  <HStack>
+    <VStack size={1/3}>
+      <Circle></Circle>
+      <Circle stroke="red"></Circle>
+    </VStack>
+    <Ellipse stroke="blue"></Ellipse>
+  </HStack>
+</Svg>
+`.trim())
   const editorRef = useRef(null)
   const [key, setKey] = useState(0)
 
@@ -106,7 +103,7 @@ export default function App() {
   }
 
   return <div className="w-screen h-screen flex flex-row">
-    <div className="w-1/2 h-full p-2">
+    <div className="w-1/2 h-full">
       <div className="flex w-full h-full">
         <CodeEditor editorRef={editorRef} code={code} setCode={handleCode} />
       </div>
