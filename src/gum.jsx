@@ -156,27 +156,28 @@ function Polygon({ rect, points, ...props }) {
 //
 
 function Text({ children, rect, aspect, color = "black", ...props }) {
-    const [ x, y, w, h ] = rectBox(rect)
+  const [ x, y, w, h ] = rectBox(rect)
 
-    // get embedded position
-    const y1 = y + h
-    const h0 = w / aspect
+  // get embedded position
+  const y1 = y + h
+  const h0 = w / aspect
 
-    // render text
-    return <text
-      x={x}
-      y={y1}
-      fontSize={h0}
-      fill={color}
-      stroke={color}
-      {...props}
-    >
-      {children}
-    </text>
+  // render text
+  return <text
+    x={x}
+    y={y1}
+    fontSize={h0}
+    fill={color}
+    stroke={color}
+    {...props}
+  >
+    {children}
+  </text>
 }
 
 Text.calculateAspect = (props) => {
-  return calcTextAspect(props.children)
+  const { children } = props
+  return calcTextAspect(children)
 }
 
 //
