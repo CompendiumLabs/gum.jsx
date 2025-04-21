@@ -9,7 +9,7 @@ import { Children, cloneElement } from 'react'
 //
 
 const DEFAULT_SIZE = 500
-const DEFAULT_RECT = { x1: 0, y1: 0, x2: 1, y2: 1 }
+const DEFAULT_RECT = [ 0, 0, 1, 1 ]
 const DEFAULT_PROP = {
   stroke: 'black',
   fill: 'none',
@@ -48,41 +48,36 @@ function cumsum(arr) {
 //
 
 function rectSize(rect) {
-  const { x1, y1, x2, y2 } = rect
-  return { w: x2 - x1, h: y2 - y1 }
+  const [ x1, y1, x2, y2 ] = rect
+  return [ x2 - x1, y2 - y1 ]
 }
 
 function rectCenter(rect) {
-  const { x1, y1, x2, y2 } = rect
-  return { cx: (x1 + x2) / 2, cy: (y1 + y2) / 2 }
+  const [ x1, y1, x2, y2 ] = rect
+  return [ (x1 + x2) / 2, (y1 + y2) / 2 ]
 }
 
 function rectBox(rect) {
-  const { x1: x, y1: y } = rect
-  const { w, h } = rectSize(rect)
-  return { x, y, w, h }
+  const [ x, y ] = rect
+  const [ w, h ] = rectSize(rect)
+  return [ x, y, w, h ]
 }
 
 function boxRect(box) {
-  const { x, y, w, h } = box
-  return { x1: x, y1: y, x2: x + w, y2: y + h }
+  const [ x, y, w, h ] = box
+  return [ x, y, x + w, y + h ]
 }
 
 function rectRadial(rect) {
-  const { cx, cy } = rectCenter(rect)
-  const { w, h } = rectSize(rect)
+  const [ cx, cy ] = rectCenter(rect)
+  const [ w, h ] = rectSize(rect)
   const [ rx, ry ] = [ w / 2, h / 2 ]
-  return { cx, cy, rx, ry }
+  return [ cx, cy, rx, ry ]
 }
 
 function radialRect(rect) {
-  const { cx, cy, rx, ry } = rect
-  return {
-    x1: cx - rx,
-    y1: cy - ry,
-    x2: cx + rx,
-    y2: cy + ry,
-  }
+  const [ cx, cy, rx, ry ] = rect
+  return [ cx - rx, cy - ry, cx + rx, cy + ry ]
 }
 
 function embedAspect(rect, aspect) {
@@ -93,30 +88,29 @@ function embedAspect(rect, aspect) {
   } else if (rx < ry * aspect) {
     ry = rx / aspect
   }
-  const rrect = { cx, cy, rx, ry }
-  return radialRect(rrect)
+  return radialRect([ cx, cy, rx, ry ])
 }
 
 function rectMap(crect, frect = DEFAULT_RECT, aspect = null) {
-  const { x1: cx1, y1: cy1, x2: cx2, y2: cy2 } = crect
-  const { x1: fx1, y1: fy1, x2: fx2, y2: fy2 } = frect
-  const { w, h } = rectSize(crect)
-  const prect = {
-    x1: cx1 + fx1 * w,
-    y1: cy1 + fy1 * h,
-    x2: cx1 + fx2 * w,
-    y2: cy1 + fy2 * h,
-  }
+  const [ x, y, w, h ] = rectBox(crect)
+  const [ fx1, fy1, fx2, fy2 ] = frect
+  const prect = [ x + fx1 * w, y + fy1 * h, x + fx2 * w, y + fy2 * h ]
   return embedAspect(prect, aspect)
 }
 
 function rectShrink(rect, factor) {
-  const frect = { x1: factor, y1: factor, x2: 1 - factor, y2: 1 - factor }
+  const frect = [ factor, factor, 1 - factor, 1 - factor ]
   return rectMap(rect, frect)
 }
 
 function fracShrink(factor) {
   return rectShrink(DEFAULT_RECT, factor)
+}
+
+function pointMap(crect, fpoint) {
+  const [ x, y, w, h ] = rectBox(crect)
+  const [ fx, fy ] = fpoint
+  return [ x + fx * w, y + fy * h ]
 }
 
 //
@@ -152,8 +146,8 @@ function Group({ rect, children, tag = "g", ...props }) {
 }
 
 function Svg({ children, rect, size = DEFAULT_SIZE, ...props }) {
-  rect ??= boxRect({ x: 0, y: 0, w: size, h: size })
-  const { w, h } = rectSize(rect)
+  rect ??= [ 0, 0, size, size ]
+  const [ w, h ] = rectSize(rect)
   return <Group tag="svg" rect={rect} width={w} height={h} {...DEFAULT_PROP} {...props}>
     {children}
   </Group>
@@ -195,7 +189,7 @@ function Stack({ children, direction = "vertical", ...props }) {
       const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
         [ lo, 0, hi, 1 ] : [ 0, lo, 1, hi ]
       return cloneElement(child, {
-        rect: { x1, y1, x2, y2 },
+        rect: [ x1, y1, x2, y2 ],
       })
     })}
   </Group>
@@ -214,22 +208,48 @@ function VStack({ children, ...props }) {
 //
 
 function Rect({ rect, ...props }) {
-  const { x, y, w, h } = rectBox(rect)
+  const [ x, y, w, h ] = rectBox(rect)
   return <rect x={x} y={y} width={w} height={h} {...props} />
 }
 
+function Square({ rect, ...props }) {
+  const [ x, y, w, h ] = rectBox(rect)
+  const s = min(w, h)
+  return <rect x={x} y={y} width={s} height={s} {...props} />
+}
+
 function Ellipse({ rect, ...props }) {
-  const { cx, cy, rx, ry } = rectRadial(rect)
+  const [ cx, cy, rx, ry ] = rectRadial(rect)
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />
 }
 
 function Circle({ rect, ...props }) {
-  const { cx, cy, rx, ry } = rectRadial(rect)
+  const [ cx, cy, rx, ry ] = rectRadial(rect)
   const r = min(rx, ry)
   return <circle cx={cx} cy={cy} r={r} {...props} />
 }
 
+//
+// lines
+//
+
+function Line({ rect, ...props }) {
+  const [ x1, y1, x2, y2 ] = rectBox(rect)
+  return <line x1={x1} y1={y1} x2={x2} y2={y2} {...props} />
+}
+
+function Polyline({ rect, points, ...props }) {
+  const pstring = points.map(p => pointMap(rect, p)).map(([px, py]) => `${px},${py}`).join(' ')
+  return <polyline points={pstring} {...props} />
+}
+
+//
+// exports
+//
+
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Rect, Ellipse, Circle,
+  Group, Svg, Frame, Stack, HStack, VStack,
+  Rect, Square, Ellipse, Circle,
+  Line, Polyline,
   red, blue, green,
 }

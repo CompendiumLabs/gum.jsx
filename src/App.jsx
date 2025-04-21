@@ -21,10 +21,16 @@ function DynamicJSX({ code }) {
       // reset the error
       setError(null)
 
+      // wrap the code in a function
+      const wrap = `function render() {\n${code}\n}`
+      console.log(wrap)
+
       // transform JSX to JavaScript
-      const transformedCode = Babel.transform(code, {
+      const transformedCode = Babel.transform(wrap, {
         presets: ['react']
       }).code
+
+      console.log(transformedCode)
 
       // get inputs
       const keys = Object.keys(Gum)
@@ -38,13 +44,13 @@ function DynamicJSX({ code }) {
       // set the element
       setElement(element)
     } catch (error) {
-      // setError(error.message)
+      setError(error.message)
     }
   }, [code])
 
   // error short circuit
   if (error) {
-    return <div className="text-red-500">{error}</div>
+    return <div className="text-red-500 whitespace-pre-wrap font-mono">{error}</div>
   }
 
   // return the element
@@ -85,14 +91,14 @@ function CodeEditor({ editorRef, className, code, setCode }) {
 
 export default function App() {
   const [code, setCode] = useState(`
-<Svg>
-  <Frame padding="0.05" margin="0.05" border="3">
+return <Svg>
+  <Frame padding={0.1} margin={0.1} border={1}>
     <HStack>
       <VStack size={1/3}>
-        <Circle></Circle>
-        <Circle stroke="red"></Circle>
+        <Circle />
+        <Circle stroke="red" />
       </VStack>
-      <Ellipse stroke="blue"></Ellipse>
+      <Ellipse stroke="blue" />
     </HStack>
   </Frame>
 </Svg>
