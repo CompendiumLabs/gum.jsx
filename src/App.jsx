@@ -21,16 +21,11 @@ function DynamicJSX({ code }) {
       // reset the error
       setError(null)
 
-      // wrap the code in a function
-      const wrap = `function render() {\n${code}\n}`
-      console.log(wrap)
-
       // transform JSX to JavaScript
+      const wrap = `function render() {\n${code}\n}`
       const transformedCode = Babel.transform(wrap, {
         presets: ['react']
       }).code
-
-      console.log(transformedCode)
 
       // get inputs
       const keys = Object.keys(Gum)
@@ -94,10 +89,10 @@ return <Svg>
   <Frame padding={0.1} margin={0.1} border={1}>
     <HStack>
       <VStack size={1/3}>
-        <Circle />
-        <Circle stroke="red" />
+        <Text>Hello</Text>
+        <Circle stroke={red} />
       </VStack>
-      <Ellipse stroke="blue" />
+      <Ellipse stroke={blue} />
     </HStack>
   </Frame>
 </Svg>

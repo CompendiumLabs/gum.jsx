@@ -80,7 +80,7 @@ function radialRect(rect) {
 
 function embedAspect(rect, aspect) {
   if (aspect == null) return rect
-  let { cx, cy, rx, ry } = rectRadial(rect)
+  let [ cx, cy, rx, ry ] = rectRadial(rect)
   if (rx > ry * aspect) {
     rx = ry * aspect
   } else if (rx < ry * aspect) {

@@ -2,7 +2,7 @@
 // gum
 //
 
-import { Children, cloneElement } from 'react'
+import { Component, Children, cloneElement } from 'react'
 import {
   max, min, sum, cumsum, rectSize, rectBox, rectRadial,
   rectMap, fracShrink, pointMap, calcTextAspect,
@@ -33,11 +33,11 @@ function extractProp(children, prop) {
 function Group({ rect, children, tag = "g", ...props }) {
   const Tag = tag
   return <Tag {...props}>
-    {Children.map(children, child =>
-      child ? cloneElement(child, {
-        rect: rectMap(rect, child.props.rect, child.props.aspect),
-      }) : null
-    )}
+    {Children.map(children, child => {
+      const aspect = child.props.aspect ?? child.type.calculateAspect?.(child.props)
+      const rect1 = rectMap(rect, child.props.rect, aspect)
+      return child ? cloneElement(child, { rect: rect1, aspect }) : null
+    })}
   </Tag>
 }
 
@@ -59,7 +59,7 @@ function Frame({ children, padding = 0, margin = 0, border = 0, ...props }) {
       <Group rect={fracShrink(padding)}>
         {children}
       </Group>
-      { border > 0 && <Rect stroke-width={border} /> }
+      { border > 0 && <Rect strokeWidth={border} /> }
     </Group>
   </Group>
 }
@@ -155,30 +155,28 @@ function Polygon({ rect, points, ...props }) {
 // text
 //
 
-function Text({ rect, children, aspect = null, color = "black", ...props }) {
-  const [ x, y, w, h ] = rectBox(rect)
+function Text({ children, rect, aspect, color = "black", ...props }) {
+    const [ x, y, w, h ] = rectBox(rect)
 
-  // determine aspect if needed
-  if (aspect == null) {
-    const aspect = calcTextAspect(children)
-    return <Text rect={rect} aspect={aspect} color={color} {...props}>{children}</Text>
-  }
+    // get embedded position
+    const y1 = y + h
+    const h0 = w / aspect
 
-  // get embedded position
-  const y1 = y + h
-  const h0 = w / aspect
+    // render text
+    return <text
+      x={x}
+      y={y1}
+      fontSize={h0}
+      fill={color}
+      stroke={color}
+      {...props}
+    >
+      {children}
+    </text>
+}
 
-  // render text
-  return <text
-    x={x}
-    y={y1}
-    font-size={h0}
-    fill={color}
-    stroke={color}
-    {...props}
-  >
-    {children}
-  </text>
+Text.calculateAspect = (props) => {
+  return calcTextAspect(props.children)
 }
 
 //
