@@ -89,8 +89,7 @@ function CodeEditor({ editorRef, className, code, setCode }) {
 // app
 //
 
-export default function App() {
-  const [code, setCode] = useState(`
+const DEFAULT_CODE = `
 return <Svg>
   <Frame padding={0.1} margin={0.1} border={1}>
     <HStack>
@@ -102,9 +101,12 @@ return <Svg>
     </HStack>
   </Frame>
 </Svg>
-`.trim())
+`.trim()
+
+export default function App() {
   const editorRef = useRef(null)
   const [key, setKey] = useState(0)
+  const [code, setCode] = useState(DEFAULT_CODE)
 
   function handleCode(code) {
     setCode(code)

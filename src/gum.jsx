@@ -238,9 +238,21 @@ function Line({ rect, ...props }) {
   return <line x1={x1} y1={y1} x2={x2} y2={y2} {...props} />
 }
 
+function pointString(rect, points) {
+  return points
+    .map(p => pointMap(rect, p))
+    .map(([px, py]) => `${px},${py}`)
+    .join(' ')
+}
+
 function Polyline({ rect, points, ...props }) {
-  const pstring = points.map(p => pointMap(rect, p)).map(([px, py]) => `${px},${py}`).join(' ')
+  const pstring = pointString(rect, points)
   return <polyline points={pstring} {...props} />
+}
+
+function Polygon({ rect, points, ...props }) {
+  const pstring = pointString(rect, points)
+  return <polygon points={pstring} {...props} />
 }
 
 //
@@ -250,6 +262,6 @@ function Polyline({ rect, points, ...props }) {
 export default {
   Group, Svg, Frame, Stack, HStack, VStack,
   Rect, Square, Ellipse, Circle,
-  Line, Polyline,
+  Line, Polyline, Polygon,
   red, blue, green,
 }
