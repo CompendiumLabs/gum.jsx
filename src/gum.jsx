@@ -2,11 +2,12 @@
 // gum
 //
 
-import { Component, Children, cloneElement } from 'react'
+import { Children, cloneElement } from 'react'
 import {
-  max, min, sum, cumsum, rectSize, rectBox, rectRadial,
-  rectMap, fracShrink, pointMap, calcTextAspect,
-  DEFAULT_SIZE, DEFAULT_PROP, red, green, blue,
+  max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
+  fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_PROP, DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -30,15 +31,29 @@ function extractProp(children, prop) {
 // OUTPUT PROPS:
 // rect: final rect { x1, y1, x2, y2 }
 
+function getAspect(child) {
+  return child.props.aspect ?? child.type.calculateAspect?.(child.props)
+}
+
 function Group({ rect, children, tag = "g", ...props }) {
   const Tag = tag
   return <Tag {...props}>
     {Children.map(children, child => {
-      const aspect = child.props.aspect ?? child.type.calculateAspect?.(child.props)
+      if (child == null) return null
+      const aspect = getAspect(child)
       const rect1 = rectMap(rect, child.props.rect, aspect)
-      return child ? cloneElement(child, { rect: rect1, aspect }) : null
+      return cloneElement(child, { rect: rect1, aspect })
     })}
   </Tag>
+}
+
+Group.calculateAspect = (props) => {
+  const { children } = props
+  const rects = Children.toArray(children)
+    .filter(child => child != null)
+    .map(child => child.props.rect)
+    .filter(rect => rect != null)
+  return outerRect(rects)
 }
 
 function Svg({ children, rect, size = DEFAULT_SIZE, ...props }) {
@@ -62,6 +77,14 @@ function Frame({ children, padding = 0, margin = 0, border = 0, ...props }) {
       { border > 0 && <Rect strokeWidth={border} /> }
     </Group>
   </Group>
+}
+
+// TODO: need to account for padding and margin
+Frame.calculateAspect = (props) => {
+  const { children } = props
+  return Children.toArray(children)
+    .map(getAspect)
+    .reduce((a, b) => a ?? b, null)
 }
 
 function distribute(sizes, target = 1) {
@@ -155,7 +178,10 @@ function Polygon({ rect, points, ...props }) {
 // text
 //
 
-function Text({ children, rect, aspect, color = "black", ...props }) {
+function Text({
+  children, rect, aspect, color = "black", fontFamily = DEFAULT_FONT_FAMILY,
+  fontWeight = DEFAULT_FONT_WEIGHT, fontSize = DEFAULT_FONT_SIZE, ...props
+}) {
   const [ x, y, w, h ] = rectBox(rect)
 
   // get embedded position
@@ -167,6 +193,8 @@ function Text({ children, rect, aspect, color = "black", ...props }) {
     x={x}
     y={y1}
     fontSize={h0}
+    fontFamily={fontFamily}
+    fontWeight={fontWeight}
     fill={color}
     stroke={color}
     {...props}
@@ -176,8 +204,9 @@ function Text({ children, rect, aspect, color = "black", ...props }) {
 }
 
 Text.calculateAspect = (props) => {
-  const { children } = props
-  return calcTextAspect(children)
+  console.log(props)
+  const { children, fontFamily, fontWeight } = props
+  return calcTextAspect(children, { fontFamily, fontWeight })
 }
 
 //

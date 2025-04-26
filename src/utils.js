@@ -111,12 +111,21 @@ function pointMap(crect, fpoint) {
   return [ x + fx * w, y + fy * h ]
 }
 
+function outerRect(rects) {
+  if (rects.length === 0) return null
+  return rects.reduce(
+    ([ xa1, ya1, xa2, ya2 ], [ xb1, yb1, xb2, yb2 ]) => [
+      min(xa1, xb1), min(ya1, yb1), max(xa2, xb2), max(ya2, yb2)
+    ]
+  )
+}
+
 //
 // text sizing
 //
 
 // font defaults
-const DEFAULT_FONT_FAMILY = 'IBMPlexSans'
+const DEFAULT_FONT_FAMILY = 'sans-serif'
 const DEFAULT_FONT_WEIGHT = 100
 const DEFAULT_FONT_SIZE = 12
 
@@ -139,7 +148,8 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_PROP, max, min, sum, cumsum, rectSize, rectCenter,
-  rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, fracShrink,
-  pointMap, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT,
+  DEFAULT_FONT_SIZE, max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect,
+  rectRadial, radialRect, embedAspect, rectMap, rectShrink, fracShrink, pointMap,
+  outerRect, calcTextAspect, red, green, blue,
 }
