@@ -8,6 +8,8 @@
 
 const DEFAULT_SIZE = 500
 const DEFAULT_RECT = [ 0, 0, 1, 1 ]
+const DEFAULT_LIM = [ 0, 1 ]
+const DEFAULT_N = 100
 const DEFAULT_PROP = {
   stroke: 'black',
   fill: 'none',
@@ -39,6 +41,44 @@ function sum(arr) {
 
 function cumsum(arr) {
   return arr.reduce((a, b) => [...a, a[a.length - 1] + b], [0])
+}
+
+//
+// array tools
+//
+
+function* gzip(...iterables) {
+  if (iterables.length == 0) return
+  let iterators = iterables.map(i => i[Symbol.iterator]())
+  while (true) {
+      let results = iterators.map(iter => iter.next())
+      if (results.some(res => res.done)) {
+          return
+      } else {
+          yield results.map(res => res.value)
+      }
+  }
+}
+
+function zip(...iterables) {
+  return [...gzip(...iterables)]
+}
+
+function natty(n) {
+  return [...Array(n).keys()]
+}
+
+function range(i0, i1, step = 1) {
+  [i0, i1] = (i1 === undefined) ? [0, i0] : [i0, i1]
+  let n = floor((i1-i0)/step)
+  return natty(n).map(i => i0 + step*i)
+}
+
+function linspace(x0, x1, n) {
+  if (n == 0) return []
+  if (n == 1) return [0.5*(x0+x1)]
+  let step = (x1-x0)/(n-1)
+  return natty(n).map(i => x0 + step*i)
 }
 
 //
@@ -148,8 +188,8 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT,
-  DEFAULT_FONT_SIZE, max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect,
-  rectRadial, radialRect, embedAspect, rectMap, rectShrink, fracShrink, pointMap,
-  outerRect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, zip, range, linspace, max, min, sum, cumsum,
+  rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap,
+  rectShrink, fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
 }

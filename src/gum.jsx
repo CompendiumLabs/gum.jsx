@@ -4,11 +4,15 @@
 
 import { Children, cloneElement } from 'react'
 import {
-  max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
+  zip, linspace, max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
   fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
-  DEFAULT_SIZE, DEFAULT_PROP, DEFAULT_FONT_FAMILY,
+  DEFAULT_SIZE, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY,
   DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
+
+//
+// defaults
+//
 
 //
 // react tools
@@ -185,6 +189,42 @@ function Polygon({ rect, points, ...props }) {
 }
 
 //
+// symbolic
+//
+
+function sympath({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N }) {
+  if (fx == null && fy != null) {
+    const [ xlo, xhi ] = xlim
+    const xvals = linspace(xlo, xhi, N)
+    const yvals = xvals.map(fy)
+    return zip(xvals, yvals)
+  } else if (fy == null && fx != null) {
+    const [ ylo, yhi ] = ylim
+    const yvals = linspace(ylo, yhi, N)
+    const xvals = yvals.map(fx)
+    return zip(xvals, yvals)
+  } else if (fx != null && fy != null) {
+    const [ tlo, thi ] = tlim
+    const tvals = linspace(tlo, thi, N)
+    const xvals = tvals.map(fx)
+    const yvals = tvals.map(fy)
+    return zip(xvals, yvals)
+  } else {
+    throw new Error('must specify either fx, fy, or both')
+  }
+}
+
+function Symline({ rect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+  const points = sympath({ fx, fy, xlim, ylim, tlim, N })
+  return <Polyline rect={rect} points={points} {...props} />
+}
+
+function Sympoly({ rect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+  const points = sympath({ fx, fy, xlim, ylim, tlim, N })
+  return <Polygon rect={rect} points={points} {...props} />
+}
+
+//
 // text
 //
 
@@ -224,5 +264,5 @@ Text.defaultAspect = (props) => {
 
 export default {
   Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle,
-  Line, Polyline, Polygon, Text, red, green, blue,
+  Line, Polyline, Polygon, Symline, Sympoly, Text, red, green, blue,
 }
