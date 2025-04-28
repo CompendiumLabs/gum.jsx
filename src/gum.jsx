@@ -15,9 +15,19 @@ import {
 //
 
 function extractProp(children, prop) {
-  return Children.toArray(children).map(
-    child => child.props[prop] ?? null
-  )
+  return Children.toArray(children).map(child => {
+    if (child == null) return null
+    if (child.props == null) return null
+    return child.props[prop] ?? null
+  })
+}
+
+function mapChildren(children, fn) {
+  return Children.map(children, (child, index) => {
+    if (child == null) return null
+    if (child.type == null) return child
+    return fn(child, index)
+  })
 }
 
 //
@@ -32,14 +42,13 @@ function extractProp(children, prop) {
 // rect: final rect { x1, y1, x2, y2 }
 
 function getAspect(child) {
-  return child.props.aspect ?? child.type.calculateAspect?.(child.props)
+  return child.props.aspect ?? child.type.defaultAspect?.(child.props)
 }
 
 function Group({ rect, children, tag = "g", ...props }) {
   const Tag = tag
   return <Tag {...props}>
-    {Children.map(children, child => {
-      if (child == null) return null
+    {mapChildren(children, child => {
       const aspect = getAspect(child)
       const rect1 = rectMap(rect, child.props.rect, aspect)
       return cloneElement(child, { rect: rect1, aspect })
@@ -47,7 +56,7 @@ function Group({ rect, children, tag = "g", ...props }) {
   </Tag>
 }
 
-Group.calculateAspect = (props) => {
+Group.defaultAspect = (props) => {
   const { children } = props
   const rects = Children.toArray(children)
     .filter(child => child != null)
@@ -56,8 +65,9 @@ Group.calculateAspect = (props) => {
   return outerRect(rects)
 }
 
-function Svg({ children, rect, size = DEFAULT_SIZE, ...props }) {
-  rect ??= [ 0, 0, size, size ]
+function Svg({ children, rect, aspect = 1, size = DEFAULT_SIZE, ...props }) {
+  const aspect2 = Math.sqrt(aspect)
+  rect ??= [ 0, 0, size * aspect2, size / aspect2 ]
   const [ w, h ] = rectSize(rect)
   return <Group tag="svg" rect={rect} width={w} height={h} {...DEFAULT_PROP} {...props}>
     {children}
@@ -80,7 +90,7 @@ function Frame({ children, padding = 0, margin = 0, border = 0, ...props }) {
 }
 
 // TODO: need to account for padding and margin
-Frame.calculateAspect = (props) => {
+Frame.defaultAspect = (props) => {
   const { children } = props
   return Children.toArray(children)
     .map(getAspect)
@@ -103,7 +113,7 @@ function Stack({ children, direction = "vertical", ...props }) {
 
   // render elements
   return <Group {...props}>
-    {Children.map(children, (child, index) => {
+    {mapChildren(children, (child, index) => {
       const [ lo, hi ] = [ bound[index], bound[index + 1] ]
       const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
         [ lo, 0, hi, 1 ] : [ 0, lo, 1, hi ]
@@ -203,8 +213,7 @@ function Text({
   </text>
 }
 
-Text.calculateAspect = (props) => {
-  console.log(props)
+Text.defaultAspect = (props) => {
   const { children, fontFamily, fontWeight } = props
   return calcTextAspect(children, { fontFamily, fontWeight })
 }

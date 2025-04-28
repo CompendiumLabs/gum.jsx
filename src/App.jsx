@@ -22,10 +22,8 @@ function DynamicJSX({ code }) {
       setError(null)
 
       // transform JSX to JavaScript
-      const wrap = `function render() {\n${code}\n}`
-      const transformedCode = Babel.transform(wrap, {
-        presets: ['react']
-      }).code
+      const presets = ['react']
+      const { code: transformedCode } = Babel.transform(code, { presets })
 
       // get inputs
       const keys = Object.keys(Gum)
@@ -84,19 +82,20 @@ function CodeEditor({ editorRef, className, code, setCode }) {
 // app
 //
 
-const DEFAULT_CODE = `
-return <Svg>
+const DEFAULT_CODE = `<Svg>
   <Frame padding={0.1} margin={0.1} border={1}>
     <HStack>
       <VStack size={1/3}>
-        <Text>Hello</Text>
+        <Frame border={1}>
+          <Text>Hello!</Text>
+        </Frame>
         <Circle stroke={red} />
       </VStack>
       <Ellipse stroke={blue} />
     </HStack>
   </Frame>
 </Svg>
-`.trim()
+`
 
 export default function App() {
   const editorRef = useRef(null)
