@@ -11,6 +11,13 @@ import Gum from './gum'
 // babel
 //
 
+const KEYS = [
+  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Rect', 'Square', 'Ellipse',
+  'Circle', 'Line', 'Polyline', 'Polygon', 'Symline', 'Sympoly', 'Text', 'red', 'green',
+  'blue', 'range', 'linspace',
+]
+const VALS = KEYS.map(key => Gum[key])
+
 function DynamicJSX({ code }) {
   const [element, setElement] = useState(null)
   const [error, setError] = useState(null)
@@ -26,13 +33,11 @@ function DynamicJSX({ code }) {
       const { code: transformedCode } = Babel.transform(code, { presets })
 
       // get inputs
-      const keys = Object.keys(Gum)
-      const vals = Object.values(Gum)
       const functionBody = `return ${transformedCode}`
 
       // create a function that returns the React element
-      const executeFunction = new Function('React', ...keys, functionBody)
-      const element = executeFunction(React, ...vals)
+      const executeFunction = new Function('React', ...KEYS, functionBody)
+      const element = executeFunction(React, ...VALS)
 
       // set the element
       setElement(element)
