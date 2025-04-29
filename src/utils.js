@@ -8,6 +8,7 @@
 
 const DEFAULT_SIZE = 500
 const DEFAULT_RECT = [ 0, 0, 1, 1 ]
+const DEFAULT_COORDS = [ 0, 0, 1, 1 ]
 const DEFAULT_LIM = [ 0, 1 ]
 const DEFAULT_N = 100
 const DEFAULT_PROP = {
@@ -129,11 +130,20 @@ function embedAspect(rect, aspect) {
   return radialRect([ cx, cy, rx, ry ])
 }
 
-function rectMap(crect, frect = DEFAULT_RECT, aspect = null) {
-  const [ x, y, w, h ] = rectBox(crect)
-  const [ fx1, fy1, fx2, fy2 ] = frect
-  const prect = [ x + fx1 * w, y + fy1 * h, x + fx2 * w, y + fy2 * h ]
-  return embedAspect(prect, aspect)
+function rectMap(prect, crect, args = {}) {
+  const { aspect = null, coords = DEFAULT_COORDS } = args
+  const [ px, py, pw, ph ] = rectBox(prect)
+  const [ cx, cy, cw, ch ] = rectBox(coords)
+  const [ cx1, cy1, cx2, cy2 ] = crect
+  const [ fx1, fy1, fx2, fy2 ] = [
+    (cx1 - cx) / cw, (cy1 - cy) / ch,
+    (cx2 - cx) / cw, (cy2 - cy) / ch,
+  ]
+  const prect1 = [
+    px + fx1 * pw, py + fy1 * ph,
+    px + fx2 * pw, py + fy2 * ph,
+  ]
+  return embedAspect(prect1, aspect)
 }
 
 function rectShrink(rect, factor) {
@@ -188,8 +198,9 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY,
-  DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, zip, range, linspace, max, min, sum, cumsum,
-  rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap,
-  rectShrink, fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
+  DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, zip, range, linspace,
+  max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect,
+  embedAspect, rectMap, rectShrink, fracShrink, pointMap, outerRect, calcTextAspect,
+  red, green, blue,
 }

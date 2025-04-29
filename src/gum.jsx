@@ -6,8 +6,8 @@ import { Children, cloneElement } from 'react'
 import {
   zip, linspace, max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
   fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
-  DEFAULT_SIZE, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY,
-  DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
+  DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -38,23 +38,31 @@ function mapChildren(children, fn) {
 // core components
 //
 
+// the Element component is still undeclared, but should implement:
+// - rect: target rect [ x1, y1, x2, y2 ]
+// - coords: coords [ xlo, ylo, xhi, yhi ]
+// - tag: tag name (default: 'g')
+// - props: additional props
+
 // child properties for placement
 // INPUT PROPS:
-// rect: target rect { x1, y1, x2, y2 }
-// aspect: aspect ratio (w / h)
+// rect: target rect [ x1, y1, x2, y2 ]
+// aspect: specified aspect ratio (w / h)
 // OUTPUT PROPS:
-// rect: final rect { x1, y1, x2, y2 }
+// rect: final rect [ x1, y1, x2, y2 ]
+// aspect: final aspect ratio (w / h)
 
 function getAspect(child) {
   return child.props.aspect ?? child.type.defaultAspect?.(child.props)
 }
 
-function Group({ rect, children, tag = "g", ...props }) {
+function Group({ rect, children, coords = DEFAULT_COORDS, tag = "g", ...props }) {
   const Tag = tag
   return <Tag {...props}>
     {mapChildren(children, child => {
       const aspect = getAspect(child)
-      const rect1 = rectMap(rect, child.props.rect, aspect)
+      const { rect: crect = DEFAULT_RECT } = child.props
+      const rect1 = rectMap(rect, crect, { aspect, coords })
       return cloneElement(child, { rect: rect1, aspect })
     })}
   </Tag>
@@ -83,12 +91,11 @@ function Svg({ children, rect, aspect = 1, size = DEFAULT_SIZE, ...props }) {
 //
 
 function Frame({ children, padding = 0, margin = 0, border = 0, ...props }) {
+  const coords = fracShrink(-padding)
   return <Group {...props}>
-    <Group rect={fracShrink(margin)}>
-      <Group rect={fracShrink(padding)}>
-        {children}
-      </Group>
-      { border > 0 && <Rect strokeWidth={border} /> }
+    <Group rect={fracShrink(margin)} coords={coords}>
+      {children}
+      { border > 0 && <Rect rect={coords} strokeWidth={border} /> }
     </Group>
   </Group>
 }
@@ -141,7 +148,9 @@ function VStack({ children, ...props }) {
 //
 
 function Rect({ rect, ...props }) {
-  const [ x, y, w, h ] = rectBox(rect)
+  let [ x, y, w, h ] = rectBox(rect)
+  if (w < 0) { x += w; w = -w }
+  if (h < 0) { y += h; h = -h }
   return <rect x={x} y={y} width={w} height={h} {...props} />
 }
 
@@ -189,6 +198,40 @@ function Polygon({ rect, points, ...props }) {
 }
 
 //
+// text
+//
+
+function Text({
+  children, rect, aspect, color = "black", fontFamily = DEFAULT_FONT_FAMILY,
+  fontWeight = DEFAULT_FONT_WEIGHT, fontSize = DEFAULT_FONT_SIZE, ...props
+}) {
+  const [ x, y, w, h ] = rectBox(rect)
+
+  // get embedded position
+  const y1 = y + h
+  const h0 = w / aspect
+
+  // render text
+  return <text
+    x={x}
+    y={y1}
+    fontSize={h0}
+    fontFamily={fontFamily}
+    fontWeight={fontWeight}
+    fill={color}
+    stroke={color}
+    {...props}
+  >
+    {children}
+  </text>
+}
+
+Text.defaultAspect = (props) => {
+  const { children, fontFamily, fontWeight } = props
+  return calcTextAspect(children, { fontFamily, fontWeight })
+}
+
+//
 // symbolic
 //
 
@@ -225,37 +268,17 @@ function Sympoly({ rect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = 
 }
 
 //
-// text
+// plotting
 //
 
-function Text({
-  children, rect, aspect, color = "black", fontFamily = DEFAULT_FONT_FAMILY,
-  fontWeight = DEFAULT_FONT_WEIGHT, fontSize = DEFAULT_FONT_SIZE, ...props
-}) {
-  const [ x, y, w, h ] = rectBox(rect)
-
-  // get embedded position
-  const y1 = y + h
-  const h0 = w / aspect
-
-  // render text
-  return <text
-    x={x}
-    y={y1}
-    fontSize={h0}
-    fontFamily={fontFamily}
-    fontWeight={fontWeight}
-    fill={color}
-    stroke={color}
-    {...props}
-  >
-    {children}
-  </text>
-}
-
-Text.defaultAspect = (props) => {
-  const { children, fontFamily, fontWeight } = props
-  return calcTextAspect(children, { fontFamily, fontWeight })
+function Graph({ children, coords = DEFAULT_COORDS, ...props}) {
+  const [ xlo, ylo, xhi, yhi ] = coords
+  const coords1 = [ xlo, yhi, xhi, ylo ]
+  return <Group {...props}>
+    {mapChildren(children, child => {
+      return cloneElement(child, { coords: coords1 })
+    })}
+  </Group>
 }
 
 //
@@ -264,5 +287,5 @@ Text.defaultAspect = (props) => {
 
 export default {
   Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle,
-  Line, Polyline, Polygon, Symline, Sympoly, Text, red, green, blue,
+  Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, red, green, blue,
 }

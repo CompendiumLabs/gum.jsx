@@ -13,8 +13,8 @@ import Gum from './gum'
 
 const KEYS = [
   'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Rect', 'Square', 'Ellipse',
-  'Circle', 'Line', 'Polyline', 'Polygon', 'Symline', 'Sympoly', 'Text', 'red', 'green',
-  'blue', 'range', 'linspace',
+  'Circle', 'Line', 'Polyline', 'Polygon', 'Text', 'Symline', 'Sympoly', 'Graph',
+  'red', 'green', 'blue', 'range', 'linspace',
 ]
 const VALS = KEYS.map(key => Gum[key])
 
