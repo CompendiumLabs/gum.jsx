@@ -71,7 +71,7 @@ function natty(n) {
 
 function range(i0, i1, step = 1) {
   [i0, i1] = (i1 === undefined) ? [0, i0] : [i0, i1]
-  let n = floor((i1-i0)/step)
+  let n = Math.floor((i1-i0)/step)
   return natty(n).map(i => i0 + step*i)
 }
 
@@ -175,7 +175,7 @@ function outerRect(rects) {
 //
 
 // font defaults
-const DEFAULT_FONT_FAMILY = 'sans-serif'
+const DEFAULT_FONT_FAMILY = 'IBMPlexSans'
 const DEFAULT_FONT_WEIGHT = 100
 const DEFAULT_FONT_SIZE = 12
 

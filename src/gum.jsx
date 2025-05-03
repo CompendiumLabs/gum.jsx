@@ -4,7 +4,7 @@
 
 import { Children, cloneElement } from 'react'
 import {
-  zip, linspace, max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
+  zip, range, linspace, max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
   fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
   DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
   DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
@@ -288,4 +288,5 @@ function Graph({ children, coords = DEFAULT_COORDS, ...props}) {
 export default {
   Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle,
   Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, red, green, blue,
+  range, linspace
 }

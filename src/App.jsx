@@ -7,6 +7,8 @@ import { javascript } from '@codemirror/lang-javascript'
 import ErrorBoundary from './Error'
 import Gum from './gum'
 
+import './fonts.css'
+
 //
 // babel
 //
