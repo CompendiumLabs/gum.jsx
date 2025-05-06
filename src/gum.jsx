@@ -5,7 +5,7 @@
 import { Children, cloneElement } from 'react'
 import {
   zip, range, linspace, max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
-  fracShrink, pointMap, outerRect, calcTextAspect, red, green, blue,
+  fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
   DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
   DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
@@ -52,35 +52,49 @@ function mapChildren(children, fn) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
+// get aspect with default fallback
 function getAspect(child) {
   return child.props.aspect ?? child.type.defaultAspect?.(child.props)
+}
+
+// embed child into target rect with aspect
+function embedChild(child, rect, coords) {
+  const aspect = getAspect(child)
+  const { rect: crect = DEFAULT_RECT } = child.props
+  const rect1 = rectMap(rect, crect, { aspect, coords })
+  return { aspect, rect: rect1 }
+}
+
+// get outer aspect from children
+function getOuterAspect(children, coords = DEFAULT_COORDS) {
+  const rects = Children.toArray(children).map(child => {
+    const { rect } = embedChild(child, DEFAULT_RECT, coords)
+    return rect
+  })
+  const outer = outerRect(rects)
+  return rectAspect(outer)
 }
 
 function Group({ rect, children, coords = DEFAULT_COORDS, tag = "g", ...props }) {
   const Tag = tag
   return <Tag {...props}>
     {mapChildren(children, child => {
-      const aspect = getAspect(child)
-      const { rect: crect = DEFAULT_RECT } = child.props
-      const rect1 = rectMap(rect, crect, { aspect, coords })
+      const { aspect, rect: rect1 } = embedChild(child, rect, coords)
       return cloneElement(child, { rect: rect1, aspect })
     })}
   </Tag>
 }
 
-Group.defaultAspect = (props) => {
-  const { children } = props
-  const rects = Children.toArray(children)
-    .filter(child => child != null)
-    .map(child => child.props.rect)
-    .filter(rect => rect != null)
-  return outerRect(rects)
-}
+function Svg({ children, rect, coords = DEFAULT_COORDS, size = DEFAULT_SIZE, ...props }) {
+  // computer outer aspect
+  const aspect = getOuterAspect(children, coords)
 
-function Svg({ children, rect, aspect = 1, size = DEFAULT_SIZE, ...props }) {
+  // get size from aspect
   const aspect2 = Math.sqrt(aspect)
-  rect ??= [ 0, 0, size * aspect2, size / aspect2 ]
-  const [ w, h ] = rectSize(rect)
+  const [ w, h ] = [ size * aspect2, size / aspect2 ]
+  rect ??= [ 0, 0, w, h ]
+
+  // render svg group
   return <Group tag="svg" rect={rect} width={w} height={h} {...DEFAULT_PROP} {...props}>
     {children}
   </Group>
@@ -90,7 +104,7 @@ function Svg({ children, rect, aspect = 1, size = DEFAULT_SIZE, ...props }) {
 // layout components
 //
 
-function Frame({ children, padding = 0, margin = 0, border = 0, ...props }) {
+function Frame({ children, aspect, padding = 0, margin = 0, border = 0, ...props }) {
   const coords = fracShrink(-padding)
   return <Group {...props}>
     <Group rect={fracShrink(margin)} coords={coords}>
@@ -116,6 +130,7 @@ function distribute(sizes, target = 1) {
 }
 
 // control sizing with { size: number } property
+// TODO: compute aspect from children when possible
 function Stack({ children, direction = "vertical", ...props }) {
   // get specified sizes
   const size0 = extractProp(children, 'size')

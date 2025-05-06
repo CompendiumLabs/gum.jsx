@@ -91,6 +91,11 @@ function rectSize(rect) {
   return [ x2 - x1, y2 - y1 ]
 }
 
+function rectAspect(rect) {
+  const [ x1, y1, x2, y2 ] = rect
+  return (x2 - x1) / (y2 - y1)
+}
+
 function rectCenter(rect) {
   const [ x1, y1, x2, y2 ] = rect
   return [ (x1 + x2) / 2, (y1 + y2) / 2 ]
@@ -201,6 +206,6 @@ export {
   DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
   DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, zip, range, linspace,
   max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect,
-  embedAspect, rectMap, rectShrink, fracShrink, pointMap, outerRect, calcTextAspect,
-  red, green, blue,
+  embedAspect, rectMap, rectShrink, fracShrink, pointMap, outerRect, rectAspect,
+  calcTextAspect, red, green, blue,
 }
