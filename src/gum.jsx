@@ -77,6 +77,32 @@ function useRegistry(setValues) {
   }), []);
 }
 
+function useWrappedChildren(children) {
+  const tokenCache = useTokenCache()
+  return mapChildren(children, (child) => {
+    const id = tokenCache.get(child)
+    return cloneElement(child, { id });
+  });
+}
+
+function useMappedValues(children) {
+  const wrapped = useWrappedChildren(children)
+  const [values, setValues] = useState(new Map())
+  const items = new Map(mapComponents(wrapped, (child) => {
+    const { id } = child.props;
+    const val = values.get(id);
+    return [ id, val ];
+  }))
+  return [wrapped, items, setValues]
+}
+
+function AspectContextProvider({ children, setValues }) {
+  const registry = useRegistry(setValues)
+  return <AspectContext.Provider value={registry}>
+    {children}
+  </AspectContext.Provider>
+}
+
 //
 // aspect ratios
 //
@@ -129,29 +155,14 @@ function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
 }
 
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
-  const [ratios, setRatios] = useState(new Map())
-  const tokenCache = useTokenCache()
-  const registry = useRegistry(setRatios)
-
-  // inject stable, unique ids into children
-  const wrapped = mapChildren(children, (child) => {
-    const id = tokenCache.get(child)
-    return cloneElement(child, { id });
-  });
-
-  // collect aspect ratios reported by children
-  const items = new Map(mapComponents(wrapped, (child) => {
-    const { id } = child.props;
-    const ar = ratios.get(id);
-    return [ id, ar ];
-  }))
+  const [wrapped, ratios, setRatios] = useMappedValues(children)
 
   // compute svg bounds
   let w, h;
   if (isNumber(size)) {
     const rects = mapComponents(wrapped, (child) => {
       const { id, rect: crect = DEFAULT_RECT } = child.props
-      const aspect = items.get(id)
+      const aspect = ratios.get(id)
       return rectMap(DEFAULT_RECT, crect, { aspect })
     })
     const outer = outerRect(rects)
@@ -165,14 +176,14 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   const rect = [ 0, 0, w, h ]
   return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
-    <AspectContext.Provider value={registry}>
+    <AspectContextProvider setValues={setRatios}>
       {mapChildren(wrapped, child => {
         const { id, rect: crect = DEFAULT_RECT } = child.props
-        const aspect = items.get(id)
+        const aspect = ratios.get(id)
         const rect1 = rectMap(rect, crect, { aspect, coords })
         return cloneElement(child, { rect: rect1 })
       })}
-    </AspectContext.Provider>
+    </AspectContextProvider>
   </svg>
 }
 
