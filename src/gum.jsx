@@ -126,7 +126,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
   // compute svg bounds
   let w, h;
   if (isNumber(size)) {
-    const rects = Children.toArray(children).map(child => {
+    const rects = mapComponents(wrapped, (child) => {
       const { id, rect: crect = DEFAULT_RECT } = child.props
       const { [id]: aspect } = items
       return rectMap(DEFAULT_RECT, crect, { aspect })
