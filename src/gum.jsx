@@ -3,7 +3,7 @@
 //
 
 import {
-  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef
 } from 'react'
 
 import {
@@ -39,6 +39,42 @@ function mapComponents(children, fn) {
     if (!isValidElement(child)) return null
     return fn(child)
   }).filter(el => el != null)
+}
+
+class TokenCache {
+  constructor() {
+    this.cache = new WeakMap()
+  }
+
+  get(child) {
+    if (this.cache.has(child)) return this.cache.get(child)
+    const id = Symbol()
+    this.cache.set(child, id)
+    return id
+  }
+}
+
+function useTokenCache() {
+  return useRef(new TokenCache()).current
+}
+
+function useRegistry(setValues) {
+  return useMemo(() => ({
+    register(id, value) {
+      setValues(prev => {
+        const next = new Map(prev);
+        next.set(id, value);
+        return next;
+      });
+    },
+    unregister(id) {
+      setValues(prev => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }), []);
 }
 
 //
@@ -93,33 +129,20 @@ function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
 }
 
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
-  // collect child aspect ratios
   const [ratios, setRatios] = useState(new Map())
-  const api = useMemo(() => ({
-    register(id, r) {
-      setRatios(prev => {
-        const next = new Map(prev);
-        next.set(id, r);
-        return next;
-      });
-    },
-    unregister(id) {
-      setRatios(prev => {
-        const next = new Map(prev);
-        next.delete(id);
-        return next;
-      });
-    }
-  }), []);
+  const tokenCache = useTokenCache()
+  const registry = useRegistry(setRatios)
 
+  // inject stable, unique ids into children
   const wrapped = mapChildren(children, (child) => {
-    const id = child.key != null ? String(child.key) : String(Symbol("ar"));
+    const id = tokenCache.get(child)
     return cloneElement(child, { id });
   });
 
-  const items = Object.fromEntries(mapComponents(wrapped, (child) => {
+  // collect aspect ratios reported by children
+  const items = new Map(mapComponents(wrapped, (child) => {
     const { id } = child.props;
-    const ar = ratios.get(id); // undefined until the child registers
+    const ar = ratios.get(id);
     return [ id, ar ];
   }))
 
@@ -128,7 +151,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
   if (isNumber(size)) {
     const rects = mapComponents(wrapped, (child) => {
       const { id, rect: crect = DEFAULT_RECT } = child.props
-      const { [id]: aspect } = items
+      const aspect = items.get(id)
       return rectMap(DEFAULT_RECT, crect, { aspect })
     })
     const outer = outerRect(rects)
@@ -142,10 +165,10 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   const rect = [ 0, 0, w, h ]
   return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
-    <AspectContext.Provider value={api}>
+    <AspectContext.Provider value={registry}>
       {mapChildren(wrapped, child => {
         const { id, rect: crect = DEFAULT_RECT } = child.props
-        const { [id]: aspect } = items
+        const aspect = items.get(id)
         const rect1 = rectMap(rect, crect, { aspect, coords })
         return cloneElement(child, { rect: rect1 })
       })}
