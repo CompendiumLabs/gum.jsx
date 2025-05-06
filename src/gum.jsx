@@ -96,19 +96,23 @@ function useMappedValues(children) {
   return [wrapped, items, setValues]
 }
 
-function AspectContextProvider({ children, setValues }) {
+const MappedValuesContext = createContext()
+function MappedValuesProvider({ children, setValues }) {
   const registry = useRegistry(setValues)
-  return <AspectContext.Provider value={registry}>
+  return <MappedValuesContext.Provider value={registry}>
     {children}
-  </AspectContext.Provider>
+  </MappedValuesContext.Provider>
 }
 
-//
-// aspect ratios
-//
+function useMappedValueContext(id, value) {
+  const ctx = useContext(MappedValuesContext)
+  useLayoutEffect(() => {
+    ctx.register(id, value)
+    return () => ctx.unregister(id)
+  }, [id, value, ctx])
+}
 
 // Create a context for aspect ratio reporting
-const AspectContext = createContext();
 
 //
 // core components
@@ -128,29 +132,17 @@ const AspectContext = createContext();
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
-// get aspect with default fallback
-function getAspect(child) {
-  if (!isValidElement(child)) return null
-  const { props, type } = child
-  const { defaultAspect } = type
-  const { aspect } = props
-  if (aspect != null) return aspect
-  if (defaultAspect == null) return null
-  if (!isFunction(defaultAspect)) return defaultAspect
-  return defaultAspect(props)
-}
-
 function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
-  const [ratios, setRatios] = useState({})
+  const [wrapped, ratios, setRatios] = useMappedValues(children)
   return <g {...props}>
-    <AspectRatioCollector onAspectRatiosChange={setRatios}>
-      {mapChildren(children, child => {
+    <MappedValuesProvider setValues={setRatios}>
+      {mapChildren(wrapped, child => {
         const { id, rect: crect = DEFAULT_RECT } = child.props
         const { [id]: aspect } = ratios
         const rect1 = rectMap(rect, crect, { aspect, coords })
         return cloneElement(child, { rect: rect1 })
       })}
-    </AspectRatioCollector>
+    </MappedValuesProvider>
   </g>
 }
 
@@ -176,14 +168,14 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   const rect = [ 0, 0, w, h ]
   return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
-    <AspectContextProvider setValues={setRatios}>
+    <MappedValuesProvider setValues={setRatios}>
       {mapChildren(wrapped, child => {
         const { id, rect: crect = DEFAULT_RECT } = child.props
         const aspect = ratios.get(id)
         const rect1 = rectMap(rect, crect, { aspect, coords })
         return cloneElement(child, { rect: rect1 })
       })}
-    </AspectContextProvider>
+    </MappedValuesProvider>
   </svg>
 }
 
@@ -252,12 +244,7 @@ function VStack({ children, ...props }) {
 //
 
 function Rect({ id, rect, aspect, ...props }) {
-  const { register, unregister } = useContext(AspectContext)
-  useLayoutEffect(() => {
-    register(id, aspect)
-    return () => unregister(id)
-  }, [id, aspect, register, unregister])
-
+  useMappedValueContext(id, aspect)
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
   if (h < 0) { y += h; h = -h }
