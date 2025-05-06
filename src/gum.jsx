@@ -132,16 +132,30 @@ function useMappedValueContext(id, value) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
+function embedChildren(children, ratios, rect, coords) {
+  return mapChildren(children, (child) => {
+    const { id, rect: crect = DEFAULT_RECT } = child.props
+    const aspect = ratios.get(id)
+    const rect1 = rectMap(rect, crect, { aspect, coords })
+    return cloneElement(child, { rect: rect1 })
+  })
+}
+
+function outerAspect(children, ratios) {
+  const rects = mapComponents(children, (child) => {
+    const { id, rect: crect = DEFAULT_RECT } = child.props
+    const aspect = ratios.get(id)
+    return rectMap(DEFAULT_RECT, crect, { aspect })
+  })
+  const outer = outerRect(rects)
+  return rectAspect(outer)
+}
+
 function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
   const [wrapped, ratios, setRatios] = useMappedValues(children)
   return <g {...props}>
     <MappedValuesProvider setValues={setRatios}>
-      {mapChildren(wrapped, child => {
-        const { id, rect: crect = DEFAULT_RECT } = child.props
-        const { [id]: aspect } = ratios
-        const rect1 = rectMap(rect, crect, { aspect, coords })
-        return cloneElement(child, { rect: rect1 })
-      })}
+      {embedChildren(wrapped, ratios, rect, coords)}
     </MappedValuesProvider>
   </g>
 }
@@ -149,32 +163,21 @@ function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
   const [wrapped, ratios, setRatios] = useMappedValues(children)
 
-  // compute svg bounds
-  let w, h;
+  // get aspect adjusted size
   if (isNumber(size)) {
-    const rects = mapComponents(wrapped, (child) => {
-      const { id, rect: crect = DEFAULT_RECT } = child.props
-      const aspect = ratios.get(id)
-      return rectMap(DEFAULT_RECT, crect, { aspect })
-    })
-    const outer = outerRect(rects)
-    const aspect = rectAspect(outer)
+    const aspect = outerAspect(wrapped, ratios)
     const aspect2 = Math.sqrt(aspect)
-    w = size * aspect2
-    h = size / aspect2
-  } else {
-    [ w, h ] = size
+    size = [size * aspect2, size / aspect2 ]
   }
 
+  // compute svg rect
+  const [ w, h ] = size
   const rect = [ 0, 0, w, h ]
+
+  // render svg element
   return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
     <MappedValuesProvider setValues={setRatios}>
-      {mapChildren(wrapped, child => {
-        const { id, rect: crect = DEFAULT_RECT } = child.props
-        const aspect = ratios.get(id)
-        const rect1 = rectMap(rect, crect, { aspect, coords })
-        return cloneElement(child, { rect: rect1 })
-      })}
+      {embedChildren(wrapped, ratios, rect, coords)}
     </MappedValuesProvider>
   </svg>
 }
@@ -251,18 +254,21 @@ function Rect({ id, rect, aspect, ...props }) {
   return <rect x={x} y={y} width={w} height={h} {...props} />
 }
 
-function Square({ rect, aspect, ...props }) {
+function Square({ id, rect, aspect, ...props }) {
+  useMappedValueContext(id, 1)
   const [ x, y, w, h ] = rectBox(rect)
   const s = min(w, h)
   return <rect x={x} y={y} width={s} height={s} {...props} />
 }
 
-function Ellipse({ rect, aspect, ...props }) {
+function Ellipse({ id, rect, aspect, ...props }) {
+  useMappedValueContext(id, aspect)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />
 }
 
-function Circle({ rect, aspect, ...props }) {
+function Circle({ id, rect, aspect, ...props }) {
+  useMappedValueContext(id, 1)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   const r = min(rx, ry)
   return <circle cx={cx} cy={cy} r={r} {...props} />
