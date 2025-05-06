@@ -2,12 +2,12 @@
 // gum
 //
 
-import { Children, cloneElement } from 'react'
 import {
-  zip, range, linspace, max, min, sum, cumsum, rectSize, rectBox, rectRadial, rectMap,
-  fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
-  DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo
+} from 'react'
+
+import {
+  isNumber, isFunction, zip, linspace, max, min, sum, cumsum, rectBox, rectRadial, rectMap, fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -20,19 +20,33 @@ import {
 
 function extractProp(children, prop) {
   return Children.toArray(children).map(child => {
-    if (child == null) return null
-    if (child.props == null) return null
+    if (!isValidElement(child)) return null
     return child.props[prop] ?? null
   })
 }
 
+// for processing children react style
 function mapChildren(children, fn) {
   return Children.map(children, (child, index) => {
-    if (child == null) return null
-    if (child.type == null) return child
+    if (!isValidElement(child)) return child
     return fn(child, index)
   })
 }
+
+// for processing children and extracting information
+function mapComponents(children, fn) {
+  return Children.toArray(children).map(child => {
+    if (!isValidElement(child)) return null
+    return fn(child)
+  }).filter(el => el != null)
+}
+
+//
+// aspect ratios
+//
+
+// Create a context for aspect ratio reporting
+const AspectContext = createContext();
 
 //
 // core components
@@ -54,50 +68,89 @@ function mapChildren(children, fn) {
 
 // get aspect with default fallback
 function getAspect(child) {
-  return child.props.aspect ?? child.type.defaultAspect?.(child.props)
+  if (!isValidElement(child)) return null
+  const { props, type } = child
+  const { defaultAspect } = type
+  const { aspect } = props
+  if (aspect != null) return aspect
+  if (defaultAspect == null) return null
+  if (!isFunction(defaultAspect)) return defaultAspect
+  return defaultAspect(props)
 }
 
-// embed child into target rect with aspect
-function embedChild(child, rect, coords) {
-  const aspect = getAspect(child)
-  const { rect: crect = DEFAULT_RECT } = child.props
-  const rect1 = rectMap(rect, crect, { aspect, coords })
-  return { aspect, rect: rect1 }
+function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
+  const [ratios, setRatios] = useState({})
+  return <g {...props}>
+    <AspectRatioCollector onAspectRatiosChange={setRatios}>
+      {mapChildren(children, child => {
+        const { id, rect: crect = DEFAULT_RECT } = child.props
+        const { [id]: aspect } = ratios
+        const rect1 = rectMap(rect, crect, { aspect, coords })
+        return cloneElement(child, { rect: rect1 })
+      })}
+    </AspectRatioCollector>
+  </g>
 }
 
-// get outer aspect from children
-function getOuterAspect(children, coords = DEFAULT_COORDS) {
-  const rects = Children.toArray(children).map(child => {
-    const { rect } = embedChild(child, DEFAULT_RECT, coords)
-    return rect
-  })
-  const outer = outerRect(rects)
-  return rectAspect(outer)
-}
+function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
+  // collect child aspect ratios
+  const [ratios, setRatios] = useState(new Map())
+  const api = useMemo(() => ({
+    register(id, r) {
+      setRatios(prev => {
+        const next = new Map(prev);
+        next.set(id, r);
+        return next;
+      });
+    },
+    unregister(id) {
+      setRatios(prev => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }), []);
 
-function Group({ rect, children, coords = DEFAULT_COORDS, tag = "g", ...props }) {
-  const Tag = tag
-  return <Tag {...props}>
-    {mapChildren(children, child => {
-      const { aspect, rect: rect1 } = embedChild(child, rect, coords)
-      return cloneElement(child, { rect: rect1, aspect })
-    })}
-  </Tag>
-}
+  const wrapped = mapChildren(children, (child) => {
+    const id = child.key != null ? String(child.key) : String(Symbol("ar"));
+    return cloneElement(child, { id });
+  });
 
-function Svg({ children, rect, coords = DEFAULT_COORDS, size = DEFAULT_SIZE, ...props }) {
-  // computer outer aspect
-  const aspect = getOuterAspect(children, coords)
+  const items = Object.fromEntries(mapComponents(wrapped, (child) => {
+    const { id } = child.props;
+    const ar = ratios.get(id); // undefined until the child registers
+    return [ id, ar ];
+  }))
 
-  // get size from aspect
-  const aspect2 = Math.sqrt(aspect)
-  const [ w, h ] = [ size * aspect2, size / aspect2 ]
-  rect ??= [ 0, 0, w, h ]
+  // compute svg bounds
+  let w, h;
+  if (isNumber(size)) {
+    const rects = Children.toArray(children).map(child => {
+      const { id, rect: crect = DEFAULT_RECT } = child.props
+      const { [id]: aspect } = items
+      return rectMap(DEFAULT_RECT, crect, { aspect })
+    })
+    const outer = outerRect(rects)
+    const aspect = rectAspect(outer)
+    const aspect2 = Math.sqrt(aspect)
+    w = size * aspect2
+    h = size / aspect2
+  } else {
+    [ w, h ] = size
+  }
 
-  // render svg group
-  return <Group tag="svg" rect={rect} width={w} height={h} {...DEFAULT_PROP} {...props}>
-    {children}
-  </Group>
+  const rect = [ 0, 0, w, h ]
+  return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
+    <AspectContext.Provider value={api}>
+      {mapChildren(wrapped, child => {
+        const { id, rect: crect = DEFAULT_RECT } = child.props
+        const { [id]: aspect } = items
+        const rect1 = rectMap(rect, crect, { aspect, coords })
+        return cloneElement(child, { rect: rect1 })
+      })}
+    </AspectContext.Provider>
+  </svg>
 }
 
 //
@@ -115,12 +168,14 @@ function Frame({ children, aspect, padding = 0, margin = 0, border = 0, ...props
 }
 
 // TODO: need to account for padding and margin
+/*
 Frame.defaultAspect = (props) => {
   const { children } = props
   return Children.toArray(children)
     .map(getAspect)
     .reduce((a, b) => a ?? b, null)
 }
+*/
 
 function distribute(sizes, target = 1) {
   const total = sum(sizes)
@@ -162,25 +217,31 @@ function VStack({ children, ...props }) {
 // basic shapes
 //
 
-function Rect({ rect, ...props }) {
+function Rect({ id, rect, aspect, ...props }) {
+  const { register, unregister } = useContext(AspectContext)
+  useLayoutEffect(() => {
+    register(id, aspect)
+    return () => unregister(id)
+  }, [id, aspect, register, unregister])
+
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
   if (h < 0) { y += h; h = -h }
   return <rect x={x} y={y} width={w} height={h} {...props} />
 }
 
-function Square({ rect, ...props }) {
+function Square({ rect, aspect, ...props }) {
   const [ x, y, w, h ] = rectBox(rect)
   const s = min(w, h)
   return <rect x={x} y={y} width={s} height={s} {...props} />
 }
 
-function Ellipse({ rect, ...props }) {
+function Ellipse({ rect, aspect, ...props }) {
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />
 }
 
-function Circle({ rect, ...props }) {
+function Circle({ rect, aspect, ...props }) {
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   const r = min(rx, ry)
   return <circle cx={cx} cy={cy} r={r} {...props} />
@@ -241,10 +302,12 @@ function Text({
   </text>
 }
 
+/*
 Text.defaultAspect = (props) => {
   const { children, fontFamily, fontWeight } = props
   return calcTextAspect(children, { fontFamily, fontWeight })
 }
+*/
 
 //
 // symbolic
@@ -301,7 +364,5 @@ function Graph({ children, coords = DEFAULT_COORDS, ...props}) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle,
-  Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, red, green, blue,
-  range, linspace
+  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph
 }

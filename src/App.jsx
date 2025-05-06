@@ -5,7 +5,9 @@ import React, { useRef, useState, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import ErrorBoundary from './Error'
+
 import Gum from './gum'
+import * as Utils from './utils'
 
 import './fonts.css'
 
@@ -13,12 +15,22 @@ import './fonts.css'
 // babel
 //
 
-const KEYS = [
-  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Rect', 'Square', 'Ellipse',
-  'Circle', 'Line', 'Polyline', 'Polygon', 'Text', 'Symline', 'Sympoly', 'Graph',
+// import utility functions
+const UTIL_KEYS = [
   'red', 'green', 'blue', 'range', 'linspace',
 ]
-const VALS = KEYS.map(key => Gum[key])
+const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
+
+// import gum components
+const GUM_KEYS = [
+  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Rect', 'Square', 'Ellipse',
+  'Circle', 'Line', 'Polyline', 'Polygon', 'Text', 'Symline', 'Sympoly', 'Graph',
+]
+const GUM_VALS = GUM_KEYS.map(key => Gum[key])
+
+// combine keys and values
+const KEYS = [...UTIL_KEYS, ...GUM_KEYS]
+const VALS = [...UTIL_VALS, ...GUM_VALS]
 
 function DynamicJSX({ code }) {
   const [element, setElement] = useState(null)

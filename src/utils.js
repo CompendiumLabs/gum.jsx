@@ -25,6 +25,30 @@ const green = '#4caf50'
 const blue = '#1e88e5'
 
 //
+// type funcs
+//
+
+function isNumber(x) {
+  return typeof x === 'number'
+}
+
+function isArray(x) {
+  return Array.isArray(x)
+}
+
+function isString(x) {
+  return typeof x === 'string'
+}
+
+function isObject(x) {
+  return typeof x === 'object'
+}
+
+function isFunction(x) {
+  return typeof x === 'function'
+}
+
+//
 // math funcs
 //
 
@@ -34,6 +58,14 @@ function max(...arr) {
 
 function min(...arr) {
   return Math.min(...arr)
+}
+
+function any(arr) {
+  return arr.some(x => x)
+}
+
+function all(arr) {
+  return arr.every(x => x)
 }
 
 function sum(arr) {
@@ -203,9 +235,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP,
-  DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, zip, range, linspace,
-  max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect,
-  embedAspect, rectMap, rectShrink, fracShrink, pointMap, outerRect, rectAspect,
-  calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
 }
