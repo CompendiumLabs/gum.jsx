@@ -11,10 +11,6 @@ import {
 } from './utils'
 
 //
-// defaults
-//
-
-//
 // react tools
 //
 
@@ -41,58 +37,42 @@ function mapComponents(children, fn) {
   }).filter(el => el != null)
 }
 
-class TokenCache {
-  constructor() {
-    this.cache = new WeakMap()
-  }
-
-  get(child) {
-    if (this.cache.has(child)) return this.cache.get(child)
-    const id = Symbol()
-    this.cache.set(child, id)
-    return id
-  }
-}
-
-function useTokenCache() {
-  return useRef(new TokenCache()).current
-}
-
 function useRegistry(setValues) {
   return useMemo(() => ({
     register(id, value) {
+      console.log('register', id, value)
       setValues(prev => {
-        const next = new Map(prev);
-        next.set(id, value);
-        return next;
-      });
+        const next = new Map(prev)
+        next.set(id, value)
+        return next
+      })
     },
     unregister(id) {
+      console.log('unregister', id)
       setValues(prev => {
-        const next = new Map(prev);
-        next.delete(id);
-        return next;
-      });
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
     }
-  }), []);
+  }), [])
 }
 
 function useMappedValues(children) {
-  const tokenCache = useTokenCache()
   const [values, setValues] = useState(new Map())
 
   // wrap children with ids
-  const wrapped = mapChildren(children, (child) => {
-    const id = tokenCache.get(child)
-    return cloneElement(child, { id });
-  });
+  const wrapped = useMemo(() => {
+    return mapChildren(children, (child, i) => (
+      cloneElement(child, { id: i })
+    ))
+  }, [children])
 
   // create a map of values
-  const items = new Map(mapComponents(wrapped, (child) => {
-    const { id } = child.props;
-    const val = values.get(id);
-    return [ id, val ];
-  }))
+  const items = useMemo(() => {
+    console.log('useMemo:items', values)
+    return mapChildren(wrapped, (child, i) => values.get(i))
+  }, [wrapped, values])
 
   // return all objects
   return [wrapped, items, setValues]
@@ -108,8 +88,12 @@ function MappedValuesProvider({ children, setValues }) {
 
 function useMappedValueContext(id, value) {
   const ctx = useContext(MappedValuesContext)
-  return useLayoutEffect(() => {
-    ctx.register(id, value)
+  const prev = useRef(null)
+  useLayoutEffect(() => {
+    if (prev.current == null || prev.current != value) {
+      ctx.register(id, value)
+      prev.current = value
+    }
     return () => ctx.unregister(id)
   }, [id, value, ctx])
 }
@@ -135,7 +119,7 @@ function useMappedValueContext(id, value) {
 function mapRatios(children, ratios, fn) {
   return mapComponents(children, (child) => {
     const { id } = child.props
-    const aspect = ratios.get(id)
+    const aspect = ratios[id]
     return fn(child, aspect)
   })
 }
@@ -158,13 +142,19 @@ function outerAspect(children, ratios) {
   return rectAspect(outer)
 }
 
-function Group({ id, rect, children, aspect, coords = DEFAULT_COORDS, ...props }) {
+function Group({ id, rect, children, aspect, updateRatios, coords = DEFAULT_COORDS, ...props }) {
   const [wrapped, ratios, setRatios] = useMappedValues(children)
   useMappedValueContext(id, aspect)
 
+  const handleRatios = (ratios) => {
+    console.log('Group', ratios(new Map()))
+    setRatios(ratios)
+    if (updateRatios != null) updateRatios(ratios)
+  }
+
   // render group element
   return <g {...props}>
-    <MappedValuesProvider setValues={setRatios}>
+    <MappedValuesProvider setValues={handleRatios}>
       {embedChildren(wrapped, ratios, rect, coords)}
     </MappedValuesProvider>
   </g>
@@ -172,6 +162,13 @@ function Group({ id, rect, children, aspect, coords = DEFAULT_COORDS, ...props }
 
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
   const [wrapped, ratios, setRatios] = useMappedValues(children)
+
+  const handleRatios = (newRatios) => {
+    console.log('Svg.handleRatios', newRatios(new Map()))
+    setRatios(newRatios)
+  }
+
+  console.log('Svg', ratios)
 
   // get aspect adjusted size
   if (isNumber(size)) {
@@ -186,7 +183,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   // render svg element
   return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
-    <MappedValuesProvider setValues={setRatios}>
+    <MappedValuesProvider setValues={handleRatios}>
       {embedChildren(wrapped, ratios, rect, coords)}
     </MappedValuesProvider>
   </svg>
@@ -196,27 +193,24 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
-  const [wrapped, ratios, setRatios] = useMappedValues(children)
+function Frame({ rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const [ ratios, setRatios ] = useState(new Map())
 
-  // get aspect of children
-  const aspects = mapRatios(wrapped, ratios, (child, aspect) => aspect)
-  aspect = aspects.reduce((a, b) => a ?? b, null)
-  useMappedValueContext(id, aspect)
+  const handleRatios = (ratios) => {
+    console.log('Frame.handleRatios', ratios(new Map()))
+    setRatios(ratios)
+  }
 
-  // add in border child
+  console.log('Frame.ratios', ratios)
+
   const coords1 = rectShrink(coords, -padding)
-  const coords2 = rectShrink(coords1, -margin)
-  if (border > 0) wrapped.push(
-    <Rect rect={coords1} strokeWidth={border} />
-  )
-
-  // render full group
-  return <g {...props}>
-    <MappedValuesProvider setValues={setRatios}>
-      {embedChildren(wrapped, ratios, rect, coords2)}
-     </MappedValuesProvider>
-  </g>
+  const coords2 = rectShrink(coords, margin)
+  return <Group {...props} rect={rect} coords={coords1} updateRatios={handleRatios}>
+    <Group rect={coords} coords={coords2}>
+      {children}
+    </Group>
+    { border > 0 && <Rect rect={coords} strokeWidth={border} /> }
+  </Group>
 }
 
 function distribute(sizes, target = 1) {

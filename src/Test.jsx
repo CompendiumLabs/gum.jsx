@@ -1,6 +1,7 @@
 import Gum from './gum.jsx'
 import { Children, cloneElement } from 'react'
 
+const { Svg, Frame, Text } = Gum
 const { MappedValuesProvider, useMappedValues, useMappedValueContext } = Gum
 
 function Parent({ children }) {
@@ -25,12 +26,26 @@ function Child({ id, text, aspect, aspect2 }) {
   </div>
 }
 
-export default function Test() {
-  return <div className="m-5 w-[500px] h-[500px]">
+function MappedTest() {
+  return <div className="w-[500px] h-[500px] border-2 m-5 p-5">
     <Parent>
       <Child text="Hello" aspect={1} />
       <Child text="World" aspect={2} />
       <Child text="Testing" aspect={3} />
     </Parent>
+  </div>
+}
+
+function SvgTest() {
+  return <div className="border-2 m-5 p-5">
+    <Svg>
+      <Text>Hello</Text>
+    </Svg>
+  </div>
+}
+
+export default function Test() {
+  return <div className="flex flex-col gap-5">
+    <SvgTest />
   </div>
 }
