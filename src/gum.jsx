@@ -225,7 +225,7 @@ function computeStackAspect(direction, children, ratios) {
     if (direction == "horizontal") {
       return sum(zip(sizes, ratios).map(([s, r]) => s * r)) * nchild
     } else {
-      return sum(zip(sizes, ratios).map(([s, r]) => s / r)) * nchild
+      return 1 / sum(zip(sizes, ratios).map(([s, r]) => s / r)) / nchild
     }
   }
   return null
