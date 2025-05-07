@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, linspace, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, linspace, all, any, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -218,8 +218,17 @@ function distribute(sizes, target = 1) {
 }
 
 function computeStackAspect(direction, children, ratios) {
+  const nchild = children.length
   const sizes0 = extractProp(children, 'size')
   const sizes = distribute(sizes0)
+  if (all(ratios.map(r => r != null))) {
+    if (direction == "horizontal") {
+      return sum(zip(sizes, ratios).map(([s, r]) => s * r)) * nchild
+    } else {
+      return sum(zip(sizes, ratios).map(([s, r]) => s / r)) / nchild
+    }
+  }
+  return null
 }
 
 // control sizing with { size: number } property

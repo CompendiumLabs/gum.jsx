@@ -108,9 +108,9 @@ const DEFAULT_CODE = `<Svg>
         <Frame border={1}>
           <Text>Hello!</Text>
         </Frame>
-        <Circle stroke={red} />
+        <Circle fill={red} />
       </VStack>
-      <Ellipse stroke={blue} />
+      <Ellipse fill={blue} />
     </HStack>
   </Frame>
 </Svg>
