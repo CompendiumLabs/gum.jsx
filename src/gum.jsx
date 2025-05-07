@@ -3,11 +3,11 @@
 //
 
 import {
-  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useEffect, useLayoutEffect, useMemo, useRef, useId
 } from 'react'
 
 import {
-  isNumber, isFunction, zip, linspace, max, min, sum, cumsum, rectBox, rectRadial, rectMap, fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, linspace, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectShrink, fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -77,22 +77,24 @@ function useRegistry(setValues) {
   }), []);
 }
 
-function useWrappedChildren(children) {
+function useMappedValues(children) {
   const tokenCache = useTokenCache()
-  return mapChildren(children, (child) => {
+  const [values, setValues] = useState(new Map())
+
+  // wrap children with ids
+  const wrapped = mapChildren(children, (child) => {
     const id = tokenCache.get(child)
     return cloneElement(child, { id });
   });
-}
 
-function useMappedValues(children) {
-  const wrapped = useWrappedChildren(children)
-  const [values, setValues] = useState(new Map())
+  // create a map of values
   const items = new Map(mapComponents(wrapped, (child) => {
     const { id } = child.props;
     const val = values.get(id);
     return [ id, val ];
   }))
+
+  // return all objects
   return [wrapped, items, setValues]
 }
 
@@ -106,13 +108,11 @@ function MappedValuesProvider({ children, setValues }) {
 
 function useMappedValueContext(id, value) {
   const ctx = useContext(MappedValuesContext)
-  useLayoutEffect(() => {
+  return useLayoutEffect(() => {
     ctx.register(id, value)
     return () => ctx.unregister(id)
   }, [id, value, ctx])
 }
-
-// Create a context for aspect ratio reporting
 
 //
 // core components
@@ -132,27 +132,37 @@ function useMappedValueContext(id, value) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
-function embedChildren(children, ratios, rect, coords) {
-  return mapChildren(children, (child) => {
-    const { id, rect: crect = DEFAULT_RECT } = child.props
+function mapRatios(children, ratios, fn) {
+  return mapComponents(children, (child) => {
+    const { id } = child.props
     const aspect = ratios.get(id)
+    return fn(child, aspect)
+  })
+}
+
+function embedChildren(children, ratios, rect, coords) {
+  return mapRatios(children, ratios, (child, aspect) => {
+    const { rect: crect = DEFAULT_RECT } = child.props
     const rect1 = rectMap(rect, crect, { aspect, coords })
     return cloneElement(child, { rect: rect1 })
   })
 }
 
 function outerAspect(children, ratios) {
-  const rects = mapComponents(children, (child) => {
-    const { id, rect: crect = DEFAULT_RECT } = child.props
-    const aspect = ratios.get(id)
+  const rects = mapRatios(children, ratios, (child, aspect) => {
+    const { rect: crect = DEFAULT_RECT } = child.props
     return rectMap(DEFAULT_RECT, crect, { aspect })
   })
+  if (rects.length == 0) return null
   const outer = outerRect(rects)
   return rectAspect(outer)
 }
 
-function Group({ rect, children, coords = DEFAULT_COORDS, ...props }) {
+function Group({ id, rect, children, aspect, coords = DEFAULT_COORDS, ...props }) {
   const [wrapped, ratios, setRatios] = useMappedValues(children)
+  useMappedValueContext(id, aspect)
+
+  // render group element
   return <g {...props}>
     <MappedValuesProvider setValues={setRatios}>
       {embedChildren(wrapped, ratios, rect, coords)}
@@ -186,25 +196,28 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function Frame({ children, aspect, padding = 0, margin = 0, border = 0, ...props }) {
-  const coords = fracShrink(-padding)
-  return <Group {...props}>
-    <Group rect={fracShrink(margin)} coords={coords}>
-      {children}
-      { border > 0 && <Rect rect={coords} strokeWidth={border} /> }
-    </Group>
-  </Group>
-}
+function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const [wrapped, ratios, setRatios] = useMappedValues(children)
 
-// TODO: need to account for padding and margin
-/*
-Frame.defaultAspect = (props) => {
-  const { children } = props
-  return Children.toArray(children)
-    .map(getAspect)
-    .reduce((a, b) => a ?? b, null)
+  // get aspect of children
+  const aspects = mapRatios(wrapped, ratios, (child, aspect) => aspect)
+  aspect = aspects.reduce((a, b) => a ?? b, null)
+  useMappedValueContext(id, aspect)
+
+  // add in border child
+  const coords1 = rectShrink(coords, -padding)
+  const coords2 = rectShrink(coords1, -margin)
+  if (border > 0) wrapped.push(
+    <Rect rect={coords1} strokeWidth={border} />
+  )
+
+  // render full group
+  return <g {...props}>
+    <MappedValuesProvider setValues={setRatios}>
+      {embedChildren(wrapped, ratios, rect, coords2)}
+     </MappedValuesProvider>
+  </g>
 }
-*/
 
 function distribute(sizes, target = 1) {
   const total = sum(sizes)
@@ -305,12 +318,15 @@ function Polygon({ rect, points, ...props }) {
 //
 
 function Text({
-  children, rect, aspect, color = "black", fontFamily = DEFAULT_FONT_FAMILY,
+  id, children, rect, color = "black", fontFamily = DEFAULT_FONT_FAMILY,
   fontWeight = DEFAULT_FONT_WEIGHT, fontSize = DEFAULT_FONT_SIZE, ...props
 }) {
-  const [ x, y, w, h ] = rectBox(rect)
+  // get aspect ratio
+  const aspect = calcTextAspect(children, { fontFamily, fontWeight })
+  useMappedValueContext(id, aspect)
 
   // get embedded position
+  const [ x, y, w, h ] = rectBox(rect)
   const y1 = y + h
   const h0 = w / aspect
 
@@ -328,13 +344,6 @@ function Text({
     {children}
   </text>
 }
-
-/*
-Text.defaultAspect = (props) => {
-  const { children, fontFamily, fontWeight } = props
-  return calcTextAspect(children, { fontFamily, fontWeight })
-}
-*/
 
 //
 // symbolic
@@ -391,5 +400,5 @@ function Graph({ children, coords = DEFAULT_COORDS, ...props}) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph
+  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, useMappedValues, useMappedValueContext, MappedValuesProvider
 }
