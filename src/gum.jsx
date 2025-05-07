@@ -3,11 +3,11 @@
 //
 
 import {
-  Children, cloneElement, isValidElement, createContext, useContext, useState, useEffect, useLayoutEffect, useMemo, useRef, useId
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef
 } from 'react'
 
 import {
-  isNumber, zip, linspace, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectShrink, fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, linspace, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -205,8 +205,8 @@ function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords
     setAspect(aspect)
   }, [ratios])
 
-  const coords1 = rectShrink(coords, -padding)
-  const coords2 = rectShrink(coords, margin)
+  const coords1 = rectExpand(coords, margin) // so rect=coords is now inset by margin
+  const coords2 = rectExpand(coords, padding) // so rect=coords is now inset by padding
   return <Group {...props} rect={rect} coords={coords1}>
     <Group rect={coords} coords={coords2} updateRatios={setRatios}>
       {children}

@@ -188,8 +188,9 @@ function rectShrink(rect, factor) {
   return rectMap(rect, frect)
 }
 
-function fracShrink(factor) {
-  return rectShrink(DEFAULT_RECT, factor)
+function rectExpand(rect, factor) {
+  const frect = [ -factor, -factor, 1 + factor, 1 + factor ]
+  return rectMap(rect, frect)
 }
 
 function pointMap(crect, fpoint) {
@@ -235,5 +236,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, fracShrink, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
 }
