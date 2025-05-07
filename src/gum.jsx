@@ -96,6 +96,7 @@ function useMappedValueContext(id, value) {
     }
     return () => ctx.unregister(id)
   }, [id, value, ctx])
+  return v => ctx.register(id, v)
 }
 
 //
@@ -193,20 +194,21 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function Frame({ rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const setAspect = useMappedValueContext(id, null)
   const [ ratios, setRatios ] = useState(new Map())
 
-  const handleRatios = (ratios) => {
-    console.log('Frame.handleRatios', ratios(new Map()))
-    setRatios(ratios)
-  }
-
-  console.log('Frame.ratios', ratios)
+  // recompute aspect when child ratios change
+  useLayoutEffect(() => {
+    const aspect = [...ratios.values()].reduce((acc, a) => acc ?? a, null)
+    console.log('Frame.aspect', aspect)
+    setAspect(aspect)
+  }, [ratios])
 
   const coords1 = rectShrink(coords, -padding)
   const coords2 = rectShrink(coords, margin)
-  return <Group {...props} rect={rect} coords={coords1} updateRatios={handleRatios}>
-    <Group rect={coords} coords={coords2}>
+  return <Group {...props} rect={rect} coords={coords1}>
+    <Group rect={coords} coords={coords2} updateRatios={setRatios}>
       {children}
     </Group>
     { border > 0 && <Rect rect={coords} strokeWidth={border} /> }

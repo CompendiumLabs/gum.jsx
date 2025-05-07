@@ -39,7 +39,9 @@ function MappedTest() {
 function SvgTest() {
   return <div className="border-2 m-5 p-5">
     <Svg>
-      <Text>Hello</Text>
+      <Frame>
+        <Text>Hello</Text>
+      </Frame>
     </Svg>
   </div>
 }
