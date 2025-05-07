@@ -176,22 +176,27 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 //
 
 // this works when you don't need to associate a specific aspect with a specific child
-function useComputedAspect(id, computeAspect) {
+function useComputedAspect(id, children, computeAspect) {
   const setAspect = useMappedValueContext(id, null)
   const [ ratios, setRatios ] = useState(new Map())
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
-    const aspect = computeAspect(ratios)
+    const rvals = mapChildren(children, (child, i) => ratios.get(i))
+    const aspect = computeAspect(Children.toArray(children), rvals)
     setAspect(aspect)
-  }, [ratios])
+  }, [children, ratios])
 
   return setRatios
 }
 
+function computeFrameAspect(ratios) {
+  return ratios.reduce((acc, a) => acc ?? a, null)
+}
+
 function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
-  const setRatios = useComputedAspect(id, ratios =>
-    [...ratios.values()].reduce((acc, a) => acc ?? a, null)
+  const setRatios = useComputedAspect(id, children, (children, ratios) =>
+    computeFrameAspect(ratios)
   )
 
   // get outer and inner coords
@@ -212,16 +217,25 @@ function distribute(sizes, target = 1) {
   return sizes.map(s => s ?? fills)
 }
 
+function computeStackAspect(direction, children, ratios) {
+  const sizes0 = extractProp(children, 'size')
+  const sizes = distribute(sizes0)
+}
+
 // control sizing with { size: number } property
 // TODO: compute aspect from children when possible
-function Stack({ children, direction = "vertical", ...props }) {
+function Stack({ id, rect, children, direction = "vertical", ...props }) {
+  const setRatios = useComputedAspect(id, children, (children, ratios) =>
+    computeStackAspect(direction, children, ratios)
+  )
+
   // get specified sizes
   const size0 = extractProp(children, 'size')
   const sizes = distribute(size0)
   const bound = cumsum(sizes)
 
   // render elements
-  return <Group {...props}>
+  return <Group rect={rect} updateRatios={setRatios} {...props}>
     {mapChildren(children, (child, index) => {
       const [ lo, hi ] = [ bound[index], bound[index + 1] ]
       const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
