@@ -23,7 +23,7 @@ function extractProp(children, prop) {
 
 // for processing children react style
 function mapChildren(children, fn) {
-  return Children.map(children, (child, index) => {
+  return Children.toArray(children).map((child, index) => {
     if (!isValidElement(child)) return child
     return fn(child, index)
   })
@@ -40,7 +40,6 @@ function mapComponents(children, fn) {
 function useRegistry(setValues) {
   return useMemo(() => ({
     register(id, value) {
-      console.log('register', id, value)
       setValues(prev => {
         const next = new Map(prev)
         next.set(id, value)
@@ -48,7 +47,6 @@ function useRegistry(setValues) {
       })
     },
     unregister(id) {
-      console.log('unregister', id)
       setValues(prev => {
         const next = new Map(prev)
         next.delete(id)
@@ -70,7 +68,6 @@ function useMappedValues(children) {
 
   // create a map of values
   const items = useMemo(() => {
-    console.log('useMemo:items', values)
     return mapChildren(wrapped, (child, i) => values.get(i))
   }, [wrapped, values])
 
@@ -148,7 +145,6 @@ function Group({ id, rect, children, aspect, updateRatios, coords = DEFAULT_COOR
   useMappedValueContext(id, aspect)
 
   const handleRatios = (ratios) => {
-    console.log('Group', ratios(new Map()))
     setRatios(ratios)
     if (updateRatios != null) updateRatios(ratios)
   }
@@ -164,13 +160,6 @@ function Group({ id, rect, children, aspect, updateRatios, coords = DEFAULT_COOR
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
   const [wrapped, ratios, setRatios] = useMappedValues(children)
 
-  const handleRatios = (newRatios) => {
-    console.log('Svg.handleRatios', newRatios(new Map()))
-    setRatios(newRatios)
-  }
-
-  console.log('Svg', ratios)
-
   // get aspect adjusted size
   if (isNumber(size)) {
     const aspect = outerAspect(wrapped, ratios)
@@ -184,7 +173,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   // render svg element
   return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
-    <MappedValuesProvider setValues={handleRatios}>
+    <MappedValuesProvider setValues={setRatios}>
       {embedChildren(wrapped, ratios, rect, coords)}
     </MappedValuesProvider>
   </svg>
