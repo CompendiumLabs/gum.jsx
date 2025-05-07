@@ -194,16 +194,24 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+// this works when you don't need to associate a specific aspect with a specific child
+function useComputedAspect(id, computeAspect) {
   const setAspect = useMappedValueContext(id, null)
   const [ ratios, setRatios ] = useState(new Map())
 
   // recompute aspect when child ratios change
-  useLayoutEffect(() => {
-    const aspect = [...ratios.values()].reduce((acc, a) => acc ?? a, null)
-    console.log('Frame.aspect', aspect)
+  useMemo(() => {
+    const aspect = computeAspect(ratios)
     setAspect(aspect)
   }, [ratios])
+
+  return setRatios
+}
+
+function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const setRatios = useComputedAspect(id, ratios =>
+    [...ratios.values()].reduce((acc, a) => acc ?? a, null)
+  )
 
   // get outer and inner coords
   const coordsOuter = rectExpand(coords, padding + margin)
