@@ -205,13 +205,14 @@ function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords
     setAspect(aspect)
   }, [ratios])
 
-  const coords1 = rectExpand(coords, margin) // so rect=coords is now inset by margin
-  const coords2 = rectExpand(coords, padding) // so rect=coords is now inset by padding
-  return <Group {...props} rect={rect} coords={coords1}>
-    <Group rect={coords} coords={coords2} updateRatios={setRatios}>
-      {children}
-    </Group>
-    { border > 0 && <Rect rect={coords} strokeWidth={border} /> }
+  // get outer and inner coords
+  const coordsOuter = rectExpand(coords, padding + margin)
+  const coordsInner = rectExpand(coords, padding)
+
+  // render frame element
+  return <Group rect={rect} coords={coordsOuter} updateRatios={setRatios} {...props}>
+    {children}
+    { border > 0 && <Rect rect={coordsInner} strokeWidth={border} /> }
   </Group>
 }
 

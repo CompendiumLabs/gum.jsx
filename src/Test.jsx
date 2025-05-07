@@ -1,5 +1,5 @@
 import Gum from './gum.jsx'
-import { Children, cloneElement } from 'react'
+import { Children, cloneElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const { Svg, Frame, Text, Rect, red, blue } = Gum
 const { MappedValuesProvider, useMappedValues, useMappedValueContext } = Gum
@@ -26,28 +26,34 @@ function Child({ id, text, aspect, aspect2 }) {
   </div>
 }
 
-function MappedTest() {
-  return <div className="w-[500px] h-[500px] border-2 m-5 p-5">
-    <Parent>
-      <Child text="Hello" aspect={1} />
-      <Child text="World" aspect={2} />
-      <Child text="Testing" aspect={3} />
-    </Parent>
-  </div>
-}
+export default function Test() {
+  const svgRef = useRef()
+  const [size, setSize] = useState(null)
 
-function SvgTest() {
-  return <div className="border-2 m-5">
-    <Svg>
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const rect = entry.contentRect
+        setSize([rect.width, rect.height])
+      }
+    })
+
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [])
+
+  const [w, h] = size ?? []
+  const style = size ? { width: `${w}px`, height: `${h}px` } : undefined
+  const className = size ? 'border-2 m-5' : ''
+
+  return <div className={className} style={style}>
+    <Svg ref={svgRef}>
       <Frame border={1} margin={0.1} padding={0.05}>
-        <Rect aspect={2} fill={blue} />
+        <Text>Hello</Text>
       </Frame>
     </Svg>
-  </div>
-}
-
-export default function Test() {
-  return <div className="flex flex-col gap-5">
-    <SvgTest />
   </div>
 }
