@@ -189,7 +189,7 @@ function useComputedAspect(id, computeAspect) {
   const [ ratios, setRatios ] = useState(new Map())
 
   // recompute aspect when child ratios change
-  useMemo(() => {
+  useLayoutEffect(() => {
     const aspect = computeAspect(ratios)
     setAspect(aspect)
   }, [ratios])
