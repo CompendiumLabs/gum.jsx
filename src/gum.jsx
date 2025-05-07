@@ -29,14 +29,6 @@ function mapChildren(children, fn) {
   })
 }
 
-// for processing children and extracting information
-function mapComponents(children, fn) {
-  return Children.toArray(children).map(child => {
-    if (!isValidElement(child)) return null
-    return fn(child)
-  }).filter(el => el != null)
-}
-
 function useRegistry(setValues) {
   return useMemo(() => ({
     register(id, value) {
@@ -115,7 +107,7 @@ function useMappedValueContext(id, value) {
 // aspect: final aspect ratio (w / h)
 
 function mapRatios(children, ratios, fn) {
-  return mapComponents(children, (child) => {
+  return mapChildren(children, (child) => {
     const { id } = child.props
     const aspect = ratios[id]
     return fn(child, aspect)
