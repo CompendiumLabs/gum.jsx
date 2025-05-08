@@ -24,7 +24,7 @@ function extractProp(children, prop) {
 // for processing children react style
 function mapChildren(children, fn) {
   return Children.toArray(children).map((child, index) => {
-    if (!isValidElement(child)) return child
+    if (!isValidElement(child)) return null
     return fn(child, index)
   })
 }
@@ -75,17 +75,26 @@ function MappedValuesProvider({ children, setValues }) {
   </MappedValuesContext.Provider>
 }
 
-function useMappedValueContext(id, value) {
+function useValueContext(id, value) {
   const ctx = useContext(MappedValuesContext)
   const prev = useRef(null)
   useLayoutEffect(() => {
+    if (ctx == null) return
     if (prev.current == null || prev.current != value) {
       ctx.register(id, value)
       prev.current = value
     }
     return () => ctx.unregister(id)
   }, [id, value, ctx])
-  return v => ctx.register(id, v)
+  return v => ctx?.register(id, v)
+}
+
+function useMappedArray(children) {
+  const [ values, setValues ] = useState(new Map())
+  const items = useMemo(() => {
+    return mapChildren(children, (child, i) => values.get(i))
+  }, [children, values])
+  return [ items, setValues ]
 }
 
 //
@@ -106,16 +115,9 @@ function useMappedValueContext(id, value) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
-function mapRatios(children, ratios, fn) {
-  return mapChildren(children, (child) => {
-    const { id } = child.props
-    const aspect = ratios[id]
-    return fn(child, aspect)
-  })
-}
-
 function embedChildren(children, ratios, rect, coords) {
-  return mapRatios(children, ratios, (child, aspect) => {
+  return mapChildren(children, (child, index) => {
+    const aspect = ratios[index]
     const { rect: crect = DEFAULT_RECT } = child.props
     const rect1 = rectMap(rect, crect, { aspect, coords })
     return cloneElement(child, { rect: rect1 })
@@ -123,18 +125,19 @@ function embedChildren(children, ratios, rect, coords) {
 }
 
 function outerAspect(children, ratios) {
-  const rects = mapRatios(children, ratios, (child, aspect) => {
+  const rects = mapChildren(children, (child, index) => {
+    const aspect = ratios[index]
     const { rect: crect = DEFAULT_RECT } = child.props
     return rectMap(DEFAULT_RECT, crect, { aspect })
-  })
+  }).filter(r => r != null)
   if (rects.length == 0) return null
   const outer = outerRect(rects)
   return rectAspect(outer)
 }
 
-function Group({ id, rect, children, aspect, updateRatios, coords = DEFAULT_COORDS, ...props }) {
-  const [wrapped, ratios, setRatios] = useMappedValues(children)
-  useMappedValueContext(id, aspect)
+function Group({ id, rect, children, aspect, updateRatios, tag = 'g', coords = DEFAULT_COORDS, ...props }) {
+  const [ wrapped, ratios, setRatios ] = useMappedValues(children)
+  useValueContext(id, aspect)
 
   const handleRatios = (ratios) => {
     setRatios(ratios)
@@ -142,19 +145,20 @@ function Group({ id, rect, children, aspect, updateRatios, coords = DEFAULT_COOR
   }
 
   // render group element
-  return <g {...props}>
+  const Tag = tag
+  return <Tag {...props}>
     <MappedValuesProvider setValues={handleRatios}>
       {embedChildren(wrapped, ratios, rect, coords)}
     </MappedValuesProvider>
-  </g>
+  </Tag>
 }
 
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
-  const [wrapped, ratios, setRatios] = useMappedValues(children)
+  const [ ratios, setRatios ] = useMappedArray(children)
 
   // get aspect adjusted size
   if (isNumber(size)) {
-    const aspect = outerAspect(wrapped, ratios)
+    const aspect = outerAspect(children, ratios)
     const aspect2 = Math.sqrt(aspect)
     size = [size * aspect2, size / aspect2 ]
   }
@@ -162,42 +166,27 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
   // compute svg rect
   const [ w, h ] = size
   const rect = [ 0, 0, w, h ]
+  const props1 = { width: w, height: h, ...DEFAULT_PROP, ...props }
 
   // render svg element
-  return <svg width={w} height={h} {...DEFAULT_PROP} {...props}>
-    <MappedValuesProvider setValues={setRatios}>
-      {embedChildren(wrapped, ratios, rect, coords)}
-    </MappedValuesProvider>
-  </svg>
+  return <Group tag="svg" rect={rect} updateRatios={setRatios} {...props1}>
+    {children}
+  </Group>
 }
 
 //
 // layout components
 //
 
-// this works when you don't need to associate a specific aspect with a specific child
-function useComputedAspect(id, children, computeAspect) {
-  const setAspect = useMappedValueContext(id, null)
-  const [ ratios, setRatios ] = useState(new Map())
+function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const emitAspect = useValueContext(id, null)
+  const [ ratios, setRatios ] = useMappedArray(children)
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
-    const rvals = mapChildren(children, (child, i) => ratios.get(i))
-    const aspect = computeAspect(Children.toArray(children), rvals)
-    setAspect(aspect)
-  }, [children, ratios])
-
-  return setRatios
-}
-
-function computeFrameAspect(ratios) {
-  return ratios.reduce((acc, a) => acc ?? a, null)
-}
-
-function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
-  const setRatios = useComputedAspect(id, children, (children, ratios) =>
-    computeFrameAspect(ratios)
-  )
+    const aspect = ratios.reduce((acc, a) => acc ?? a, null)
+    emitAspect(aspect)
+  }, [ratios])
 
   // get outer and inner coords
   const coordsOuter = rectExpand(coords, padding + margin)
@@ -217,30 +206,35 @@ function distribute(sizes, target = 1) {
   return sizes.map(s => s ?? fills)
 }
 
-function computeStackAspect(direction, children, ratios) {
+function computeStackLayout(direction, children, ratios) {
   const nchild = children.length
   const sizes0 = extractProp(children, 'size')
   const sizes = distribute(sizes0)
   if (all(ratios.map(r => r != null))) {
-    if (direction == "horizontal") {
-      return sum(zip(sizes, ratios).map(([s, r]) => s * r)) * nchild
-    } else {
-      return 1 / sum(zip(sizes, ratios).map(([s, r]) => s / r)) / nchild
-    }
+    const aspect = (direction == "horizontal") ?
+      (sum(zip(sizes, ratios).map(([s, r]) => s * r)) * nchild) :
+      (1 / sum(zip(sizes, ratios).map(([s, r]) => s / r)) / nchild)
+    return [ sizes, aspect ]
   }
-  return null
+  return [ sizes, null ]
 }
 
 // control sizing with { size: number } property
 // TODO: compute aspect from children when possible
-function Stack({ id, rect, children, direction = "vertical", ...props }) {
-  const setRatios = useComputedAspect(id, children, (children, ratios) =>
-    computeStackAspect(direction, children, ratios)
-  )
+function Stack({ id, rect, children, aspect, direction = "vertical", ...props }) {
+  const emitAspect = useValueContext(id, aspect)
+  const [ ratios, setRatios ] = useMappedArray(children)
+  const [ sizes, setSizes ] = useState(null)
 
-  // get specified sizes
-  const size0 = extractProp(children, 'size')
-  const sizes = distribute(size0)
+  // compute aspect and sizes
+  useLayoutEffect(() => {
+    const [ newSizes, newAspect ] = computeStackLayout(direction, children, ratios)
+    if (aspect == null) emitAspect(newAspect)
+    setSizes(newSizes)
+  }, [children, aspect, ratios])
+
+  // bail if layout not ready
+  if (sizes == null) return null
   const bound = cumsum(sizes)
 
   // render elements
@@ -269,7 +263,7 @@ function VStack({ children, ...props }) {
 //
 
 function Rect({ id, rect, aspect, ...props }) {
-  useMappedValueContext(id, aspect)
+  useValueContext(id, aspect)
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
   if (h < 0) { y += h; h = -h }
@@ -277,20 +271,20 @@ function Rect({ id, rect, aspect, ...props }) {
 }
 
 function Square({ id, rect, aspect, ...props }) {
-  useMappedValueContext(id, 1)
+  useValueContext(id, 1)
   const [ x, y, w, h ] = rectBox(rect)
   const s = min(w, h)
   return <rect x={x} y={y} width={s} height={s} {...props} />
 }
 
 function Ellipse({ id, rect, aspect, ...props }) {
-  useMappedValueContext(id, aspect)
+  useValueContext(id, aspect)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />
 }
 
 function Circle({ id, rect, aspect, ...props }) {
-  useMappedValueContext(id, 1)
+  useValueContext(id, 1)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   const r = min(rx, ry)
   return <circle cx={cx} cy={cy} r={r} {...props} />
@@ -332,7 +326,7 @@ function Text({
 }) {
   // get aspect ratio
   const aspect = calcTextAspect(children, { fontFamily, fontWeight })
-  useMappedValueContext(id, aspect)
+  useValueContext(id, aspect)
 
   // get embedded position
   const [ x, y, w, h ] = rectBox(rect)
@@ -409,5 +403,5 @@ function Graph({ children, coords = DEFAULT_COORDS, ...props}) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, useMappedValues, useMappedValueContext, MappedValuesProvider
+  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, useMappedValues, useValueContext, MappedValuesProvider
 }
