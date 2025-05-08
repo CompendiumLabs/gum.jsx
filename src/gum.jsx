@@ -178,14 +178,14 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function Frame({ id, rect, children, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
-  const emitAspect = useValueContext(id, null)
+function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const emitAspect = useValueContext(id, aspect)
   const [ ratios, setRatios ] = useMappedArray(children)
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
-    const aspect = ratios.reduce((acc, a) => acc ?? a, null)
-    emitAspect(aspect)
+    const newAspect = ratios.reduce((acc, a) => acc ?? a, null)
+    if (aspect == null) emitAspect(newAspect)
   }, [ratios])
 
   // get outer and inner coords
@@ -294,7 +294,8 @@ function Circle({ id, rect, aspect, ...props }) {
 // lines
 //
 
-function Line({ rect, ...props }) {
+function Line({ id, rect, aspect, ...props }) {
+  useValueContext(id, aspect)
   const [ x1, y1, x2, y2 ] = rectBox(rect)
   return <line x1={x1} y1={y1} x2={x2} y2={y2} {...props} />
 }
@@ -306,12 +307,14 @@ function pointString(rect, points) {
     .join(' ')
 }
 
-function Polyline({ rect, points, ...props }) {
+function Polyline({ id, rect, aspect, ...props }) {
+  useValueContext(id, aspect)
   const pstring = pointString(rect, points)
   return <polyline points={pstring} {...props} />
 }
 
-function Polygon({ rect, points, ...props }) {
+function Polygon({ id, rect, aspect, ...props }) {
+  useValueContext(id, aspect)
   const pstring = pointString(rect, points)
   return <polygon points={pstring} {...props} />
 }
@@ -374,12 +377,14 @@ function sympath({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAUL
   }
 }
 
-function Symline({ rect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+function Symline({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+  useValueContext(id, aspect)
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
   return <Polyline rect={rect} points={points} {...props} />
 }
 
-function Sympoly({ rect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+function Sympoly({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+  useValueContext(id, aspect)
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
   return <Polygon rect={rect} points={points} {...props} />
 }
@@ -388,7 +393,8 @@ function Sympoly({ rect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = 
 // plotting
 //
 
-function Graph({ children, coords = DEFAULT_COORDS, ...props}) {
+function Graph({ id, children, aspect, coords = DEFAULT_COORDS, ...props}) {
+  useValueContext(id, aspect)
   const [ xlo, ylo, xhi, yhi ] = coords
   const coords1 = [ xlo, yhi, xhi, ylo ]
   return <Group {...props}>
