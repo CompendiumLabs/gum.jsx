@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, linspace, all, any, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -184,8 +184,9 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
+    if (aspect != null) return
     const newAspect = ratios.reduce((acc, a) => acc ?? a, null)
-    if (aspect == null) emitAspect(newAspect)
+    emitAspect(newAspect)
   }, [ratios])
 
   // get outer and inner coords
@@ -199,24 +200,58 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   </Group>
 }
 
-function distribute(sizes, target = 1) {
-  const total = sum(sizes)
-  const empty = sum(sizes.map(s => s == null))
-  const fills = max(0, target - total) / empty
-  return sizes.map(s => s ?? fills)
-}
+function computeStackLayout(children0) {
+  const children = children0.map(c => ({ ...c }))
 
-function computeStackLayout(direction, children, ratios) {
-  const nchild = children.length
-  const sizes0 = extractProp(children, 'size')
-  const sizes = distribute(sizes0)
-  if (all(ratios.map(r => r != null))) {
-    const aspect = (direction == "horizontal") ?
-      (sum(zip(sizes, ratios).map(([s, r]) => s * r)) * nchild) :
-      (1 / sum(zip(sizes, ratios).map(([s, r]) => s / r)) / nchild)
-    return [ sizes, aspect ]
+  // for computing return values
+  const getSizes = cs => cs.map(c => c.size ?? 0)
+  const getAspect = h => h != null ? 1 / h : null
+
+  // children = list of dicts with keys size (s_i) and aspect (a_i)
+  // const fixed = children.filter(c => c.size != null && c.aspect == null)
+  const over = children.filter(c => c.size != null && c.aspect != null)
+  const expand = children.filter(c => c.size == null && c.aspect != null)
+  const flex = children.filter(c => c.size == null && c.aspect == null)
+
+  // get target aspect from over-constrained children
+  // this is generically imperfect if len(over) > 1
+  // single element case (exact): s * H * a = 1
+  // multi element case (approximate): mean(s_i * H * a_i) = 1
+  const H_over = over.length / sum(over.map(c => c.size * c.aspect))
+
+  // knock out over-budgeted case right away
+  // short-circuit since this is relatively simple
+  const S_sum = sum(getSizes(children))
+  if (S_sum > 1) {
+    for (const c of children) c.size = (c.size ?? 0) / S_sum
+    const aspect = getAspect(H_over)
+    const sizes = getSizes(children)
+    return [sizes, aspect]
   }
-  return [ sizes, null ]
+
+  // set height to maximally accommodate over-constrained children (or expandables)
+  // H_expand adds up heights required to make expandables width 1
+  const H_expand = sum(expand.map(c =>  1 / c.aspect)) / (1 - S_sum)
+  const H_target = (over.length > 0) ? H_over : (expand.length > 0) ? H_expand : null
+
+  // allocate space to expand then flex children
+  // S_exp gets full height of expandables given realized H_target
+  // S_left is the remaining space after pre-allocated and expandables
+  const S_exp = sum(expand.map(c => 1 / (c.aspect * H_target)))
+  const S_left = 1 - S_sum - S_exp
+  if (S_left >= 0) {
+    for (const c of expand) c.size = 1 / (c.aspect * H_target)
+    for (const c of flex) c.size = S_left / flex.length
+  } else {
+    const scale = (1 - S_sum) / S_exp
+    for (const c of expand) c.size = 1 / (c.aspect * H_target) * scale
+    for (const c of flex) c.size = 0
+  }
+
+  // compute heights and aspect
+  const sizes = getSizes(children)
+  const aspect = getAspect(H_target)
+  return [sizes, aspect]
 }
 
 // control sizing with { size: number } property
@@ -228,8 +263,12 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
 
   // compute aspect and sizes
   useLayoutEffect(() => {
-    const [ newSizes, newAspect ] = computeStackLayout(direction, children, ratios)
-    if (aspect == null) emitAspect(newAspect)
+    if (aspect != null) return
+    const data = children.map((c, i) =>
+      ({ size: c.props.size, aspect: ratios[i] })
+    )
+    const [ newSizes, newAspect ] = computeStackLayout(data)
+    emitAspect(newAspect)
     setSizes(newSizes)
   }, [children, aspect, ratios])
 

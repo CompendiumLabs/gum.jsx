@@ -52,12 +52,12 @@ function isFunction(x) {
 // math funcs
 //
 
-function max(...arr) {
-  return Math.max(...arr)
+function max(arr) {
+  return Math.max(arr)
 }
 
-function min(...arr) {
-  return Math.min(...arr)
+function min(arr) {
+  return Math.min(arr)
 }
 
 function any(arr) {
