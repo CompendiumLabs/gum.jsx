@@ -76,6 +76,10 @@ function cumsum(arr) {
   return arr.reduce((a, b) => [...a, a[a.length - 1] + b], [0])
 }
 
+function invert(x) {
+  return x != null ? 1 / x : null
+}
+
 //
 // array tools
 //
@@ -236,5 +240,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
 }

@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, invert, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -200,10 +200,16 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   </Group>
 }
 
-function computeStackLayout(children) {
+function computeStackLayout(direction, children0) {
+  // adjust for direction (invert aspect if horizontal)
+  const children = children0.map(c => ({...c }))
+  if (direction == "horizontal") {
+    for (const c of children) c.aspect = invert(c.aspect)
+  }
+
   // for computing return values
   const getSizes = cs => cs.map(c => c.size ?? 0)
-  const getAspect = h => h != null ? 1 / h : null
+  const getAspect = direction == "vertical" ? invert : (h => h)
 
   // children = list of dicts with keys size (s_i) and aspect (a_i)
   // const fixed = children.filter(c => c.size != null && c.aspect == null)
@@ -261,10 +267,10 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
   // compute aspect and sizes
   useLayoutEffect(() => {
     if (aspect != null) return
-    const data = children.map((c, i) =>
-      ({ size: c.props.size, aspect: ratios[i] })
-    )
-    const [ newSizes, newAspect ] = computeStackLayout(data)
+    const data = children.map((c, i) => (
+      { size: c.props.size, aspect: ratios[i] }
+    ))
+    const [ newSizes, newAspect ] = computeStackLayout(direction, data)
     emitAspect(newAspect)
     setSizes(newSizes)
   }, [children, aspect, ratios])
