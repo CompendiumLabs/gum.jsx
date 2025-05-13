@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, invert, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, broadcastSize, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -86,7 +86,8 @@ function useValueContext(id, value) {
     }
     return () => ctx.unregister(id)
   }, [id, value, ctx])
-  return v => ctx?.register(id, v)
+  const setValue = v => ctx?.register(id, v)
+  return [ prev.current, setValue ]
 }
 
 function useMappedArray(children) {
@@ -178,20 +179,47 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
+function computeFrameLayout(ratios, padding, margin) {
+  // get aggregated aspect ratio (TODO: make this smarter)
+  const aspect = ratios.reduce((acc, a) => acc ?? a, null)
+
+  // adjust padding and margin to account for aspect ratio
+  // wider dimensions get small fractional sizes so absolute sizes align
+  const saspect = aspect != null ? Math.sqrt(aspect) : 1
+  const adjust = [ 1 / saspect, saspect, 1 / saspect, saspect ]
+  const padding1 = mul(broadcastSize(padding), adjust)
+  const margin1 = mul(broadcastSize(margin), adjust)
+
+  // compute aspect ratio of adjusted padding and margin box
+  const [ px1, py1, px2, py2 ] = padding1
+  const [ mx1, my1, mx2, my2 ] = margin1
+  const afact = (1 + px1 + mx1 + px2 + mx2) / (1 + py1 + my1 + py2 + my2)
+  const aspect1 = aspect != null ? aspect * afact : null
+
+  // return computed layout
+  return [ aspect1, padding1, margin1 ]
+}
+
 function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
-  const emitAspect = useValueContext(id, aspect)
+  const [ aspect1, setAspect ] = useValueContext(id, aspect)
+  const [ padding1, setPadding ] = useState(null)
+  const [ margin1, setMargin ] = useState(null)
   const [ ratios, setRatios ] = useMappedArray(children)
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
-    if (aspect != null) return
-    const newAspect = ratios.reduce((acc, a) => acc ?? a, null)
-    emitAspect(newAspect)
-  }, [ratios])
+    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(ratios, padding, margin)
+    if (newAspect != null) setAspect(newAspect)
+    setPadding(newPadding)
+    setMargin(newMargin)
+  }, [ratios, padding, margin])
+
+  // bail if layout not ready
+  if (padding1 == null || margin1 == null) return null
 
   // get outer and inner coords
-  const coordsOuter = rectExpand(coords, padding + margin)
-  const coordsInner = rectExpand(coords, padding)
+  const coordsOuter = rectExpand(coords, add(padding1, margin1))
+  const coordsInner = rectExpand(coords, padding1)
 
   // render frame element
   return <Group rect={rect} coords={coordsOuter} updateRatios={setRatios} {...props}>
@@ -260,7 +288,7 @@ function computeStackLayout(direction, children0) {
 // control sizing with { size: number } property
 // TODO: compute aspect from children when possible
 function Stack({ id, rect, children, aspect, direction = "vertical", ...props }) {
-  const emitAspect = useValueContext(id, aspect)
+  const [ aspect1, setAspect ] = useValueContext(id, aspect)
   const [ ratios, setRatios ] = useMappedArray(children)
   const [ sizes, setSizes ] = useState(null)
 
@@ -271,7 +299,7 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
       { size: c.props.size, aspect: ratios[i] }
     ))
     const [ newSizes, newAspect ] = computeStackLayout(direction, data)
-    emitAspect(newAspect)
+    setAspect(newAspect)
     setSizes(newSizes)
   }, [children, aspect, ratios])
 

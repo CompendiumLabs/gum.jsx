@@ -76,6 +76,22 @@ function cumsum(arr) {
   return arr.reduce((a, b) => [...a, a[a.length - 1] + b], [0])
 }
 
+function add(x, y) {
+  return zip(x, y).map(([a, b]) => a + b)
+}
+
+function sub(x, y) {
+  return zip(x, y).map(([a, b]) => a - b)
+}
+
+function mul(x, y) {
+  return zip(x, y).map(([a, b]) => a * b)
+}
+
+function div(x, y) {
+  return zip(x, y).map(([a, b]) => a / b)
+}
+
 function invert(x) {
   return x != null ? 1 / x : null
 }
@@ -187,13 +203,28 @@ function rectMap(prect, crect, args = {}) {
   return embedAspect(prect1, aspect)
 }
 
+function broadcastSize(size) {
+  if (isNumber(size)) {
+    return [ size, size, size, size ]
+  } else {
+    if (size.length == 2) {
+      const [ w, h ] = size
+      return [ w, h, w, h ]
+    } else {
+      return size
+    }
+  }
+}
+
 function rectShrink(rect, factor) {
-  const frect = [ factor, factor, 1 - factor, 1 - factor ]
+  const [ x1, y1, x2, y2 ] = broadcastSize(factor)
+  const frect = add(DEFAULT_RECT, [ x1, y1, -x2, -y2 ])
   return rectMap(rect, frect)
 }
 
 function rectExpand(rect, factor) {
-  const frect = [ -factor, -factor, 1 + factor, 1 + factor ]
+  const [ x1, y1, x2, y2 ] = broadcastSize(factor)
+  const frect = add(DEFAULT_RECT, [ -x1, -y1, x2, y2 ])
   return rectMap(rect, frect)
 }
 
@@ -240,5 +271,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, rectShrink, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
 }
