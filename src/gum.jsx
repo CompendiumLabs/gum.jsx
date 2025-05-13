@@ -200,9 +200,7 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   </Group>
 }
 
-function computeStackLayout(children0) {
-  const children = children0.map(c => ({ ...c }))
-
+function computeStackLayout(children) {
   // for computing return values
   const getSizes = cs => cs.map(c => c.size ?? 0)
   const getAspect = h => h != null ? 1 / h : null
@@ -235,18 +233,17 @@ function computeStackLayout(children0) {
   const H_target = (over.length > 0) ? H_over : (expand.length > 0) ? H_expand : null
 
   // allocate space to expand then flex children
-  // S_exp gets full height of expandables given realized H_target
-  // S_left is the remaining space after pre-allocated and expandables
-  const S_exp = sum(expand.map(c => 1 / (c.aspect * H_target)))
+  // S_exp0 gets full height of expandables given realized H_target
+  // S_exp is the same but constrained so the sums are less than 1
+  const S_exp0 = sum(expand.map(c => 1 / (c.aspect * H_target)))
+  const S_exp = Math.min(S_exp0, 1 - S_sum)
+  const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
+  for (const c of expand) c.size = 1 / (c.aspect * H_target) * scale
+
+  // distribute remaining space to flex children
+  // S_left is the remaining space after pre-allocated and expandables (may hit 0)
   const S_left = 1 - S_sum - S_exp
-  if (S_left >= 0) {
-    for (const c of expand) c.size = 1 / (c.aspect * H_target)
-    for (const c of flex) c.size = S_left / flex.length
-  } else {
-    const scale = (1 - S_sum) / S_exp
-    for (const c of expand) c.size = 1 / (c.aspect * H_target) * scale
-    for (const c of flex) c.size = 0
-  }
+  for (const c of flex) c.size = S_left / flex.length
 
   // compute heights and aspect
   const sizes = getSizes(children)
