@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, broadcastSize, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, broadcastSize, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -90,11 +90,11 @@ function useValueContext(id, value) {
   return [ prev.current, setValue ]
 }
 
-function useMappedArray(children) {
+function useMappedArray(length) {
   const [ values, setValues ] = useState(new Map())
   const items = useMemo(() => {
-    return mapChildren(children, (child, i) => values.get(i))
-  }, [children, values])
+    return range(length).map(i => values.get(i))
+  }, [length, values])
   return [ items, setValues ]
 }
 
@@ -155,7 +155,8 @@ function Group({ id, rect, children, aspect, updateRatios, tag = 'g', coords = D
 }
 
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
-  const [ ratios, setRatios ] = useMappedArray(children)
+  const nchildren = Children.count(children)
+  const [ ratios, setRatios ] = useMappedArray(nchildren)
 
   // get aspect adjusted size
   if (isNumber(size)) {
@@ -201,10 +202,14 @@ function computeFrameLayout(ratios, padding, margin) {
 }
 
 function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+  const nchildren = Children.count(children)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
+  const [ ratios, setRatios ] = useMappedArray(1 + nchildren)
   const [ padding1, setPadding ] = useState(null)
   const [ margin1, setMargin ] = useState(null)
-  const [ ratios, setRatios ] = useMappedArray(children)
+
+  // get border prefix props
+  const [ borderProps, props1 ] = extractPrefix('border', props)
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
@@ -222,9 +227,9 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   const coordsInner = rectExpand(coords, padding1)
 
   // render frame element
-  return <Group rect={rect} coords={coordsOuter} updateRatios={setRatios} {...props}>
+  return <Group rect={rect} coords={coordsOuter} updateRatios={setRatios} {...props1}>
+    { border > 0 && <Rect rect={coordsInner} strokeWidth={border} {...borderProps} /> }
     {children}
-    { border > 0 && <Rect rect={coordsInner} strokeWidth={border} /> }
   </Group>
 }
 
@@ -288,8 +293,9 @@ function computeStackLayout(direction, items0) {
 // control sizing with { size: number } property
 // TODO: compute aspect from children when possible
 function Stack({ id, rect, children, aspect, direction = "vertical", ...props }) {
+  const nchildren = Children.count(children)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
-  const [ ratios, setRatios ] = useMappedArray(children)
+  const [ ratios, setRatios ] = useMappedArray(nchildren)
   const [ sizes, setSizes ] = useState(null)
 
   // compute aspect and sizes
@@ -332,12 +338,12 @@ function VStack({ children, ...props }) {
 // basic shapes
 //
 
-function Rect({ id, rect, aspect, ...props }) {
+function Rect({ id, rect, aspect, radius, ...props }) {
   useValueContext(id, aspect)
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
   if (h < 0) { y += h; h = -h }
-  return <rect x={x} y={y} width={w} height={h} {...props} />
+  return <rect x={x} y={y} width={w} height={h} rx={radius} {...props} />
 }
 
 function Square({ id, rect, aspect, ...props }) {

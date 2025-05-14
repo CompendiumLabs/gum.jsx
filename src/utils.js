@@ -244,6 +244,43 @@ function outerRect(rects) {
 }
 
 //
+// props extraction
+//
+
+function extractPrefix(...args) {
+  // get full prefix args
+  const prefix = args.slice(0, -1).map(p => `${p}-`)
+  const props = args[args.length - 1]
+
+  // allocate output dicts
+  const chosen = prefix.map(p => ({}))
+  const rest = {}
+
+  // iterate over props
+  for (const [ key, value ] of Object.entries(props)) {
+    let found = false
+
+    // loop over prefixes
+    for (const [ i, p ] of prefix.entries()) {
+      if (key.startsWith(p)) {
+        const key1 = key.slice(p.length)
+        chosen[i][key1] = value
+        found = true
+        break
+      }
+    }
+
+    // add to rest if not found
+    if (!found) {
+      rest[key] = value
+    }
+  }
+
+  // return chosen and rest
+  return [ ...chosen, rest ]
+}
+
+//
 // text sizing
 //
 
@@ -271,5 +308,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, extractPrefix, calcTextAspect, red, green, blue,
 }

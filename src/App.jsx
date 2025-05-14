@@ -102,10 +102,10 @@ function CodeEditor({ editorRef, className, code, setCode }) {
 //
 
 const DEFAULT_CODE = `<Svg>
-  <Frame padding={0.1} margin={0.1} border={1}>
+  <Frame padding={0.1} margin={0.1} border={1} border-radius={5}>
     <HStack>
       <VStack size={1/3}>
-        <Frame border={1}>
+        <Frame padding={0.1} border={1} border-radius={3} border-fill="#aaa4">
           <Text>Hello!</Text>
         </Frame>
         <Circle fill={red} />
