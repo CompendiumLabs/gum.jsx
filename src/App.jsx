@@ -15,22 +15,28 @@ import './fonts.css'
 // babel
 //
 
+// import math functions
+const MATH_KEYS = [
+  'PI', 'sin', 'cos', 'tan'
+]
+const MATH_VALS = MATH_KEYS.map(key => Math[key])
+MATH_KEYS[0] = 'pi' // patch pi
+
 // import utility functions
 const UTIL_KEYS = [
-  'red', 'green', 'blue', 'range', 'linspace',
+  'red', 'green', 'blue', 'zip', 'range', 'linspace'
 ]
 const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 
 // import gum components
 const GUM_KEYS = [
-  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Rect', 'Square', 'Ellipse',
-  'Circle', 'Line', 'Polyline', 'Polygon', 'Text', 'Symline', 'Sympoly', 'Graph',
+  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Spacer', 'Rect', 'Square', 'Ellipse', 'Circle', 'Line', 'Polyline', 'Polygon', 'Text', 'Symline', 'Sympoly', 'Graph'
 ]
 const GUM_VALS = GUM_KEYS.map(key => Gum[key])
 
 // combine keys and values
-const KEYS = [...UTIL_KEYS, ...GUM_KEYS]
-const VALS = [...UTIL_VALS, ...GUM_VALS]
+const KEYS = [...MATH_KEYS, ...UTIL_KEYS, ...GUM_KEYS]
+const VALS = [...MATH_VALS, ...UTIL_VALS, ...GUM_VALS]
 
 function DynamicJSX({ code }) {
   const [element, setElement] = useState(null)

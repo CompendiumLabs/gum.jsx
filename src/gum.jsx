@@ -213,8 +213,9 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
+    if (aspect != null) return
     const [ newAspect, newPadding, newMargin ] = computeFrameLayout(ratios, padding, margin)
-    if (newAspect != null) setAspect(newAspect)
+    setAspect(newAspect)
     setPadding(newPadding)
     setMargin(newMargin)
   }, [ratios, padding, margin])
@@ -233,9 +234,12 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   </Group>
 }
 
-function computeStackLayout(direction, items0) {
+function computeStackLayout(direction, children, ratios) {
+  // get size and aspect data from children
   // adjust for direction (invert aspect if horizontal)
-  const items = items0.map(c => ({...c }))
+  const items = children.map((c, i) => (
+    { size: c.props.size, aspect: ratios[i] }
+  ))
   if (direction == "horizontal") {
     for (const c of items) c.aspect = invert(c.aspect)
   }
@@ -301,16 +305,15 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
   // compute aspect and sizes
   useLayoutEffect(() => {
     if (aspect != null) return
-    const items = children.map((c, i) => (
-      { size: c.props.size, aspect: ratios[i] }
-    ))
-    const [ newSizes, newAspect ] = computeStackLayout(direction, items)
+    const [ newSizes, newAspect ] = computeStackLayout(direction, children, ratios)
     setAspect(newAspect)
     setSizes(newSizes)
-  }, [children, aspect, ratios])
+  }, [aspect, children, ratios])
 
   // bail if layout not ready
   if (sizes == null) return null
+
+  // get cumulative positions
   const bound = cumsum(sizes)
 
   // render elements
@@ -332,6 +335,11 @@ function HStack({ children, ...props }) {
 
 function VStack({ children, ...props }) {
   return <Stack direction="vertical" {...props}>{children}</Stack>
+}
+
+function Spacer({ id, rect, aspect }) {
+  useValueContext(id, aspect)
+  return null
 }
 
 //
@@ -376,22 +384,22 @@ function Line({ id, rect, aspect, ...props }) {
   return <line x1={x1} y1={y1} x2={x2} y2={y2} {...props} />
 }
 
-function pointString(rect, points) {
+function pointString(prect, coords, points) {
   return points
-    .map(p => pointMap(rect, p))
+    .map(p => pointMap(prect, p, { coords }))
     .map(([px, py]) => `${px},${py}`)
     .join(' ')
 }
 
-function Polyline({ id, rect, aspect, ...props }) {
+function Polyline({ id, rect, aspect, coords, points, ...props }) {
   useValueContext(id, aspect)
-  const pstring = pointString(rect, points)
+  const pstring = pointString(rect, coords, points)
   return <polyline points={pstring} {...props} />
 }
 
-function Polygon({ id, rect, aspect, ...props }) {
+function Polygon({ id, rect, aspect, coords, points, ...props }) {
   useValueContext(id, aspect)
-  const pstring = pointString(rect, points)
+  const pstring = pointString(rect, coords, points)
   return <polygon points={pstring} {...props} />
 }
 
@@ -456,6 +464,7 @@ function sympath({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAUL
 function Symline({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
   useValueContext(id, aspect)
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
+  console.log('points', points)
   return <Polyline rect={rect} points={points} {...props} />
 }
 
@@ -485,5 +494,5 @@ function Graph({ id, children, aspect, coords = DEFAULT_COORDS, ...props}) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, useMappedValues, useValueContext, MappedValuesProvider
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, useMappedValues, useValueContext, MappedValuesProvider
 }

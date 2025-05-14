@@ -203,6 +203,15 @@ function rectMap(prect, crect, args = {}) {
   return embedAspect(prect1, aspect)
 }
 
+function pointMap(prect, cpoint, args = {}) {
+  const { coords = DEFAULT_COORDS } = args
+  const [ px, py, pw, ph ] = rectBox(prect)
+  const [ cx, cy, cw, ch ] = rectBox(coords)
+  const [ cx0, cy0 ] = cpoint
+  const [ fx, fy ] = [ (cx0 - cx) / cw, (cy0 - cy) / ch ]
+  return [ px + fx * pw, py + fy * ph ]
+}
+
 function broadcastSize(size) {
   if (isNumber(size)) {
     return [ size, size, size, size ]
@@ -226,12 +235,6 @@ function rectExpand(rect, factor) {
   const [ x1, y1, x2, y2 ] = broadcastSize(factor)
   const frect = add(DEFAULT_RECT, [ -x1, -y1, x2, y2 ])
   return rectMap(rect, frect)
-}
-
-function pointMap(crect, fpoint) {
-  const [ x, y, w, h ] = rectBox(crect)
-  const [ fx, fy ] = fpoint
-  return [ x + fx * w, y + fy * h ]
 }
 
 function outerRect(rects) {
