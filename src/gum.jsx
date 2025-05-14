@@ -228,11 +228,11 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   </Group>
 }
 
-function computeStackLayout(direction, children0) {
+function computeStackLayout(direction, items0) {
   // adjust for direction (invert aspect if horizontal)
-  const children = children0.map(c => ({...c }))
+  const items = items0.map(c => ({...c }))
   if (direction == "horizontal") {
-    for (const c of children) c.aspect = invert(c.aspect)
+    for (const c of items) c.aspect = invert(c.aspect)
   }
 
   // for computing return values
@@ -241,9 +241,9 @@ function computeStackLayout(direction, children0) {
 
   // children = list of dicts with keys size (s_i) and aspect (a_i)
   // const fixed = children.filter(c => c.size != null && c.aspect == null)
-  const over = children.filter(c => c.size != null && c.aspect != null)
-  const expand = children.filter(c => c.size == null && c.aspect != null)
-  const flex = children.filter(c => c.size == null && c.aspect == null)
+  const over = items.filter(c => c.size != null && c.aspect != null)
+  const expand = items.filter(c => c.size == null && c.aspect != null)
+  const flex = items.filter(c => c.size == null && c.aspect == null)
 
   // get target aspect from over-constrained children
   // this is generically imperfect if len(over) > 1
@@ -253,11 +253,11 @@ function computeStackLayout(direction, children0) {
 
   // knock out over-budgeted case right away
   // short-circuit since this is relatively simple
-  const S_sum = sum(getSizes(children))
+  const S_sum = sum(getSizes(items))
   if (S_sum > 1) {
-    for (const c of children) c.size = (c.size ?? 0) / S_sum
+    for (const c of items) c.size = (c.size ?? 0) / S_sum
     const aspect = getAspect(H_over)
-    const sizes = getSizes(children)
+    const sizes = getSizes(items)
     return [sizes, aspect]
   }
 
@@ -280,7 +280,7 @@ function computeStackLayout(direction, children0) {
   for (const c of flex) c.size = S_left / flex.length
 
   // compute heights and aspect
-  const sizes = getSizes(children)
+  const sizes = getSizes(items)
   const aspect = getAspect(H_target)
   return [sizes, aspect]
 }
@@ -295,10 +295,10 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
   // compute aspect and sizes
   useLayoutEffect(() => {
     if (aspect != null) return
-    const data = children.map((c, i) => (
+    const items = children.map((c, i) => (
       { size: c.props.size, aspect: ratios[i] }
     ))
-    const [ newSizes, newAspect ] = computeStackLayout(direction, data)
+    const [ newSizes, newAspect ] = computeStackLayout(direction, items)
     setAspect(newAspect)
     setSizes(newSizes)
   }, [children, aspect, ratios])
