@@ -220,9 +220,9 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function computeFrameLayout(ratios, padding, margin, adjust) {
+function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
   // get aggregated aspect ratio (TODO: make this smarter)
-  const aspect = ratios.reduce((acc, a) => acc ?? a, null)
+  const aspect = aspect0 ?? ratios.reduce((acc, a) => acc ?? a, null)
 
   // adjust padding and margin to account for aspect ratio
   // wider dimensions get small fractional sizes so absolute sizes align
@@ -252,12 +252,11 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
-    if (aspect != null) return
-    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(ratios, padding, margin, adjust)
+    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(aspect, ratios, padding, margin, adjust)
     setAspect(newAspect)
     setPadding(newPadding)
     setMargin(newMargin)
-  }, [ratios, padding, margin, adjust])
+  }, [aspect, ratios, padding, margin, adjust])
 
   // bail if layout not ready
   if (padding1 == null || margin1 == null) return null
@@ -474,6 +473,12 @@ function Text({
   </text>
 }
 
+function TextBox({ children, padding = 0.05, border = 1, ...props }) {
+  return <Frame padding={padding} border={border} {...props}>
+    <Text>{children}</Text>
+  </Frame>
+}
+
 //
 // symbolic
 //
@@ -528,7 +533,8 @@ function Graph({ id, children, aspect, xlim, ylim, coords, ...props}) {
   // resolve eventual limits
   const [ xlo, xhi ] = xlim ?? xlim0
   const [ ylo, yhi ] = ylim ?? ylim0
-  const coords1 = coords ?? [ xlo, yhi, xhi, ylo ] // NOTE: inverted y-axis!
+  const [ cx1, cy1, cx2, cy2 ] = coords ?? [ xlo, ylo, xhi, yhi ]
+  const coords1 = [ cx1, cy2, cx2, cy1 ] // NOTE: inverted y-axis!
 
   // plot all children
   return <Group {...props}>
@@ -543,5 +549,5 @@ function Graph({ id, children, aspect, xlim, ylim, coords, ...props}) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, Symline, Sympoly, Graph, useMappedValues, useValueContext, MappedValuesProvider
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, TextBox, Symline, Sympoly, Graph, useMappedValues, useValueContext, MappedValuesProvider
 }
