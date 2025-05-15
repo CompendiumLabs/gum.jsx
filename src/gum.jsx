@@ -464,7 +464,6 @@ function sympath({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAUL
 function Symline({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
   useValueContext(id, aspect)
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
-  console.log('points', points)
   return <Polyline rect={rect} points={points} {...props} />
 }
 
