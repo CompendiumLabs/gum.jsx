@@ -474,8 +474,9 @@ function Text({
 }
 
 function TextBox({ children, padding = 0.05, border = 1, ...props }) {
-  return <Frame padding={padding} border={border} {...props}>
-    <Text>{children}</Text>
+  const [ text_props, props1 ] = extractPrefix('text', props)
+  return <Frame padding={padding} border={border} {...props1}>
+    <Text {...text_props}>{children}</Text>
   </Frame>
 }
 
