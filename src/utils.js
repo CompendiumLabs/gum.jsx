@@ -76,25 +76,35 @@ function cumsum(arr) {
   return arr.reduce((a, b) => [...a, a[a.length - 1] + b], [0])
 }
 
-function add(x, y) {
-  return zip(x, y).map(([a, b]) => a + b)
-}
-
-function sub(x, y) {
-  return zip(x, y).map(([a, b]) => a - b)
-}
-
-function mul(x, y) {
-  return zip(x, y).map(([a, b]) => a * b)
-}
-
-function div(x, y) {
-  return zip(x, y).map(([a, b]) => a / b)
-}
-
 function invert(x) {
   return x != null ? 1 / x : null
 }
+
+//
+// broadcast ops
+//
+
+function broadcast2d(x, y) {
+  const xa = isArray(x)
+  const ya = isArray(y)
+  if (xa == ya) return [ x, y ]
+  if (!xa) x = [ x, x, x, x ]
+  if (!ya) y = [ y, y, y, y ]
+  return [ x, y ]
+}
+
+function broadcastFunc(f) {
+  return (x, y) => {
+    [x, y] = broadcast2d(x, y)
+    if (isNumber(x) && isNumber(y)) return f(x, y)
+    else return zip(x, y).map(([a, b]) => f(a, b))
+  }
+}
+
+const add = broadcastFunc((a, b) => a + b)
+const sub = broadcastFunc((a, b) => a - b)
+const mul = broadcastFunc((a, b) => a * b)
+const div = broadcastFunc((a, b) => a / b)
 
 //
 // array tools
@@ -215,14 +225,15 @@ function pointMap(prect, cpoint, args = {}) {
 function broadcastSize(size) {
   if (isNumber(size)) {
     return [ size, size, size, size ]
-  } else {
+  } else if (isArray(size)) {
     if (size.length == 2) {
       const [ w, h ] = size
       return [ w, h, w, h ]
-    } else {
+    } else if (size.length == 4) {
       return size
     }
   }
+  throw new Error(`Invalid size specification: ${size}`)
 }
 
 function rectShrink(rect, factor) {

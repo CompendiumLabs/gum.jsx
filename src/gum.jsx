@@ -14,13 +14,6 @@ import {
 // react tools
 //
 
-function extractProp(children, prop) {
-  return Children.toArray(children).map(child => {
-    if (!isValidElement(child)) return null
-    return child.props[prop] ?? null
-  })
-}
-
 // for processing children react style
 function mapChildren(children, fn) {
   return Children.toArray(children).map((child, index) => {
@@ -157,23 +150,52 @@ function Group({ id, rect, children, aspect, updateRatios, tag = 'g', coords = D
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
   const [ ratios, setRatios ] = useMappedArray(nchildren)
+  const [ parentSize, setParentSize ] = useState(null)
+
+  // parent size detection
+  const parentRef = useRef(null)
+  useLayoutEffect(() => {
+    if (parentRef.current == null) return
+
+    // listen for parent size changes
+    const resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setParentSize([ width, height ]);
+      }
+    })
+
+    // hook up resize observer
+    resizeObserver.observe(parentRef.current)
+    return () => resizeObserver.disconnect()
+  }, [])
+
+  // compute aspect from child ratios
+  const aspect = outerAspect(children, ratios)
 
   // get aspect adjusted size
   if (isNumber(size)) {
-    const aspect = outerAspect(children, ratios)
+    // get target size given aspect ratio
     const aspect2 = Math.sqrt(aspect)
     size = [size * aspect2, size / aspect2 ]
+  }
+
+  // scale down size if parent is smaller
+  if (parentSize != null) {
+    const over = Math.max(...div(size, parentSize))
+    size = div(size, over)
   }
 
   // compute svg rect
   const [ w, h ] = size
   const rect = [ 0, 0, w, h ]
-  const props1 = { width: w, height: h, ...DEFAULT_PROP, ...props }
 
   // render svg element
-  return <Group tag="svg" rect={rect} updateRatios={setRatios} {...props1}>
-    {children}
-  </Group>
+  return <div ref={parentRef} className="w-full h-full">
+    <Group tag="svg" rect={rect} updateRatios={setRatios} width={w} height={h} {...DEFAULT_PROP} {...props}>
+      {children}
+    </Group>
+  </div>
 }
 
 //
