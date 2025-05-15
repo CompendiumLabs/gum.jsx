@@ -71,12 +71,10 @@ export default function App() {
         <CodeEditor editorRef={editorRef} code={code} setCode={handleCode} />
       </div>
     </div>
-    <div className="w-1/2 h-full p-2 border-l border-gray-300">
-      <div className="w-full h-full">
-        <ErrorBoundary key={key}>
-          <DynamicJSX code={code} />
-        </ErrorBoundary>
-      </div>
+    <div className="w-1/2 h-full p-4 border-l border-gray-300">
+      <ErrorBoundary key={key}>
+        <DynamicJSX code={code} />
+      </ErrorBoundary>
     </div>
   </div>
 }

@@ -203,28 +203,27 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 // layout components
 //
 
-function computeFrameLayout(ratios, padding, margin) {
+function computeFrameLayout(ratios, padding, margin, adjust) {
   // get aggregated aspect ratio (TODO: make this smarter)
   const aspect = ratios.reduce((acc, a) => acc ?? a, null)
 
   // adjust padding and margin to account for aspect ratio
   // wider dimensions get small fractional sizes so absolute sizes align
-  const saspect = aspect != null ? Math.sqrt(aspect) : 1
-  const adjust = [ 1 / saspect, saspect, 1 / saspect, saspect ]
-  const padding1 = mul(broadcastSize(padding), adjust)
-  const margin1 = mul(broadcastSize(margin), adjust)
+  const saspect = (adjust && aspect != null) ? Math.sqrt(aspect) : 1
+  const adjusted = [ 1 / saspect, saspect, 1 / saspect, saspect ]
+  const padding1 = mul(broadcastSize(padding), adjusted)
+  const margin1 = mul(broadcastSize(margin), adjusted)
 
   // compute aspect ratio of adjusted padding and margin box
-  const [ px1, py1, px2, py2 ] = padding1
-  const [ mx1, my1, mx2, my2 ] = margin1
-  const afact = (1 + px1 + mx1 + px2 + mx2) / (1 + py1 + my1 + py2 + my2)
+  const [ fx1, fy1, fx2, fy2 ] = add(padding1, margin1)
+  const afact = (1 + fx1 + fx2) / (1 + fy1 + fy2)
   const aspect1 = aspect != null ? aspect * afact : null
 
   // return computed layout
   return [ aspect1, padding1, margin1 ]
 }
 
-function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, coords = DEFAULT_COORDS, ...props }) {
+function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
   const [ ratios, setRatios ] = useMappedArray(1 + nchildren)
@@ -237,7 +236,7 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
     if (aspect != null) return
-    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(ratios, padding, margin)
+    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(ratios, padding, margin, adjust)
     setAspect(newAspect)
     setPadding(newPadding)
     setMargin(newMargin)
@@ -260,7 +259,7 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
 function computeStackLayout(direction, children, ratios) {
   // get size and aspect data from children
   // adjust for direction (invert aspect if horizontal)
-  const items = children.map((c, i) => (
+  const items = mapChildren(children, (c, i) => (
     { size: c.props.size, aspect: ratios[i] }
   ))
   if (direction == "horizontal") {

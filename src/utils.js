@@ -3,7 +3,7 @@
 //
 
 //
-// constants
+// defaults
 //
 
 const DEFAULT_SIZE = 500
@@ -15,6 +15,13 @@ const DEFAULT_PROP = {
   stroke: 'black',
   fill: 'none',
 }
+
+//
+// constants
+//
+
+const pi = Math.PI
+const phi = (1 + Math.sqrt(5)) / 2
 
 //
 // colors
@@ -347,5 +354,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, extractPrefix, calcTextAspect, red, green, blue, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, palette
 }

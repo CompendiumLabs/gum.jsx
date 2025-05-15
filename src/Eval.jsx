@@ -12,14 +12,13 @@ import * as Utils from './utils'
 
 // import math functions
 const MATH_KEYS = [
-  'PI', 'sin', 'cos', 'tan'
+  'sin', 'cos', 'tan'
 ]
 const MATH_VALS = MATH_KEYS.map(key => Math[key])
-MATH_KEYS[0] = 'pi' // patch pi
 
 // import utility functions
 const UTIL_KEYS = [
-  'red', 'green', 'blue', 'palette', 'zip', 'range', 'linspace'
+  'red', 'green', 'blue', 'palette', 'zip', 'range', 'linspace', 'pi', 'phi'
 ]
 const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 
