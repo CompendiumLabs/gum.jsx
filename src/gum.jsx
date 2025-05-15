@@ -3,11 +3,11 @@
 //
 
 import {
-  Children, cloneElement, isValidElement, createContext, useContext, useState, useEffect, useLayoutEffect, useMemo, useRef
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, rectAspect, broadcastSize, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, outerLim, rectAspect, broadcastSize, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -22,6 +22,15 @@ function mapChildren(children, fn) {
   })
 }
 
+// extract property from children
+function extractProperty(children, prop) {
+  return mapChildren(children, (child, index) => {
+    if (!isValidElement(child)) return null
+    return child.props[prop]
+  })
+}
+
+// registry for mapped values
 function useRegistry(setValues) {
   return useMemo(() => ({
     register(id, value) {
@@ -41,6 +50,7 @@ function useRegistry(setValues) {
   }), [])
 }
 
+// for use with container components
 function useMappedValues(children) {
   const [values, setValues] = useState(new Map())
 
@@ -60,6 +70,7 @@ function useMappedValues(children) {
   return [wrapped, items, setValues]
 }
 
+// context for children to report values
 const MappedValuesContext = createContext()
 function MappedValuesProvider({ children, setValues }) {
   const registry = useRegistry(setValues)
@@ -68,6 +79,8 @@ function MappedValuesProvider({ children, setValues }) {
   </MappedValuesContext.Provider>
 }
 
+// useState-like hook for children to report values
+// use reference to prevent unnecessary re-renders
 function useValueContext(id, value) {
   const ctx = useContext(MappedValuesContext)
   const prev = useRef(null)
@@ -83,6 +96,8 @@ function useValueContext(id, value) {
   return [ prev.current, setValue ]
 }
 
+// array accessor for mapped values
+// used by proxies to observe child values
 function useMappedArray(length) {
   const [ values, setValues ] = useState(new Map())
   const items = useMemo(() => {
@@ -109,6 +124,7 @@ function useMappedArray(length) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
+// embed children into their rects with desired aspects
 function embedChildren(children, ratios, rect, coords) {
   return mapChildren(children, (child, index) => {
     const aspect = ratios[index]
@@ -118,12 +134,13 @@ function embedChildren(children, ratios, rect, coords) {
   })
 }
 
+// get the outer aspect ratio of a group of children
 function outerAspect(children, ratios) {
   const rects = mapChildren(children, (child, index) => {
     const aspect = ratios[index]
     const { rect: crect = DEFAULT_RECT } = child.props
     return rectMap(DEFAULT_RECT, crect, { aspect })
-  }).filter(r => r != null)
+  }).filter(notNull)
   if (rects.length == 0) return null
   const outer = outerRect(rects)
   return rectAspect(outer)
@@ -225,8 +242,8 @@ function computeFrameLayout(ratios, padding, margin, adjust) {
 
 function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
-  const [ aspect1, setAspect ] = useValueContext(id, aspect)
   const [ ratios, setRatios ] = useMappedArray(1 + nchildren)
+  const [ aspect1, setAspect ] = useValueContext(id, aspect)
   const [ padding1, setPadding ] = useState(null)
   const [ margin1, setMargin ] = useState(null)
 
@@ -240,7 +257,7 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
     setAspect(newAspect)
     setPadding(newPadding)
     setMargin(newMargin)
-  }, [ratios, padding, margin])
+  }, [ratios, padding, margin, adjust])
 
   // bail if layout not ready
   if (padding1 == null || margin1 == null) return null
@@ -499,10 +516,21 @@ function Sympoly({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_
 // plotting
 //
 
-function Graph({ id, children, aspect, coords = DEFAULT_COORDS, ...props}) {
+function Graph({ id, children, aspect, xlim, ylim, coords, ...props}) {
   useValueContext(id, aspect)
-  const [ xlo, ylo, xhi, yhi ] = coords
-  const coords1 = [ xlo, yhi, xhi, ylo ]
+
+  // get declared limits of children
+  const xlims = extractProperty(children, 'xlim')
+  const ylims = extractProperty(children, 'ylim')
+  const xlim0 = outerLim(xlims.filter(notNull)) ?? DEFAULT_LIM
+  const ylim0 = outerLim(ylims.filter(notNull)) ?? DEFAULT_LIM
+
+  // resolve eventual limits
+  const [ xlo, xhi ] = xlim ?? xlim0
+  const [ ylo, yhi ] = ylim ?? ylim0
+  const coords1 = coords ?? [ xlo, yhi, xhi, ylo ] // NOTE: inverted y-axis!
+
+  // plot all children
   return <Group {...props}>
     {mapChildren(children, child => {
       return cloneElement(child, { coords: coords1 })

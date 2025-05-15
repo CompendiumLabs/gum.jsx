@@ -80,6 +80,10 @@ function isFunction(x) {
   return typeof x === 'function'
 }
 
+function notNull(x) {
+  return x != null
+}
+
 //
 // math funcs
 //
@@ -289,6 +293,12 @@ function outerRect(rects) {
   )
 }
 
+function outerLim(limits) {
+  if (limits.length === 0) return null
+  const [ lo, hi ] = zip(...limits)
+  return [ min(lo), max(hi) ]
+}
+
 //
 // props extraction
 //
@@ -354,5 +364,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, outerLim, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, palette
 }
