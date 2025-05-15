@@ -19,7 +19,7 @@ MATH_KEYS[0] = 'pi' // patch pi
 
 // import utility functions
 const UTIL_KEYS = [
-  'red', 'green', 'blue', 'zip', 'range', 'linspace'
+  'red', 'green', 'blue', 'palette', 'zip', 'range', 'linspace'
 ]
 const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 

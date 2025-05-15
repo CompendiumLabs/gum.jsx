@@ -24,6 +24,31 @@ const red = '#ff0d57'
 const green = '#4caf50'
 const blue = '#1e88e5'
 
+function hexToRgba(hex) {
+  hex = hex.replace('#', '')
+  if (hex.length == 3) {
+    hex = hex.split('').map(c => c + c).join('')
+  } else if (hex.length == 4) {
+    hex = hex.split('').map(c => c + c).join('')
+  }
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  const a = hex.length == 8 ? parseInt(hex.slice(6, 8), 16) : 255
+  return [ r, g, b, a / 255 ]
+}
+
+function palette(start, stop) {
+  const start1 = hexToRgba(start)
+  const stop1 = hexToRgba(stop)
+  const m = sub(stop1, start1)
+  function gradient(x) {
+    const [ r, g, b, a ] = add(start1, mul(m, x))
+    return `rgba(${r}, ${g}, ${b}, ${a})`
+  }
+  return gradient
+}
+
 //
 // type funcs
 //
@@ -322,5 +347,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, extractPrefix, calcTextAspect, red, green, blue,
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, rectAspect, extractPrefix, calcTextAspect, red, green, blue, palette
 }

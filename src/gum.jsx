@@ -3,7 +3,7 @@
 //
 
 import {
-  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useEffect, useLayoutEffect, useMemo, useRef
 } from 'react'
 
 import {
@@ -157,13 +157,14 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
   useLayoutEffect(() => {
     if (parentRef.current == null) return
 
+    function updateSize() {
+      const { width, height } = parentRef.current.getBoundingClientRect()
+      setParentSize([ width, height ])
+    }
+
     // listen for parent size changes
-    const resizeObserver = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        setParentSize([ width, height ]);
-      }
-    })
+    updateSize()
+    const resizeObserver = new ResizeObserver(updateSize)
 
     // hook up resize observer
     resizeObserver.observe(parentRef.current)
@@ -180,7 +181,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
     size = [size * aspect2, size / aspect2 ]
   }
 
-  // scale down size if parent is smaller
+  // scale size up/down if parent is smaller
   if (parentSize != null) {
     const over = Math.max(...div(size, parentSize))
     size = div(size, over)
