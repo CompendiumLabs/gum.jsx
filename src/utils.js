@@ -30,6 +30,7 @@ const phi = (1 + Math.sqrt(5)) / 2
 const red = '#ff0d57'
 const green = '#4caf50'
 const blue = '#1e88e5'
+const gray = '#eeeeee'
 
 function hexToRgba(hex) {
   hex = hex.replace('#', '')
@@ -385,5 +386,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, limitMap, positionMap,  broadcastSize, rectShrink, rectExpand, pointMap, outerRect, outerLim, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, limitMap, positionMap,  broadcastSize, rectShrink, rectExpand, pointMap, outerRect, outerLim, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, palette
 }

@@ -47,7 +47,7 @@ export default function App() {
   function handleZoom(event) {
     const { target, deltaY } = event
     if (target != canvasRef.current) return
-    const factor = deltaY < 0 ? 1.2 : 0.8
+    const factor = deltaY < 0 ? 1.2 : 1/1.2
     const newZoom = Math.max(10, Math.min(100, zoom * factor))
     setZoom(newZoom)
   }
@@ -83,7 +83,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <div ref={canvasRef} className="w-full h-[70%]">
+      <div ref={canvasRef} className="w-full flex-1">
         <div className="relative w-full h-full flex border rounded-md border-gray-500 bg-white pointer-events-none select-none">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" style={style}>
             {element}

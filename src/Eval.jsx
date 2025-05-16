@@ -18,7 +18,7 @@ const MATH_VALS = MATH_KEYS.map(key => Math[key])
 
 // import utility functions
 const UTIL_KEYS = [
-  'red', 'green', 'blue', 'palette', 'zip', 'range', 'linspace', 'pi', 'phi'
+  'red', 'green', 'blue', 'gray', 'palette', 'zip', 'range', 'linspace', 'pi', 'phi'
 ]
 const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 
