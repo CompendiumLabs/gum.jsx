@@ -49,7 +49,6 @@ export default function App() {
     if (target != canvasRef.current) return
     const factor = deltaY < 0 ? 1.2 : 0.8
     const newZoom = Math.max(10, Math.min(100, zoom * factor))
-    console.log('handleZoom', newZoom)
     setZoom(newZoom)
   }
 
