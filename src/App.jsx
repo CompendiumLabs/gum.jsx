@@ -100,7 +100,7 @@ function useDragResize(outerRef) {
   return { isDragging, sliderPos, startDrag: handleMouseDown }
 }
 
-const SLIDER_WIDTH = 8
+const SLIDER_WIDTH = 5
 
 export default function App() {
   const outerRef = useRef(null)

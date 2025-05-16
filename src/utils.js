@@ -258,6 +258,27 @@ function pointMap(prect, cpoint, args = {}) {
   return [ px + fx * pw, py + fy * ph ]
 }
 
+function limitMap(direction, prect, clims, args = {}) {
+  const { coords = DEFAULT_COORDS } = args
+  const [ px, py, pw, ph ] = rectBox(prect)
+  const [ cx, cy, cw, ch ] = rectBox(coords)
+  const [ pz, ps, cz, cs ] = direction == "horizontal" ?
+        [ px, pw, cx, cw ] : [ py, ph, cy, ch ]
+  const [ clo, chi ] = clims
+  const [ flo, fhi ] = [ (clo - cz) / cs, (chi - cz) / cs ]
+  return [ pz + flo * ps, pz + fhi * ps ]
+}
+
+function positionMap(direction, prect, cpos, args = {}) {
+  const { coords = DEFAULT_COORDS } = args
+  const [ px, py, pw, ph ] = rectBox(prect)
+  const [ cx, cy, cw, ch ] = rectBox(coords)
+  const [ pz, ps, cz, cs ] = direction == "horizontal" ?
+        [ px, pw, cx, cw ] : [ py, ph, cy, ch ]
+  const f = (cpos - cz) / cs
+  return pz + f * ps
+}
+
 function broadcastSize(size) {
   if (isNumber(size)) {
     return [ size, size, size, size ]
@@ -364,5 +385,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, broadcastSize, rectShrink, rectExpand, pointMap, outerRect, outerLim, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, limitMap, positionMap,  broadcastSize, rectShrink, rectExpand, pointMap, outerRect, outerLim, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, palette
 }

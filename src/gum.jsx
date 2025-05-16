@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectBox, rectRadial, rectMap, rectExpand, pointMap, outerRect, outerLim, rectAspect, broadcastSize, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, rectAspect, broadcastSize, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -384,7 +384,7 @@ function Spacer({ id, rect, aspect }) {
 // basic shapes
 //
 
-function Rect({ id, rect, aspect, radius, ...props }) {
+function Rect({ id, rect, aspect, coords, radius, ...props }) {
   useValueContext(id, aspect)
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
@@ -392,20 +392,20 @@ function Rect({ id, rect, aspect, radius, ...props }) {
   return <rect x={x} y={y} width={w} height={h} rx={radius} {...props} />
 }
 
-function Square({ id, rect, aspect, ...props }) {
+function Square({ id, rect, aspect, coords, ...props }) {
   useValueContext(id, 1)
   const [ x, y, w, h ] = rectBox(rect)
   const s = min(w, h)
   return <rect x={x} y={y} width={s} height={s} {...props} />
 }
 
-function Ellipse({ id, rect, aspect, ...props }) {
+function Ellipse({ id, rect, aspect, coords, ...props }) {
   useValueContext(id, aspect)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />
 }
 
-function Circle({ id, rect, aspect, ...props }) {
+function Circle({ id, rect, aspect, coords, ...props }) {
   useValueContext(id, 1)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   const r = min(rx, ry)
@@ -416,9 +416,10 @@ function Circle({ id, rect, aspect, ...props }) {
 // lines
 //
 
-function Line({ id, rect, aspect, ...props }) {
+function Line({ id, rect, aspect, coords, p1, p2, ...props }) {
   useValueContext(id, aspect)
-  const [ x1, y1, x2, y2 ] = rectBox(rect)
+  const [ x1, y1 ] = pointMap(rect, p1, { coords })
+  const [ x2, y2 ] = pointMap(rect, p2, { coords })
   return <line x1={x1} y1={y1} x2={x2} y2={y2} {...props} />
 }
 
@@ -439,6 +440,23 @@ function Polygon({ id, rect, aspect, coords, points, ...props }) {
   useValueContext(id, aspect)
   const pstring = pointString(rect, coords, points)
   return <polygon points={pstring} {...props} />
+}
+
+function UnitLine({ id, rect, aspect, coords, direction, pos = 0.5, lim = DEFAULT_LIM, ...props }) {
+  useValueContext(id, aspect)
+  const pz = positionMap(direction, rect, pos, { coords })
+  const [ plo, phi ] = limitMap(direction, rect, lim, { coords })
+  const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
+        [ plo, pz, phi, pz ] : [ pz, plo, pz, phi ]
+  return <line x1={x1} y1={y1} x2={x2} y2={y2} {...props} />
+}
+
+function HLine(props) {
+  return <UnitLine direction="horizontal" {...props} />
+}
+
+function VLine(props) {
+  return <UnitLine direction="vertical" {...props} />
 }
 
 //
@@ -550,5 +568,5 @@ function Graph({ id, children, aspect, xlim, ylim, coords, ...props}) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, Text, TextBox, Symline, Sympoly, Graph, useMappedValues, useValueContext, MappedValuesProvider
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, Symline, Sympoly, Graph
 }
