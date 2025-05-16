@@ -41,7 +41,7 @@ export default function App() {
     const { target, deltaY } = event
     if (target != canvasRef.current) return
     const factor = deltaY < 0 ? 1.2 : 1/1.2
-    const newZoom = Math.max(10, Math.min(100, zoom * factor))
+    const newZoom = Math.max(10, Math.min(90, zoom * factor))
     setZoom(newZoom)
   }
 
@@ -76,23 +76,24 @@ export default function App() {
         <div className="w-[55%] h-full flex border rounded-md border-gray-500">
           <CodeEditor editorRef={editorRef} className="h-full" code={code} setCode={handleCode} />
         </div>
-        <div className="w-[45%] h-full flex border rounded-md border-gray-500 bg-white">
+        <div className="w-[45%] h-full flex">
           <div className="w-full h-full flex flex-col">
-            <div className="w-full border-b border-gray-500 p-2 font-mono smallcaps">
-              Status — {error ? <span className="text-red-500">Error</span> : "Success"}
+            <div className="w-full flex flex-row">
+              <div className="flex-1 p-2 border border-b-0 border-gray-500 rounded-t-md font-mono smallcaps bg-white">
+                Status — { error ? <span className="text-red-500">Error</span> : <span className="text-green-700">Success</span> }
+              </div>
+              <div className="w-[100px] p-2 font-mono text-center text-gray-700">GUM.JSX</div>
             </div>
-            <div className="w-full p-2 overflow-auto">
+            <div className="w-full flex-1 p-2 border rounded-tr-md rounded-b-md border-gray-500 overflow-auto bg-white">
               {error && <div className="whitespace-pre-wrap font-mono text-sm">{error}</div>}
             </div>
           </div>
         </div>
       </div>
       <div ref={canvasRef} className="w-full flex-1">
-        <div className="relative w-full h-full flex border rounded-md border-gray-500 bg-white pointer-events-none select-none">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" style={canvasStyle}>
-            <ErrorCatcher key={key} onError={handleError}>
-              {element}
-            </ErrorCatcher>
+        <div className="w-full h-full flex justify-center items-center border rounded-md border-gray-500 bg-white pointer-events-none select-none">
+          <div style={canvasStyle}>
+            <ErrorCatcher key={key} onError={handleError}>{element}</ErrorCatcher>
           </div>
         </div>
       </div>

@@ -209,7 +209,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
   const rect = [ 0, 0, w, h ]
 
   // render svg element
-  return <div ref={parentRef} className="w-full h-full">
+  return <div ref={parentRef} className="w-full h-full flex justify-center items-center">
     <Group tag="svg" rect={rect} updateRatios={setRatios} width={w} height={h} {...DEFAULT_PROP} {...props}>
       {children}
     </Group>
