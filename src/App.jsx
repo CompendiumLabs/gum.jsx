@@ -1,39 +1,11 @@
-import './App.css'
+// GUM.JSX
 
 import { useRef, useState, useEffect } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
-import { javascript } from '@codemirror/lang-javascript'
 import { evaluateGum } from './Eval'
+import { CodeEditor } from './Editor'
 
+import './App.css'
 import './fonts.css'
-
-//
-// codemirror
-//
-
-const extensions = [ javascript({ jsx: true }) ]
-
-const basicSetup = {
-  lineNumbers: false,
-  foldGutter: false,
-  indentOnInput: false,
-  highlightActiveLine: true,
-  highlightActiveLineGutter: false,
-  autocompletion: false,
-}
-
-function CodeEditor({ editorRef, className, code, setCode }) {
-  return <CodeMirror
-    ref={editorRef}
-    className={className}
-    width="100%"
-    height="100%"
-    basicSetup={basicSetup}
-    extensions={extensions}
-    value={code}
-    onChange={setCode}
-  />
-}
 
 //
 // app
@@ -57,12 +29,13 @@ const DEFAULT_CODE = `<Svg>
 export default function App() {
   const outerRef = useRef(null)
   const editorRef = useRef(null)
+  const canvasRef = useRef(null)
   const [ key, setKey ] = useState(0)
 
   const [ code, setCode ] = useState(DEFAULT_CODE)
   const [ element, setElement ] = useState(null)
   const [ error, setError ] = useState(null)
-  const [ zoom, setZoom ] = useState(40)
+  const [ zoom, setZoom ] = useState(70)
 
   // update code and render
   function handleCode(code) {
@@ -73,9 +46,10 @@ export default function App() {
   // handle scroll zoom
   function handleZoom(event) {
     const { target, deltaY } = event
-    if (target != outerRef.current) return
+    if (target != canvasRef.current) return
     const factor = deltaY < 0 ? 1.2 : 0.8
     const newZoom = Math.max(10, Math.min(100, zoom * factor))
+    console.log('handleZoom', newZoom)
     setZoom(newZoom)
   }
 
@@ -86,22 +60,35 @@ export default function App() {
     setError(newError)
   }, [ code ])
 
+  // set width directly using style
+  const style = {
+    width: `${zoom}%`,
+    height: `${zoom}%`,
+  }
+
   // render full screen
   return <div ref={outerRef} className="w-screen h-screen p-5 bg-gray-100" onWheel={handleZoom}>
     <div className="w-full h-full flex flex-col gap-5">
       <div className="w-full h-[30%] flex flex-row gap-5">
-        <div className="w-[50%] h-full flex border rounded-md border-gray-500">
+        <div className="w-[55%] h-full flex border rounded-md border-gray-500">
           <CodeEditor editorRef={editorRef} className="h-full" code={code} setCode={handleCode} />
         </div>
-        <div className="w-[50%] h-full flex border rounded-md border-gray-500 bg-white">
-          <div className="w-full h-full p-5">
-            {error && <div className="text-red-500 whitespace-pre-wrap font-mono">{error}</div>}
+        <div className="w-[45%] h-full flex border rounded-md border-gray-500 bg-white">
+          <div className="w-full h-full flex flex-col">
+            <div className="w-full border-b border-gray-500 p-2 font-mono smallcaps">
+              Status — {error ? <span className="text-red-500">Error</span> : "Success"}
+            </div>
+            <div className="w-full p-2">
+              {error && <div className="whitespace-pre-wrap font-mono text-sm">{error}</div>}
+            </div>
           </div>
         </div>
       </div>
-      <div className="w-full h-[70%]">
-        <div className="w-full h-full flex border rounded-md border-gray-500 bg-white pointer-events-none select-none">
-          {element}
+      <div ref={canvasRef} className="w-full h-[70%]">
+        <div className="relative w-full h-full flex border rounded-md border-gray-500 bg-white pointer-events-none select-none">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" style={style}>
+            {element}
+          </div>
         </div>
       </div>
     </div>

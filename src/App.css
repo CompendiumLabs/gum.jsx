@@ -37,14 +37,6 @@
     border-radius: 0.375rem;
 }
 
-/* grid lines */
-
-.grid {
-    background-image:
-      linear-gradient(to right, #f6f6f6 1px, transparent 0),
-      linear-gradient(to bottom, #f6f6f6 1px, transparent 0);
-}
-
 /* hide scrollbar */
 
 ::-webkit-scrollbar {
