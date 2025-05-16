@@ -55,59 +55,13 @@ const DEFAULT_CODE = `<Svg>
 </Svg>
 `
 
-function useDragResize(outerRef) {
-  const [ isDragging, setIsDragging ] = useState(false)
-  const [ sliderPos, setSliderPos ] = useState(50)
-
-  // just say we're dragging
-  function handleMouseDown(event) {
-    setIsDragging(true)
-  }
-
-  // just say we're not dragging
-  function handleMouseUp(event) {
-    setIsDragging(false)
-  }
-
-  function handleMouseMove(event) {
-    if (!isDragging || outerRef.current == null) return
-    const { clientX } = event
-
-    // get container rect
-    const { left, width } = outerRef.current.getBoundingClientRect()
-    const newSliderPos = (clientX - left) / width * 100
-
-    // constrain to 10% from either side
-    const constrainedSliderPos = Math.max(20, Math.min(80, newSliderPos))
-    setSliderPos(constrainedSliderPos) // 0-100
-  }
-
-  // attach global mouse events when dragging
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    } else {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
-  
-  return { isDragging, sliderPos, startDrag: handleMouseDown }
-}
-
-const SLIDER_WIDTH = 5
-
 export default function App() {
   const outerRef = useRef(null)
   const editorRef = useRef(null)
   const [ key, setKey ] = useState(0)
   const [ code, setCode ] = useState(DEFAULT_CODE)
-  const { isDragging, sliderPos, startDrag } = useDragResize(outerRef)
+  const [ zoom, setZoom ] = useState(40)
+  const [ shift, setShift ] = useState([40, 50])
 
   // update code and render
   function handleCode(code) {
@@ -115,24 +69,58 @@ export default function App() {
     setKey(key + 1)
   }
 
-  // Calculate actual widths accounting for the divider
-  const sliderWidth = `${SLIDER_WIDTH}px`
-  const leftWidth = `calc(${sliderPos}% - ${SLIDER_WIDTH * (sliderPos / 100)}px)`;
-  const rightWidth = `calc(${100 - sliderPos}% - ${SLIDER_WIDTH * ((100 - sliderPos) / 100)}px)`;
-  console.log(sliderWidth, leftWidth, rightWidth)
+  // handle scroll zoom
+  function handleZoom(event) {
+    const { target, deltaY } = event
+    if (target != outerRef.current) return
+    const factor = deltaY < 0 ? 1.2 : 0.8
+    const newZoom = Math.max(10, Math.min(100, zoom * factor))
+    setZoom(newZoom)
+  }
+
+  // hook in keyboard handler
+  useEffect(() => {
+    function handleKeyDown(event) {
+      const { key } = event
+      if (key == 'ArrowLeft') {
+        setShift(([ x, y ]) => [ x + 5, y ])
+      } else if (key == 'ArrowRight') {
+        setShift(([ x, y ]) => [ x - 5, y ])
+      } else if (key == 'ArrowUp') {
+        setShift(([ x, y ]) => [ x, y + 5 ])
+      } else if (key == 'ArrowDown') {
+        setShift(([ x, y ]) => [ x, y - 5 ])
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const editorStyle = {
+    right: '20px',
+    top: '20px',
+    width: '30%',
+    height: '40%',
+  }
+
+  const [ x, y ] = shift
+  const canvasStyle = {
+    top: `${y}%`,
+    left: `${x}%`,
+    width: `${zoom}%`,
+    height: `${zoom}%`,
+    transform: `translate(-50%, -50%)`,
+  }
 
   // render full screen
-  return <div ref={outerRef} className="w-screen h-screen flex flex-row">
-    <div className="h-full" style={{ width: leftWidth }}>
-      <div className="flex w-full h-full">
-        <CodeEditor editorRef={editorRef} code={code} setCode={handleCode} />
-      </div>
-    </div>
-    <div className={`h-full border-l border-r border-gray-200 bg-gray-100 hover:cursor-col-resize ${isDragging ? 'cursor-col-resize' : ''}`} style={{ width: sliderWidth }} onMouseDown={startDrag} />
-    <div className="p-4 pointer-events-none select-none" style={{ width: rightWidth }}>
+  return <div ref={outerRef} className="w-screen h-screen" onWheel={handleZoom}>
+    <div className="absolute pointer-events-none select-none" style={canvasStyle}>
       <ErrorBoundary key={key}>
         <DynamicJSX code={code} />
       </ErrorBoundary>
+    </div>
+    <div className="absolute flex border rounded-md border-gray-500 bg-white scrollbar-none" style={editorStyle}>
+      <CodeEditor editorRef={editorRef} className="h-full" code={code} setCode={handleCode} />
     </div>
   </div>
 }
