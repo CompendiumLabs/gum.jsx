@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { evaluateGum } from './Eval'
 import { CodeEditor } from './Editor'
+import { ErrorCatcher } from './Error'
 
 import './App.css'
 import './fonts.css'
@@ -15,9 +16,7 @@ const DEFAULT_CODE = `<Svg>
   <Frame padding={0.1} margin={0.1} border={1} border-radius={5}>
     <HStack>
       <VStack size={1/3}>
-        <Frame padding={0.1} border={1} border-radius={3} border-fill="#aaa4">
-          <Text>Hello!</Text>
-        </Frame>
+        <TextBox fill={gray} border-radius={3}>Hello!</TextBox>
         <Circle fill={red} />
       </VStack>
       <Ellipse fill={blue} />
@@ -35,13 +34,7 @@ export default function App() {
   const [ code, setCode ] = useState(DEFAULT_CODE)
   const [ element, setElement ] = useState(null)
   const [ error, setError ] = useState(null)
-  const [ zoom, setZoom ] = useState(70)
-
-  // update code and render
-  function handleCode(code) {
-    setCode(code)
-    setKey(key + 1)
-  }
+  const [ zoom, setZoom ] = useState(60)
 
   // handle scroll zoom
   function handleZoom(event) {
@@ -52,6 +45,17 @@ export default function App() {
     setZoom(newZoom)
   }
 
+  // handle code updates
+  function handleCode(c) {
+    setCode(c)
+    setKey(key + 1)
+  }
+
+  // intercept wildcat errors
+  function handleError(error, errorInfo) {
+    setError(error.message + '\n' + errorInfo.componentStack)
+  }
+
   // eval code for element render
   useEffect(() => {
     const [ newElement, newError ] = evaluateGum(code)
@@ -60,7 +64,7 @@ export default function App() {
   }, [ code ])
 
   // set width directly using style
-  const style = {
+  const canvasStyle = {
     width: `${zoom}%`,
     height: `${zoom}%`,
   }
@@ -77,7 +81,7 @@ export default function App() {
             <div className="w-full border-b border-gray-500 p-2 font-mono smallcaps">
               Status — {error ? <span className="text-red-500">Error</span> : "Success"}
             </div>
-            <div className="w-full p-2">
+            <div className="w-full p-2 overflow-auto">
               {error && <div className="whitespace-pre-wrap font-mono text-sm">{error}</div>}
             </div>
           </div>
@@ -85,8 +89,10 @@ export default function App() {
       </div>
       <div ref={canvasRef} className="w-full flex-1">
         <div className="relative w-full h-full flex border rounded-md border-gray-500 bg-white pointer-events-none select-none">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" style={style}>
-            {element}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" style={canvasStyle}>
+            <ErrorCatcher key={key} onError={handleError}>
+              {element}
+            </ErrorCatcher>
           </div>
         </div>
       </div>

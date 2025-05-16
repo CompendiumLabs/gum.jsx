@@ -318,7 +318,7 @@ function outerRect(rects) {
 function outerLim(limits) {
   if (limits.length === 0) return null
   const [ lo, hi ] = zip(...limits)
-  return [ min(lo), max(hi) ]
+  return [ min(...lo), max(...hi) ]
 }
 
 //

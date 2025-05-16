@@ -1,6 +1,6 @@
 // code evaluation
 
-import React, { useMemo } from 'react'
+import React, { memo, useMemo } from 'react'
 import * as Babel from '@babel/standalone'
 
 import Gum from './gum'
@@ -37,7 +37,6 @@ const VALS = [...MATH_VALS, ...UTIL_VALS, ...GUM_VALS]
 //
 
 function evaluateGum(code) {
-  // memoize the element
   try {
     // wrap code in a function if it's not an element
     const isElement = code.trim().startsWith('<')
@@ -53,10 +52,10 @@ function evaluateGum(code) {
     const element = executeFunction(React, ...VALS)
 
     // set the element
-    return [ element, null ]
+    return [element, null]
   } catch (error) {
-    const { message } = error
-    return [ null, message ]
+    // throw the error so it can be caught by the ErrorCatcher
+    return [ null, error.message ]
   }
 }
 
