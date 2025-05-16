@@ -1,6 +1,6 @@
 // code evaluation
 
-import React, { useEffect, useState } from 'react'
+import React, { useMemo } from 'react'
 import * as Babel from '@babel/standalone'
 
 import Gum from './gum'
@@ -36,47 +36,32 @@ const VALS = [...MATH_VALS, ...UTIL_VALS, ...GUM_VALS]
 // dynamic jsx
 //
 
-function DynamicJSX({ code }) {
-  const [element, setElement] = useState(null)
-  const [error, setError] = useState(null)
-
+function evaluateGum(code) {
   // memoize the element
-  useEffect(() => {
-    try {
-      // reset the error
-      setError(null)
+  try {
+    // wrap code in a function if it's not an element
+    const isElement = code.trim().startsWith('<')
+    const wrappedCode = isElement ? code : `function run() { ${code} }`
 
-      // wrap code in a function if it's not an element
-      const isElement = code.trim().startsWith('<')
-      const wrappedCode = isElement ? code : `function run() { ${code} }`
+    // transform JSX to JavaScript
+    const presets = ['react']
+    const { code: transformedCode } = Babel.transform(wrappedCode, { presets })
 
-      // transform JSX to JavaScript
-      const presets = ['react']
-      const { code: transformedCode } = Babel.transform(wrappedCode, { presets })
+    // create a function that returns the React element
+    const functionBody = `return ${transformedCode}`
+    const executeFunction = new Function('React', ...KEYS, functionBody)
+    const element = executeFunction(React, ...VALS)
 
-      // create a function that returns the React element
-      const functionBody = `return ${transformedCode}`
-      const executeFunction = new Function('React', ...KEYS, functionBody)
-      const element = executeFunction(React, ...VALS)
-
-      // set the element
-      setElement(element)
-    } catch (error) {
-      setError(error.message)
-    }
-  }, [code])
-
-  // error short circuit
-  if (error) {
-    return <div className="text-red-500 whitespace-pre-wrap font-mono">{error}</div>
+    // set the element
+    return [ element, null ]
+  } catch (error) {
+    const { message } = error
+    return [ null, message ]
   }
-
-  // return the element
-  return element ?? null
 }
 
 //
 // export
 //
 
-export { DynamicJSX }
+export { evaluateGum }

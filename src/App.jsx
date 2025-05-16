@@ -3,8 +3,7 @@ import './App.css'
 import { useRef, useState, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
-import ErrorBoundary from './Error'
-import { DynamicJSX } from './Eval'
+import { evaluateGum } from './Eval'
 
 import './fonts.css'
 
@@ -59,9 +58,11 @@ export default function App() {
   const outerRef = useRef(null)
   const editorRef = useRef(null)
   const [ key, setKey ] = useState(0)
+
   const [ code, setCode ] = useState(DEFAULT_CODE)
+  const [ element, setElement ] = useState(null)
+  const [ error, setError ] = useState(null)
   const [ zoom, setZoom ] = useState(40)
-  const [ shift, setShift ] = useState([40, 50])
 
   // update code and render
   function handleCode(code) {
@@ -78,49 +79,31 @@ export default function App() {
     setZoom(newZoom)
   }
 
-  // hook in keyboard handler
+  // eval code for element render
   useEffect(() => {
-    function handleKeyDown(event) {
-      const { key } = event
-      if (key == 'ArrowLeft') {
-        setShift(([ x, y ]) => [ x + 5, y ])
-      } else if (key == 'ArrowRight') {
-        setShift(([ x, y ]) => [ x - 5, y ])
-      } else if (key == 'ArrowUp') {
-        setShift(([ x, y ]) => [ x, y + 5 ])
-      } else if (key == 'ArrowDown') {
-        setShift(([ x, y ]) => [ x, y - 5 ])
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  const editorStyle = {
-    right: '20px',
-    top: '20px',
-    width: '30%',
-    height: '40%',
-  }
-
-  const [ x, y ] = shift
-  const canvasStyle = {
-    top: `${y}%`,
-    left: `${x}%`,
-    width: `${zoom}%`,
-    height: `${zoom}%`,
-    transform: `translate(-50%, -50%)`,
-  }
+    const [ newElement, newError ] = evaluateGum(code)
+    if (newElement) setElement(newElement)
+    setError(newError)
+  }, [ code ])
 
   // render full screen
-  return <div ref={outerRef} className="w-screen h-screen" onWheel={handleZoom}>
-    <div className="absolute pointer-events-none select-none" style={canvasStyle}>
-      <ErrorBoundary key={key}>
-        <DynamicJSX code={code} />
-      </ErrorBoundary>
-    </div>
-    <div className="absolute flex border rounded-md border-gray-500 bg-white scrollbar-none" style={editorStyle}>
-      <CodeEditor editorRef={editorRef} className="h-full" code={code} setCode={handleCode} />
+  return <div ref={outerRef} className="w-screen h-screen p-5 bg-gray-100" onWheel={handleZoom}>
+    <div className="w-full h-full flex flex-col gap-5">
+      <div className="w-full h-[30%] flex flex-row gap-5">
+        <div className="w-[50%] h-full flex border rounded-md border-gray-500">
+          <CodeEditor editorRef={editorRef} className="h-full" code={code} setCode={handleCode} />
+        </div>
+        <div className="w-[50%] h-full flex border rounded-md border-gray-500 bg-white">
+          <div className="w-full h-full p-5">
+            {error && <div className="text-red-500 whitespace-pre-wrap font-mono">{error}</div>}
+          </div>
+        </div>
+      </div>
+      <div className="w-full h-[70%]">
+        <div className="w-full h-full flex border rounded-md border-gray-500 bg-white pointer-events-none select-none">
+          {element}
+        </div>
+      </div>
     </div>
   </div>
 }
