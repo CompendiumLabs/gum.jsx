@@ -11,7 +11,7 @@ import {
 } from './utils'
 
 //
-// child processing
+// react processing
 //
 
 // for processing children react style
@@ -30,10 +30,46 @@ function extractProperty(children, prop) {
   })
 }
 
+// get the outer aspect ratio of a group of children
+function outerAspect(children, ratios) {
+  const rects = mapChildren(children, (child, index) => {
+    const aspect = ratios[index]
+    const { rect: crect = DEFAULT_RECT } = child.props
+    return rectMap(DEFAULT_RECT, crect, { aspect })
+  }).filter(notNull)
+  if (rects.length == 0) return null
+  const outer = outerRect(rects)
+  return rectAspect(outer)
+}
+
+// track html parent element size
+function useElementSize() {
+  const elementRef = useRef(null)
+  const [ size, setSize ] = useState(null)
+  useLayoutEffect(() => {
+    if (elementRef.current == null) return
+
+    function updateSize() {
+      const { width, height } = elementRef.current.getBoundingClientRect()
+      setSize([ width, height ])
+    }
+
+    // listen for size changes
+    updateSize()
+    const resizeObserver = new ResizeObserver(updateSize)
+
+    // hook up resize observer
+    resizeObserver.observe(elementRef.current)
+    return () => resizeObserver.disconnect()
+  }, [])
+  return [ elementRef, size ]
+}
+
 //
 // container context
 //
 
+// this allows setting values by index but exposes a normal array
 function useMappedArray(length) {
   const [mapped, setMapped] = useState(new Map())
   const setValue = (i, v) => setMapped(prev => {
@@ -47,7 +83,7 @@ function useMappedArray(length) {
   return [values, setValue]
 }
 
-// context for children to report values
+// context for children to report values to parent
 const MappedValuesContext = createContext()
 function MappedValuesProvider({ children, setValue }) {
   // make a registry for child values
@@ -79,18 +115,6 @@ function useValueContext(id, value) {
   return [ prev.current, setValue ]
 }
 
-// array accessor for mapped values
-// used by proxies to observe child values
-/*
-function useMappedArray(length) {
-  const [ values, setValues ] = useState(new Map())
-  const items = useMemo(() => {
-    return range(length).map(i => values.get(i))
-  }, [length, values])
-  return [ items, setValues ]
-}
-*/
-
 //
 // core components
 //
@@ -109,15 +133,15 @@ function useMappedArray(length) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
-function Group({ id, rect, children, aspect, updateRatio, tag = 'g', coords = DEFAULT_COORDS, ...props }) {
+function Group({ id, rect, children, aspect, updateChildRatio, tag = 'g', coords = DEFAULT_COORDS, ...props }) {
   // report aspect and track child ratios
   const nchildren = Children.count(children)
-  const [ratios, setRatio] = useMappedArray(nchildren)
+  const [childRatios, setChildRatios] = useMappedArray(nchildren)
 
   // update ratios
   const handleRatio = (i, r) => {
-    setRatio(i, r)
-    updateRatio?.(i, r)
+    setChildRatios(i, r)
+    updateChildRatio?.(i, r)
   }
 
   // render group element
@@ -125,56 +149,22 @@ function Group({ id, rect, children, aspect, updateRatio, tag = 'g', coords = DE
   return <Tag {...props}>
     <MappedValuesProvider setValue={handleRatio}>
       {mapChildren(children, (child, index) => {
-        const aspect = ratios[index]
+        const caspect = childRatios[index]
         const { rect: crect = DEFAULT_RECT } = child.props
-        const rect1 = rectMap(rect, crect, { aspect, coords })
+        const rect1 = rectMap(rect, crect, { aspect: caspect, coords })
         return cloneElement(child, { id: index, rect: rect1 })
       })}
     </MappedValuesProvider>
   </Tag>
 }
 
-// get the outer aspect ratio of a group of children
-function outerAspect(children, ratios) {
-  const rects = mapChildren(children, (child, index) => {
-    const aspect = ratios[index]
-    const { rect: crect = DEFAULT_RECT } = child.props
-    return rectMap(DEFAULT_RECT, crect, { aspect })
-  }).filter(notNull)
-  if (rects.length == 0) return null
-  const outer = outerRect(rects)
-  return rectAspect(outer)
-}
-
-function useElementSize() {
-  const elementRef = useRef(null)
-  const [ size, setSize ] = useState(null)
-  useLayoutEffect(() => {
-    if (elementRef.current == null) return
-
-    function updateSize() {
-      const { width, height } = elementRef.current.getBoundingClientRect()
-      setSize([ width, height ])
-    }
-
-    // listen for size changes
-    updateSize()
-    const resizeObserver = new ResizeObserver(updateSize)
-
-    // hook up resize observer
-    resizeObserver.observe(elementRef.current)
-    return () => resizeObserver.disconnect()
-  }, [])
-  return [ elementRef, size ]
-}
-
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
-  const [ ratios, setRatio ] = useMappedArray(nchildren)
+  const [ childRatios, setChildRatio ] = useMappedArray(nchildren)
   const [ parentRef, parentSize ] = useElementSize()
 
   // compute aspect from child ratios
-  const aspect = outerAspect(children, ratios)
+  const aspect = outerAspect(children, childRatios)
 
   // get aspect adjusted size
   if (isNumber(size)) {
@@ -195,7 +185,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   // render svg element
   return <div ref={parentRef} className="w-full h-full flex justify-center items-center">
-    <Group tag="svg" rect={rect} updateRatio={setRatio} width={w} height={h} {...DEFAULT_PROP} {...props}>
+    <Group tag="svg" rect={rect} updateChildRatio={setChildRatio} width={w} height={h} {...DEFAULT_PROP} {...props}>
       {children}
     </Group>
   </div>
@@ -227,7 +217,7 @@ function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
 
 function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
-  const [ ratios, setRatio ] = useMappedArray(1 + nchildren)
+  const [ childRatios, setChildRatio ] = useMappedArray(1 + nchildren)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
   const [ padding1, setPadding ] = useState(null)
   const [ margin1, setMargin ] = useState(null)
@@ -237,11 +227,11 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
-    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(aspect, ratios, padding, margin, adjust)
+    const [ newAspect, newPadding, newMargin ] = computeFrameLayout(aspect, childRatios, padding, margin, adjust)
     setAspect(newAspect)
     setPadding(newPadding)
     setMargin(newMargin)
-  }, [aspect, ratios, padding, margin, adjust])
+  }, [aspect, childRatios, padding, margin, adjust])
 
   // bail if layout not ready
   if (padding1 == null || margin1 == null) return null
@@ -251,7 +241,7 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   const coordsInner = rectExpand(coords, padding1)
 
   // render frame element
-  return <Group rect={rect} coords={coordsOuter} updateRatio={setRatio} {...props1}>
+  return <Group rect={rect} coords={coordsOuter} updateChildRatio={setChildRatio} {...props1}>
     { border > 0 && <Rect rect={coordsInner} strokeWidth={border} {...borderProps} /> }
     {children}
   </Group>
@@ -321,17 +311,17 @@ function computeStackLayout(direction, children, ratios) {
 // TODO: compute aspect from children when possible
 function Stack({ id, rect, children, aspect, direction = "vertical", ...props }) {
   const nchildren = Children.count(children)
+  const [ childRatios, setChildRatio ] = useMappedArray(nchildren)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
-  const [ ratios, setRatio ] = useMappedArray(nchildren)
   const [ sizes, setSizes ] = useState(null)
 
   // compute aspect and sizes
   useLayoutEffect(() => {
     if (aspect != null) return
-    const [ newSizes, newAspect ] = computeStackLayout(direction, children, ratios)
+    const [ newSizes, newAspect ] = computeStackLayout(direction, children, childRatios)
     setAspect(newAspect)
     setSizes(newSizes)
-  }, [aspect, children, ratios])
+  }, [aspect, children, childRatios])
 
   // bail if layout not ready
   if (sizes == null) return null
@@ -340,7 +330,7 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
   const bound = cumsum(sizes)
 
   // render elements
-  return <Group rect={rect} updateRatio={setRatio} {...props}>
+  return <Group rect={rect} updateChildRatio={setChildRatio} {...props}>
     {mapChildren(children, (child, index) => {
       const [ lo, hi ] = [ bound[index], bound[index + 1] ]
       const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
