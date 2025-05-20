@@ -78,7 +78,7 @@ export default function App() {
         </div>
         <div className="w-[45%] h-full flex">
           <div className="w-full h-full flex flex-col">
-            <div className="w-full flex flex-row">
+            <div className="w-full flex flex-row cursor-default select-none">
               <div className="flex-1 p-2 border border-b-0 border-gray-500 rounded-t-md font-mono smallcaps bg-white">
                 Status — { error ? <span className="text-red-500">Error</span> : <span className="text-green-700">Success</span> }
               </div>

@@ -11,7 +11,7 @@ import {
 } from './utils'
 
 //
-// react tools
+// child processing
 //
 
 // for processing children react style
@@ -30,51 +30,34 @@ function extractProperty(children, prop) {
   })
 }
 
-// registry for mapped values
-function useRegistry(setValues) {
-  return useMemo(() => ({
-    register(id, value) {
-      setValues(prev => {
-        const next = new Map(prev)
-        next.set(id, value)
-        return next
-      })
-    },
-    unregister(id) {
-      setValues(prev => {
-        const next = new Map(prev)
-        next.delete(id)
-        return next
-      })
-    }
-  }), [])
-}
+//
+// container context
+//
 
-// for use with container components
-function useMappedValues(children) {
-  const [values, setValues] = useState(new Map())
-
-  // wrap children with ids
-  const wrapped = useMemo(() => {
-    return mapChildren(children, (child, i) => (
-      cloneElement(child, { id: i })
-    ))
-  }, [children])
-
-  // create a map of values
-  const items = useMemo(() => {
-    return mapChildren(wrapped, (child, i) => values.get(i))
-  }, [wrapped, values])
-
-  // return all objects
-  return [wrapped, items, setValues]
+function useMappedArray(length) {
+  const [mapped, setMapped] = useState(new Map())
+  const setValue = (i, v) => setMapped(prev => {
+    const next = new Map(prev)
+    next.set(i, v)
+    return next
+  })
+  const values = useMemo(() => {
+    return range(length).map(i => mapped.get(i))
+  }, [length, mapped])
+  return [values, setValue]
 }
 
 // context for children to report values
 const MappedValuesContext = createContext()
-function MappedValuesProvider({ children, setValues }) {
-  const registry = useRegistry(setValues)
-  return <MappedValuesContext.Provider value={registry}>
+function MappedValuesProvider({ children, setValue }) {
+  // make a registry for child values
+  const ctx = useMemo(() => ({
+    register: (id, value) => setValue(id, value),
+    unregister: (id) => setValue(id, null)
+  }), [])
+
+  // provide context
+  return <MappedValuesContext.Provider value={ctx}>
     {children}
   </MappedValuesContext.Provider>
 }
@@ -98,6 +81,7 @@ function useValueContext(id, value) {
 
 // array accessor for mapped values
 // used by proxies to observe child values
+/*
 function useMappedArray(length) {
   const [ values, setValues ] = useState(new Map())
   const items = useMemo(() => {
@@ -105,6 +89,7 @@ function useMappedArray(length) {
   }, [length, values])
   return [ items, setValues ]
 }
+*/
 
 //
 // core components
@@ -124,14 +109,29 @@ function useMappedArray(length) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
-// embed children into their rects with desired aspects
-function embedChildren(children, ratios, rect, coords) {
-  return mapChildren(children, (child, index) => {
-    const aspect = ratios[index]
-    const { rect: crect = DEFAULT_RECT } = child.props
-    const rect1 = rectMap(rect, crect, { aspect, coords })
-    return cloneElement(child, { rect: rect1 })
-  })
+function Group({ id, rect, children, aspect, updateRatio, tag = 'g', coords = DEFAULT_COORDS, ...props }) {
+  // report aspect and track child ratios
+  const nchildren = Children.count(children)
+  const [ratios, setRatio] = useMappedArray(nchildren)
+
+  // update ratios
+  const handleRatio = (i, r) => {
+    setRatio(i, r)
+    updateRatio?.(i, r)
+  }
+
+  // render group element
+  const Tag = tag
+  return <Tag {...props}>
+    <MappedValuesProvider setValue={handleRatio}>
+      {mapChildren(children, (child, index) => {
+        const aspect = ratios[index]
+        const { rect: crect = DEFAULT_RECT } = child.props
+        const rect1 = rectMap(rect, crect, { aspect, coords })
+        return cloneElement(child, { id: index, rect: rect1 })
+      })}
+    </MappedValuesProvider>
+  </Tag>
 }
 
 // get the outer aspect ratio of a group of children
@@ -146,47 +146,32 @@ function outerAspect(children, ratios) {
   return rectAspect(outer)
 }
 
-function Group({ id, rect, children, aspect, updateRatios, tag = 'g', coords = DEFAULT_COORDS, ...props }) {
-  const [ wrapped, ratios, setRatios ] = useMappedValues(children)
-  useValueContext(id, aspect)
-
-  const handleRatios = (ratios) => {
-    setRatios(ratios)
-    if (updateRatios != null) updateRatios(ratios)
-  }
-
-  // render group element
-  const Tag = tag
-  return <Tag {...props}>
-    <MappedValuesProvider setValues={handleRatios}>
-      {embedChildren(wrapped, ratios, rect, coords)}
-    </MappedValuesProvider>
-  </Tag>
-}
-
-function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
-  const nchildren = Children.count(children)
-  const [ ratios, setRatios ] = useMappedArray(nchildren)
-  const [ parentSize, setParentSize ] = useState(null)
-
-  // parent size detection
-  const parentRef = useRef(null)
+function useElementSize() {
+  const elementRef = useRef(null)
+  const [ size, setSize ] = useState(null)
   useLayoutEffect(() => {
-    if (parentRef.current == null) return
+    if (elementRef.current == null) return
 
     function updateSize() {
-      const { width, height } = parentRef.current.getBoundingClientRect()
-      setParentSize([ width, height ])
+      const { width, height } = elementRef.current.getBoundingClientRect()
+      setSize([ width, height ])
     }
 
-    // listen for parent size changes
+    // listen for size changes
     updateSize()
     const resizeObserver = new ResizeObserver(updateSize)
 
     // hook up resize observer
-    resizeObserver.observe(parentRef.current)
+    resizeObserver.observe(elementRef.current)
     return () => resizeObserver.disconnect()
   }, [])
+  return [ elementRef, size ]
+}
+
+function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
+  const nchildren = Children.count(children)
+  const [ ratios, setRatio ] = useMappedArray(nchildren)
+  const [ parentRef, parentSize ] = useElementSize()
 
   // compute aspect from child ratios
   const aspect = outerAspect(children, ratios)
@@ -210,7 +195,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   // render svg element
   return <div ref={parentRef} className="w-full h-full flex justify-center items-center">
-    <Group tag="svg" rect={rect} updateRatios={setRatios} width={w} height={h} {...DEFAULT_PROP} {...props}>
+    <Group tag="svg" rect={rect} updateRatio={setRatio} width={w} height={h} {...DEFAULT_PROP} {...props}>
       {children}
     </Group>
   </div>
@@ -242,7 +227,7 @@ function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
 
 function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
-  const [ ratios, setRatios ] = useMappedArray(1 + nchildren)
+  const [ ratios, setRatio ] = useMappedArray(1 + nchildren)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
   const [ padding1, setPadding ] = useState(null)
   const [ margin1, setMargin ] = useState(null)
@@ -266,7 +251,7 @@ function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0
   const coordsInner = rectExpand(coords, padding1)
 
   // render frame element
-  return <Group rect={rect} coords={coordsOuter} updateRatios={setRatios} {...props1}>
+  return <Group rect={rect} coords={coordsOuter} updateRatio={setRatio} {...props1}>
     { border > 0 && <Rect rect={coordsInner} strokeWidth={border} {...borderProps} /> }
     {children}
   </Group>
@@ -337,7 +322,7 @@ function computeStackLayout(direction, children, ratios) {
 function Stack({ id, rect, children, aspect, direction = "vertical", ...props }) {
   const nchildren = Children.count(children)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
-  const [ ratios, setRatios ] = useMappedArray(nchildren)
+  const [ ratios, setRatio ] = useMappedArray(nchildren)
   const [ sizes, setSizes ] = useState(null)
 
   // compute aspect and sizes
@@ -355,7 +340,7 @@ function Stack({ id, rect, children, aspect, direction = "vertical", ...props })
   const bound = cumsum(sizes)
 
   // render elements
-  return <Group rect={rect} updateRatios={setRatios} {...props}>
+  return <Group rect={rect} updateRatio={setRatio} {...props}>
     {mapChildren(children, (child, index) => {
       const [ lo, hi ] = [ bound[index], bound[index + 1] ]
       const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
