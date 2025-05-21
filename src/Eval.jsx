@@ -1,6 +1,6 @@
 // code evaluation
 
-import React, { memo, useMemo } from 'react'
+import React from 'react'
 import * as Babel from '@babel/standalone'
 
 import Gum from './gum'
@@ -51,10 +51,12 @@ function evaluateGum(code) {
     const executeFunction = new Function('React', ...KEYS, functionBody)
     const element = executeFunction(React, ...VALS)
 
+    // if its a function, run it now
+    if (Utils.isFunction(element)) element = element()
+
     // set the element
     return [element, null]
   } catch (error) {
-    // throw the error so it can be caught by the ErrorCatcher
     return [ null, error.message ]
   }
 }
