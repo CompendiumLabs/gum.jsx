@@ -234,6 +234,67 @@ function embedAspect(rect, aspect) {
   return radialRect([ cx, cy, rx, ry ])
 }
 
+function rectShrink(rect, factor) {
+  const [ x1, y1, x2, y2 ] = broadcastSize(factor)
+  const frect = add(DEFAULT_RECT, [ x1, y1, -x2, -y2 ])
+  return rectMap(rect, frect)
+}
+
+function rectExpand(rect, factor) {
+  const [ x1, y1, x2, y2 ] = broadcastSize(factor)
+  const frect = add(DEFAULT_RECT, [ -x1, -y1, x2, y2 ])
+  return rectMap(rect, frect)
+}
+
+function outerRect(rects) {
+  if (rects.length === 0) return null
+  return rects.reduce(
+    ([ xa1, ya1, xa2, ya2 ], [ xb1, yb1, xb2, yb2 ]) => [
+      min(xa1, xb1), min(ya1, yb1), max(xa2, xb2), max(ya2, yb2)
+    ]
+  )
+}
+
+//
+// limits
+//
+
+function outerLim(limits) {
+  if (limits.length === 0) return null
+  const [ lo, hi ] = zip(...limits)
+  return [ min(...lo), max(...hi) ]
+}
+
+//
+// sizes
+//
+
+function broadcastSize(size) {
+  if (isNumber(size)) {
+    return [ size, size, size, size ]
+  } else if (isArray(size)) {
+    if (size.length == 2) {
+      const [ w, h ] = size
+      return [ w, h, w, h ]
+    } else if (size.length == 4) {
+      return size
+    }
+  }
+  throw new Error(`Invalid size specification: ${size}`)
+}
+
+//
+// directions
+//
+
+function invertDirection(direction) {
+  return direction == "horizontal" ? "vertical" : "horizontal"
+}
+
+//
+// coordinate maps
+//
+
 function rectMap(prect, crect, args = {}) {
   const { aspect = null, coords = DEFAULT_COORDS } = args
   const [ px, py, pw, ph ] = rectBox(prect)
@@ -278,47 +339,6 @@ function positionMap(direction, prect, cpos, args = {}) {
         [ px, pw, cx, cw ] : [ py, ph, cy, ch ]
   const f = (cpos - cz) / cs
   return pz + f * ps
-}
-
-function broadcastSize(size) {
-  if (isNumber(size)) {
-    return [ size, size, size, size ]
-  } else if (isArray(size)) {
-    if (size.length == 2) {
-      const [ w, h ] = size
-      return [ w, h, w, h ]
-    } else if (size.length == 4) {
-      return size
-    }
-  }
-  throw new Error(`Invalid size specification: ${size}`)
-}
-
-function rectShrink(rect, factor) {
-  const [ x1, y1, x2, y2 ] = broadcastSize(factor)
-  const frect = add(DEFAULT_RECT, [ x1, y1, -x2, -y2 ])
-  return rectMap(rect, frect)
-}
-
-function rectExpand(rect, factor) {
-  const [ x1, y1, x2, y2 ] = broadcastSize(factor)
-  const frect = add(DEFAULT_RECT, [ -x1, -y1, x2, y2 ])
-  return rectMap(rect, frect)
-}
-
-function outerRect(rects) {
-  if (rects.length === 0) return null
-  return rects.reduce(
-    ([ xa1, ya1, xa2, ya2 ], [ xb1, yb1, xb2, yb2 ]) => [
-      min(xa1, xb1), min(ya1, yb1), max(xa2, xb2), max(ya2, yb2)
-    ]
-  )
-}
-
-function outerLim(limits) {
-  if (limits.length === 0) return null
-  const [ lo, hi ] = zip(...limits)
-  return [ min(...lo), max(...hi) ]
 }
 
 //
@@ -386,5 +406,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectMap, limitMap, positionMap,  broadcastSize, rectShrink, rectExpand, pointMap, outerRect, outerLim, rectAspect, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, palette
 }

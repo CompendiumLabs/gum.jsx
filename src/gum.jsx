@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, rectAspect, broadcastSize, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -28,18 +28,6 @@ function extractProperty(children, prop) {
     if (!isValidElement(child)) return null
     return child.props[prop]
   })
-}
-
-// get the outer aspect ratio of a group of children
-function outerAspect(children, ratios) {
-  const rects = mapChildren(children, (child, index) => {
-    const aspect = ratios[index]
-    const { rect: crect = DEFAULT_RECT } = child.props
-    return rectMap(DEFAULT_RECT, crect, { aspect })
-  }).filter(notNull)
-  if (rects.length == 0) return null
-  const outer = outerRect(rects)
-  return rectAspect(outer)
 }
 
 // track html parent element size
@@ -133,10 +121,11 @@ function useValueContext(id, value) {
 // rect: final rect [ x1, y1, x2, y2 ]
 // aspect: final aspect ratio (w / h)
 
-function Group({ id, rect, children, aspect, updateChildRatio, tag = 'g', coords = DEFAULT_COORDS, ...props }) {
+function Group({ children, updateChildRatio, tag = 'g', id, rect, aspect, coords, ...props }) {
   // report aspect and track child ratios
   const nchildren = Children.count(children)
   const [childRatios, setChildRatios] = useMappedArray(nchildren)
+  const [ aspect1, setAspect ] = useValueContext(id, aspect)
 
   // update ratios
   const handleRatio = (i, r) => {
@@ -156,6 +145,18 @@ function Group({ id, rect, children, aspect, updateChildRatio, tag = 'g', coords
       })}
     </MappedValuesProvider>
   </Tag>
+}
+
+// get the outer aspect ratio of a group of children
+function outerAspect(children, ratios) {
+  const rects = mapChildren(children, (child, index) => {
+    const aspect = ratios[index]
+    const { rect: crect = DEFAULT_RECT } = child.props
+    return rectMap(DEFAULT_RECT, crect, { aspect })
+  }).filter(notNull)
+  if (rects.length == 0) return null
+  const outer = outerRect(rects)
+  return rectAspect(outer)
 }
 
 function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
@@ -215,7 +216,7 @@ function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
   return [ aspect1, padding1, margin1 ]
 }
 
-function Frame({ id, rect, children, aspect, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, ...props }) {
+function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, id, rect, aspect, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(1 + nchildren)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
@@ -309,7 +310,7 @@ function computeStackLayout(direction, children, ratios) {
 
 // control sizing with { size: number } property
 // TODO: compute aspect from children when possible
-function Stack({ id, rect, children, aspect, direction = "vertical", ...props }) {
+function Stack({ children, direction = "vertical", id, rect, aspect, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(nchildren)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
@@ -359,7 +360,7 @@ function Spacer({ id, rect, aspect }) {
 // basic shapes
 //
 
-function Rect({ id, rect, aspect, coords, radius, ...props }) {
+function Rect({ radius, id, rect, aspect, coords, ...props }) {
   useValueContext(id, aspect)
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
@@ -391,7 +392,7 @@ function Circle({ id, rect, aspect, coords, ...props }) {
 // lines
 //
 
-function Line({ id, rect, aspect, coords, p1, p2, ...props }) {
+function Line({ p1, p2, id, rect, aspect, coords, ...props }) {
   useValueContext(id, aspect)
   const [ x1, y1 ] = pointMap(rect, p1, { coords })
   const [ x2, y2 ] = pointMap(rect, p2, { coords })
@@ -405,21 +406,22 @@ function pointString(prect, coords, points) {
     .join(' ')
 }
 
-function Polyline({ id, rect, aspect, coords, points, ...props }) {
+function Polyline({ points, id, rect, aspect, coords, ...props }) {
   useValueContext(id, aspect)
   const pstring = pointString(rect, coords, points)
   return <polyline points={pstring} {...props} />
 }
 
-function Polygon({ id, rect, aspect, coords, points, ...props }) {
+function Polygon({ points, id, rect, aspect, coords, ...props }) {
   useValueContext(id, aspect)
   const pstring = pointString(rect, coords, points)
   return <polygon points={pstring} {...props} />
 }
 
-function UnitLine({ id, rect, aspect, coords, direction, pos = 0.5, lim = DEFAULT_LIM, ...props }) {
+function UnitLine({ direction, pos = 0.5, lim = DEFAULT_LIM, id, rect, aspect, coords, ...props }) {
   useValueContext(id, aspect)
-  const pz = positionMap(direction, rect, pos, { coords })
+  const posdir = invertDirection(direction)
+  const pz = positionMap(posdir, rect, pos, { coords })
   const [ plo, phi ] = limitMap(direction, rect, lim, { coords })
   const [ x1, y1, x2, y2 ] = direction == "horizontal" ?
         [ plo, pz, phi, pz ] : [ pz, plo, pz, phi ]
@@ -439,8 +441,8 @@ function VLine(props) {
 //
 
 function Text({
-  id, children, rect, color = "black", fontFamily = DEFAULT_FONT_FAMILY,
-  fontWeight = DEFAULT_FONT_WEIGHT, fontSize = DEFAULT_FONT_SIZE, ...props
+  color = "black", fontFamily = DEFAULT_FONT_FAMILY, fontWeight = DEFAULT_FONT_WEIGHT,
+  fontSize = DEFAULT_FONT_SIZE, id, children, rect, ...props
 }) {
   // get aspect ratio
   const aspect = calcTextAspect(children, { fontFamily, fontWeight })
@@ -499,16 +501,14 @@ function sympath({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAUL
   }
 }
 
-function Symline({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
-  useValueContext(id, aspect)
+function Symline({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
-  return <Polyline rect={rect} points={points} {...props} />
+  return <Polyline points={points} {...props} />
 }
 
-function Sympoly({ id, rect, aspect, fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
-  useValueContext(id, aspect)
+function Sympoly({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
-  return <Polygon rect={rect} points={points} {...props} />
+  return <Polygon points={points} {...props} />
 }
 
 //
@@ -539,9 +539,35 @@ function Graph({ id, children, aspect, xlim, ylim, coords, ...props}) {
 }
 
 //
+// axis components
+//
+
+function Ruler({ direction, lines, coords = DEFAULT_COORDS, ...props }) {
+  // handle evenly spaced lines
+  if (isNumber(lines)) {
+    const [ x1, y1, x2, y2 ] = coords
+    const [ lo, hi ] = direction == "horizontal" ? [ x1, x2 ] : [ y1, y2 ]
+    lines = linspace(lo, hi, lines)
+  }
+
+  // render line grid
+  return <Group coords={coords} {...props}>
+    {lines.map(pos => <UnitLine direction={direction} pos={pos} />)}
+  </Group>
+}
+
+function HRuler({ lines, ...props }) {
+  return <Ruler direction="vertical" lines={lines} {...props} />
+}
+
+function VRuler({ lines, ...props }) {
+  return <Ruler direction="horizontal" lines={lines} {...props} />
+}
+
+//
 // exports
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, Symline, Sympoly, Graph
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, Symline, Sympoly, HRuler, VRuler, Graph
 }
