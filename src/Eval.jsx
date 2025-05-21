@@ -53,7 +53,6 @@ function evaluateGum(code) {
 
     // if its a function, run it now
     const element = Utils.isFunction(result) ? result() : result
-    console.log('element', element)
 
     // check if there's a return value
     if (element == null) {

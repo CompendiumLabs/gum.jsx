@@ -47,12 +47,13 @@ function hexToRgba(hex) {
   return [ r, g, b, a / 255 ]
 }
 
-function palette(start, stop) {
+function palette(start, stop, clims = DEFAULT_LIM) {
   const start1 = hexToRgba(start)
   const stop1 = hexToRgba(stop)
   const m = sub(stop1, start1)
   function gradient(x) {
-    const [ r, g, b, a ] = add(start1, mul(m, x))
+    const x1 = rangeMap(DEFAULT_LIM, x, { clims })
+    const [ r, g, b, a ] = add(start1, mul(m, x1))
     return `rgba(${r}, ${g}, ${b}, ${a})`
   }
   return gradient
@@ -270,6 +271,11 @@ function outerLim(limits) {
   return [ min(...lo), max(...hi) ]
 }
 
+function getLimits(direction, rect) {
+  const [ x1, y1, x2, y2 ] = rect
+  return direction == "horizontal" ? [ x1, x2 ] : [ y1, y2 ]
+}
+
 //
 // sizes
 //
@@ -323,6 +329,15 @@ function pointMap(prect, cpoint, args = {}) {
   const [ cx0, cy0 ] = cpoint
   const [ fx, fy ] = [ (cx0 - cx) / cw, (cy0 - cy) / ch ]
   return [ px + fx * pw, py + fy * ph ]
+}
+
+function rangeMap(lims, val, args = {}) {
+  const { clims = DEFAULT_LIM } = args
+  const [ plo, phi ] = lims
+  const [ clo, chi ] = clims
+  const [ ps, cs ] = [ phi - plo, chi - clo ]
+  const fv = (val - clo) / cs
+  return plo + fv * ps
 }
 
 function limitMap(direction, prect, clims, args = {}) {
@@ -411,5 +426,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, repeat, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, none, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, repeat, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, getLimits, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, none, palette
 }

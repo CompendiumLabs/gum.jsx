@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, getLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -30,6 +30,21 @@ function extractProperty(children, prop) {
   })
 }
 
+// get the content dimensions of an element
+function getContentDimensions(element) {
+  const styles = getComputedStyle(element)
+  const paddingX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight)
+  const paddingY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom)
+  const borderX = parseFloat(styles.borderLeftWidth) + parseFloat(styles.borderRightWidth)
+  const borderY = parseFloat(styles.borderTopWidth) + parseFloat(styles.borderBottomWidth)
+
+  const { width, height } = element.getBoundingClientRect()
+  const contentWidth = width - paddingX - borderX
+  const contentHeight = height - paddingY - borderY
+
+  return [ contentWidth, contentHeight ]
+}
+
 // track html parent element size
 function useElementSize() {
   const elementRef = useRef(null)
@@ -38,7 +53,7 @@ function useElementSize() {
     if (elementRef.current == null) return
 
     function updateSize() {
-      const { width, height } = elementRef.current.getBoundingClientRect()
+      const [ width, height ] = getContentDimensions(elementRef.current)
       setSize([ width, height ])
     }
 
@@ -151,6 +166,7 @@ function Group({ children, updateChildRatio, tag = 'g', id, rect, aspect, coords
 function outerAspect(children, ratios) {
   const rects = mapChildren(children, (child, index) => {
     const aspect = ratios[index]
+    if (aspect == null) return null
     const { rect: crect = DEFAULT_RECT } = child.props
     return rectMap(DEFAULT_RECT, crect, { aspect })
   }).filter(notNull)
@@ -159,13 +175,17 @@ function outerAspect(children, ratios) {
   return rectAspect(outer)
 }
 
-function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props }) {
+function Svg({ children, size = DEFAULT_SIZE, padding = 1, coords = DEFAULT_COORDS, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(nchildren)
   const [ parentRef, parentSize ] = useElementSize()
 
-  // compute aspect from child ratios
-  const aspect = outerAspect(children, childRatios)
+  // compute aspect from child ratios and parent size
+  let aspect = outerAspect(children, childRatios)
+  if (aspect == null && parentSize != null) {
+    const [ parentWidth, parentHeight ] = parentSize
+    aspect = parentWidth / parentHeight
+  }
 
   // get aspect adjusted size
   if (isNumber(size)) {
@@ -182,7 +202,7 @@ function Svg({ children, size = DEFAULT_SIZE, coords = DEFAULT_COORDS, ...props 
 
   // compute svg rect
   const [ w, h ] = size
-  const rect = [ 0, 0, w, h ]
+  const rect = add([0, 0, w, h ], [padding, padding, -padding, -padding])
 
   // render svg element
   return <div ref={parentRef} className="w-full h-full flex justify-center items-center">
