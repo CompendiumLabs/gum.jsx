@@ -18,7 +18,7 @@ const MATH_VALS = MATH_KEYS.map(key => Math[key])
 
 // import utility functions
 const UTIL_KEYS = [
-  'red', 'green', 'blue', 'gray', 'palette', 'zip', 'range', 'linspace', 'pi', 'phi'
+  'red', 'green', 'blue', 'gray', 'none', 'palette', 'zip', 'range', 'linspace', 'repeat', 'pi', 'phi'
 ]
 const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 
@@ -53,9 +53,28 @@ function evaluateGum(code) {
 
     // if its a function, run it now
     const element = Utils.isFunction(result) ? result() : result
+    console.log('element', element)
+
+    // check if there's a return value
+    if (element == null) {
+      return [ null, 'No return value' ]
+    }
+
+    // check if its actually a React element
+    const { type } = element
+    if (type == null) {
+      const string = element.toString()
+      return [ null, `Return value:\n\n${string}` ]
+    }
+
+    // wrap in Svg if not already
+    const { name } = type
+    if (name != 'Svg') {
+      return [ <Gum.Svg>{element}</Gum.Svg>, null ]
+    }
 
     // set the element
-    return [element, null]
+    return [ element, null ]
   } catch (error) {
     return [ null, error.message ]
   }

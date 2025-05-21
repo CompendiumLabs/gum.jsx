@@ -31,6 +31,7 @@ const red = '#ff0d57'
 const green = '#4caf50'
 const blue = '#1e88e5'
 const gray = '#eeeeee'
+const none = 'none'
 
 function hexToRgba(hex) {
   hex = hex.replace('#', '')
@@ -179,6 +180,10 @@ function linspace(x0, x1, n) {
   if (n == 1) return [0.5*(x0+x1)]
   let step = (x1-x0)/(n-1)
   return natty(n).map(i => x0 + step*i)
+}
+
+function repeat(x, n) {
+  return Array(n).fill(x)
 }
 
 //
@@ -406,5 +411,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, repeat, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, none, palette
 }

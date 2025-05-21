@@ -12,18 +12,17 @@ import './fonts.css'
 // app
 //
 
-const DEFAULT_CODE = `<Svg>
-  <Frame padding={0.1} margin={0.1} border={1} border-radius={5}>
-    <HStack>
-      <VStack size={1/3}>
-        <TextBox fill={gray} border-radius={3}>Hello!</TextBox>
-        <Circle fill={red} />
-      </VStack>
-      <Ellipse fill={blue} />
-    </HStack>
-  </Frame>
-</Svg>
-`
+const DEFAULT_CODE = `
+<Frame padding={0.1} margin={0.1} border={1} border-radius={5}>
+  <HStack>
+    <VStack size={1/3}>
+      <TextBox fill={gray} border-radius={3}>Hello!</TextBox>
+      <Circle fill={red} />
+    </VStack>
+    <Ellipse fill={blue} />
+  </HStack>
+</Frame>
+`.trim() + '\n'
 
 export default function App() {
   const outerRef = useRef(null)
