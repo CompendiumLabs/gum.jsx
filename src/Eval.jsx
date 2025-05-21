@@ -44,15 +44,15 @@ function evaluateGum(code) {
 
     // transform JSX to JavaScript
     const presets = ['react']
-    const { code: transformedCode } = Babel.transform(wrappedCode, { presets })
+    const { code: transformed } = Babel.transform(wrappedCode, { presets })
 
     // create a function that returns the React element
-    const functionBody = `return ${transformedCode}`
-    const executeFunction = new Function('React', ...KEYS, functionBody)
-    const element = executeFunction(React, ...VALS)
+    const runnable = `return ${transformed}`
+    const executor = new Function('React', ...KEYS, runnable)
+    const result = executor(React, ...VALS)
 
     // if its a function, run it now
-    if (Utils.isFunction(element)) element = element()
+    const element = Utils.isFunction(result) ? result() : result
 
     // set the element
     return [element, null]
