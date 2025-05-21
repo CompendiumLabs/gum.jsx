@@ -521,12 +521,12 @@ function sympath({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAUL
   }
 }
 
-function Symline({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+function SymLine({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
   return <Polyline points={points} {...props} />
 }
 
-function Sympoly({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
+function SymPoly({ fx, fy, xlim = DEFAULT_LIM, ylim = DEFAULT_LIM, tlim = DEFAULT_LIM, N = DEFAULT_N, ...props}) {
   const points = sympath({ fx, fy, xlim, ylim, tlim, N })
   return <Polygon points={points} {...props} />
 }
@@ -589,5 +589,5 @@ function VRuler({ lines, ...props }) {
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, Symline, Sympoly, HRuler, VRuler, Graph
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, SymLine, SymPoly, HRuler, VRuler, Graph
 }

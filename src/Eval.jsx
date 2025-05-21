@@ -24,7 +24,7 @@ const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 
 // import gum components
 const GUM_KEYS = [
-  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Spacer', 'Rect', 'Square', 'Ellipse', 'Circle', 'Line', 'Polyline', 'Polygon', 'UnitLine', 'HLine', 'VLine', 'Text', 'TextBox', 'Symline', 'Sympoly', 'HRuler', 'VRuler', 'Graph'
+  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Spacer', 'Rect', 'Square', 'Ellipse', 'Circle', 'Line', 'Polyline', 'Polygon', 'UnitLine', 'HLine', 'VLine', 'Text', 'TextBox', 'SymLine', 'SymPoly', 'HRuler', 'VRuler', 'Graph'
 ]
 const GUM_VALS = GUM_KEYS.map(key => Gum[key])
 
@@ -39,8 +39,7 @@ const VALS = [...MATH_VALS, ...UTIL_VALS, ...GUM_VALS]
 function evaluateGum(code) {
   try {
     // wrap code in a function if it's not an element
-    const isElement = code.trim().startsWith('<')
-    const wrappedCode = isElement ? code : `function run() { ${code} }`
+    const wrappedCode = /^\s*</.test(code) ? code : `function run() { ${code} }`
 
     // transform JSX to JavaScript
     const presets = ['react']
