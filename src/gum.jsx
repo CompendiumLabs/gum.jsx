@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, getLimits, joinLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand,    rectShrink, pointMap, outerRect, outerLim, getLimits, joinLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -380,7 +380,7 @@ function Spacer({ id, rect, aspect }) {
 // basic shapes
 //
 
-function Rect({ radius, id, rect, aspect, coords, ...props }) {
+function Rect({ radius, id, rect, aspect, ...props }) {
   useValueContext(id, aspect)
   let [ x, y, w, h ] = rectBox(rect)
   if (w < 0) { x += w; w = -w }
@@ -388,20 +388,20 @@ function Rect({ radius, id, rect, aspect, coords, ...props }) {
   return <rect x={x} y={y} width={w} height={h} rx={radius} {...props} />
 }
 
-function Square({ id, rect, aspect, coords, ...props }) {
+function Square({ id, rect, aspect, ...props }) {
   useValueContext(id, 1)
   const [ x, y, w, h ] = rectBox(rect)
   const s = min(w, h)
   return <rect x={x} y={y} width={s} height={s} {...props} />
 }
 
-function Ellipse({ id, rect, aspect, coords, ...props }) {
+function Ellipse({ id, rect, aspect, ...props }) {
   useValueContext(id, aspect)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />
 }
 
-function Circle({ id, rect, aspect, coords, ...props }) {
+function Circle({ id, rect, aspect, ...props }) {
   useValueContext(id, 1)
   const [ cx, cy, rx, ry ] = rectRadial(rect)
   const r = min(rx, ry)
@@ -596,15 +596,13 @@ function Axis({ direction, ticks, lim = DEFAULT_LIM, ...props }) {
   const tdirection = invertDirection(direction)
   const tsize = 0.1 * (chi - clo)
 
-  console.log(positions, gcoords)
-
   // render line, ticks, and labels
   return <Group coords={gcoords} {...props}>
-    <UnitLine direction={direction} pos={0.5} />
-    <Ruler direction={tdirection} lines={positions} coords={gcoords} />
+    <UnitLine rect={gcoords} direction={direction} pos={0.5} />
+    <Ruler rect={gcoords} direction={tdirection} lines={positions} coords={gcoords} />
     {ticks.map(([pos, label]) => {
       const trect = direction == "horizontal" ? [ pos - tsize, 1, pos + tsize, 2 ] : [ 1, pos - tsize, 2, pos + tsize ]
-      return <TextBox rect={trect} coords={gcoords}>{label}</TextBox>
+      return <TextBox rect={trect}>{label}</TextBox>
     })}
   </Group>
 }
