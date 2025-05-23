@@ -24,7 +24,7 @@ const UTIL_VALS = UTIL_KEYS.map(key => Utils[key])
 
 // import gum components
 const GUM_KEYS = [
-  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Spacer', 'Rect', 'Square', 'Ellipse', 'Circle', 'Line', 'Polyline', 'Polygon', 'UnitLine', 'HLine', 'VLine', 'Text', 'TextBox', 'SymLine', 'SymPoly', 'HRuler', 'VRuler', 'Graph'
+  'Group', 'Svg', 'Frame', 'Stack', 'HStack', 'VStack', 'Spacer', 'Rect', 'Square', 'Ellipse', 'Circle', 'Line', 'Polyline', 'Polygon', 'UnitLine', 'HLine', 'VLine', 'Text', 'TextBox', 'SymLine', 'SymPoly', 'Graph', 'Ruler', 'HRuler', 'VRuler', 'Axis', 'HAxis', 'VAxis'
 ]
 const GUM_VALS = GUM_KEYS.map(key => Gum[key])
 

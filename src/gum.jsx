@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, getLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, getLimits, joinLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -236,7 +236,7 @@ function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
   return [ aspect1, padding1, margin1 ]
 }
 
-function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, id, rect, aspect, ...props }) {
+function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, id, aspect, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(1 + nchildren)
   const [ aspect1, setAspect ] = useValueContext(id, aspect)
@@ -262,7 +262,7 @@ function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, c
   const coordsInner = rectExpand(coords, padding1)
 
   // render frame element
-  return <Group rect={rect} coords={coordsOuter} updateChildRatio={setChildRatio} {...props1}>
+  return <Group coords={coordsOuter} updateChildRatio={setChildRatio} {...props1}>
     { border > 0 && <Rect rect={coordsInner} strokeWidth={border} {...borderProps} /> }
     {children}
   </Group>
@@ -571,8 +571,8 @@ function Ruler({ direction, lines, coords = DEFAULT_COORDS, ...props }) {
   }
 
   // render line grid
-  return <Group coords={coords} {...props}>
-    {lines.map(pos => <UnitLine direction={direction} pos={pos} />)}
+  return <Group {...props}>
+    {lines.map(pos => <UnitLine direction={direction} pos={pos} coords={coords} />)}
   </Group>
 }
 
@@ -584,10 +584,44 @@ function VRuler({ lines, ...props }) {
   return <Ruler direction="horizontal" lines={lines} {...props} />
 }
 
+function Axis({ direction, ticks, lim = DEFAULT_LIM, ...props }) {
+  // get coordinates of axis (we only look at the direction axis)
+  const [ clo, chi ] = lim
+  const gcoords = direction == "horizontal" ?
+    joinLimits(lim, DEFAULT_LIM) :
+    joinLimits(DEFAULT_LIM, lim)
+
+  // get positions and direction of ticks
+  const positions = ticks.map(([pos, label]) => pos)
+  const tdirection = invertDirection(direction)
+  const tsize = 0.1 * (chi - clo)
+
+  console.log(positions, gcoords)
+
+  // render line, ticks, and labels
+  return <Group coords={gcoords} {...props}>
+    <UnitLine direction={direction} pos={0.5} />
+    <Ruler direction={tdirection} lines={positions} coords={gcoords} />
+    {ticks.map(([pos, label]) => {
+      const trect = direction == "horizontal" ? [ pos - tsize, 1, pos + tsize, 2 ] : [ 1, pos - tsize, 2, pos + tsize ]
+      return <TextBox rect={trect} coords={gcoords}>{label}</TextBox>
+    })}
+  </Group>
+}
+
+function HAxis({ ...props }) {
+  return <Axis direction="horizontal" {...props} />
+}
+
+function VAxis({ ...props }) {
+  return <Axis direction="vertical" {...props} />
+}
+
+
 //
 // exports
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, SymLine, SymPoly, HRuler, VRuler, Graph
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, SymLine, SymPoly, Graph, Ruler, HRuler, VRuler, Axis, HAxis, VAxis
 }

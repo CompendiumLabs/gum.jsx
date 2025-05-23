@@ -276,6 +276,12 @@ function getLimits(direction, rect) {
   return direction == "horizontal" ? [ x1, x2 ] : [ y1, y2 ]
 }
 
+function joinLimits(xlim, ylim) {
+  const [ x1, x2 ] = xlim
+  const [ y1, y2 ] = ylim
+  return [ x1, y1, x2, y2 ]
+}
+
 //
 // sizes
 //
@@ -426,5 +432,5 @@ function calcTextAspect(text, args = {}) {
 //
 
 export {
-  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, repeat, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, getLimits, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, none, palette
+  DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE, isNumber, isArray, isString, isObject, isFunction, zip, range, linspace, repeat, all, any, max, min, sum, cumsum, add, sub, mul, div, invert, notNull, rectSize, rectCenter, rectBox, boxRect, rectRadial, radialRect, embedAspect, rectAspect, rectShrink, rectExpand, outerRect, broadcastSize, outerLim, getLimits, joinLimits, invertDirection, rectMap, limitMap, positionMap, pointMap, extractPrefix, calcTextAspect, pi, phi, red, green, blue, gray, none, palette
 }
