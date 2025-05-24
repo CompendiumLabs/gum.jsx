@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import {
-  isNumber, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand,    rectShrink, pointMap, outerRect, outerLim, getLimits, joinLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
+  isNumber, isArray, zip, range, linspace, min, sum, cumsum, add, mul, div, invert, notNull, rectBox, rectRadial, rectMap, limitMap, positionMap, rectExpand, pointMap, outerRect, outerLim, joinLimits, rectAspect, broadcastSize, invertDirection, extractPrefix, calcTextAspect, DEFAULT_SIZE, DEFAULT_RECT, DEFAULT_COORDS, DEFAULT_LIM, DEFAULT_N, DEFAULT_PROP, DEFAULT_FONT_FAMILY, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_SIZE
 } from './utils'
 
 //
@@ -122,19 +122,13 @@ function useValueContext(id, value) {
 // core components
 //
 
-// the Element component is still undeclared, but should implement:
-// - rect: target rect [ x1, y1, x2, y2 ]
-// - coords: coords [ xlo, ylo, xhi, yhi ]
-// - tag: tag name (default: 'g')
-// - props: additional props
-
 // child properties for placement
 // INPUT PROPS:
 // rect: target rect [ x1, y1, x2, y2 ]
 // aspect: specified aspect ratio (w / h)
+// expand: expand to contain rect (rather than be contained by)
 // OUTPUT PROPS:
 // rect: final rect [ x1, y1, x2, y2 ]
-// aspect: final aspect ratio (w / h)
 
 function Group({ children, updateChildRatio, tag = 'g', id, rect, aspect, coords, ...props }) {
   // report aspect and track child ratios
@@ -154,8 +148,8 @@ function Group({ children, updateChildRatio, tag = 'g', id, rect, aspect, coords
     <MappedValuesProvider setValue={handleRatio}>
       {mapChildren(children, (child, index) => {
         const caspect = childRatios[index]
-        const { rect: crect = DEFAULT_RECT } = child.props
-        const rect1 = rectMap(rect, crect, { aspect: caspect, coords })
+        const { rect: crect = DEFAULT_RECT, expand = false } = child.props
+        const rect1 = rectMap(rect, crect, { coords, aspect: caspect, expand })
         return cloneElement(child, { id: index, rect: rect1 })
       })}
     </MappedValuesProvider>
@@ -584,25 +578,27 @@ function VRuler({ lines, ...props }) {
   return <Ruler direction="horizontal" lines={lines} {...props} />
 }
 
-function Axis({ direction, ticks, lim = DEFAULT_LIM, ...props }) {
+function Axis({ direction, ticks, lim = DEFAULT_LIM, label_offset = 0, label_size = 1, ...props }) {
   // get coordinates of axis (we only look at the direction axis)
-  const [ clo, chi ] = lim
   const gcoords = direction == "horizontal" ?
     joinLimits(lim, DEFAULT_LIM) :
     joinLimits(DEFAULT_LIM, lim)
 
   // get positions and direction of ticks
-  const positions = ticks.map(([pos, label]) => pos)
+  const tdata = ticks.map(t => isArray(t) ? t : [ t, `${t}` ])
+  const positions = tdata.map(([pos]) => pos)
   const tdirection = invertDirection(direction)
-  const tsize = 0.1 * (chi - clo)
+  const [ tlo, thi ] = [ 1 + label_offset, 1 + label_offset + label_size ]
 
   // render line, ticks, and labels
   return <Group coords={gcoords} {...props}>
     <UnitLine rect={gcoords} direction={direction} pos={0.5} />
     <Ruler rect={gcoords} direction={tdirection} lines={positions} coords={gcoords} />
-    {ticks.map(([pos, label]) => {
-      const trect = direction == "horizontal" ? [ pos - tsize, 1, pos + tsize, 2 ] : [ 1, pos - tsize, 2, pos + tsize ]
-      return <TextBox rect={trect}>{label}</TextBox>
+    {tdata.map(([pos, label]) => {
+      const trect = direction == "horizontal" ?
+        joinLimits([ pos, pos ], [ tlo, thi ]) :
+        joinLimits([ tlo, thi ], [ pos, pos ])
+      return <Text rect={trect} expand={true}>{label}</Text>
     })}
   </Group>
 }

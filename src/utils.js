@@ -229,10 +229,10 @@ function radialRect(rect) {
   return [ cx - rx, cy - ry, cx + rx, cy + ry ]
 }
 
-function embedAspect(rect, aspect) {
+function embedAspect(rect, aspect, expand=false) {
   if (aspect == null) return rect
   let [ cx, cy, rx, ry ] = rectRadial(rect)
-  if (rx > ry * aspect) {
+  if (!expand == rx > ry * aspect) {
     rx = ry * aspect
   } else if (rx < ry * aspect) {
     ry = rx / aspect
@@ -313,7 +313,7 @@ function invertDirection(direction) {
 //
 
 function rectMap(prect, crect, args = {}) {
-  const { aspect = null, coords = DEFAULT_COORDS } = args
+  const { coords = DEFAULT_COORDS, aspect = null, expand = false } = args
   const [ px, py, pw, ph ] = rectBox(prect)
   const [ cx, cy, cw, ch ] = rectBox(coords)
   const [ cx1, cy1, cx2, cy2 ] = crect
@@ -325,7 +325,7 @@ function rectMap(prect, crect, args = {}) {
     px + fx1 * pw, py + fy1 * ph,
     px + fx2 * pw, py + fy2 * ph,
   ]
-  return embedAspect(prect1, aspect)
+  return embedAspect(prect1, aspect, expand)
 }
 
 function pointMap(prect, cpoint, args = {}) {
