@@ -578,14 +578,18 @@ function VRuler({ lines, ...props }) {
   return <Ruler direction="horizontal" lines={lines} {...props} />
 }
 
-function Axis({ direction, ticks, lim = DEFAULT_LIM, label_offset = 0, label_size = 1, ...props }) {
+function Axis({ direction, ticks = 5, lim = DEFAULT_LIM, label_offset = 0.15, label_size = 0.7, ...props }) {
   // get coordinates of axis (we only look at the direction axis)
+  const [ clo, chi ] = lim
   const gcoords = direction == "horizontal" ?
     joinLimits(lim, DEFAULT_LIM) :
     joinLimits(DEFAULT_LIM, lim)
 
+  // handle tick defaults
+  const tdata0 = isNumber(ticks) ? linspace(clo, chi, ticks) : ticks
+  const tdata = tdata0.map(t => isArray(t) ? t : [ t, `${t}` ])
+
   // get positions and direction of ticks
-  const tdata = ticks.map(t => isArray(t) ? t : [ t, `${t}` ])
   const positions = tdata.map(([pos]) => pos)
   const tdirection = invertDirection(direction)
   const [ tlo, thi ] = [ 1 + label_offset, 1 + label_offset + label_size ]
