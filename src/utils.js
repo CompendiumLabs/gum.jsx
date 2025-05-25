@@ -234,7 +234,7 @@ function embedAspect(rect, aspect, expand=false) {
   let [ cx, cy, rx, ry ] = rectRadial(rect)
   if (!expand == rx > ry * aspect) {
     rx = ry * aspect
-  } else if (rx < ry * aspect) {
+  } else if (!expand == rx < ry * aspect) {
     ry = rx / aspect
   }
   return radialRect([ cx, cy, rx, ry ])

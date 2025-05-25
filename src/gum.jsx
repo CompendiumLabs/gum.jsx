@@ -115,7 +115,7 @@ function useValueContext(id, value) {
     return () => ctx.unregister(id)
   }, [id, value, ctx])
   const setValue = v => ctx?.register(id, v)
-  return [ prev.current, setValue ]
+  return setValue
 }
 
 //
@@ -134,7 +134,7 @@ function Group({ children, updateChildRatio, tag = 'g', id, rect, aspect, coords
   // report aspect and track child ratios
   const nchildren = Children.count(children)
   const [childRatios, setChildRatios] = useMappedArray(nchildren)
-  const [ aspect1, setAspect ] = useValueContext(id, aspect)
+  const setAspect = useValueContext(id, aspect)
 
   // update ratios
   const handleRatio = (i, r) => {
@@ -233,7 +233,7 @@ function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
 function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, id, aspect, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(1 + nchildren)
-  const [ aspect1, setAspect ] = useValueContext(id, aspect)
+  const setAspect = useValueContext(id, aspect)
   const [ padding1, setPadding ] = useState(null)
   const [ margin1, setMargin ] = useState(null)
 
@@ -327,7 +327,7 @@ function computeStackLayout(direction, children, ratios) {
 function Stack({ children, direction = "vertical", id, rect, aspect, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(nchildren)
-  const [ aspect1, setAspect ] = useValueContext(id, aspect)
+  const setAspect = useValueContext(id, aspect)
   const [ sizes, setSizes ] = useState(null)
 
   // compute aspect and sizes
@@ -455,8 +455,7 @@ function VLine(props) {
 //
 
 function Text({
-  color = "black", fontFamily = DEFAULT_FONT_FAMILY, fontWeight = DEFAULT_FONT_WEIGHT,
-  fontSize = DEFAULT_FONT_SIZE, id, children, rect, ...props
+  color = "black", fontFamily = DEFAULT_FONT_FAMILY, fontWeight = DEFAULT_FONT_WEIGHT, fontSize = DEFAULT_FONT_SIZE, id, children, rect, ...props
 }) {
   // get aspect ratio
   const aspect = calcTextAspect(children, { fontFamily, fontWeight })
@@ -482,9 +481,16 @@ function Text({
   </text>
 }
 
-function TextBox({ children, padding = 0.05, border = 1, ...props }) {
+function TextBox({ children, padding = 0.05, border = 1, id, ...props }) {
   const [ text_props, props1 ] = extractPrefix('text', props)
-  return <Frame padding={padding} border={border} {...props1}>
+  const setAspect = useValueContext(id, null)
+
+  // HACK: just get the first (non-border) element
+  const updateLayout = (i, r) => {
+    if (i == 1) setAspect(r)
+  }
+
+  return <Frame padding={padding} border={border} updateChildRatio={updateLayout} {...props1}>
     <Text {...text_props}>{children}</Text>
   </Frame>
 }
@@ -602,7 +608,7 @@ function Axis({ direction, ticks = 5, lim = DEFAULT_LIM, label_offset = 0.15, la
       const trect = direction == "horizontal" ?
         joinLimits([ pos, pos ], [ tlo, thi ]) :
         joinLimits([ tlo, thi ], [ pos, pos ])
-      return <Text rect={trect} expand={true}>{label}</Text>
+      return <TextBox rect={trect} expand={true}>{label}</TextBox>
     })}
   </Group>
 }
