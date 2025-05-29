@@ -3,7 +3,7 @@
 //
 
 import {
-  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef
+  Children, cloneElement, isValidElement, createContext, useContext, useState, useLayoutEffect, useMemo, useRef, useCallback
 } from 'react'
 
 import {
@@ -86,13 +86,19 @@ function useMappedArray(length) {
   return [values, setValue]
 }
 
+// context object for reporting values
+const noop = () => {}
+const MappedValuesContext = createContext({
+  register: noop,
+  unregister: noop,
+})
+
 // context for children to report values to parent
-const MappedValuesContext = createContext()
 function MappedValuesProvider({ children, setValue }) {
   // make a registry for child values
   const ctx = useMemo(() => ({
     register: (id, value) => setValue(id, value),
-    unregister: (id) => setValue(id, null)
+    unregister: id => setValue(id, null)
   }), [])
 
   // provide context
@@ -104,18 +110,24 @@ function MappedValuesProvider({ children, setValue }) {
 // useState-like hook for children to report values
 // use reference to prevent unnecessary re-renders
 function useValueContext(id, value) {
-  const ctx = useContext(MappedValuesContext)
+  // get context and previous value
+  const { register, unregister } = useContext(MappedValuesContext)
   const prev = useRef(null)
+
+  // register value when it changes
   useLayoutEffect(() => {
-    if (ctx == null) return
     if (prev.current == null || prev.current != value) {
-      ctx.register(id, value)
+      register(id, value)
       prev.current = value
     }
-    return () => ctx.unregister(id)
-  }, [id, value, ctx])
-  const setValue = v => ctx?.register(id, v)
-  return setValue
+    return () => unregister(id)
+  }, [id, value, register, unregister])
+
+  // return setter function
+  return useCallback(
+    v => register(id, v),
+    [id, register]
+  )
 }
 
 //
@@ -230,7 +242,7 @@ function computeFrameLayout(aspect0, ratios, padding, margin, adjust) {
   return [ aspect1, padding1, margin1 ]
 }
 
-function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, id, aspect, ...props }) {
+function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, coords = DEFAULT_COORDS, id, aspect, updateChildRatio, ...props }) {
   const nchildren = Children.count(children)
   const [ childRatios, setChildRatio ] = useMappedArray(1 + nchildren)
   const setAspect = useValueContext(id, aspect)
@@ -239,6 +251,12 @@ function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, c
 
   // get border prefix props
   const [ borderProps, props1 ] = extractPrefix('border', props)
+
+  // forward child ratio information
+  function handleChildRatio(i, r) {
+    setChildRatio(i, r)
+    updateChildRatio?.(i, r)
+  }
 
   // recompute aspect when child ratios change
   useLayoutEffect(() => {
@@ -256,7 +274,7 @@ function Frame({ children, padding = 0, margin = 0, border = 0, adjust = true, c
   const coordsInner = rectExpand(coords, padding1)
 
   // render frame element
-  return <Group coords={coordsOuter} updateChildRatio={setChildRatio} {...props1}>
+  return <Group coords={coordsOuter} updateChildRatio={handleChildRatio} {...props1}>
     { border > 0 && <Rect rect={coordsInner} strokeWidth={border} {...borderProps} /> }
     {children}
   </Group>
@@ -483,14 +501,16 @@ function Text({
 
 function TextBox({ children, padding = 0.05, border = 1, id, ...props }) {
   const [ text_props, props1 ] = extractPrefix('text', props)
+  const [ ratios, setRatios ] = useMappedArray(2)
   const setAspect = useValueContext(id, null)
 
   // HACK: just get the first (non-border) element
-  const updateLayout = (i, r) => {
-    if (i == 1) setAspect(r)
-  }
+  useLayoutEffect(() => {
+    const [_, aspect] = ratios
+    setAspect(aspect)
+  }, [ratios])
 
-  return <Frame padding={padding} border={border} updateChildRatio={updateLayout} {...props1}>
+  return <Frame padding={padding} border={border} updateChildRatio={setRatios} {...props1}>
     <Text {...text_props}>{children}</Text>
   </Frame>
 }
@@ -562,7 +582,7 @@ function Graph({ id, children, aspect, xlim, ylim, coords, ...props}) {
 // axis components
 //
 
-function Ruler({ direction, lines, coords = DEFAULT_COORDS, ...props }) {
+function Ruler({ direction, lines, lim, coords = DEFAULT_COORDS, ...props }) {
   // handle evenly spaced lines
   if (isNumber(lines)) {
     const [ x1, y1, x2, y2 ] = coords
@@ -572,7 +592,7 @@ function Ruler({ direction, lines, coords = DEFAULT_COORDS, ...props }) {
 
   // render line grid
   return <Group {...props}>
-    {lines.map(pos => <UnitLine direction={direction} pos={pos} coords={coords} />)}
+    {lines.map(pos => <UnitLine direction={direction} pos={pos} lim={lim} coords={coords} />)}
   </Group>
 }
 
@@ -584,48 +604,62 @@ function VRuler({ lines, ...props }) {
   return <Ruler direction="horizontal" lines={lines} {...props} />
 }
 
-function Axis({ direction, ticks = 5, lim = DEFAULT_LIM, label_offset = 0.15, label_size = 0.7, ...props }) {
-  // get coordinates of axis (we only look at the direction axis)
-  const [ clo, chi ] = lim
-  const gcoords = direction == "horizontal" ?
-    joinLimits(lim, DEFAULT_LIM) :
-    joinLimits(DEFAULT_LIM, lim)
-
-  // handle tick defaults
-  const tdata0 = isNumber(ticks) ? linspace(clo, chi, ticks) : ticks
-  const tdata = tdata0.map(t => isArray(t) ? t : [ t, `${t}` ])
-
-  // get positions and direction of ticks
-  const positions = tdata.map(([pos]) => pos)
-  const tdirection = invertDirection(direction)
-  const [ tlo, thi ] = [ 1 + label_offset, 1 + label_offset + label_size ]
-
-  // render line, ticks, and labels
-  return <Group coords={gcoords} {...props}>
-    <UnitLine rect={gcoords} direction={direction} pos={0.5} />
-    <Ruler rect={gcoords} direction={tdirection} lines={positions} coords={gcoords} />
-    {tdata.map(([pos, label]) => {
-      const trect = direction == "horizontal" ?
-        joinLimits([ pos, pos ], [ tlo, thi ]) :
-        joinLimits([ tlo, thi ], [ pos, pos ])
-      return <TextBox rect={trect} expand={true}>{label}</TextBox>
+function HLabels({ labels, ...props }) {
+  return <Group {...props}>
+    {labels.map(([pos, label]) => {
+      return <TextBox rect={[pos, 0, pos, 1]} expand={true}>{label}</TextBox>
     })}
   </Group>
 }
 
-function HAxis({ ...props }) {
-  return <Axis direction="horizontal" {...props} />
+function VLabels({ labels, ...props }) {
+  return <Group {...props}>
+    {labels.map(([pos, label]) => {
+      return <TextBox rect={[0, pos, 1, pos]} expand={true}>{label}</TextBox>
+    })}
+  </Group>
 }
 
-function VAxis({ ...props }) {
-  return <Axis direction="vertical" {...props} />
+function HAxis({ ticks = 5, lim = DEFAULT_LIM, label_offset = 0.15, label_size = 0.7, tick_lim = [0, 0.5], ...props }) {
+  // get coordinates of axis
+  const [ clo, chi ] = lim
+  const gcoords = [ clo, 0, chi, 1 ]
+
+  // handle tick defaults
+  const tdata0 = isNumber(ticks) ? linspace(clo, chi, ticks) : ticks
+  const tdata = tdata0.map(t => isArray(t) ? t : [ t, `${t}` ])
+  const positions = tdata.map(([pos]) => pos)
+
+  // render line, ticks, and labels
+  return <Group coords={gcoords} {...props}>
+    <HLine rect={gcoords} pos={0.5} />
+    <HRuler rect={gcoords} lines={positions} lim={tick_lim} coords={gcoords} />
+    <HLabels rect={[0, 1, 1, 2]} labels={tdata} />
+  </Group>
 }
 
+function VAxis({ ticks = 5, lim = DEFAULT_LIM, label_offset = 0.15, label_size = 0.7, tick_lim = [0.5, 1], ...props }) {
+  // get coordinates of axis
+  const [ clo, chi ] = lim
+  const gcoords = [ 0, clo, 1, chi ]
+
+  // handle tick defaults
+  const tdata0 = isNumber(ticks) ? linspace(clo, chi, ticks) : ticks
+  const tdata = tdata0.map(t => isArray(t) ? t : [ t, `${t}` ])
+  const positions = tdata.map(([pos]) => pos)
+
+  // render line, ticks, and labels
+  return <Group coords={gcoords} {...props}>
+    <VLine rect={gcoords} pos={0.5} />
+    <VRuler rect={gcoords} lines={positions} lim={tick_lim} coords={gcoords} />
+    <VLabels rect={[-1, 0, 0, 1]} labels={tdata} />
+  </Group>
+}
 
 //
 // exports
 //
 
 export default {
-  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, SymLine, SymPoly, Graph, Ruler, HRuler, VRuler, Axis, HAxis, VAxis
+  Group, Svg, Frame, Stack, HStack, VStack, Spacer, Rect, Square, Ellipse, Circle, Line, Polyline, Polygon, UnitLine, HLine, VLine, Text, TextBox, SymLine, SymPoly, Graph, Ruler, HRuler, VRuler, HLabels, VLabels, HAxis, VAxis
 }
