@@ -12,10 +12,19 @@
   "license": "MIT",
   "files": [],
   "exports": {
-    ".": "./src/gum.js"
+    ".": "./src/gum.js",
+    "./eval": "./src/eval.js"
   },
   "scripts": {
     "cli": "node src/cli.js",
     "server": "node src/server.js"
+  },
+  "optionalDependencies": {
+    "@babel/standalone": "^7.28.4",
+    "@resvg/resvg-js": "^2.6.2",
+    "canvas": "^3.2.0",
+    "commander": "^14.0.0",
+    "express": "^5.1.0",
+    "harfbuzzjs": "^0.4.9",
   }
 }
