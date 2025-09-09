@@ -1,0 +1,21 @@
+{
+  "name": "gum",
+  "version": "1.0.0",
+  "description": "Language for vector graphics generation.",
+  "type": "module",
+  "author": "Douglas Hanley",
+  "homepage": "https://github.com/CompendiumLabs/gum.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CompendiumLabs/gum.js"
+  },
+  "license": "MIT",
+  "files": [],
+  "exports": {
+    ".": "./src/gum.js"
+  },
+  "scripts": {
+    "cli": "node src/cli.js",
+    "server": "node src/server.js"
+  }
+}
