@@ -1,0 +1,50 @@
+{
+    "core": [
+        "Element",
+        "Group",
+        "Context"
+    ],
+    "layout": [
+        "Frame",
+        "Stack",
+        "Grid",
+        "Points"
+    ],
+    "shapes": [
+        "Rect",
+        "Ellipse",
+        "Triangle",
+        "Line",
+        "UnitLine",
+        "Polyline"
+    ],
+    "symbolic": [
+        "SymPoints",
+        "SymPath",
+        "SymFill",
+        "SymPoly"
+    ],
+    "plotting": [
+        "Axis",
+        "Graph",
+        "Plot",
+        "BarPlot"
+    ],
+    "networks": [
+        "Node",
+        "Edge",
+        "Network"
+    ],
+    "text": [
+        "Text",
+        "Emoji",
+        "Latex",
+        "TextFrame",
+        "TitleFrame"
+    ],
+    "functions": [
+        "Math",
+        "Arrays",
+        "Colors"
+    ]
+}
