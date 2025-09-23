@@ -1,92 +1,8 @@
 // gum.js
 
+import { DEFAULTS as D, BOOLEAN as B } from './defaults.js'
 import { emoji_table } from './emoji.js'
-
-//
-// defaults
-//
-
-// namespace
-const svgns = 'http://www.w3.org/2000/svg'
-
-// defaults
-const outer_base = 500
-const loc_base = 0.5
-const pos_base = [ 0.5, 0.5 ]
-const rad_base = 0.5
-const rect_base = [ 0, 0, 1, 1 ]
-const coord_base = [ 0, 0, 1, 1 ]
-const lim_base = [ 0, 1 ]
-const prec_base = 2
-const N_base = 100
-
-// fonts
-const sans_family_base = 'IBM Plex Sans'
-const mono_family_base = 'IBM Plex Mono'
-const font_weight_base = 100
-const font_size_base = 12
-
-// boolean defaults
-const rounded_true = 0.05
-const margin_true = 0.1
-const padding_true = 0.1
-const spacing_true = 0.1
-
-// plot defaults
-const num_ticks_base = 5
-const tick_size_base = 0.015
-const tick_label_size_base = 1.5
-const tick_label_offset_base = 0.5
-const label_size_base = 0.05
-const label_offset_base = [ 0.11, 0.18 ]
-const title_size_base = 0.10
-const title_offset_base = 0.05
-
-// default styling
-const svg_attr_base = {
-    stroke: 'black',
-    fill: 'none',
-    font_family: sans_family_base,
-    font_weight: font_weight_base,
-}
-
-// canvas text sizer
-function canvas_text_sizer(ctx, text, {
-    family = sans_family_base, weight = font_weight_base, size = font_size_base, actual = false
-} = {}) {
-    ctx.font = `${weight} ${size}px ${family}`
-    const met = ctx.measureText(text)
-    return actual ? [
-        -met.actualBoundingBoxLeft,
-        -met.actualBoundingBoxDescent,
-        met.actualBoundingBoxRight,
-        met.actualBoundingBoxAscent
-    ] : [
-        0, 0, met.width, size
-    ]
-}
-
-// get a canvas (browser or node)
-let canvas = null
-if (typeof window == 'undefined') {
-    const { createCanvas, registerFont } = await import('canvas')
-    registerFont('./lib/fonts/IBMPlexSans-Regular.ttf', { family: sans_family_base })
-    registerFont('./lib/fonts/IBMPlexMono-Regular.ttf', { family: mono_family_base })
-    canvas = createCanvas(500, 500)
-} else {
-    canvas = document.createElement('canvas')
-}
-
-// try for browser environment
-let text_sizer = null
-try {
-    const ctx = canvas.getContext('2d')
-    text_sizer = function(text, args) {
-        return canvas_text_sizer(ctx, text, args)
-    }
-} catch (error) {
-    console.log(error)
-}
+import { textSizer, wrapText } from './text.js'
 
 //
 // array utils
@@ -496,7 +412,7 @@ function normal(mean, stdv) {
 
 function pad_rect(p) {
     if (p == null) {
-        return coord_base
+        return D.coord
     } else if (is_scalar(p)) {
         return [ p, p, p, p ]
     } else if (p.length == 2) {
@@ -655,7 +571,7 @@ function demangle(k) {
 }
 
 function rounder(x, prec) {
-    prec = prec ?? prec_base
+    prec = prec ?? D.prec
 
     let suf
     if (is_string(x) && x.endsWith('px')) {
@@ -701,11 +617,11 @@ function hexToRgba(hex) {
     return [ r, g, b, a / 255 ]
 }
 
-function palette(start0, stop0, clim = lim_base) {
+function palette(start0, stop0, clim = D.lim) {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
     const slope = sub(stop, start)
-    const scale = rescaler(clim, lim_base)
+    const scale = rescaler(clim, D.lim)
     function gradient(x) {
         const x1 = scale(x)
         const [ r, g, b, a ] = add(start, mul(slope, x1))
@@ -842,7 +758,7 @@ function resizer(lim_in, lim_out) {
 // map*() functions map from coord to pixel space (in prect)
 // TODO: bring back rotate
 class Context {
-    constructor({ prect = rect_base, coord = coord_base, transform = null, prec = prec_base, debug = false } = {}) {
+    constructor({ prect = D.rect, coord = D.coord, transform = null, prec = D.prec, debug = false } = {}) {
         // coordinate transform
         this.prect = prect // drawing rect
         this.coord = coord // coordinate rect
@@ -900,7 +816,7 @@ class Context {
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = coord_base } = {}) {
+    map({ rect, aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.coord } = {}) {
         // use parent coord as default rect
         rect ??= ensure_upright(this.coord)
 
@@ -940,7 +856,7 @@ class Element {
         this.attr = filter_object(attr, (k, v) => v != null && !spec_keys.includes(k))
 
         // pos/rad to rect convenience
-        if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? pos_base, rad ?? rad_base)
+        if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.pos, rad ?? D.rad)
 
         // adjust aspect for rotation
         const { aspect, rotate } = this.spec
@@ -1018,11 +934,11 @@ class Group extends Element {
 }
 
 class Svg extends Group {
-    constructor({ children: children0, size = outer_base, prec = prec_base, bare = false, filters = null, debug = false, aspect = 'auto', ...attr } = {}) {
+    constructor({ children: children0, size = D.svg_size, prec = D.prec, bare = false, filters = null, debug = false, aspect = 'auto', ...attr } = {}) {
         const children = ensure_array(children0)
 
         // pass to Group
-        const svg_attr = bare ? {} : svg_attr_base
+        const svg_attr = bare ? {} : { stroke: 'black', fill: 'none', font_family: D.family_sans, font_weight: D.font_weight }
         super({ tag: 'svg', children, aspect, ...svg_attr, ...attr })
 
         // auto-detect size and aspect
@@ -1039,7 +955,7 @@ class Svg extends Group {
         const attr = super.props(ctx)
         const [ w, h ] = this.size
         const viewBox = `0 0 ${rounder(w, ctx.prec)} ${rounder(h, ctx.prec)}`
-        return { viewBox, xmlns: svgns, ...attr }
+        return { viewBox, xmlns: D.svg_ns, ...attr }
     }
 
     svg(args) {
@@ -1071,9 +987,9 @@ class Frame extends Group {
 
         // tailwind style booleans
         if (border === true) border = 1
-        if (padding === true) padding = padding_true
-        if (margin === true) margin = margin_true
-        if (rounded === true) rounded = rounded_true
+        if (padding === true) padding = B.padding
+        if (margin === true) margin = B.margin
+        if (rounded === true) rounded = B.rounded
         if (fill === true) fill = gray
 
         // ensure shape is a function
@@ -1205,7 +1121,7 @@ class Stack extends Group {
     constructor({ children: children0, direc, expand = true, align = 'center', spacing = 0, aspect, ...attr } = {}) {
         let children = ensure_array(children0)
         direc = ensure_orient(direc)
-        spacing = spacing === true ? spacing_true : spacing
+        spacing = spacing === true ? B.spacing : spacing
 
         // short circuit if empty
         if (children.length == 0) return super({ aspect, ...attr })
@@ -1279,7 +1195,7 @@ function computeGridLayout(children, rows, cols, widths, heights, spacing) {
 
 class Grid extends Group {
     constructor({ children, rows, cols, widths, heights, spacing = 0, aspect, ...attr } = {}) {
-        spacing = spacing === true ? spacing_true : spacing
+        spacing = spacing === true ? B.spacing : spacing
         spacing = ensure_vector(spacing, 2)
 
         // reshape children to grid
@@ -1457,7 +1373,7 @@ class Line extends Element {
 
 // plottable and coord adaptive
 class UnitLine extends Line {
-    constructor({ direc, loc = loc_base, lim = lim_base, ...attr } = {}) {
+    constructor({ direc, loc = D.loc, lim = D.lim, ...attr } = {}) {
         direc = ensure_orient(direc)
 
         // construct line positions
@@ -1486,7 +1402,7 @@ class HLine extends UnitLine {
 class Rect extends Element {
     constructor({ rounded, ...attr } = {}) {
         super({ tag: 'rect', unary: true, ...attr })
-        this.rounded = rounded === true ? rounded_true : rounded
+        this.rounded = rounded === true ? B.rounded : rounded
     }
 
     props(ctx) {
@@ -1556,7 +1472,7 @@ class Dot extends Circle {
 }
 
 class Ray extends Line {
-    constructor({ angle, loc = pos_base, size = 0.5, ...attr } = {}) {
+    constructor({ angle, loc = D.pos, size = 0.5, ...attr } = {}) {
         const theta = angle * d2r
         const [ x, y ] = loc
         const [ rx, ry ] = ensure_vector(size, 2)
@@ -1766,7 +1682,7 @@ function parse_rounded(rounded) {
 // supports different rounded for each corner
 class RoundedRect extends Path {
     constructor({ rounded = 0, border = 1, ...attr } = {}) {
-        rounded = rounded === true ? rounded_true : rounded
+        rounded = rounded === true ? B.rounded : rounded
 
         // convert to array of arrays
         const [ rtl, rtr, rbr, rbl ] = parse_rounded(rounded)
@@ -1926,12 +1842,12 @@ function check_string(children) {
 }
 
 class Text extends Element {
-    constructor({ children: children0, font_family = sans_family_base, font_weight, font_size, color = 'black', offset = [ 0, -0.13 ], ...attr } = {}) {
+    constructor({ children: children0, font_family = D.family_sans, font_weight = D.font_weight, font_size, color = 'black', offset = [ 0, -0.13 ], ...attr } = {}) {
         const text = check_string(children0)
 
         // compute text box
-        const fargs = { family: font_family, weight: font_weight, size: font_size }
-        const [ xoff0, yoff0, width0, height0 ] = text_sizer(text, fargs)
+        const fargs = { family: font_family, weight: font_weight }
+        const [ xoff0, yoff0, width0, height0 ] = textSizer(text, fargs)
 
         // get position and size
         const offset0 = div([ xoff0, yoff0 ], height0)
@@ -1977,6 +1893,18 @@ class MultiText extends VStack {
         const children = ensure_array(children0)
         const rows = children.map(t => new Text({ children: t, ...attr}))
         super({ children: rows, spacing, align })
+    }
+}
+
+class TextWrap extends VStack {
+    constructor({ children: children0, aspect = 5, font_family = D.family_sans, font_weight = D.font_weight, ...attr }) {
+        const children = ensure_singleton(children0)
+        const fargs = { family: font_family, weight: font_weight }
+        const rows = wrapText(children, aspect, fargs)
+        const nrows = rows.length
+        const texts = rows.map(r => new Text({ children: r, size: 1 / nrows }))
+        const true_aspect = aspect / nrows
+        super({ children: texts, aspect: true_aspect, ...attr })
     }
 }
 
@@ -2160,7 +2088,7 @@ class TitleFrame extends Frame {
 }
 
 // determines actual values given combinations of limits, values, and functions
-function sympath({ fx, fy, xlim, ylim, tlim = lim_base, xvals, yvals, tvals, clip = true, N } = {}) {
+function sympath({ fx, fy, xlim, ylim, tlim = D.lim, xvals, yvals, tvals, clip = true, N } = {}) {
     fx = func_or_scalar(fx)
     fy = func_or_scalar(fy)
 
@@ -2175,7 +2103,7 @@ function sympath({ fx, fy, xlim, ylim, tlim = lim_base, xvals, yvals, tvals, cli
     } else if (Ns.size == 1) {
         N = [...Ns][0]
     } else {
-        N = N ?? N_base
+        N = N ?? D.N
     }
 
     // compute data values
@@ -2587,8 +2515,8 @@ class Edge extends Element {
 class Network extends Group {
     constructor({ children: children0, xlim, ylim, coord: coord0, ...attr } = {}) {
         // resolve coordinate system
-        const [ xlo, xhi ] = xlim ?? lim_base
-        const [ ylo, yhi ] = ylim ?? lim_base
+        const [ xlo, xhi ] = xlim ?? D.lim
+        const [ ylo, yhi ] = ylim ?? D.lim
         const coord = coord0 ?? [ xlo, ylo, xhi, yhi ]
 
         // collect nodes and edges
@@ -2800,7 +2728,7 @@ function get_lim(direc, coord) {
     return direc == 'v' ? [ ylo, yhi ] : [ xlo, xhi ]
 }
 
-function join_lims({ v = lim_base, h = lim_base } = {}) {
+function join_lims({ v = D.lim, h = D.lim } = {}) {
     const [ vlo, vhi ] = v
     const [ hlo, hhi ] = h
     return [ hlo, vlo, hhi, vhi ]
@@ -2851,7 +2779,7 @@ function invert_axispos(label_pos) {
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
-    constructor({ children, lim = lim_base, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = tick_size_base, tick_label_size = tick_label_size_base, tick_label_offset = tick_label_offset_base, prec = 2, ...attr0 } = {}) {
+    constructor({ children, lim = D.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.tick_size, tick_label_size = D.tick_label_size, tick_label_offset = D.tick_label_offset, prec = 2, ...attr0 } = {}) {
         direc = ensure_orient(direc)
         tick_pos = ensure_axispos(tick_pos)
         label_pos = ensure_axispos(label_pos)
@@ -2909,7 +2837,7 @@ class BoxLabel extends Attach {
 }
 
 class Mesh extends Scale {
-    constructor({ direc, locs, lim = lim_base, opacity = 0.2, ...attr } = {}) {
+    constructor({ direc, locs, lim = D.lim, opacity = 0.2, ...attr } = {}) {
         const coord = join_lims({ [direc]: lim })
         super({ direc, locs, coord, opacity, ...attr })
     }
@@ -2984,7 +2912,7 @@ class Graph extends Group {
         const elems = ensure_array(children0)
 
         // get default outer limits
-        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? coord_base
+        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.coord
         const [ xmin1, xmax1 ] = xlim ?? [ xmin0, xmax0 ]
         const [ ymin1, ymax1 ] = ylim ?? [ ymin0, ymax0 ]
         const coord0 = [ xmin1, ymin1, xmax1, ymax1 ]
@@ -3010,7 +2938,7 @@ class Graph extends Group {
 
 class Plot extends Group {
     constructor({
-        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = num_ticks_base, yticks = num_ticks_base, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = tick_size_base, label_size, label_offset, label_align, title_size = title_size_base, title_offset = title_offset_base, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = tick_size_base, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.num_ticks, yticks = D.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.tick_size, label_size, label_offset, label_align, title_size = D.title_size, title_offset = D.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
     } = {}) {
         const elems = ensure_array(children0)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
@@ -3030,7 +2958,7 @@ class Plot extends Group {
         ylabel_attr = { ...label_attr, ...ylabel_attr }
 
         // determine coordinate system
-        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? coord_base
+        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.coord
         const [ xmin, xmax] = xlim ??= [ xmin0, xmax0 ]
         const [ ymin, ymax] = ylim ??= [ ymin0, ymax0 ]
         const coord = [ xmin, ymin, xmax, ymax ]
@@ -3103,12 +3031,12 @@ class Plot extends Group {
 
         // sort out label size and offset
         if (xlabel != null || ylabel != null) {
-            label_size = label_size ?? label_size_base
+            label_size = label_size ?? D.label_size
             const [ xlabelsize, ylabelsize ] = aspect_invariant(label_size, aspect)
             xlabel_size = xlabel_size ?? xlabelsize
             ylabel_size = ylabel_size ?? ylabelsize
 
-            label_offset = label_offset ?? label_offset_base
+            label_offset = label_offset ?? D.label_offset
             const [ xlabeloffset, ylabeloffset ] = aspect_invariant(label_offset, aspect)
             xlabel_offset = xlabel_offset ?? xlabeloffset
             ylabel_offset = ylabel_offset ?? ylabeloffset
@@ -3161,7 +3089,7 @@ class BarPlot extends Plot {
 }
 
 //
-// Images
+// images
 //
 
 class Image extends Element {
@@ -3184,7 +3112,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, MultiText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, radial_rect
+    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, MultiText, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, radial_rect
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3193,5 +3121,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, MultiText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, MultiText, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, is_string, is_array, is_object, is_function, is_element, is_scalar
 }

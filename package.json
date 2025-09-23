@@ -10,14 +10,19 @@
     "url": "git+https://github.com/CompendiumLabs/gum.js"
   },
   "license": "MIT",
-  "files": [],
+  "files": [
+    "src"
+  ],
   "exports": {
     ".": "./src/gum.js",
-    "./eval": "./src/eval.js"
+    "./eval": "./src/eval.js",
+    "./docs/*": "./src/docs/*",
+    "./fonts/*": "./src/fonts/*"
   },
   "scripts": {
     "cli": "node src/cli.js",
-    "server": "node src/server.js"
+    "server": "node src/server.js",
+    "docs": "node scripts/docs.js"
   },
   "optionalDependencies": {
     "@babel/standalone": "^7.28.4",
@@ -25,6 +30,8 @@
     "canvas": "^3.2.0",
     "commander": "^14.0.0",
     "express": "^5.1.0",
-    "harfbuzzjs": "^0.4.9"
+    "harfbuzzjs": "^0.4.9",
+    "linebreak": "^1.1.0",
+    "opentype.js": "^1.3.4"
   }
 }
