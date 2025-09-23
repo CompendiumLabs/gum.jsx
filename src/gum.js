@@ -1847,17 +1847,12 @@ class Text extends Element {
 
         // compute text box
         const fargs = { family: font_family, weight: font_weight }
-        const [ xoff0, yoff0, width0, height0 ] = textSizer(text, fargs)
-
-        // get position and size
-        const offset0 = div([ xoff0, yoff0 ], height0)
-        const offset1 = add(offset0, offset)
-        const aspect = width0 / height0
+        const aspect = textSizer(text, fargs)
 
         // pass to element
         super({ tag: 'text', unary: false, aspect, font_family, font_weight, font_size, stroke: color, fill: color, ...attr })
         this.text = escape_xml(text)
-        this.offset = offset1
+        this.offset = offset
     }
 
     // because text will always be displayed upright,
@@ -1888,23 +1883,22 @@ class Text extends Element {
     }
 }
 
-class MultiText extends VStack {
-    constructor({ children: children0, spacing, align, ...attr }) {
+class TextMulti extends VStack {
+    constructor({ children: children0, even = true, spacing, align, ...attr0 }) {
+        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
-        const rows = children.map(t => new Text({ children: t, ...attr}))
-        super({ children: rows, spacing, align })
+        const size = even ? 1 / children.length : null
+        const rows = children.map(t => new Text({ children: t, size, ...text_attr }))
+        super({ children: rows, spacing, align, ...attr })
     }
 }
 
-class TextWrap extends VStack {
+class TextWrap extends TextMulti {
     constructor({ children: children0, line_width = 5, font_family = D.family_sans, font_weight = D.font_weight, ...attr }) {
-        const children = ensure_singleton(children0)
+        const children = ensure_array(children0)
         const fargs = { family: font_family, weight: font_weight }
-        const rows = wrapText(children, line_width, fargs)
-        const nrows = rows.length
-        const texts = rows.map(r => new Text({ children: r, size: 1 / nrows }))
-        const true_aspect = line_width / nrows
-        super({ children: texts, aspect: true_aspect, ...attr })
+        const rows = children.map(c => wrapText(c, line_width, fargs)).flat()
+        super({ children: rows, ...attr })
     }
 }
 
@@ -2474,7 +2468,7 @@ class Node extends Frame {
 
         // make frame: handle text / element / list
         const children = squeeze(children0)
-        const text = is_element(children) ? children : new MultiText({ children, ...text_attr })
+        const text = is_element(children) ? children : new TextMulti({ children, ...text_attr })
 
         // adjust size for aspect
         const aspect = aspect0 ?? text.spec.aspect
@@ -3112,7 +3106,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, MultiText, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, radial_rect
+    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextMulti, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, radial_rect
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3121,5 +3115,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, MultiText, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextMulti, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, is_string, is_array, is_object, is_function, is_element, is_scalar
 }

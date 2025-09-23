@@ -21,10 +21,10 @@ function flattenChildren(items) {
   const result = []
   for (const item of items) {
       if (Array.isArray(item)) {
-          result.push(...flattenChildren(item))
+        result.push(...flattenChildren(item))
       } else if (item != null && item !== false && item !== true) {
-          if (typeof item === 'string' && item.trim() === '') continue
-          result.push(item)
+        if (typeof item === 'string' && item.replace(/\s/g, '') === '') continue
+        result.push(item)
       }
   }
   return result
@@ -39,13 +39,14 @@ function convertKebab(props) {
 }
 
 function h(tag, props, ...children) {
+  if (tag == 'br') return '\n'
   const flattened = children.length > 0 ? flattenChildren(children) : null
   const props1 = { children: flattened, ...convertKebab(props) }
   return isClass(tag) ? new tag(props1) : tag(props1)
 }
 
 function parseJSX(code) {
-  // strip comment lines
+  // strip comment lines (to allow comments before bare elements)
   code = code.replace(/^\s*\/\/.*\n/gm, '').trim()
 
   // wrap code in a function if it's not an element
