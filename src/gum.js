@@ -1897,13 +1897,13 @@ class MultiText extends VStack {
 }
 
 class TextWrap extends VStack {
-    constructor({ children: children0, aspect = 5, font_family = D.family_sans, font_weight = D.font_weight, ...attr }) {
+    constructor({ children: children0, line_width = 5, font_family = D.family_sans, font_weight = D.font_weight, ...attr }) {
         const children = ensure_singleton(children0)
         const fargs = { family: font_family, weight: font_weight }
-        const rows = wrapText(children, aspect, fargs)
+        const rows = wrapText(children, line_width, fargs)
         const nrows = rows.length
         const texts = rows.map(r => new Text({ children: r, size: 1 / nrows }))
-        const true_aspect = aspect / nrows
+        const true_aspect = line_width / nrows
         super({ children: texts, aspect: true_aspect, ...attr })
     }
 }

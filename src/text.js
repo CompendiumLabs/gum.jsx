@@ -29,7 +29,7 @@ if (typeof window == 'undefined') {
     const { createCanvas, registerFont } = await import('canvas')
     registerFont('./src/fonts/IBMPlexSans-Regular.ttf', { family: D.family_sans })
     registerFont('./src/fonts/IBMPlexMono-Regular.ttf', { family: D.family_mono })
-    const [ width, height ] = D.size_base
+    const [ width, height ] = [ D.svg_size, D.svg_size ]
     canvas = createCanvas(width, height)
 } else {
     canvas = document.createElement('canvas')
