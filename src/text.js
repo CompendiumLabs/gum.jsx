@@ -63,8 +63,6 @@ function getBreaks(text) {
 }
 
 function wrapText(text, aspect, args) {
-    console.log(text, aspect, args)
-
     // accurate, kerning-aware width
     function widthOf(s) {
         const [x, y, width, height] = textSizer(s, args);
