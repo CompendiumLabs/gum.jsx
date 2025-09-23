@@ -977,6 +977,28 @@ function check_singleton(children) {
     return is_array ? children[0] : children
 }
 
+function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect = null, adjust = true, flex = false } = {}) {
+    // convenience boxing
+    padding = pad_rect(padding)
+    margin = pad_rect(margin)
+
+    // aspect adjusted padding/margin
+    const { raspect: child_aspect } = child.spec
+    if (adjust && child_aspect != null) {
+        padding = aspect_invariant(padding, 1 / child_aspect)
+        margin = aspect_invariant(margin, 1 / child_aspect)
+    }
+
+    // get box sizes
+    // TODO: this is not coord aware yet
+    const iasp = aspect ?? child_aspect
+    const [ irect, brect, fasp ] = map_padmar(padding, margin, iasp)
+    aspect = flex ? aspect : (aspect ?? fasp)
+
+    // return inner/outer rects and aspect
+    return { irect, brect, aspect }
+}
+
 // TODO: auto-adjust padding/margin for aspect
 //       it seems adjust only does this if child aspect is not null
 //       but we also want to do it if own aspect is not null
@@ -994,40 +1016,22 @@ class Frame extends Group {
 
         // ensure shape is a function
         if (shape == null) {
-            if (rounded == null) {
-                shape = (a => new Rect(a))
-            } else {
-                shape = (a => new RoundedRect({ rounded, ...a }))
-            }
+            shape = rounded == null ?
+                (a => new Rect(a)) :
+                (a => new RoundedRect({ rounded, ...a }))
         } else {
             shape = ensure_function(shape)
         }
 
-        // convenience boxing
-        padding = pad_rect(padding)
-        margin = pad_rect(margin)
+        // compute layout
+        const { irect, brect, aspect: aspect_outer } = computeFrameLayout(child, { padding, margin, border, aspect, adjust, flex })
 
-        // aspect adjusted padding/margin
-        const { raspect: child_aspect } = child.spec
-        if (adjust && child_aspect != null) {
-            padding = aspect_invariant(padding, 1 / child_aspect)
-            margin = aspect_invariant(margin, 1 / child_aspect)
-        }
-
-        // get box sizes
-        // TODO: this is not coord aware yet
-        const iasp = aspect ?? child_aspect
-        const [ irect, brect, fasp ] = map_padmar(padding, margin, iasp)
-        aspect = flex ? aspect : (aspect ?? fasp)
-
-        // make outer border box
+        // make outer box and inner group
         const rect = shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr })
-
-        // place child in inner rect
         const inner = new Group({ children: child, rect: irect })
 
         // pass to Group
-        super({ children: [ rect, inner ], aspect, ...attr })
+        super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
     }
 }
 
@@ -1075,7 +1079,8 @@ function computeStackLayout(direc, children, spacing = 0) {
     // this is generically imperfect if len(over) > 1
     // single element case (exact): s * F_total * H * a = 1
     // multi element case (approximate): mean(s_i * S_total * H * a_i) = 1
-    const H_over = (over.length > 0) ? 1 / (F_total * mean(over.map(c => c.size * c.aspect))) : null
+    const agg = x => max(...x) // mean
+    const H_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size * c.aspect))) : null
 
     // knock out over-budgeted case right away
     // short-circuit since this is relatively simple
@@ -1133,7 +1138,7 @@ class Stack extends Group {
         // assign child rects
         children = children.map((c, i) => {
             const rect = join_lims({ [direc]: bounds[i] })
-            return clone_spec(c, { rect })
+            return clone_spec(c, { rect, align })
         })
 
         // pass to Group
@@ -1883,22 +1888,40 @@ class Text extends Element {
     }
 }
 
-class TextMulti extends VStack {
-    constructor({ children: children0, even = true, spacing, align, ...attr0 }) {
+class TextWrap extends VStack {
+    constructor({ children: children0, line_width, spacing = 0, font_family = D.family_sans, font_weight = D.font_weight, ...attr0 }) {
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
-        const children = ensure_array(children0)
-        const size = even ? 1 / children.length : null
-        const rows = children.map(t => new Text({ children: t, size, ...text_attr }))
-        super({ children: rows, spacing, align, ...attr })
+        const child = check_string(children0)
+
+        // split text into rows
+        const fargs = { family: font_family, weight: font_weight }
+        const rows = line_width != null ? wrapText(child, line_width, fargs) : [child]
+
+        // make text frames
+        const size = 1 / (rows?.length ?? 1)
+        const children = rows.map(r => new Text({ children: r, size, ...text_attr }))
+        const spacing1 = spacing * size
+
+        // pass to VStack
+        super({ children, spacing: spacing1, ...attr })
+        this.nrows = rows.length
     }
 }
 
-class TextWrap extends TextMulti {
-    constructor({ children: children0, line_width = 5, font_family = D.family_sans, font_weight = D.font_weight, ...attr }) {
+class TextMulti extends VStack {
+    constructor({ children: children0, line_width, spacing, align, ...attr0 }) {
+        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
-        const fargs = { family: font_family, weight: font_weight }
-        const rows = children.map(c => wrapText(c, line_width, fargs)).flat()
-        super({ children: rows, ...attr })
+
+        // make paras from TextWrap
+        const texts = children.map(c => new TextWrap({ children: c, line_width, align, ...text_attr }))
+
+        // apply sizes based on number of lines
+        const sizes = normalize(texts.map(t => t.nrows))
+        const paras = zip(texts, sizes).map(([t, s]) => clone_spec(t, { size: s }))
+
+        // stack it up
+        super({ children: paras, spacing, align, ...attr })
     }
 }
 

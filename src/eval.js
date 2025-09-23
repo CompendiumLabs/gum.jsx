@@ -39,7 +39,7 @@ function convertKebab(props) {
 }
 
 function h(tag, props, ...children) {
-  if (tag == 'br') return '\n'
+  if (tag == 'br') return ''
   const flattened = children.length > 0 ? flattenChildren(children) : null
   const props1 = { children: flattened, ...convertKebab(props) }
   return isClass(tag) ? new tag(props1) : tag(props1)
