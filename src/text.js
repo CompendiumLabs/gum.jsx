@@ -9,27 +9,20 @@ import { DEFAULTS as D } from './defaults.js'
 
 // canvas text sizer
 function canvasTextSizer(ctx, text, {
-    family = D.family_sans, weight = D.font_weight, size = D.calc_size, actual = false
+    font_family = D.font.family_sans, font_weight = D.font.weight, calc_size = D.font.calc_size
 } = {}) {
-    ctx.font = `${weight} ${size}px ${family}`
-    const met = ctx.measureText(text)
-    if (actual) {
-        const { actualBoundingBoxLeft, actualBoundingBoxDescent, actualBoundingBoxRight, actualBoundingBoxAscent } = met
-        const [ width, height ] = [ actualBoundingBoxRight - actualBoundingBoxLeft, actualBoundingBoxAscent - actualBoundingBoxDescent ]
-        return width / height
-    } else {
-        const { width } = met
-        return width / size
-    }
+    ctx.font = `${font_weight} ${calc_size}px ${font_family}`
+    const { width } = ctx.measureText(text)
+    return width / calc_size
 }
 
 // get a canvas (browser or node)
 let canvas = null
 if (typeof window == 'undefined') {
     const { createCanvas, registerFont } = await import('canvas')
-    registerFont('./src/fonts/IBMPlexSans-Regular.ttf', { family: D.family_sans })
-    registerFont('./src/fonts/IBMPlexMono-Regular.ttf', { family: D.family_mono })
-    const [ width, height ] = [ D.svg_size, D.svg_size ]
+    registerFont('./src/fonts/IBMPlexSans-Regular.ttf', { family: D.font.family_sans })
+    registerFont('./src/fonts/IBMPlexMono-Regular.ttf', { family: D.font.family_mono })
+    const [ width, height ] = [ D.svg.size, D.svg.size ]
     canvas = createCanvas(width, height)
 } else {
     canvas = document.createElement('canvas')
@@ -62,7 +55,7 @@ function getBreaks(text) {
     return breaks
 }
 
-function wrapText(text, aspect, args) {
+function wrapText(text, maxWidth, args) {
     // accurate, kerning-aware width
     const widthOf = s => textSizer(s, args)
 
@@ -70,40 +63,31 @@ function wrapText(text, aspect, args) {
     text = text.replace(/\s+/g, ' ')
     const breaks = getBreaks(text)
 
+    // get size of chunks and a single space
+    const chunks = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
+    const sizes = chunks.map(c => widthOf(c))
+
     // iterate over breaks
-    let i = 0
-    const lines = []
-    while (i < breaks.length - 1) {
-      // start after last break
-      const start = breaks[i]
-      let lo = i + 1
-      let hi = breaks.length - 1
-      let best = lo
-
-      // binary search for best break
-      while (lo <= hi) {
-        // get candidate line width
-        const mid = (lo + hi) >> 1
-        const pos = breaks[mid]
-        const slice = text.slice(start, pos).trimEnd()
-        const w = widthOf(slice)
-
-        // check if it fits
-        if (w <= aspect) {
-          best = mid
-          lo = mid + 1
+    let width = 0
+    let buffer = []
+    let lines = []
+    for (let i = 0; i < breaks.length - 1; i++) {
+        const chunk = chunks[i]
+        const size = sizes[i]
+        const width1 = width + size
+        if (width1 > maxWidth) {
+            lines.push(buffer.join(''))
+            buffer = [chunk]
+            width = size
         } else {
-          hi = mid - 1
+            buffer.push(chunk)
+            width = width1
         }
-      }
+    }
 
-      // get trimmed line
-      const pos = breaks[best]
-      const line = text.slice(start, pos).trimEnd()
-
-      // store line result
-      lines.push(line)
-      i = best
+    // add any remaining buffer
+    if (buffer.length > 0) {
+        lines.push(buffer.join(''))
     }
 
     // return lines

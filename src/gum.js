@@ -1,6 +1,6 @@
 // gum.js
 
-import { DEFAULTS as D, BOOLEAN as B } from './defaults.js'
+import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
 import { textSizer, wrapText } from './text.js'
 
@@ -412,7 +412,7 @@ function normal(mean, stdv) {
 
 function pad_rect(p) {
     if (p == null) {
-        return D.coord
+        return D.spec.coord
     } else if (is_scalar(p)) {
         return [ p, p, p, p ]
     } else if (p.length == 2) {
@@ -571,7 +571,7 @@ function demangle(k) {
 }
 
 function rounder(x, prec) {
-    prec = prec ?? D.prec
+    prec = prec ?? D.svg.prec
 
     let suf
     if (is_string(x) && x.endsWith('px')) {
@@ -617,11 +617,11 @@ function hexToRgba(hex) {
     return [ r, g, b, a / 255 ]
 }
 
-function palette(start0, stop0, clim = D.lim) {
+function palette(start0, stop0, clim = D.spec.lim) {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
     const slope = sub(stop, start)
-    const scale = rescaler(clim, D.lim)
+    const scale = rescaler(clim, D.spec.lim)
     function gradient(x) {
         const x1 = scale(x)
         const [ r, g, b, a ] = add(start, mul(slope, x1))
@@ -758,7 +758,7 @@ function resizer(lim_in, lim_out) {
 // map*() functions map from coord to pixel space (in prect)
 // TODO: bring back rotate
 class Context {
-    constructor({ prect = D.rect, coord = D.coord, transform = null, prec = D.prec, debug = false } = {}) {
+    constructor({ prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec, debug = false } = {}) {
         // coordinate transform
         this.prect = prect // drawing rect
         this.coord = coord // coordinate rect
@@ -816,7 +816,7 @@ class Context {
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.coord } = {}) {
+    map({ rect, aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.spec.coord } = {}) {
         // use parent coord as default rect
         rect ??= ensure_upright(this.coord)
 
@@ -856,7 +856,7 @@ class Element {
         this.attr = filter_object(attr, (k, v) => v != null && !spec_keys.includes(k))
 
         // pos/rad to rect convenience
-        if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.pos, rad ?? D.rad)
+        if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? D.spec.rad)
 
         // adjust aspect for rotation
         const { aspect, rotate } = this.spec
@@ -934,11 +934,11 @@ class Group extends Element {
 }
 
 class Svg extends Group {
-    constructor({ children: children0, size = D.svg_size, prec = D.prec, bare = false, filters = null, debug = false, aspect = 'auto', ...attr } = {}) {
+    constructor({ children: children0, size = D.svg.size, prec = D.svg.prec, bare = false, filters = null, debug = false, aspect = 'auto', ...attr } = {}) {
         const children = ensure_array(children0)
 
         // pass to Group
-        const svg_attr = bare ? {} : { stroke: 'black', fill: 'none', font_family: D.family_sans, font_weight: D.font_weight }
+        const svg_attr = bare ? {} : { stroke: 'black', fill: 'none', font_family: D.font.family, font_weight: D.font.weight }
         super({ tag: 'svg', children, aspect, ...svg_attr, ...attr })
 
         // auto-detect size and aspect
@@ -955,7 +955,7 @@ class Svg extends Group {
         const attr = super.props(ctx)
         const [ w, h ] = this.size
         const viewBox = `0 0 ${rounder(w, ctx.prec)} ${rounder(h, ctx.prec)}`
-        return { viewBox, xmlns: D.svg_ns, ...attr }
+        return { viewBox, xmlns: D.svg.ns, ...attr }
     }
 
     svg(args) {
@@ -1009,9 +1009,9 @@ class Frame extends Group {
 
         // tailwind style booleans
         if (border === true) border = 1
-        if (padding === true) padding = B.padding
-        if (margin === true) margin = B.margin
-        if (rounded === true) rounded = B.rounded
+        if (padding === true) padding = D.bool.padding
+        if (margin === true) margin = D.bool.margin
+        if (rounded === true) rounded = D.bool.rounded
         if (fill === true) fill = gray
 
         // ensure shape is a function
@@ -1026,12 +1026,19 @@ class Frame extends Group {
         // compute layout
         const { irect, brect, aspect: aspect_outer } = computeFrameLayout(child, { padding, margin, border, aspect, adjust, flex })
 
-        // make outer box and inner group
-        const rect = shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr })
+        // make outer box
+        const children = []
+        if (border > 0) {
+            const rect = shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr })
+            children.push(rect)
+        }
+
+        // make inner group
         const inner = new Group({ children: child, rect: irect })
+        children.push(inner)
 
         // pass to Group
-        super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
+        super({ children, aspect: aspect_outer, ...attr })
     }
 }
 
@@ -1126,7 +1133,7 @@ class Stack extends Group {
     constructor({ children: children0, direc, expand = true, align = 'center', spacing = 0, aspect, ...attr } = {}) {
         let children = ensure_array(children0)
         direc = ensure_orient(direc)
-        spacing = spacing === true ? B.spacing : spacing
+        spacing = spacing === true ? D.bool.spacing : spacing
 
         // short circuit if empty
         if (children.length == 0) return super({ aspect, ...attr })
@@ -1200,7 +1207,7 @@ function computeGridLayout(children, rows, cols, widths, heights, spacing) {
 
 class Grid extends Group {
     constructor({ children, rows, cols, widths, heights, spacing = 0, aspect, ...attr } = {}) {
-        spacing = spacing === true ? B.spacing : spacing
+        spacing = spacing === true ? D.bool.spacing : spacing
         spacing = ensure_vector(spacing, 2)
 
         // reshape children to grid
@@ -1378,7 +1385,7 @@ class Line extends Element {
 
 // plottable and coord adaptive
 class UnitLine extends Line {
-    constructor({ direc, loc = D.loc, lim = D.lim, ...attr } = {}) {
+    constructor({ direc, loc = D.spec.loc, lim = D.spec.lim, ...attr } = {}) {
         direc = ensure_orient(direc)
 
         // construct line positions
@@ -1407,7 +1414,7 @@ class HLine extends UnitLine {
 class Rect extends Element {
     constructor({ rounded, ...attr } = {}) {
         super({ tag: 'rect', unary: true, ...attr })
-        this.rounded = rounded === true ? B.rounded : rounded
+        this.rounded = rounded === true ? D.bool.rounded : rounded
     }
 
     props(ctx) {
@@ -1477,7 +1484,7 @@ class Dot extends Circle {
 }
 
 class Ray extends Line {
-    constructor({ angle, loc = D.pos, size = 0.5, ...attr } = {}) {
+    constructor({ angle, loc = D.spec.pos, size = 0.5, ...attr } = {}) {
         const theta = angle * d2r
         const [ x, y ] = loc
         const [ rx, ry ] = ensure_vector(size, 2)
@@ -1687,7 +1694,7 @@ function parse_rounded(rounded) {
 // supports different rounded for each corner
 class RoundedRect extends Path {
     constructor({ rounded = 0, border = 1, ...attr } = {}) {
-        rounded = rounded === true ? B.rounded : rounded
+        rounded = rounded === true ? D.bool.rounded : rounded
 
         // convert to array of arrays
         const [ rtl, rtr, rbr, rbl ] = parse_rounded(rounded)
@@ -1847,15 +1854,15 @@ function check_string(children) {
 }
 
 class Text extends Element {
-    constructor({ children: children0, font_family = D.family_sans, font_weight = D.font_weight, font_size, color = 'black', offset = [ 0, -0.13 ], ...attr } = {}) {
+    constructor({ children: children0, font_family = D.font.family, font_weight = D.font.weight, font_size, color = 'black', offset = [ 0, -0.13 ], ...attr } = {}) {
         const text = check_string(children0)
 
         // compute text box
-        const fargs = { family: font_family, weight: font_weight }
+        const fargs = { font_family, font_weight }
         const aspect = textSizer(text, fargs)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect, font_family, font_weight, font_size, stroke: color, fill: color, ...attr })
+        super({ tag: 'text', unary: false, aspect, font_size, stroke: color, fill: color, ...fargs, ...attr })
         this.text = escape_xml(text)
         this.offset = offset
     }
@@ -1888,51 +1895,88 @@ class Text extends Element {
     }
 }
 
-class TextWrap extends VStack {
-    constructor({ children: children0, line_width, spacing = 0, font_family = D.family_sans, font_weight = D.font_weight, ...attr0 }) {
-        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
-        const child = check_string(children0)
+// shape comes from inner text
+// wrap_width is in em units
+class TextBox extends VStack {
+    constructor({ children: children0, wrap_width = 15, spacing=0.2, align = 'right', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+        const text = check_string(children0)
 
-        // split text into rows
-        const fargs = { family: font_family, weight: font_weight }
-        const rows = line_width != null ? wrapText(child, line_width, fargs) : [child]
+        // wrap text to lines
+        const fargs = { font_family, font_weight }
+        const lines = wrapText(text, wrap_width, fargs)
+        const nlines = lines.length
 
-        // make text frames
-        const size = 1 / (rows?.length ?? 1)
-        const children = rows.map(r => new Text({ children: r, size, ...text_attr }))
-        const spacing1 = spacing * size
+        // make texts from lines
+        const size = 1 / nlines
+        const children = lines.map(l => new Text({ children: l, size, ...fargs, ...attr }))
 
-        // pass to VStack
-        super({ children, spacing: spacing1, ...attr })
-        this.nrows = rows.length
+        // stack it up
+        const spacing1 = nlines > 1 ? spacing / nlines : 0
+        super({ children, align, spacing: spacing1 })
     }
 }
 
-class TextMulti extends VStack {
-    constructor({ children: children0, line_width, spacing, align, ...attr0 }) {
-        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
-        const children = ensure_array(children0)
+// text fits outer shape
+// font_scale is proportionally scaled
+// font_size is absolutely scaled
+class TextWrap extends Element {
+    constructor({ children: children0, font_scale, font_size, color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+        super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
+        this.text = check_string(children0)
+        this.font_scale = font_scale
+        this.font_size = font_size
+        this.font_family = font_family
+        this.font_weight = font_weight
+    }
 
-        // make paras from TextWrap
-        const texts = children.map(c => new TextWrap({ children: c, line_width, align, ...text_attr }))
+    props(ctx) {
+        const attr = super.props(ctx)
+        return { font_family: this.font_family, font_weight: this.font_weight, ...attr }
+    }
 
-        // apply sizes based on number of lines
-        const sizes = normalize(texts.map(t => t.nrows))
-        const paras = zip(texts, sizes).map(([t, s]) => clone_spec(t, { size: s }))
+    inner(ctx) {
+        const { prect } = ctx
+        const [ x, y, w, h ] = rect_box(prect)
 
-        // stack it up
-        super({ children: paras, spacing, align, ...attr })
+        // estimate number of lines
+        const fargs = { font_family: this.font_family, font_weight: this.font_weight }
+
+        // handle font size specification
+        let nl = null
+        let fs = null
+        if (this.font_size != null) {
+            nl = ceil(h / this.font_size)
+            fs = this.font_size
+        } else if (this.font_scale != null) {
+            nl = ceil(1 / this.font_scale)
+            fs = this.font_scale * h
+        } else {
+            const aspect = textSizer(this.text, fargs)
+            console.log(aspect, h, w)
+            nl = ceil(sqrt(aspect * h / w))
+            fs = h / nl
+        }
+
+        // compute wrapped rows
+        const lh = h / nl
+        const mw = w / lh
+        const rows = wrapText(this.text, mw, fargs)
+
+        // map line indices to positions
+        const elems = rows.map((r, i) =>
+            `<text x="${x}" y="${y + (i+1)*lh}" font-size="${fs}">${r}</text>`
+        )
+        return elems.join('')
     }
 }
 
 class EmojiDiv extends Element {
-    constructor({ children, font_family, font_weight, font_size, ...attr } = {}) {
+    constructor({ children, font_family, font_weight, ...attr } = {}) {
         const emoji = check_string(children)
 
         // compute text box
-        const fargs = { family: font_family, weight: font_weight, size: font_size }
-        const [ xoff0, yoff0, width0, height0 ] = text_sizer(emoji, fargs)
-        const aspect = width0 / height0
+        const fargs = { font_family, font_weight }
+        const aspect = textSizer(emoji, fargs)
 
         // store for rendering
         super({ tag: 'div', unary: false, aspect, ...attr })
@@ -2057,7 +2101,7 @@ class TextFrame extends Frame {
 }
 
 class TitleFrame extends Frame {
-    constructor({ children: children0, title, title_size = 0.075, title_fill = 'white', title_offset = 0, title_rounded = 0.1, title_border = 1, adjust = false, padding = 0, margin = 0, border = 1, border_none = false, aspect, ...attr0 } = {}) {
+    constructor({ children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = 0.1, title_border = 1, adjust = false, padding = 0, margin = 0, border = 1, border_none = false, aspect, ...attr0 } = {}) {
         const child = check_singleton(children0)
         const [title_attr, border_attr0, frame_attr] = prefix_split(['title', 'border'], attr0)
         const border_attr = prefix_add('border', border_attr0)
@@ -2105,7 +2149,7 @@ class TitleFrame extends Frame {
 }
 
 // determines actual values given combinations of limits, values, and functions
-function sympath({ fx, fy, xlim, ylim, tlim = D.lim, xvals, yvals, tvals, clip = true, N } = {}) {
+function sympath({ fx, fy, xlim, ylim, tlim = D.spec.lim, xvals, yvals, tvals, clip = true, N } = {}) {
     fx = func_or_scalar(fx)
     fy = func_or_scalar(fy)
 
@@ -2120,7 +2164,7 @@ function sympath({ fx, fy, xlim, ylim, tlim = D.lim, xvals, yvals, tvals, clip =
     } else if (Ns.size == 1) {
         N = [...Ns][0]
     } else {
-        N = N ?? D.N
+        N = N ?? D.sym.N
     }
 
     // compute data values
@@ -2491,7 +2535,7 @@ class Node extends Frame {
 
         // make frame: handle text / element / list
         const children = squeeze(children0)
-        const text = is_element(children) ? children : new TextMulti({ children, ...text_attr })
+        const text = is_element(children) ? children : new Para({ children, ...text_attr })
 
         // adjust size for aspect
         const aspect = aspect0 ?? text.spec.aspect
@@ -2532,8 +2576,8 @@ class Edge extends Element {
 class Network extends Group {
     constructor({ children: children0, xlim, ylim, coord: coord0, ...attr } = {}) {
         // resolve coordinate system
-        const [ xlo, xhi ] = xlim ?? D.lim
-        const [ ylo, yhi ] = ylim ?? D.lim
+        const [ xlo, xhi ] = xlim ?? D.spec.lim
+        const [ ylo, yhi ] = ylim ?? D.spec.lim
         const coord = coord0 ?? [ xlo, ylo, xhi, yhi ]
 
         // collect nodes and edges
@@ -2745,7 +2789,7 @@ function get_lim(direc, coord) {
     return direc == 'v' ? [ ylo, yhi ] : [ xlo, xhi ]
 }
 
-function join_lims({ v = D.lim, h = D.lim } = {}) {
+function join_lims({ v = D.spec.lim, h = D.spec.lim } = {}) {
     const [ vlo, vhi ] = v
     const [ hlo, hhi ] = h
     return [ hlo, vlo, hhi, vhi ]
@@ -2796,7 +2840,7 @@ function invert_axispos(label_pos) {
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
-    constructor({ children, lim = D.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.tick_size, tick_label_size = D.tick_label_size, tick_label_offset = D.tick_label_offset, prec = 2, ...attr0 } = {}) {
+    constructor({ children, lim = D.spec.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = {}) {
         direc = ensure_orient(direc)
         tick_pos = ensure_axispos(tick_pos)
         label_pos = ensure_axispos(label_pos)
@@ -2854,7 +2898,7 @@ class BoxLabel extends Attach {
 }
 
 class Mesh extends Scale {
-    constructor({ direc, locs, lim = D.lim, opacity = 0.2, ...attr } = {}) {
+    constructor({ direc, locs, lim = D.spec.lim, opacity = 0.2, ...attr } = {}) {
         const coord = join_lims({ [direc]: lim })
         super({ direc, locs, coord, opacity, ...attr })
     }
@@ -2929,7 +2973,7 @@ class Graph extends Group {
         const elems = ensure_array(children0)
 
         // get default outer limits
-        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.coord
+        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.spec.coord
         const [ xmin1, xmax1 ] = xlim ?? [ xmin0, xmax0 ]
         const [ ymin1, ymax1 ] = ylim ?? [ ymin0, ymax0 ]
         const coord0 = [ xmin1, ymin1, xmax1, ymax1 ]
@@ -2955,7 +2999,7 @@ class Graph extends Group {
 
 class Plot extends Group {
     constructor({
-        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.num_ticks, yticks = D.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.tick_size, label_size, label_offset, label_align, title_size = D.title_size, title_offset = D.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.num_ticks, yticks = D.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
     } = {}) {
         const elems = ensure_array(children0)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
@@ -2975,7 +3019,7 @@ class Plot extends Group {
         ylabel_attr = { ...label_attr, ...ylabel_attr }
 
         // determine coordinate system
-        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.coord
+        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.spec.coord
         const [ xmin, xmax] = xlim ??= [ xmin0, xmax0 ]
         const [ ymin, ymax] = ylim ??= [ ymin0, ymax0 ]
         const coord = [ xmin, ymin, xmax, ymax ]
@@ -3048,12 +3092,12 @@ class Plot extends Group {
 
         // sort out label size and offset
         if (xlabel != null || ylabel != null) {
-            label_size = label_size ?? D.label_size
+            label_size = label_size ?? D.plot.label_size
             const [ xlabelsize, ylabelsize ] = aspect_invariant(label_size, aspect)
             xlabel_size = xlabel_size ?? xlabelsize
             ylabel_size = ylabel_size ?? ylabelsize
 
-            label_offset = label_offset ?? D.label_offset
+            label_offset = label_offset ?? D.plot.label_offset
             const [ xlabeloffset, ylabeloffset ] = aspect_invariant(label_offset, aspect)
             xlabel_offset = xlabel_offset ?? xlabeloffset
             ylabel_offset = ylabel_offset ?? ylabeloffset
@@ -3129,7 +3173,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextMulti, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, radial_rect
+    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, radial_rect
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3138,5 +3182,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextMulti, TextWrap, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
