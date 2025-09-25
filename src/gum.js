@@ -1941,7 +1941,6 @@ class TextWrap extends Element {
         const fargs = { font_family: this.font_family, font_weight: this.font_weight }
 
         // handle font size specification
-        let nl = null
         let fs = null
         if (this.font_size != null) {
             fs = this.font_size
@@ -1949,7 +1948,8 @@ class TextWrap extends Element {
             fs = this.font_scale * h
         } else {
             const aspect = textSizer(this.text, fargs)
-            fs = h / ceil(sqrt(aspect * h / w))
+            const nlines = ceil(sqrt(aspect * h / w))
+            fs = h / nlines
         }
 
         // compute wrapped rows
