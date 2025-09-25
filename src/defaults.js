@@ -55,4 +55,4 @@ const DEFAULTS = {
     },
 }
 
-export { DEFAULTS, BOOLEAN }
+export { DEFAULTS }

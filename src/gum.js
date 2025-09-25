@@ -1002,6 +1002,7 @@ function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect
 // TODO: auto-adjust padding/margin for aspect
 //       it seems adjust only does this if child aspect is not null
 //       but we also want to do it if own aspect is not null
+// TODO: make this Box and make Frame a Box with a border
 class Frame extends Group {
     constructor({ children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, flex = false, shape, rounded, stroke, fill, coord, ...attr0 } = {}) {
         const child = check_singleton(children0)
@@ -1937,36 +1938,27 @@ class TextWrap extends Element {
     inner(ctx) {
         const { prect } = ctx
         const [ x, y, w, h ] = rect_box(prect)
-
-        // estimate number of lines
         const fargs = { font_family: this.font_family, font_weight: this.font_weight }
 
         // handle font size specification
         let nl = null
         let fs = null
         if (this.font_size != null) {
-            nl = ceil(h / this.font_size)
             fs = this.font_size
         } else if (this.font_scale != null) {
-            nl = ceil(1 / this.font_scale)
             fs = this.font_scale * h
         } else {
             const aspect = textSizer(this.text, fargs)
-            console.log(aspect, h, w)
-            nl = ceil(sqrt(aspect * h / w))
-            fs = h / nl
+            fs = h / ceil(sqrt(aspect * h / w))
         }
 
         // compute wrapped rows
-        const lh = h / nl
-        const mw = w / lh
+        const mw = w / fs
         const rows = wrapText(this.text, mw, fargs)
 
         // map line indices to positions
-        const elems = rows.map((r, i) =>
-            `<text x="${x}" y="${y + (i+1)*lh}" font-size="${fs}">${r}</text>`
-        )
-        return elems.join('')
+        const elems = rows.map((r, i) => `<text x="${x}" y="${y + (i+1)*fs}">${r}</text>`)
+        return `<g font-size="${fs}">\n${elems.join('\n')}\n</g>`
     }
 }
 
