@@ -71,12 +71,14 @@ function wrapText(text, maxWidth, args) {
     let width = 0
     let buffer = []
     let lines = []
+    let widths = []
     for (let i = 0; i < breaks.length - 1; i++) {
         const chunk = chunks[i]
         const size = sizes[i]
         const width1 = width + size
         if (width1 > maxWidth) {
-            lines.push(buffer.join(''))
+            lines.push(buffer)
+            widths.push(width)
             buffer = [chunk]
             width = size
         } else {
@@ -87,11 +89,12 @@ function wrapText(text, maxWidth, args) {
 
     // add any remaining buffer
     if (buffer.length > 0) {
-        lines.push(buffer.join(''))
+        lines.push(buffer)
+        widths.push(width)
     }
 
     // return lines
-    return lines
+    return { lines, widths }
 }
 
 export { textSizer, getBreaks, wrapText }

@@ -1904,12 +1904,13 @@ class TextBox extends VStack {
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const lines = wrapText(text, wrap_width, fargs)
+        const { lines } = wrapText(text, wrap_width, fargs)
         const nlines = lines.length
 
         // make texts from lines
         const size = 1 / nlines
-        const children = lines.map(l => new Text({ children: l, size, ...fargs, ...attr }))
+        const rows = lines.map(l => l.join(' '))
+        const children = rows.map(r => new Text({ children: r, size, ...fargs, ...attr }))
 
         // stack it up
         const spacing1 = nlines > 1 ? spacing / nlines : 0
@@ -1956,11 +1957,18 @@ class TextWrap extends Element {
 
         // compute wrapped rows
         const mw = w / fs
-        const rows = wrapText(this.text, mw, fargs)
+        const { lines, widths } = wrapText(this.text, mw, fargs)
+
+        // compute word spacing
+        const rows = lines.map(r => r.join(' '))
+        const space = zip(lines, widths).map(([l, s]) => (w - s * fs) / (l.length - 1))
 
         // map line indices to positions
-        const elems = rows.map((r, i) => `<text x="${x}" y="${y + fs + i * lh}">${r}</text>`)
-        return `<g font-size="${fs}">\n${elems.join('\n')}\n</g>`
+        const elems = zip(rows, space).map(([r, s], i) => {
+            const ws = i == lines.length - 1 ? 0 : s
+            return `<tspan x="${x}" y="${y + fs + i * lh}" word-spacing="${ws}">${r}</tspan>`
+        })
+        return `<text font-size="${fs}">\n${elems.join('\n')}\n</text>`
     }
 }
 
