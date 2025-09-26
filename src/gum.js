@@ -1921,9 +1921,10 @@ class TextBox extends VStack {
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
 class TextWrap extends Element {
-    constructor({ children: children0, font_scale, font_size, color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+    constructor({ children: children0, font_scale, font_size, spacing = 0.2, color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
         this.text = check_string(children0)
+        this.spacing = spacing
         this.font_scale = font_scale
         this.font_size = font_size
         this.font_family = font_family
@@ -1947,17 +1948,18 @@ class TextWrap extends Element {
         } else if (this.font_scale != null) {
             fs = this.font_scale * h
         } else {
-            const aspect = textSizer(this.text, fargs)
-            const nlines = ceil(sqrt(aspect * h / w))
-            fs = h / nlines
+            const width_ems = textSizer(this.text, fargs)
+            const h1 = h / ( 1 + this.spacing )
+            fs = 0.85 * sqrt(w * h1 / width_ems)
         }
+        const lh = fs * ( 1 + this.spacing )
 
         // compute wrapped rows
         const mw = w / fs
         const rows = wrapText(this.text, mw, fargs)
 
         // map line indices to positions
-        const elems = rows.map((r, i) => `<text x="${x}" y="${y + (i+1)*fs}">${r}</text>`)
+        const elems = rows.map((r, i) => `<text x="${x}" y="${y + fs + i * lh}">${r}</text>`)
         return `<g font-size="${fs}">\n${elems.join('\n')}\n</g>`
     }
 }
