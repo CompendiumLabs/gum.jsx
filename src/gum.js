@@ -1922,10 +1922,11 @@ class TextBox extends VStack {
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
 class TextWrap extends Element {
-    constructor({ children: children0, font_scale, font_size, spacing = 0.2, color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+    constructor({ children: children0, font_scale, font_size, spacing = 0.2, justify = true, color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
         this.text = check_string(children0)
         this.spacing = spacing
+        this.justify = justify
         this.font_scale = font_scale
         this.font_size = font_size
         this.font_family = font_family
@@ -1965,8 +1966,8 @@ class TextWrap extends Element {
 
         // map line indices to positions
         const elems = zip(rows, space).map(([r, s], i) => {
-            const ws = i == lines.length - 1 ? 0 : s
-            return `<tspan x="${x}" y="${y + fs + i * lh}" word-spacing="${ws}">${r}</tspan>`
+            const ws = this.justify && i < lines.length - 1 ? `word-spacing="${s}"` : ''
+            return `<tspan x="${x}" y="${y + fs + i * lh}" ${ws}>${r}</tspan>`
         })
         return `<text font-size="${fs}">\n${elems.join('\n')}\n</text>`
     }
