@@ -1904,13 +1904,16 @@ class TextBox extends VStack {
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const { lines } = wrapText(text, wrap_width, fargs)
+        const { lines, widths } = wrapText(text, wrap_width, fargs)
         const nlines = lines.length
+
+        // compute text and aspect
+        const rows = lines.map(l => l.join(' '))
+        const aspect = max(...widths)
 
         // make texts from lines
         const size = 1 / nlines
-        const rows = lines.map(l => l.join(' '))
-        const children = rows.map(r => new Text({ children: r, size, ...fargs, ...attr }))
+        const children = rows.map(r => new Text({ children: r, size, aspect, ...fargs, ...attr }))
 
         // stack it up
         const spacing1 = nlines > 1 ? spacing / nlines : 0
