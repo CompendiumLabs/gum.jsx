@@ -3005,7 +3005,7 @@ class Graph extends Group {
 
 class Plot extends Group {
     constructor({
-        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.num_ticks, yticks = D.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
     } = {}) {
         const elems = ensure_array(children0)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
