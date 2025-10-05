@@ -912,8 +912,9 @@ class Group extends Element {
 
         // create debug boxes
         if (debug) {
-            const drects = children.map(c => new Rect({ ...c.spec, ...D.debug }))
-            children.push(...drects)
+            const orects = children.map(c => new Rect({ rect: c.spec.rect, ...D.debug, stroke: blue }))
+            const irects = children.map(c => new Rect({ ...c.spec, ...D.debug, stroke: red }))
+            children.push(...irects, ...orects)
         }
 
         // pass to Element

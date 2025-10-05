@@ -12,7 +12,6 @@ const DEFAULTS = {
     },
 
     debug: {
-        stroke: 'red',
         stroke_dasharray: 3,
         opacity: 0.5,
     },
