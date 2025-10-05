@@ -758,7 +758,7 @@ function resizer(lim_in, lim_out) {
 // map*() functions map from coord to pixel space (in prect)
 // TODO: bring back rotate
 class Context {
-    constructor({ prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec, debug = false } = {}) {
+    constructor({ prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec } = {}) {
         // coordinate transform
         this.prect = prect // drawing rect
         this.coord = coord // coordinate rect
@@ -766,15 +766,14 @@ class Context {
 
         // top level arguments
         this.prec = prec // string precision
-        this.debug = debug // debug mode
 
         // make rescaler / resizer
         this.init_scalers()
     }
 
     clone(args) {
-        const { prect, coord, transform, prec, debug } = this
-        return new Context({ prect, coord, transform, prec, debug, ...args })
+        const { prect, coord, transform, prec } = this
+        return new Context({ prect, coord, transform, prec, ...args })
     }
 
     init_scalers() {
@@ -837,7 +836,7 @@ class Context {
 
         // return new context
         const prect = cbox_rect([ x, y, w, h ])
-        return new Context({ prect, coord, transform, prec: this.prec, debug: this.debug })
+        return new Context({ prect, coord, transform, prec: this.prec })
     }
 }
 
@@ -846,7 +845,7 @@ const spec_keys = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coo
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
-    constructor({ tag, unary, children, pos, rad, ...attr } = {}) {
+    constructor({ tag, unary, children, pos, rad, flex, ...attr } = {}) {
         // core display
         this.tag = tag
         this.unary = unary
@@ -858,6 +857,9 @@ class Element {
         // pos/rad to rect convenience
         if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? D.spec.rad)
 
+        // flex aspect override convenience
+        if (flex != null) this.spec.aspect = null
+
         // adjust aspect for rotation
         const { aspect, rotate } = this.spec
         this.spec.raspect = rotate_aspect(aspect, rotate)
@@ -866,14 +868,10 @@ class Element {
         if (children != null) console.warn(`Got children in ${this.tag}`)
     }
 
+    // all this does is pass the transform to children (so they also rotate)
     props(ctx) {
-        const { transform, debug } = ctx
-        const attr = { ...this.attr, transform }
-        if (debug) {
-            const { name } = this.constructor
-            attr['gum-class'] = name.toLowerCase()
-        }
-        return attr
+        const { transform } = ctx
+        return  { ...this.attr, transform }
     }
 
     inner(ctx) {
@@ -905,12 +903,18 @@ function children_rect(children) {
 }
 
 class Group extends Element {
-    constructor({ children: children0, coord, aspect, tag = 'g', ...attr } = {}) {
+    constructor({ children: children0, coord, aspect, debug = false, tag = 'g', ...attr } = {}) {
         const children = ensure_array(children0)
 
         // extract specs from children
         const bounds = children_rect(children)
         if (aspect == 'auto' && bounds != null) aspect = rect_aspect(bounds)
+
+        // create debug boxes
+        if (debug) {
+            const drects = children.map(c => new Rect({ ...c.spec, ...D.debug }))
+            children.push(...drects)
+        }
 
         // pass to Element
         super({ tag, unary: false, coord, aspect, ...attr })
@@ -934,7 +938,7 @@ class Group extends Element {
 }
 
 class Svg extends Group {
-    constructor({ children: children0, size = D.svg.size, prec = D.svg.prec, bare = false, filters = null, debug = false, aspect = 'auto', ...attr } = {}) {
+    constructor({ children: children0, size = D.svg.size, prec = D.svg.prec, bare = false, filters = null, aspect = 'auto', ...attr } = {}) {
         const children = ensure_array(children0)
 
         // pass to Group
@@ -948,7 +952,6 @@ class Svg extends Group {
         // store core params
         this.size = size
         this.prec = prec
-        this.debug = debug
     }
 
     props(ctx) {
@@ -960,7 +963,7 @@ class Svg extends Group {
 
     svg(args) {
         const prect = [ 0, 0, ...this.size ]
-        const ctx = new Context({ prect, prec: this.prec, debug: this.debug, ...args })
+        const ctx = new Context({ prect, prec: this.prec, ...args })
         return super.svg(ctx)
     }
 }
@@ -977,7 +980,7 @@ function check_singleton(children) {
     return is_array ? children[0] : children
 }
 
-function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect = null, adjust = true, flex = false } = {}) {
+function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect = null, adjust = true } = {}) {
     // convenience boxing
     padding = pad_rect(padding)
     margin = pad_rect(margin)
@@ -993,7 +996,7 @@ function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect
     // TODO: this is not coord aware yet
     const iasp = aspect ?? child_aspect
     const [ irect, brect, fasp ] = map_padmar(padding, margin, iasp)
-    aspect = flex ? aspect : (aspect ?? fasp)
+    aspect ??= fasp
 
     // return inner/outer rects and aspect
     return { irect, brect, aspect }
@@ -1004,7 +1007,7 @@ function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect
 //       but we also want to do it if own aspect is not null
 // TODO: make this Box and make Frame a Box with a border
 class Frame extends Group {
-    constructor({ children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, flex = false, shape, rounded, stroke, fill, coord, ...attr0 } = {}) {
+    constructor({ children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, ...attr0 } = {}) {
         const child = check_singleton(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
@@ -1025,7 +1028,7 @@ class Frame extends Group {
         }
 
         // compute layout
-        const { irect, brect, aspect: aspect_outer } = computeFrameLayout(child, { padding, margin, border, aspect, adjust, flex })
+        const { irect, brect, aspect: aspect_outer } = computeFrameLayout(child, { padding, margin, border, aspect, adjust })
 
         // make outer box
         const children = []
@@ -1053,12 +1056,15 @@ function ensure_orient(direc) {
     }
 }
 
-function computeStackLayout(direc, children, spacing = 0) {
+function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     // get size and aspect data from children
     // adjust for direction (invert aspect if horizontal)
-    const items = children.map(c => (
-        { size: c.attr.size, aspect: c.spec.aspect }
-    ))
+    const items = children.map(c => {
+        const size = c.attr.stack_size
+        const expd = c.attr.stack_expand ?? expand
+        const aspect = expd ? c.spec.aspect : null
+        return { size, aspect }
+    })
     if (direc == 'h') {
         for (const c of items) c.aspect = invert(c.aspect)
     }
@@ -1080,14 +1086,14 @@ function computeStackLayout(direc, children, spacing = 0) {
     // children = list of dicts with keys size (s_i) and aspect (a_i)
     // const fixed = children.filter(c => c.size != null && c.aspect == null)
     const over = items.filter(c => c.size != null && c.aspect != null)
-    const expand = items.filter(c => c.size == null && c.aspect != null)
+    const expo = items.filter(c => c.size == null && c.aspect != null)
     const flex = items.filter(c => c.size == null && c.aspect == null)
 
     // get target aspect from over-constrained children
     // this is generically imperfect if len(over) > 1
     // single element case (exact): s * F_total * H * a = 1
     // multi element case (approximate): mean(s_i * S_total * H * a_i) = 1
-    const agg = x => max(...x) // mean
+    const agg = x => mean(x) // mean
     const H_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size * c.aspect))) : null
 
     // knock out over-budgeted case right away
@@ -1104,17 +1110,17 @@ function computeStackLayout(direc, children, spacing = 0) {
     // set height to maximally accommodate over-constrained children (or expandables)
     // add up heights required to make expandables width 1 (h * a = 1)
     // set height to satisfy: H_expand * (1 - S_sum) * F_total = sum(h) = sum(1 / a)
-    const H_expand = (expand.length > 0) ? sum(expand.map(c =>  1 / c.aspect)) / ((1 - S_sum) * F_total) : null
+    const H_expand = (expo.length > 0) ? sum(expo.map(c =>  1 / c.aspect)) / ((1 - S_sum) * F_total) : null
     const H_target = (over.length > 0) ? H_over : H_expand
 
     // allocate space to expand then flex children
     // S_exp0 gets full height of expandables given realized H_target
     // S_exp is the same but constrained so the sums are less than 1
     // should satisfy: s * F_total * H_target * a = 1
-    const S_exp0 = sum(expand.map(c => 1 / (c.aspect * F_total * H_target)))
+    const S_exp0 = sum(expo.map(c => 1 / (c.aspect * F_total * H_target)))
     const S_exp = Math.min(S_exp0, 1 - S_sum)
     const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
-    for (const c of expand) c.size = 1 / (c.aspect * F_total * H_target) * scale
+    for (const c of expo) c.size = 1 / (c.aspect * F_total * H_target) * scale
 
     // distribute remaining space to flex children
     // S_left is the remaining space after pre-allocated and expandables (may hit 0)
@@ -1140,7 +1146,7 @@ class Stack extends Group {
         if (children.length == 0) return super({ aspect, ...attr })
 
         // compute layout
-        const { bounds, aspect: aspect_ideal } = computeStackLayout(direc, children, spacing)
+        const { bounds, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing, expand })
         aspect ??= aspect_ideal
 
         // assign child rects

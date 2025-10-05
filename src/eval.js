@@ -76,7 +76,7 @@ class MessageError extends Error {
   }
 }
 
-function evaluateGum(code, { size = 500 } = {}) {
+function evaluateGum(code, { size = 500, debug = false } = {}) {
   if (code.trim() == '') {
     throw new MessageError(`No code provided`)
   }
@@ -101,7 +101,7 @@ function evaluateGum(code, { size = 500 } = {}) {
       args.width = width
       args.height = height
     }
-    element = new Svg({ children: element, ...args })
+    element = new Svg({ children: element, debug, ...args })
   }
 
   // return element

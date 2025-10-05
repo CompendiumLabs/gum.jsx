@@ -11,6 +11,12 @@ const DEFAULTS = {
         coord: [0, 0, 1, 1],
     },
 
+    debug: {
+        stroke: 'red',
+        stroke_dasharray: 3,
+        opacity: 0.5,
+    },
+
     // svg
     svg: {
         ns: 'http://www.w3.org/2000/svg',
