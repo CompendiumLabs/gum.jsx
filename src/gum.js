@@ -1912,17 +1912,17 @@ class Text extends Element {
 // shape comes from inner text
 // wrap_width is in em units
 class TextBox extends VStack {
-    constructor({ children: children0, wrap_width = 15, spacing = 0.2, align = 'right', color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+    constructor({ children: children0, wrap_width = 20, spacing = 0.2, align = 'right', color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
         const text = check_string(children0)
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const { lines, widths } = wrapText(text, wrap_width, fargs)
+        const { lines } = wrapText(text, wrap_width, fargs)
         const nlines = lines.length
 
         // compute text and aspect
         const rows = lines.map(l => l.join(' '))
-        const aspect = max(...widths)
+        const aspect = wrap_width
 
         // make texts from lines
         const size = 1 / nlines
