@@ -1066,6 +1066,8 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
         const aspect = expd ? c.spec.aspect : null
         return { size, aspect }
     })
+
+    // handle horizontal case (invert aspect)
     if (direc == 'h') {
         for (const c of items) c.aspect = invert(c.aspect)
     }
@@ -1097,11 +1099,10 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     const agg = x => mean(x) // mean
     const H_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size * c.aspect))) : null
 
-    // knock out over-budgeted case right away
+    // knock out (over/exactly)-budgeted case right away
     // short-circuit since this is relatively simple
     const S_sum = sum(getSizes(items))
-    if (S_sum >= 1) {
-        for (const c of items) c.size = (c.size ?? 0) / S_sum
+    if (S_sum >= 1 || (expo.length == 0 && flex.length == 0)) {
         const sizes = getSizes(items)
         const bounds = getBounds(sizes)
         const aspect = getAspect(H_over)
@@ -1123,10 +1124,15 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
     for (const c of expo) c.size = 1 / (c.aspect * F_total * H_target) * scale
 
-    // distribute remaining space to flex children
+    // distribute remaining space to flex children, or expo children if no flex children
     // S_left is the remaining space after pre-allocated and expandables (may hit 0)
     const S_left = 1 - S_sum - S_exp
-    for (const c of flex) c.size = S_left / flex.length
+    if (flex.length > 0) {
+        for (const c of flex) c.size = S_left / flex.length
+    } else if (expo.length > 0) {
+        const S_exp1 = sum(expo.map(c => c.size))
+        for (const c of expo) c.size *= (1 - S_sum) / S_exp1
+    }
 
     // compute heights and aspect
     const sizes = getSizes(items)
@@ -1906,7 +1912,7 @@ class Text extends Element {
 // shape comes from inner text
 // wrap_width is in em units
 class TextBox extends VStack {
-    constructor({ children: children0, wrap_width = 15, spacing=0.2, align = 'right', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+    constructor({ children: children0, wrap_width = 15, spacing = 0.2, align = 'right', color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
         const text = check_string(children0)
 
         // wrap text to lines
@@ -1920,11 +1926,11 @@ class TextBox extends VStack {
 
         // make texts from lines
         const size = 1 / nlines
-        const children = rows.map(r => new Text({ children: r, size, aspect, ...fargs, ...attr }))
+        const children = rows.map(r => new Text({ children: r, size, aspect, color, ...fargs }))
 
         // stack it up
         const spacing1 = nlines > 1 ? spacing / nlines : 0
-        super({ children, align, spacing: spacing1 })
+        super({ children, align, spacing: spacing1, ...attr })
     }
 }
 
