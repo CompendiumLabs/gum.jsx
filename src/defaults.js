@@ -42,6 +42,20 @@ const DEFAULTS = {
         N: 100,
     },
 
+    text: {
+        color: 'black',
+        wrap_width: 20,
+        spacing: 0.2,
+        padding: 0.1,
+    },
+
+    node: {
+        rad: 0.15,
+        rounded: 0.05,
+        padding: 0.1,
+        wrap_width: 10,
+    },
+
     // plot defaults
     plot: {
         num_ticks: 5,
@@ -57,6 +71,7 @@ const DEFAULTS = {
     // titleframe size
     titleframe: {
         title_size: 0.05,
+        title_rounded: 0.1,
     },
 }
 

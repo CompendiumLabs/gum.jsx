@@ -1010,8 +1010,9 @@ function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect
 // TODO: auto-adjust padding/margin for aspect
 //       it seems adjust only does this if child aspect is not null
 //       but we also want to do it if own aspect is not null
-// TODO: make this Box and make Frame a Box with a border
-class Frame extends Group {
+// TODO: allow this to hold multiple children and somehow detect the aspect
+//       or at least inherit the aspect in the case of a single child
+class Box extends Group {
     constructor({ children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, ...attr0 } = {}) {
         const child = check_singleton(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
@@ -1048,6 +1049,12 @@ class Frame extends Group {
 
         // pass to Group
         super({ children, aspect: aspect_outer, ...attr })
+    }
+}
+
+class Frame extends Box {
+    constructor({ border = 1, ...attr } = {}) {
+        super({ border, ...attr })
     }
 }
 
@@ -1916,21 +1923,22 @@ class Text extends Element {
 // shape comes from inner text
 // wrap_width is in em units
 class TextBox extends VStack {
-    constructor({ children: children0, wrap_width = 20, spacing = 0.2, align = 'right', color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+    constructor({ children: children0, wrap_width = D.text.wrap_width, spacing = D.text.spacing, align = 'right', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, slim = false, ...attr0 }) {
         const text = check_string(children0)
+        const [ text_attr, attr ] = prefix_split(['text'], attr0)
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const { lines } = wrapText(text, wrap_width, fargs)
-        const nlines = lines.length
+        const { lines, widths } = wrapText(text, wrap_width, fargs)
 
-        // compute text and aspect
-        const rows = lines.map(l => l.join(' '))
-        const aspect = wrap_width
+        // get number of lines
+        const rows = lines.map(r => r.join(' '))
+        const nlines = lines.length
 
         // make texts from lines
         const size = 1 / nlines
-        const children = rows.map(r => new Text({ children: r, size, aspect, color, ...fargs }))
+        const aspect = slim ? max(...widths) : wrap_width
+        const children = rows.map(r => new Text({ children: r, size, aspect, color, ...fargs, ...text_attr }))
 
         // stack it up
         const spacing1 = nlines > 1 ? spacing / nlines : 0
@@ -1938,30 +1946,50 @@ class TextBox extends VStack {
     }
 }
 
+// calculate font-size within box, iterative but still BlooP!
+function get_font_size(text, w, h, spacing, fargs) {
+    // best guess font size
+    const tw = textSizer(text, fargs)
+    const lw = ( tw * h ) / w
+    const { lines } = wrapText(text, lw, fargs)
+    const nmin = lines.length
+    const nmax = sum(lines.map(l => l.length))
+
+    // account for ragged newlines
+    for (let n = nmin; n <= nmax; n++) {
+        const fs = h / ( n + (n - 1) * spacing )
+        const lw = w / fs
+        const { lines, widths } = wrapText(text, lw, fargs)
+        if (lines.length <= n) {
+            const mw = max(...widths)
+            return fs * mw < w ? fs : w / mw
+        }
+    }
+}
+
 // text fits outer shape
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
 class TextWrap extends Element {
-    constructor({ children: children0, font_scale, font_size, spacing = 0.2, justify = true, color = 'black', font_family = D.font.family, font_weight = D.font.weight, ...attr }) {
+    constructor({ children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = -0.12, ...attr }) {
+        const children = check_string(children0)
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
-        this.text = check_string(children0)
+        this.text = children
         this.spacing = spacing
-        this.justify = justify
+        this.voffset = voffset
         this.font_scale = font_scale
         this.font_size = font_size
-        this.font_family = font_family
-        this.font_weight = font_weight
+        this.font_args = { font_family, font_weight }
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        return { font_family: this.font_family, font_weight: this.font_weight, ...attr }
+        return { ...this.font_args, ...attr }
     }
 
     inner(ctx) {
         const { prect } = ctx
         const [ x, y, w, h ] = rect_box(prect)
-        const fargs = { font_family: this.font_family, font_weight: this.font_weight }
 
         // handle font size specification
         let fs = null
@@ -1970,25 +1998,18 @@ class TextWrap extends Element {
         } else if (this.font_scale != null) {
             fs = this.font_scale * h
         } else {
-            const width_ems = textSizer(this.text, fargs)
-            const h1 = h / ( 1 + this.spacing )
-            fs = 0.85 * sqrt(w * h1 / width_ems)
+            fs = get_font_size(this.text, w, h, this.spacing, this.font_args)
         }
         const lh = fs * ( 1 + this.spacing )
 
         // compute wrapped rows
         const mw = w / fs
-        const { lines, widths } = wrapText(this.text, mw, fargs)
-
-        // compute word spacing
+        const { lines } = wrapText(this.text, mw, this.font_args)
         const rows = lines.map(r => r.join(' '))
-        const space = zip(lines, widths).map(([l, s]) => (w - s * fs) / (l.length - 1))
 
         // map line indices to positions
-        const elems = zip(rows, space).map(([r, s], i) => {
-            const ws = this.justify && i < lines.length - 1 ? `word-spacing="${s}"` : ''
-            return `<tspan x="${x}" y="${y + fs + i * lh}" ${ws}>${r}</tspan>`
-        })
+        const y1 = y + ( 1 + this.voffset ) * fs
+        const elems = rows.map((r, i) => `<tspan x="${x}" y="${y1 + i * lh}">${r}</tspan>`)
         return `<text font-size="${fs}">\n${elems.join('\n')}\n</text>`
     }
 }
@@ -2106,7 +2127,7 @@ class Latex extends Element {
 }
 
 class TextFrame extends Frame {
-    constructor({ children: children0, padding = 0.1, border = 1, spacing = 0.02, align, latex = false, emoji = false, ...attr0 } = {}) {
+    constructor({ children: children0, padding = D.text.padding, spacing = D.text.spacing, align, latex = false, emoji = false, ...attr0 } = {}) {
         const children = ensure_array(children0)
         const [text_attr, attr] = prefix_split(['text'], attr0)
 
@@ -2119,16 +2140,14 @@ class TextFrame extends Frame {
             maker(children[0] ?? '')
 
         // pass to Group
-        super({ children: text, padding, border, align, ...attr })
+        super({ children: text, padding, ...attr })
     }
 }
 
 class TitleFrame extends Frame {
-    constructor({ children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = 0.1, title_border = 1, adjust = false, padding = 0, margin = 0, border = 1, border_none = false, aspect, ...attr0 } = {}) {
+    constructor({ children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, adjust = false, padding = 0, margin = 0, aspect, ...attr0 } = {}) {
         const child = check_singleton(children0)
-        const [title_attr, border_attr0, frame_attr] = prefix_split(['title', 'border'], attr0)
-        const border_attr = prefix_add('border', border_attr0)
-        border = border_none ? 0 : border
+        const [title_attr, frame_attr] = prefix_split(['title'], attr0)
 
         // adjust padding for title
         if (title != null && adjust) {
@@ -2140,22 +2159,22 @@ class TitleFrame extends Frame {
             margin = [ ml, mt + title_size, mr, mb ]
         }
 
-        // make outer frame
-        const frame = new Frame({ children: child, aspect, padding, border: 0 })
-        const subs = [ frame ]
+        // make outer box
+        const box = new Box({ children: child, aspect, padding })
+        const subs = [ box ]
 
         // make optional title box
         if (title != null) {
             const base = title_offset * title_size
             const title_rect = radial_rect([ 0.5, base ], [ 0.0, title_size ])
-            const title_box = new TextFrame({ children: title, rect: title_rect, expand: true, fill: title_fill, border: title_border, rounded: title_rounded, ...title_attr })
+            const title_box = new TextFrame({ children: title, rect: title_rect, expand: true, fill: title_fill, rounded: title_rounded, ...title_attr })
             subs.push(title_box)
         }
 
-        // apply margin only frame
-        const group_aspect = aspect ?? frame.spec.raspect
+        // apply margin only box
+        const group_aspect = aspect ?? box.spec.raspect
         const group = new Group({ children: subs, aspect: group_aspect })
-        super({ children: group, margin, border, ...border_attr, ...frame_attr })
+        super({ children: group, margin, ...frame_attr })
     }
 }
 
@@ -2553,19 +2572,15 @@ class ArrowPath extends Group {
 }
 
 class Node extends Frame {
-    constructor({ children: children0, label, rad = 0.1, padding = 0.1, border = 1, rounded = 0.05, aspect: aspect0, ...attr0 } = {}) {
+    constructor({ children: children0, label, rad = D.node.rad, wrap_width = D.node.wrap_width, padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = {}) {
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
         // make frame: handle text / element / list
         const children = squeeze(children0)
-        const text = is_element(children) ? children : new Para({ children, ...text_attr })
-
-        // adjust size for aspect
-        const aspect = aspect0 ?? text.spec.aspect
-        rad = aspect_invariant(rad, Math.sqrt(aspect))
+        const text = is_element(children) ? children : new TextWrap({ children, wrap_width, slim: true, ...text_attr })
 
         // pass to Frame
-        super({ children: text, padding, border, rounded, rad, flex: true, ...attr })
+        super({ children: text, padding, rounded, rad, ...attr })
         this.label = label
     }
 
@@ -3196,7 +3211,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, radial_rect
+    Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, radial_rect
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3205,5 +3220,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }

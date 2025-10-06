@@ -86,10 +86,10 @@ function wrapText(text, maxWidth, args) {
         const chunk = chunks[i]
         const size = sizes[i]
         const width1 = width + size
-        if (width1 > maxWidth) {
+        if (buffer.length > 0 && width1 > maxWidth) {
             lines.push(buffer)
             widths.push(width)
-            buffer = [chunk]
+            buffer = [ chunk ]
             width = size
         } else {
             buffer.push(chunk)
