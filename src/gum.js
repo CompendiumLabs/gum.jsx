@@ -2577,10 +2577,10 @@ class Node extends Frame {
 
         // make frame: handle text / element / list
         const children = squeeze(children0)
-        const text = is_element(children) ? children : new TextWrap({ children, wrap_width, slim: true, ...text_attr })
+        const text = is_element(children) ? children : new TextBox({ children, wrap_width, slim: true, ...text_attr })
 
         // pass to Frame
-        super({ children: text, padding, rounded, rad, ...attr })
+        super({ children: text, padding, rounded, rad, expand: true, ...attr })
         this.label = label
     }
 

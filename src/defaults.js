@@ -51,7 +51,7 @@ const DEFAULTS = {
     },
 
     node: {
-        rad: 0.15,
+        rad: 0.05,
         rounded: 0.05,
         padding: 0.1,
         wrap_width: 10,
