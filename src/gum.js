@@ -1879,7 +1879,7 @@ function check_string(children) {
 }
 
 class Text extends Element {
-    constructor({ children: children0, font_family = D.font.family, font_weight = D.font.weight, font_size, color = 'black', offset = [ 0, -0.13 ], ...attr } = {}) {
+    constructor({ children: children0, font_family = D.font.family, font_weight = D.font.weight, font_size, color = 'black', voffset = D.text.voffset, ...attr } = {}) {
         const text = check_string(children0)
 
         // compute text box
@@ -1889,7 +1889,7 @@ class Text extends Element {
         // pass to element
         super({ tag: 'text', unary: false, aspect, font_size, stroke: color, fill: color, ...fargs, ...attr })
         this.text = escape_xml(text)
-        this.offset = offset
+        this.voffset = voffset
     }
 
     // because text will always be displayed upright,
@@ -1899,12 +1899,12 @@ class Text extends Element {
         const attr = super.props(ctx)
         const { prect } = ctx
         const [ x0, y0, rx0, ry0 ] = rect_radial(prect)
-        const [ xoff, yoff ] = ctx.mapSize(this.offset)
+        const [ _, yoff ] = ctx.mapSize([ 0, this.voffset ])
 
         // get display position
         const [ rx, ry ] = [ abs(rx0), abs(ry0) ]
         const [ x1, y1 ] = [ x0 - rx, y0 + ry ]
-        const [ x, y ] = [ x1 + xoff, y1 + yoff ]
+        const [ x, y ] = [ x1, y1 + yoff ]
         const h0 = 2 * ry
 
         // get font size
@@ -1971,7 +1971,7 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
 class TextWrap extends Element {
-    constructor({ children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = -0.12, ...attr }) {
+    constructor({ children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr }) {
         const children = check_string(children0)
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
         this.text = children

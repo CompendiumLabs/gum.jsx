@@ -47,6 +47,7 @@ const DEFAULTS = {
         wrap_width: 20,
         spacing: 0.2,
         padding: 0.1,
+        voffset: -0.12,
     },
 
     node: {
