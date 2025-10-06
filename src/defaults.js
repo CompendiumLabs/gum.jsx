@@ -50,7 +50,7 @@ const DEFAULTS = {
         tick_label_offset: 0.5,
         label_size: 0.05,
         label_offset: [ 0.11, 0.18 ],
-        title_size: 0.05,
+        title_size: 0.1,
         title_offset: 0.05,
     },
 
