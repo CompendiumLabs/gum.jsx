@@ -2166,8 +2166,8 @@ class TitleFrame extends Frame {
         // make optional title box
         if (title != null) {
             const base = title_offset * title_size
-            const title_rect = radial_rect([ 0.5, base ], [ 0.0, title_size ])
-            const title_box = new TextFrame({ children: title, rect: title_rect, expand: true, fill: title_fill, rounded: title_rounded, ...title_attr })
+            const title_rect = radial_rect([ 0.5, base ], [ 0.5, title_size ])
+            const title_box = new TextFrame({ children: title, rect: title_rect, fill: title_fill, rounded: title_rounded, ...title_attr })
             subs.push(title_box)
         }
 
@@ -3188,6 +3188,21 @@ class BarPlot extends Plot {
 }
 
 //
+// slides
+//
+
+// TODO: add way to set TextBox settings in children
+class Slide extends TitleFrame {
+    constructor({ children, aspect, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = 0.025, border_stroke = '#bbb', title_size = 0.06, title_text_font_weight = 'bold', debug = false, ...attr } = {}) {
+        // make a stack out of the children
+        const stack = new VStack({ children, aspect, spacing, debug })
+
+        // pass to TitleFrame
+        super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, debug, ...attr })
+    }
+}
+
+//
 // images
 //
 
@@ -3211,7 +3226,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, radial_rect
+    Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, radial_rect
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3220,5 +3235,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Text, TextWrap, TextBox, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
