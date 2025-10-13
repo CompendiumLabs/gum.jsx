@@ -2029,16 +2029,15 @@ class Text extends Element {
 }
 
 // shape comes from inner text
-// wrap_width is in em units
 class TextBox extends VStack {
     constructor(args = {}) {
-        let { children: children0, wrap_width = D.text.wrap_width, spacing = D.text.spacing, align = 'right', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, slim = false, ...attr0 } = args
+        let { children: children0, text_wrap = D.text.wrap, spacing = D.text.spacing, align = 'right', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, slim = false, ...attr0 } = args
         const text = check_string(children0)
         const [ text_attr, attr ] = prefix_split(['text'], attr0)
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const { lines, widths } = wrapText(text, wrap_width, fargs)
+        const { lines, widths } = wrapText(text, text_wrap, fargs)
 
         // get number of lines
         const rows = lines.map(r => r.join(' '))
@@ -2046,7 +2045,7 @@ class TextBox extends VStack {
 
         // make texts from lines
         const size = 1 / nlines
-        const aspect = slim ? max(...widths) : wrap_width
+        const aspect = slim ? max(...widths) : text_wrap
         const children = rows.map(r => new Text({ children: r, size, aspect, color, ...fargs, ...text_attr }))
 
         // stack it up
@@ -2196,6 +2195,7 @@ function get_attributes(elem) {
     )
 }
 
+// TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
         let { children: children0, ...attr } = args
@@ -2440,7 +2440,7 @@ class SymPoly extends Polygon {
 
 class SymPoints extends Group {
     constructor(args = {}) {
-        let { children: children0, fx, fy, fs, fr, size = 0.01, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr } = args
+        let { children: children0, fx, fy, fs, fr, size = D.point.size, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, coord, ...attr } = args
         const shape = ensure_function(shape0 ?? (() => new Dot()))
         const fsize = is_number(size) ? (() => size) : size
 
@@ -2455,11 +2455,11 @@ class SymPoints extends Group {
             const sh = shape(x, y, t, i)
             const sz = fsize(x, y, t, i)
             const rect = radial_rect([x, y], sz)
-            return sh.clone({ rect })
+            return sh.clone({ rect, ...attr })
         })
 
         // pass  to element
-        super({ children, ...attr })
+        super({ children, coord })
         this.args = args
     }
 }
@@ -2756,12 +2756,12 @@ class ArrowPath extends Group {
 
 class Node extends Frame {
     constructor(args = {}) {
-        let { children: children0, label, rad = D.node.rad, wrap_width = D.node.wrap_width, padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = args
+        let { children: children0, label, rad = D.node.rad, text_wrap = D.node.wrap, padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
         // make frame: handle text / element / list
         const children = squeeze(children0)
-        const text = is_element(children) ? children : new TextBox({ children, wrap_width, slim: true, ...text_attr })
+        const text = is_element(children) ? children : new TextBox({ children, text_wrap, slim: true, ...text_attr })
 
         // pass to Frame
         super({ children: text, padding, rounded, rad, expand: true, ...attr })
@@ -3443,7 +3443,9 @@ class BarPlot extends Plot {
 
 function ensureTextBox(c, args) {
     if (is_string(c)) {
-        return new TextBox({ children: c, ...args })
+        return c.split('\n').map(
+            t => new TextBox({ children: t, ...args })
+        )
     } else if (c.constructor.name == 'TextBox') {
         return c.clone({ ...args })
     } else {
@@ -3453,15 +3455,15 @@ function ensureTextBox(c, args) {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        let { children: children0, aspect, markdown = false, wrap_width = D.text.wrap_width, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = 0.025, border_stroke = '#bbb', title_size = 0.06, title_text_font_weight = 'bold', debug = false, ...attr } = args
+        let { children: children0, aspect, markdown = false, text_wrap = D.slide.wrap, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, debug = false, ...attr } = args
         const rows = ensure_array(children0)
 
         // make a stack out of the children
-        const children = rows.map(c => ensureTextBox(c, { wrap_width }))
+        const children = rows.map(c => ensureTextBox(c, { text_wrap })).flat()
         const stack = new VStack({ children, aspect, spacing, debug })
 
         // pass to TitleFrame
-        super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, debug, ...attr })
+        super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, debug, ...attr })
         this.args = args
     }
 }

@@ -38,13 +38,17 @@ const DEFAULTS = {
         calc_size: 16,
     },
 
+    point: {
+        size: 0.025,
+    },
+
     sym: {
         N: 100,
     },
 
     text: {
         color: 'black',
-        wrap_width: 20,
+        wrap: 20,
         spacing: 0.2,
         padding: 0.1,
         voffset: -0.12,
@@ -54,7 +58,7 @@ const DEFAULTS = {
         rad: 0.05,
         rounded: 0.05,
         padding: 0.1,
-        wrap_width: 10,
+        wrap: 10,
     },
 
     // plot defaults
@@ -73,6 +77,14 @@ const DEFAULTS = {
     titleframe: {
         title_size: 0.05,
         title_rounded: 0.1,
+    },
+
+    slide: {
+        border: 1,
+        rounded: 0.01,
+        border_stroke: '#bbb',
+        title_size: 0.05,
+        wrap: 25,
     },
 }
 

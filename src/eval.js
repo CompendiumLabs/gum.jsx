@@ -51,7 +51,10 @@ registerPlugin("preserve-jsx-whitespace", function ({ types: t }) {
       name: "preserve-jsx-whitespace",
       visitor: {
           JSXText(path) {
-              const raw = path.node.value.replace(/ +/g, ' ').trim()
+              const raw = path.node.value
+                .replace(/ +/g, ' ')
+                .replace(/\n+/g, '\n')
+                .trim()
               path.replaceWith(t.JSXExpressionContainer(t.stringLiteral(raw)))
           },
       },
