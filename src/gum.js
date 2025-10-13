@@ -187,20 +187,6 @@ function filter_object(obj, fn) {
     )
 }
 
-function clone_object(obj) {
-    const proto = Object.getPrototypeOf(obj)
-    const clone = Object.create(proto)
-    Object.assign(clone, obj)
-    return clone
-}
-
-function clone_spec(obj, update) {
-    const { spec } = obj
-    const clone = clone_object(obj)
-    clone.spec = { ...spec, ...update }
-    return clone
-}
-
 //
 // type checks
 //
@@ -762,7 +748,10 @@ function resizer(lim_in, lim_out) {
 // map*() functions map from coord to pixel space (in prect)
 // TODO: bring back rotate
 class Context {
-    constructor({ prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec } = {}) {
+    constructor(args = {}) {
+        let { prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec } = args
+        this.args = args
+
         // coordinate transform
         this.prect = prect // drawing rect
         this.coord = coord // coordinate rect
@@ -776,8 +765,7 @@ class Context {
     }
 
     clone(args) {
-        const { prect, coord, transform, prec } = this
-        return new Context({ prect, coord, transform, prec, ...args })
+        return new Context({ ...this.args, ...args })
     }
 
     init_scalers() {
@@ -849,7 +837,10 @@ const spec_keys = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coo
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
-    constructor({ tag, unary, children, pos, rad, flex, ...attr } = {}) {
+    constructor(args = {}) {
+        let { tag, unary, children, pos, rad, flex, ...attr } = args
+        this.args = args
+
         // core display
         this.tag = tag
         this.unary = unary
@@ -870,6 +861,10 @@ class Element {
 
         // warn if children are passed
         if (children != null) console.warn(`Got children in ${this.tag}`)
+    }
+
+    clone(args) {
+        return new this.constructor({ ...this.args, ...args })
     }
 
     // all this does is pass the transform to children (so they also rotate)
@@ -907,7 +902,8 @@ function children_rect(children) {
 }
 
 class Group extends Element {
-    constructor({ children: children0, coord, aspect, debug = false, tag = 'g', ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, coord, aspect, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
         // extract specs from children
@@ -923,6 +919,9 @@ class Group extends Element {
 
         // pass to Element
         super({ tag, unary: false, coord, aspect, ...attr })
+        this.args = args
+
+        // additional props
         this.children = children
         this.bounds = bounds
     }
@@ -943,18 +942,20 @@ class Group extends Element {
 }
 
 class Svg extends Group {
-    constructor({ children: children0, size = D.svg.size, prec = D.svg.prec, bare = false, filters = null, aspect = 'auto', ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, size = D.svg.size, prec = D.svg.prec, bare = false, filters = null, aspect = 'auto', ...attr } = args
         const children = ensure_array(children0)
 
         // pass to Group
         const svg_attr = bare ? {} : { stroke: 'black', fill: 'none', font_family: D.font.family, font_weight: D.font.weight }
         super({ tag: 'svg', children, aspect, ...svg_attr, ...attr })
+        this.args = args
 
         // auto-detect size and aspect
         size = is_scalar(size) ? [ size, size ] : size
         size = embed_rect(size, { aspect: this.spec.aspect })
 
-        // store core params
+        // additional props
         this.size = size
         this.prec = prec
     }
@@ -1013,7 +1014,8 @@ function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect
 // TODO: allow this to hold multiple children and somehow detect the aspect
 //       or at least inherit the aspect in the case of a single child
 class Box extends Group {
-    constructor({ children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, ...attr0 } = args
         const child = check_singleton(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
@@ -1049,12 +1051,15 @@ class Box extends Group {
 
         // pass to Group
         super({ children, aspect: aspect_outer, ...attr })
+        this.args = args
     }
 }
 
 class Frame extends Box {
-    constructor({ border = 1, ...attr } = {}) {
+    constructor(args = {}) {
+        let { border = 1, ...attr } = args
         super({ border, ...attr })
+        this.args = args
     }
 }
 
@@ -1069,6 +1074,9 @@ function ensure_orient(direc) {
 }
 
 function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
+    // short circuit if empty
+    if (children.length == 0) return { bounds: null, aspect: null}
+
     // get size and aspect data from children
     // adjust for direction (invert aspect if horizontal)
     const items = children.map(c => {
@@ -1155,13 +1163,11 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
 // expects list of Element or [Element, height]
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 class Stack extends Group {
-    constructor({ children: children0, direc, expand = true, align = 'center', spacing = 0, aspect, ...attr } = {}) {
-        let children = ensure_array(children0)
+    constructor(args = {}) {
+        let { children, direc, expand = true, align = 'center', spacing = 0, aspect, ...attr } = args
+        children = ensure_array(children)
         direc = ensure_orient(direc)
         spacing = spacing === true ? D.bool.spacing : spacing
-
-        // short circuit if empty
-        if (children.length == 0) return super({ aspect, ...attr })
 
         // compute layout
         const { bounds, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing, expand })
@@ -1170,23 +1176,28 @@ class Stack extends Group {
         // assign child rects
         children = children.map((c, i) => {
             const rect = join_lims({ [direc]: bounds[i] })
-            return clone_spec(c, { rect, align })
+            return c.clone({ rect, align })
         })
 
         // pass to Group
         super({ children, aspect, ...attr })
+        this.args = args
     }
 }
 
 class VStack extends Stack {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HStack extends Stack {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
@@ -1231,7 +1242,8 @@ function computeGridLayout(children, rows, cols, widths, heights, spacing) {
 }
 
 class Grid extends Group {
-    constructor({ children, rows, cols, widths, heights, spacing = 0, aspect, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children, rows, cols, widths, heights, spacing = 0, aspect, ...attr } = args
         spacing = spacing === true ? D.bool.spacing : spacing
         spacing = ensure_vector(spacing, 2)
 
@@ -1260,34 +1272,41 @@ class Grid extends Group {
             ([[y0, y1], [x0, x1]]) => [x0, y0, x1, y1]
         )
         children = children.map((c, i) =>
-            clone_spec(c, { rect: bounds[i] })
+            c.clone({ rect: bounds[i] })
         )
 
         // pass to Group
         super({ children, aspect, ...attr })
+        this.args = args
     }
 }
 
 class Flip extends Group {
-    constructor({ children: children0, direc, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, direc, ...attr } = args
         const child = check_singleton(children0)
         direc = ensure_orient(direc)
         const rect = join_lims({ [direc]: [1, 0] })
-        const children = clone_spec(child, { rect })
+        const children = child.clone({ rect })
         const { aspect } = children.spec
         super({ children, aspect, ...attr })
+        this.args = args
     }
 }
 
 class VFlip extends Flip {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HFlip extends Flip {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
@@ -1297,11 +1316,12 @@ const anchor_rect = {
 }
 
 class Anchor extends Group {
-    constructor({ children: children0, side, align, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, side, align, ...attr } = args
         const child = check_singleton(children0)
 
         // assign spec to child
-        const children = clone_spec(child, {
+        const children = child.clone({
             rect: anchor_rect[side],
             align: align ?? 1 - align_frac(side),
             expand: true,
@@ -1309,11 +1329,13 @@ class Anchor extends Group {
 
         // pass to Group
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 class Attach extends Group {
-    constructor({ children: children0, offset = 0, size = 1, align = 'center', side, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, offset = 0, size = 1, align = 'center', side, ...attr } = args
         const child = check_singleton(children0)
 
         // get extent and map
@@ -1324,18 +1346,20 @@ class Attach extends Group {
         }
 
         // assign spec to child
-        const children = clone_spec(child, {
+        const children = child.clone({
             rect: rmap[side],
             align,
         })
 
         // pass to Group
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 class Points extends Group {
-    constructor({ children: children0, locs, size = 0.01, shape: shape0, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, locs, size = 0.01, shape: shape0, ...attr0 } = args
         const shape = ensure_function(shape0 ?? (a => new Dot(a)))
         const [ point_attr, attr ] = prefix_split([ 'point' ], attr0)
 
@@ -1348,17 +1372,20 @@ class Points extends Group {
 
         // pass to Group
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 // BORKEN
 class Absolute extends Element {
-    constructor({ children: children0, size, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, size, ...attr } = args
         const child = check_singleton(children0)
         super({ tag: 'g', unary: false, ...attr })
         this.child = child
         this.size = size
         this.place = attr
+        this.args = args
     }
 
     inner(ctx) {
@@ -1383,8 +1410,10 @@ class Absolute extends Element {
 
 // this can have an aspect, which is utilized by layouts
 class Spacer extends Element {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ tag: 'g', unary: true, ...attr })
+        this.args = args
     }
 
     svg(ctx) {
@@ -1393,8 +1422,12 @@ class Spacer extends Element {
 }
 
 class Line extends Element {
-    constructor({ pos1, pos2, ...attr } = {}) {
+    constructor(args = {}) {
+        let { pos1, pos2, ...attr } = args
         super({ tag: 'line', unary: true, ...attr })
+        this.args = args
+
+        // additional props
         this.pos1 = pos1
         this.pos2 = pos2
         this.bounds = merge_points(this.pos1, this.pos2)
@@ -1410,7 +1443,8 @@ class Line extends Element {
 
 // plottable and coord adaptive
 class UnitLine extends Line {
-    constructor({ direc, loc = D.spec.loc, lim = D.spec.lim, ...attr } = {}) {
+    constructor(args = {}) {
+        let { direc, loc = D.spec.loc, lim = D.spec.lim, ...attr } = args
         direc = ensure_orient(direc)
 
         // construct line positions
@@ -1421,25 +1455,37 @@ class UnitLine extends Line {
 
         // pass to Line
         super({ pos1, pos2, ...attr })
+        this.args = args
     }
 }
 
 class VLine extends UnitLine {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HLine extends UnitLine {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 class Rect extends Element {
-    constructor({ rounded, ...attr } = {}) {
+    constructor(args = {}) {
+        let { rounded, ...attr } = args
+        rounded = rounded === true ? D.bool.rounded : rounded
+
+        // pass to Element
         super({ tag: 'rect', unary: true, ...attr })
-        this.rounded = rounded === true ? D.bool.rounded : rounded
+        this.args = args
+
+        // additional props
+        this.rounded = rounded
     }
 
     props(ctx) {
@@ -1471,14 +1517,18 @@ class Rect extends Element {
 }
 
 class Square extends Rect {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ aspect: 1, ...attr })
+        this.args = args
     }
 }
 
 class Ellipse extends Element {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ tag: 'ellipse', unary: true, ...attr })
+        this.args = args
     }
 
     props(ctx) {
@@ -1497,25 +1547,31 @@ class Ellipse extends Element {
 }
 
 class Circle extends Ellipse {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ aspect: 1, ...attr })
+        this.args = args
     }
 }
 
 class Dot extends Circle {
-    constructor({ stroke = 'black', fill = 'black', ...attr } = {}) {
+    constructor(args = {}) {
+        let { stroke = 'black', fill = 'black', ...attr } = args
         super({ stroke, fill, ...attr })
+        this.args = args
     }
 }
 
 class Ray extends Line {
-    constructor({ angle, loc = D.spec.pos, size = 0.5, ...attr } = {}) {
+    constructor(args = {}) {
+        let { angle, loc = D.spec.pos, size = 0.5, ...attr } = args
         const theta = angle * d2r
         const [ x, y ] = loc
         const [ rx, ry ] = ensure_vector(size, 2)
         const pos1 = [ x, y ]
         const pos2 = [ x + rx * cos(theta), y + ry * sin(theta) ]
         super({ pos1, pos2, ...attr })
+        this.args = args
     }
 }
 
@@ -1530,13 +1586,15 @@ function pointstring(pixels, prec = 2) {
 }
 
 class Pointstring extends Element {
-    constructor({ tag, points, ...attr } = {}) {
+    constructor(args = {}) {
+        let { tag, points, ...attr } = args
         super({ tag, unary: true, ...attr })
         this.points = points
 
         // compute bounding box
         const [ xvals, yvals ] = zip(...this.points)
         this.bounds = [ min(...xvals), min(...yvals), max(...xvals), max(...yvals) ]
+        this.args = args
     }
 
     props(ctx) {
@@ -1548,28 +1606,36 @@ class Pointstring extends Element {
 }
 
 class Polyline extends Pointstring {
-    constructor({ points, ...attr } = {}) {
+    constructor(args = {}) {
+        let { points, ...attr } = args
         super({ tag: 'polyline', points, fill: 'none', ...attr })
+        this.args = args
     }
 }
 
 class Polygon extends Pointstring {
-    constructor({ points, ...attr } = {}) {
+    constructor(args = {}) {
+        let { points, ...attr } = args
         super({ tag: 'polygon', points, ...attr })
+        this.args = args
     }
 }
 
 class Triangle extends Polygon {
-    constructor(attr = {}) {
+    constructor(args = {}) {
+        let { ...attr } = args
         const points = [[0.5, 0], [1, 1], [0, 1]]
         super({ points, ...attr })
+        this.args = args
     }
 }
 
 class Path extends Element {
-    constructor({ cmds, ...attr } = {}) {
+    constructor(args = {}) {
+        let { cmds, ...attr } = args
         super({ tag: 'path', unary: true, ...attr })
         this.cmds = cmds
+        this.args = args
     }
 
     props(ctx) {
@@ -1680,7 +1746,8 @@ function norm_angle(deg) {
 }
 
 class Arc extends Path {
-    constructor({ deg0, deg1, ...attr } = {}) {
+    constructor(args = {}) {
+        let { deg0, deg1, ...attr } = args
         deg0 = norm_angle(deg0)
         deg1 = norm_angle(deg1)
 
@@ -1703,6 +1770,7 @@ class Arc extends Path {
             new ArcCmd(pos1, rad, large, sweep),
         ]
         super({ cmds, ...attr })
+        this.args = args
     }
 }
 
@@ -1718,7 +1786,8 @@ function parse_rounded(rounded) {
 
 // supports different rounded for each corner
 class RoundedRect extends Path {
-    constructor({ rounded = 0, border = 1, ...attr } = {}) {
+    constructor(args = {}) {
+        let { rounded = 0, border = 1, ...attr } = args
         rounded = rounded === true ? D.bool.rounded : rounded
 
         // convert to array of arrays
@@ -1743,6 +1812,7 @@ class RoundedRect extends Path {
 
         // pass to Path
         super({ cmds, stroke_width: border, ...attr })
+        this.args = args
     }
 
     // intercept prect and ensure its upright
@@ -1768,9 +1838,17 @@ function random_hex() {
 }
 
 class MetaElement {
-    constructor({ tag, ...attr } = {}) {
+    constructor(args = {}) {
+        let { tag, ...attr } = args
+        this.args = args
+
+        // core display
         this.tag = tag
         this.attr = attr
+    }
+
+    clone(args) {
+        return new this.constructor({ ...this.args, ...args })
     }
 
     inside(ctx) {
@@ -1791,8 +1869,12 @@ class MetaElement {
 }
 
 class MetaGroup extends MetaElement {
-    constructor({ children, tag, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children, tag, ...attr } = args
         super({ tag, ...attr })
+        this.args = args
+
+        // additional props
         this.children = children
     }
 
@@ -1802,14 +1884,22 @@ class MetaGroup extends MetaElement {
 }
 
 class Defs extends MetaGroup {
-    constructor({ children, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children, ...attr } = args
         super({ tag: 'defs', children, ...attr })
+        this.args = args
     }
 }
 
 class Style extends MetaElement {
-    constructor({ text, ...attr } = {}) {
+    constructor(args = {}) {
+        let { text, ...attr } = args
+
+        // pass to MetaElement
         super({ tag: 'style', type: 'text/css', ...attr })
+        this.args = args
+
+        // additional props
         this.text = text
     }
 
@@ -1819,41 +1909,55 @@ class Style extends MetaElement {
 }
 
 class Effect extends MetaElement {
-    constructor({ name, ...attr } = {}) {
+    constructor(args = {}) {
+        let { name, ...attr } = args
         super({ tag: `fe${name}`, ...attr })
+        this.args = args
+
+        // additional props
         const klass = this.constructor.name.toLowerCase()
         this.result = attr.result ?? `${klass}_${random_hex()}`
     }
 }
 
 class Filter extends MetaGroup {
-    constructor({ name, effects, ...attr } = {}) {
+    constructor(args = {}) {
+        let { name, effects, ...attr } = args
         super({ tag: 'filter', effects, id: name, ...attr })
+        this.args = args
     }
 }
 
 class DropShadow extends Effect {
-    constructor({ dx = 0, dy = 0, blur = 0, color = 'black', ...attr } = {}) {
+    constructor(args = {}) {
+        let { dx = 0, dy = 0, blur = 0, color = 'black', ...attr } = args
         super({ dx, dy, stdDeviation: blur, flood_color: color, ...attr })
+        this.args = args
     }
 }
 
 class GaussianBlur extends Effect {
-    constructor({ blur = 0, ...attr } = {}) {
+    constructor(args = {}) {
+        let { blur = 0, ...attr } = args
         super({ tag: 'GaussianBlur', stdDeviation: blur, ...attr })
+        this.args = args
     }
 }
 
 class MergeNode extends MetaElement {
-    constructor({ input, ...attr } = {}) {
+    constructor(args = {}) {
+        let { input, ...attr } = args
         super({ tag: 'feMergeNode', in: input, ...attr })
+        this.args = args
     }
 }
 
 class Merge extends MetaGroup {
-    constructor({ effects, ...attr } = {}) {
+    constructor(args = {}) {
+        let { effects, ...attr } = args
         const nodes = effects.map(e => new MergeNode({ input: e.result }))
         super({ tag: 'feMerge', nodes, ...attr })
+        this.args = args
     }
 }
 
@@ -1879,7 +1983,8 @@ function check_string(children) {
 }
 
 class Text extends Element {
-    constructor({ children: children0, font_family = D.font.family, font_weight = D.font.weight, font_size, color = 'black', voffset = D.text.voffset, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, font_family = D.font.family, font_weight = D.font.weight, font_size, color = 'black', voffset = D.text.voffset, ...attr } = args
         const text = check_string(children0)
 
         // compute text box
@@ -1888,6 +1993,9 @@ class Text extends Element {
 
         // pass to element
         super({ tag: 'text', unary: false, aspect, font_size, stroke: color, fill: color, ...fargs, ...attr })
+        this.args = args
+
+        // additional props
         this.text = escape_xml(text)
         this.voffset = voffset
     }
@@ -1923,7 +2031,8 @@ class Text extends Element {
 // shape comes from inner text
 // wrap_width is in em units
 class TextBox extends VStack {
-    constructor({ children: children0, wrap_width = D.text.wrap_width, spacing = D.text.spacing, align = 'right', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, slim = false, ...attr0 }) {
+    constructor(args = {}) {
+        let { children: children0, wrap_width = D.text.wrap_width, spacing = D.text.spacing, align = 'right', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, slim = false, ...attr0 } = args
         const text = check_string(children0)
         const [ text_attr, attr ] = prefix_split(['text'], attr0)
 
@@ -1943,6 +2052,7 @@ class TextBox extends VStack {
         // stack it up
         const spacing1 = nlines > 1 ? spacing / nlines : 0
         super({ children, align, spacing: spacing1, ...attr })
+        this.args = args
     }
 }
 
@@ -1971,9 +2081,15 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
 class TextWrap extends Element {
-    constructor({ children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr }) {
+    constructor(args = {}) {
+        let { children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
         const children = check_string(children0)
+
+        // pass to Element
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
+        this.args = args
+
+        // additional props
         this.text = children
         this.spacing = spacing
         this.voffset = voffset
@@ -2015,7 +2131,8 @@ class TextWrap extends Element {
 }
 
 class EmojiDiv extends Element {
-    constructor({ children, font_family, font_weight, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children, font_family, font_weight, ...attr } = args
         const emoji = check_string(children)
 
         // compute text box
@@ -2024,6 +2141,9 @@ class EmojiDiv extends Element {
 
         // store for rendering
         super({ tag: 'div', unary: false, aspect, ...attr })
+        this.args = args
+
+        // additional props
         this.emoji = emoji
     }
 
@@ -2041,12 +2161,20 @@ class EmojiDiv extends Element {
 }
 
 class Emoji extends Group {
-    constructor({ children: children0, offset = [ 0, -0.3 ], ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, offset = [ 0, -0.3 ], ...attr } = args
         const name = check_string(children0)
         const text = emoji_table[name] ?? name
+
+        // make outer div
         const div = new EmojiDiv({ children: text, xmlns: 'http://www.w3.org/1999/xhtml', ...attr })
         const aspect = div.spec.aspect
+
+        // pass to Group
         super({ tag: 'foreignObject', children: div, aspect, ...attr })
+        this.args = args
+
+        // additional props
         this.offset = offset
     }
 
@@ -2069,7 +2197,8 @@ function get_attributes(elem) {
 }
 
 class Latex extends Element {
-    constructor({ children: children0, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, ...attr } = args
         const text = check_string(children0)
 
         // render with mathjax (or do nothing if mathjax is not available)
@@ -2098,6 +2227,9 @@ class Latex extends Element {
 
         // pass to element
         super({ tag: 'svg', unary: false, aspect, ...svg_attr, ...attr })
+        this.args = args
+
+        // additional props
         this.math = math
     }
 
@@ -2127,7 +2259,8 @@ class Latex extends Element {
 }
 
 class TextFrame extends Frame {
-    constructor({ children: children0, padding = D.text.padding, spacing = D.text.spacing, align, latex = false, emoji = false, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, padding = D.text.padding, spacing = D.text.spacing, align, latex = false, emoji = false, ...attr0 } = args
         const children = ensure_array(children0)
         const [text_attr, attr] = prefix_split(['text'], attr0)
 
@@ -2141,11 +2274,13 @@ class TextFrame extends Frame {
 
         // pass to Group
         super({ children: text, padding, ...attr })
+        this.args = args
     }
 }
 
 class TitleFrame extends Frame {
-    constructor({ children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, adjust = false, padding = 0, margin = 0, aspect, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, adjust = false, padding = 0, margin = 0, aspect, ...attr0 } = args
         const child = check_singleton(children0)
         const [title_attr, frame_attr] = prefix_split(['title'], attr0)
 
@@ -2174,7 +2309,10 @@ class TitleFrame extends Frame {
         // apply margin only box
         const group_aspect = aspect ?? box.spec.raspect
         const group = new Group({ children: subs, aspect: group_aspect })
+
+        // pass to Group
         super({ children: group, margin, ...frame_attr })
+        this.args = args
     }
 }
 
@@ -2242,7 +2380,8 @@ function sympath({ fx, fy, xlim, ylim, tlim = D.spec.lim, xvals, yvals, tvals, c
 }
 
 class SymPath extends Polyline {
-    constructor({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N, ...attr } = {}) {
+    constructor(args = {}) {
+        let { fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N, ...attr } = args
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N
@@ -2255,11 +2394,13 @@ class SymPath extends Polyline {
 
         // pass to element
         super({ points, ...attr })
+        this.args = args
     }
 }
 
 class SymFill extends Polygon {
-    constructor({ fx1, fy1, fx2, fy2, xlim, ylim, tlim, xvals, yvals, tvals, N, stroke = 'none', ...attr } = {}) {
+    constructor(args = {}) {
+        let { fx1, fy1, fx2, fy2, xlim, ylim, tlim, xvals, yvals, tvals, N, stroke = 'none', ...attr } = args
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
             fx: fx1, fy: fy1, xlim, ylim, tlim, xvals, yvals, tvals, N
@@ -2275,11 +2416,13 @@ class SymFill extends Polygon {
 
         // pass to element
         super({ points, stroke, ...attr })
+        this.args = args
     }
 }
 
 class SymPoly extends Polygon {
-    constructor({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr } = {}) {
+    constructor(args = {}) {
+        let { fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr } = args
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -2291,11 +2434,13 @@ class SymPoly extends Polygon {
 
         // pass to element
         super({ points, ...attr })
+        this.args = args
     }
 }
 
 class SymPoints extends Group {
-    constructor({ children: children0, fx, fy, fs, fr, size = 0.01, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, fx, fy, fs, fr, size = 0.01, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr } = args
         const shape = ensure_function(shape0 ?? (() => new Dot()))
         const fsize = is_number(size) ? (() => size) : size
 
@@ -2310,11 +2455,12 @@ class SymPoints extends Group {
             const sh = shape(x, y, t, i)
             const sz = fsize(x, y, t, i)
             const rect = radial_rect([x, y], sz)
-            return clone_spec(sh, { rect })
+            return sh.clone({ rect })
         })
 
         // pass  to element
         super({ children, ...attr })
+        this.args = args
     }
 }
 
@@ -2337,21 +2483,27 @@ function broadcast_arrays(vs, N) {
 }
 
 class DataPath extends Polyline {
-    constructor({ xvals, yvals, xlim, ylim, ...attr } = {}) {
+    constructor(args = {}) {
+        let { xvals, yvals, xlim, ylim, ...attr } = args
         const points = datapoints({ xvals, yvals, xlim, ylim })
         super({ points, ...attr })
+        this.args = args
     }
 }
 
 class DataPoints extends Points {
-    constructor({ xvals, yvals, xlim, ylim, ...attr } = {}) {
+    constructor(args = {}) {
+        let { xvals, yvals, xlim, ylim, ...attr } = args
         const points = datapoints({ xvals, yvals, xlim, ylim })
         super({ points, ...attr })
+        this.args = args
     }
 }
 
 class DataFill extends Polygon {
-    constructor({ xvals1, yvals1, xvals2, yvals2, xlim, ylim, ...attr } = {}) {
+    constructor(args = {}) {
+        let { xvals1, yvals1, xvals2, yvals2, xlim, ylim, ...attr } = args
+
         // repeat constants
         const N = max(...[ xvals1, yvals1, xvals2, yvals2 ].map(v => v?.length))
         const [ xvals1v, yvals1v, xvals2v, yvals2v ] = broadcast_arrays(
@@ -2365,6 +2517,7 @@ class DataFill extends Polygon {
 
         // pass to pointstring
         super({ points, ...attr })
+        this.args = args
     }
 }
 
@@ -2386,10 +2539,16 @@ function unit_direc(direc) {
 
 // the definition of an direc in non-square aspects is weird?
 class ArrowHead extends Element {
-    constructor({ direc, arc = 60, base = false, fill, ...attr } = {}) {
+    constructor(args = {}) {
+        let { direc, arc = 60, base = false, fill, ...attr } = args
         const tag = base ? 'polygon' : 'polyline'
         if (fill === true) fill = gray
+
+        // pass to element
         super({ tag, unary: true, fill, ...attr })
+        this.args = args
+
+        // additional props
         this.direc = direc
         this.arc = arc
     }
@@ -2427,7 +2586,8 @@ class ArrowHead extends Element {
 }
 
 class Arrow extends Group {
-    constructor({ children: children0, direc: direc0, tail = 0, shape = 'arrow', graph = true, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, direc: direc0, tail = 0, shape = 'arrow', graph = true, ...attr0 } = args
         const [head_attr, tail_attr, attr] = prefix_split(['head', 'tail'], attr0)
 
         // baked in shapes
@@ -2456,11 +2616,13 @@ class Arrow extends Group {
         const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, ...tail_attr })
 
         super({ children: [ tail_elem, head_elem ], ...attr })
+        this.args = args
     }
 }
 
 class Field extends Points {
-    constructor({ children: children0, points, direcs, marker, size = 0.02, tail = 1, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, points, direcs, marker, size = 0.02, tail = 1, ...attr0 } = args
         marker = marker ?? ((p, d, a) => {
             const arrow = new Arrow({ direc: d, tail, ...a })
             arrow.attr.pos = p
@@ -2468,16 +2630,27 @@ class Field extends Points {
             return arrow
         })
         const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
+
+        // create children
         const children = zip(points, direcs).map(([ p, d ]) => marker(p, d, marker_attr))
+
+        // pass to Points
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 class SymField extends Field {
-    constructor({ func, xlim, ylim, N = 10, ...attr } = {}) {
+    constructor(args = {}) {
+        let { func, xlim, ylim, N = 10, ...attr } = args
+
+        // create points and direcs
         const points = lingrid(xlim, ylim, N)
         const direcs = points.map(([x, y]) => func(x, y))
+
+        // pass to Field
         super({ points, direcs, ...attr })
+        this.args = args
     }
 }
 
@@ -2518,19 +2691,28 @@ function cubic_spline(x0, x1, d0, d1) {
 }
 
 class CubicSpline extends SymPath {
-    constructor({ pos1, pos2, dir1, dir2, ...attr } = {}) {
+    constructor(args = {}) {
+        let { pos1, pos2, dir1, dir2, ...attr } = args
+
+        // create points and direcs
         const [ x0, y0 ] = pos1
         const [ x1, y1 ] = pos2
         const [ dx0, dy0 ] = dir1
         const [ dx1, dy1 ] = dir2
+
+        // create cubic spline
         const fx = cubic_spline(x0, x1, dx0, dx1)
         const fy = cubic_spline(y0, y1, dy0, dy1)
+
+        // pass to SymPah
         super({ fx, fy, ...attr })
+        this.args = args
     }
 }
 
 class ArrowPath extends Group {
-    constructor({ children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_none = false, arrow_size = 0.03, coord, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_none = false, arrow_size = 0.03, coord, ...attr0 } = args
         let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
         )
@@ -2568,11 +2750,13 @@ class ArrowPath extends Group {
 
         // pass to Group
         super({ children, coord, ...attr })
+        this.args = args
     }
 }
 
 class Node extends Frame {
-    constructor({ children: children0, label, rad = D.node.rad, wrap_width = D.node.wrap_width, padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, label, rad = D.node.rad, wrap_width = D.node.wrap_width, padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
         // make frame: handle text / element / list
@@ -2581,6 +2765,9 @@ class Node extends Frame {
 
         // pass to Frame
         super({ children: text, padding, rounded, rad, expand: true, ...attr })
+        this.args = args
+
+        // additional props
         this.label = label
     }
 
@@ -2602,8 +2789,14 @@ class Node extends Frame {
 }
 
 class Edge extends Element {
-    constructor({ node1, node2, dir1, dir2, ...attr } = {}) {
+    constructor(args = {}) {
+        let { node1, node2, dir1, dir2, ...attr } = args
+
+        // pass to Element
         super(attr)
+        this.args = args
+
+        // additional props
         this.node1 = node1
         this.node2 = node2
         this.dir1 = dir1
@@ -2612,7 +2805,9 @@ class Edge extends Element {
 }
 
 class Network extends Group {
-    constructor({ children: children0, xlim, ylim, coord: coord0, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, xlim, ylim, coord: coord0, ...attr } = args
+
         // resolve coordinate system
         const [ xlo, xhi ] = xlim ?? D.spec.lim
         const [ ylo, yhi ] = ylim ?? D.spec.lim
@@ -2641,6 +2836,7 @@ class Network extends Group {
 
         // pass to Graph
         super({ children: [...nodes, ...paths, ...other], coord, ...attr })
+        this.args = args
     }
 }
 
@@ -2649,27 +2845,34 @@ class Network extends Group {
 //
 
 class Bar extends RoundedRect {
-    constructor({ fill = 'lightgray', rounded, border = 1, border_none = false, ...attr } = {}) {
+    constructor(args = {}) {
+        let { fill = 'lightgray', rounded, border = 1, border_none = false, ...attr } = args
         rounded = rounded === true ? [ 0.05, 0.05, 0, 0 ] : rounded
         border = border === true ? 1 : border_none === true ? 0 : border
         super({ fill, rounded, border, ...attr })
+        this.args = args
     }
 }
 
 class VBar extends Bar {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HBar extends Bar {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 class MultiBar extends Stack {
-    constructor({ children: children0, direc, lengths, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, direc, lengths, ...attr0 } = args
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
 
         // get bar info
@@ -2682,23 +2885,29 @@ class MultiBar extends Stack {
 
         // pass to bar
         super({ children, direc, ...attr })
+        this.args = args
     }
 }
 
 class VMultiBar extends MultiBar {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HMultiBar extends MultiBar {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 class Bars extends Group {
-    constructor({ children, direc = 'v', width = 0.75, zero = 0, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children, direc = 'v', width = 0.75, zero = 0, ...attr } = args
         direc = ensure_orient(direc)
 
         // make rects from sizes
@@ -2710,23 +2919,28 @@ class Bars extends Group {
                 [direc]: [ zero, size ],
                 [idirec]: [ loc - width2, loc + width2 ],
             })
-            return clone_spec(child, { rect })
+            return child.clone({ rect })
         })
 
         // pass to Group
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 class VBars extends Bars {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HBars extends Bars {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
@@ -2754,7 +2968,8 @@ function invert_direc(direc) {
 }
 
 class Scale extends Group {
-    constructor({ children: children0, direc, locs, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, direc, locs, ...attr } = args
         direc = ensure_orient(direc)
 
         // make tick lines
@@ -2766,24 +2981,30 @@ class Scale extends Group {
 
         // set coordinate system
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 class VScale extends Scale {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class HScale extends Scale {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 // label elements must have an aspect to properly size them
 class Labels extends Group {
-    constructor({ children, direc, locs, align = 'center', prec = 2, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children, direc, locs, align = 'center', prec = 2, ...attr } = args
         direc = ensure_orient(direc)
 
         // make children with tick data (if given)
@@ -2802,23 +3023,28 @@ class Labels extends Group {
         children = children.map(c => {
             const { tick: loc } = c.attr
             const rect = direc == 'v' ? [0, loc, 1, loc] : [loc, 0, loc, 1]
-            return clone_spec(c, { rect, expand: true })
+            return c.clone({ rect, expand: true })
         })
 
         // pass to Group
         super({ children, ...attr })
+        this.args = args
     }
 }
 
 class HLabels extends Labels {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 class VLabels extends Labels {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
@@ -2878,7 +3104,8 @@ function invert_axispos(label_pos) {
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
-    constructor({ children, lim = D.spec.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children, lim = D.spec.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
         direc = ensure_orient(direc)
         tick_pos = ensure_axispos(tick_pos)
         label_pos = ensure_axispos(label_pos)
@@ -2910,47 +3137,62 @@ class Axis extends Group {
 
         // pass to Group
         super({ children: [ cline, scale, label ], ...attr })
+        this.args = args
+
+        // additional props
         this.locs = locs
     }
 }
 
 class HAxis extends Axis {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 class VAxis extends Axis {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
 class BoxLabel extends Attach {
-    constructor({ children: children0, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, ...attr0 } = args
         const text = check_singleton(children0)
         const [text_attr, attr] = prefix_split(['text'], attr0)
         const label = is_element(text) ? text : new Text({ children: text, ...text_attr })
         super({ children: label, ...attr })
+        this.args = args
     }
 }
 
 class Mesh extends Scale {
-    constructor({ direc, locs, lim = D.spec.lim, opacity = 0.2, ...attr } = {}) {
+    constructor(args = {}) {
+        let { direc, locs, lim = D.spec.lim, opacity = 0.2, ...attr } = args
         const coord = join_lims({ [direc]: lim })
         super({ direc, locs, coord, opacity, ...attr })
+        this.args = args
     }
 }
 
 class HMesh extends Mesh {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
     }
 }
 
 class VMesh extends Mesh {
-    constructor(attr) {
+    constructor(args = {}) {
+        let { ...attr } = args
         super({ direc: 'v', ...attr })
+        this.args = args
     }
 }
 
@@ -2970,7 +3212,8 @@ function make_legendlabel(s) {
 }
 
 class Legend extends Frame {
-    constructor({ children: children0, lines, vspacing = 0.1, hspacing = 0.025, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children: children0, lines, vspacing = 0.1, hspacing = 0.025, ...attr0 } = args
         const [ badge_attr, attr ] = prefix_split([ 'badge' ], attr0)
 
         // construct legend badges and labels
@@ -2985,6 +3228,7 @@ class Legend extends Frame {
 
         // pass to Frame
         super({ children: vs, ...attr })
+        this.args = args
     }
 }
 
@@ -3007,7 +3251,8 @@ function outer_limits(children, padding=0) {
 }
 
 class Graph extends Group {
-    constructor({ children: children0, xlim, ylim, coord, aspect, padding = 0, flex = false, flip = true, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, xlim, ylim, coord, aspect, padding = 0, flex = false, flip = true, ...attr } = args
         const elems = ensure_array(children0)
 
         // get default outer limits
@@ -3026,19 +3271,21 @@ class Graph extends Group {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
-                return clone_spec(e, { coord })
+                return e.clone({ coord })
             }
         })
 
         // pass to Group
         super({ children, aspect, ...attr })
+        this.args = args
     }
 }
 
 class Plot extends Group {
-    constructor({
-        children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
-    } = {}) {
+    constructor(args = {}) {
+        let {
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+        } = args
         const elems = ensure_array(children0)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
 
@@ -3164,11 +3411,13 @@ class Plot extends Group {
 
         // pass to Group
         super({ children, aspect, ...attr })
+        this.args = args
     }
 }
 
 class BarPlot extends Plot {
-    constructor({ children, direc = 'v', aspect = 2, ...attr0 } = {}) {
+    constructor(args = {}) {
+        let { children, direc = 'v', aspect = 2, ...attr0 } = args
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
 
         // extract labels and create bars
@@ -3184,6 +3433,7 @@ class BarPlot extends Plot {
 
         // pass on to Plot
         super({ children: bars, [tname]: ticks, [lname]: limit, aspect, [gname]: grid, ...attr })
+        this.args = args
     }
 }
 
@@ -3193,12 +3443,20 @@ class BarPlot extends Plot {
 
 // TODO: add way to set TextBox settings in children
 class Slide extends TitleFrame {
-    constructor({ children, aspect, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = 0.025, border_stroke = '#bbb', title_size = 0.06, title_text_font_weight = 'bold', debug = false, ...attr } = {}) {
+    constructor(args = {}) {
+        let { children: children0, aspect, wrap_width = D.text.wrap_width, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = 0.025, border_stroke = '#bbb', title_size = 0.06, title_text_font_weight = 'bold', debug = false, ...attr } = args
+
+        // filter TextBox children with wrap_width
+        const children = children0.map(
+            child => child.constructor.name == 'TextBox' ? child.clone({ wrap_width }) : child
+        )
+
         // make a stack out of the children
         const stack = new VStack({ children, aspect, spacing, debug })
 
         // pass to TitleFrame
         super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, debug, ...attr })
+        this.args = args
     }
 }
 
@@ -3207,10 +3465,9 @@ class Slide extends TitleFrame {
 //
 
 class Image extends Element {
-    constructor(href, args) {
-        const attr = args ?? {}
-        const attr1 = { href, ...attr }
-        super('image', true, attr1)
+    constructor(args = {}) {
+        super({ tag: 'image', unary: true, ...attr1 })
+        this.args = args
     }
 
     props(ctx) {

@@ -20,8 +20,8 @@ function canvasTextSizer(ctx, text, {
 let canvas = null
 if (typeof window == 'undefined') {
     const { createCanvas, registerFont } = await import('canvas')
-    registerFont('./src/fonts/IBMPlexSans-Thin.ttf', { family: D.font.family_sans })
-    registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: D.font.family_mono })
+    registerFont('./src/fonts/IBMPlexSans-Thin.ttf', { family: 'IBM Plex Sans' })
+    registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: 'IBM Plex Mono' })
     const [ width, height ] = [ D.svg.size, D.svg.size ]
     canvas = createCanvas(width, height)
 } else {
@@ -46,7 +46,7 @@ try {
 try {
     await import('mathjax/es5/tex-svg.js')
 } catch (error) {
-    console.log(error)
+    // console.log(error)
 }
 
 //
