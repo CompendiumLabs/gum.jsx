@@ -1,6 +1,6 @@
 // code evaluation
 
-import { transform } from '@babel/standalone'
+import { transform, registerPlugin } from '@babel/standalone'
 
 import { KEYS, VALS, is_scalar, is_function, is_object, Svg } from './gum.js'
 
@@ -45,6 +45,19 @@ function h(tag, props, ...children) {
   return isClass(tag) ? new tag(props1) : tag(props1)
 }
 
+// preserve newlines inside JSX
+registerPlugin("preserve-jsx-whitespace", function ({ types: t }) {
+  return {
+      name: "preserve-jsx-whitespace",
+      visitor: {
+          JSXText(path) {
+              const raw = path.node.value.replace(/ +/g, ' ').trim()
+              path.replaceWith(t.JSXExpressionContainer(t.stringLiteral(raw)))
+          },
+      },
+  }
+})
+
 function parseJSX(code) {
   // strip comment lines (to allow comments before bare elements)
   code = code.replace(/^\s*\/\/.*\n/gm, '').trim()
@@ -54,7 +67,8 @@ function parseJSX(code) {
 
   // plugin based approach
   const react_jsx = [ 'transform-react-jsx', { pragma: 'h' } ]
-  const { code: transformed } = transform(wrappedCode, { plugins: [ react_jsx ] })
+  const plugins = [ 'preserve-jsx-whitespace', react_jsx ]
+  const { code: transformed } = transform(wrappedCode, { plugins })
 
   // run that baby
   const runnable = `return ${transformed}`

@@ -3441,17 +3441,23 @@ class BarPlot extends Plot {
 // slides
 //
 
-// TODO: add way to set TextBox settings in children
+function ensureTextBox(c, args) {
+    if (is_string(c)) {
+        return new TextBox({ children: c, ...args })
+    } else if (c.constructor.name == 'TextBox') {
+        return c.clone({ ...args })
+    } else {
+        return c
+    }
+}
+
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        let { children: children0, aspect, wrap_width = D.text.wrap_width, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = 0.025, border_stroke = '#bbb', title_size = 0.06, title_text_font_weight = 'bold', debug = false, ...attr } = args
-
-        // filter TextBox children with wrap_width
-        const children = children0.map(
-            child => child.constructor.name == 'TextBox' ? child.clone({ wrap_width }) : child
-        )
+        let { children: children0, aspect, markdown = false, wrap_width = D.text.wrap_width, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = 0.025, border_stroke = '#bbb', title_size = 0.06, title_text_font_weight = 'bold', debug = false, ...attr } = args
+        const rows = ensure_array(children0)
 
         // make a stack out of the children
+        const children = rows.map(c => ensureTextBox(c, { wrap_width }))
         const stack = new VStack({ children, aspect, spacing, debug })
 
         // pass to TitleFrame
