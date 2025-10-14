@@ -2,7 +2,7 @@
 
 import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
-import { textSizer, wrapText } from './text.js'
+import { textSizer, wrapText, wrapMultiText } from './text.js'
 
 //
 // array utils
@@ -2037,16 +2037,16 @@ class TextBox extends VStack {
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const { lines, widths } = wrapText(text, text_wrap, fargs)
+        const { lines, widths } = wrapMultiText(text, text_wrap, fargs)
 
         // get number of lines
-        const rows = lines.map(r => r.join(' '))
+        const tlines = lines.map(r => r.join(' '))
         const nlines = lines.length
 
         // make texts from lines
         const size = 1 / nlines
         const aspect = slim ? max(...widths) : text_wrap
-        const children = rows.map(r => new Text({ children: r, size, aspect, color, ...fargs, ...text_attr }))
+        const children = tlines.map(r => new Text({ children: r, size, aspect, color, ...fargs, ...text_attr }))
 
         // stack it up
         const spacing1 = nlines > 1 ? spacing / nlines : 0

@@ -107,4 +107,11 @@ function wrapText(text, maxWidth, args) {
     return { lines, widths }
 }
 
-export { textSizer, getBreaks, wrapText }
+function wrapMultiText(text, text_wrap, fargs) {
+    const results = text.split('\n').map(t => wrapText(t, text_wrap, fargs))
+    const lines = results.map(r => r.lines).flat()
+    const widths = results.map(r => r.widths).flat()
+    return { lines, widths }
+}
+
+export { textSizer, getBreaks, wrapText, wrapMultiText }
