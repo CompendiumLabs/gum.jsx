@@ -66,6 +66,14 @@ function getBreaks(text) {
 }
 
 function wrapText(text, maxWidth, args) {
+    // handle null case
+    if (maxWidth == null) {
+        return {
+            lines: [ [ text ] ],
+            widths: [ textSizer(text, args) ]
+        }
+    }
+
     // accurate, kerning-aware width
     const widthOf = s => textSizer(s, args)
 
