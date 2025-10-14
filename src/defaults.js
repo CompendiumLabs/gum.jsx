@@ -80,11 +80,12 @@ const DEFAULTS = {
     },
 
     slide: {
+        wrap: 25,
         border: 1,
         rounded: 0.01,
         border_stroke: '#bbb',
         title_size: 0.05,
-        wrap: 25,
+        font_weight: 'bold',
     },
 }
 

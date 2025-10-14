@@ -746,7 +746,6 @@ function resizer(lim_in, lim_out) {
 // context holds the current pixel rect and other global settings
 // map() will create a new sub-context using rect in coord space
 // map*() functions map from coord to pixel space (in prect)
-// TODO: bring back rotate
 class Context {
     constructor(args = {}) {
         let { prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec } = args
@@ -822,8 +821,8 @@ class Context {
         // broadcast align into [ halign, valign ] components
         const [ hafrac, vafrac ] = ensure_vector(align, 2).map(align_frac)
         const [ x, y ] = [
-            x0 + (hafrac - 0.5) * (w - w0),
-            y0 + (vafrac - 0.5) * (h - h0),
+            x0 + (0.5 - hafrac) * (w - w0),
+            y0 + (0.5 - vafrac) * (h - h0),
         ]
 
         // return new context
@@ -1164,7 +1163,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 class Stack extends Group {
     constructor(args = {}) {
-        let { children, direc, expand = true, align = 'center', spacing = 0, aspect, ...attr } = args
+        let { children, direc, expand = true, align: align0 = 'center', spacing = 0, aspect, ...attr } = args
         children = ensure_array(children)
         direc = ensure_orient(direc)
         spacing = spacing === true ? D.bool.spacing : spacing
@@ -1176,6 +1175,7 @@ class Stack extends Group {
         // assign child rects
         children = children.map((c, i) => {
             const rect = join_lims({ [direc]: bounds[i] })
+            const align = c.spec.align ?? align0
             return c.clone({ rect, align })
         })
 
@@ -1323,7 +1323,7 @@ class Anchor extends Group {
         // assign spec to child
         const children = child.clone({
             rect: anchor_rect[side],
-            align: align ?? 1 - align_frac(side),
+            align: align ?? align_frac(side),
             expand: true,
         })
 
@@ -3007,10 +3007,9 @@ class Labels extends Group {
 
             // anchor vertical ticks to unit-aspect boxes
         if (direc == 'v') {
-            const talign = invert_align(align)
             children = children.map(c => {
                 const { tick } = c.attr
-                return new Anchor({ children: c, aspect: 1, side: talign, tick })
+                return new Anchor({ children: c, aspect: 1, side: align, tick })
             })
         }
 
@@ -3108,7 +3107,7 @@ class Axis extends Group {
 
         // get tick and label limits
         const tick_lim = get_tick_lim(tick_pos)
-        const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'right' : 'left') : 'center'
+        const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'left' : 'right') : 'center'
         const label_base = (label_pos == 'outer') ? 1 + tick_label_offset : -tick_label_offset - tick_label_size
         const label_lim = [ label_base, label_base + tick_label_size ]
 
@@ -3465,7 +3464,7 @@ class TextStack extends VStack {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        let { children: children0, aspect, markdown = false, text_wrap = D.slide.wrap, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, ...attr0 } = args
+        let { children: children0, aspect, markdown = false, text_wrap = D.slide.wrap, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
 
@@ -3473,7 +3472,7 @@ class Slide extends TitleFrame {
         const stack = new TextStack({ children, aspect, spacing, text_wrap: text_wrap, ...text_attr })
 
         // pass to TitleFrame
-        super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, ...attr })
+        super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
         this.args = args
     }
 }
