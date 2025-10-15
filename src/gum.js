@@ -2048,8 +2048,9 @@ class Text extends VStack {
         const nlines = lines.length
 
         // make texts from lines
+        const aspect = wrap == null ? max(...widths) : wrap
         const children = tlines.map(r =>
-            new TextLine({ children: r, color, stack_size: 1 / nlines, ...fargs, ...text_attr })
+            new TextLine({ children: r, color, aspect, stack_size: 1 / nlines, ...fargs, ...text_attr })
         )
 
         // stack it up
