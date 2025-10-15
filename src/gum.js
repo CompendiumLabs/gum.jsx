@@ -837,7 +837,7 @@ const spec_keys = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coo
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     constructor(args = {}) {
-        let { tag, unary, children, pos, rad, flex, ...attr } = args
+        let { tag, unary, children, pos, rad, flex, spin, ...attr } = args
         this.args = args
 
         // core display
@@ -850,6 +850,12 @@ class Element {
 
         // pos/rad to rect convenience
         if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? D.spec.rad)
+
+        // spin to rotate/invar convenience
+        if (spin != null) {
+            this.spec.rotate = spin
+            this.spec.invar = true
+        }
 
         // flex aspect override convenience
         if (flex != null) this.spec.aspect = null
@@ -1589,12 +1595,11 @@ class Pointstring extends Element {
     constructor(args = {}) {
         let { tag, points, ...attr } = args
         super({ tag, unary: true, ...attr })
-        this.points = points
-
-        // compute bounding box
-        const [ xvals, yvals ] = zip(...this.points)
-        this.bounds = [ min(...xvals), min(...yvals), max(...xvals), max(...yvals) ]
         this.args = args
+
+        // additional props
+        this.points = points
+        this.bounds = points.length > 0 ? merge_points(points) : null
     }
 
     props(ctx) {
@@ -2324,9 +2329,18 @@ class TitleFrame extends Frame {
 }
 
 // determines actual values given combinations of limits, values, and functions
-function sympath({ fx, fy, xlim, ylim, tlim = D.spec.lim, xvals, yvals, tvals, clip = true, N } = {}) {
+function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N } = {}) {
     fx = func_or_scalar(fx)
     fy = func_or_scalar(fy)
+
+    // handle underspecified case
+    if (
+        tlim == null && tvals == null &&
+        xlim == null && xvals == null &&
+        ylim == null && yvals == null
+    ) {
+        return [ [], [], [] ]
+    }
 
     // determine data size
     const Ns = new Set(
@@ -2342,8 +2356,11 @@ function sympath({ fx, fy, xlim, ylim, tlim = D.spec.lim, xvals, yvals, tvals, c
         N = N ?? D.sym.N
     }
 
-    // compute data values
+    // generate tvals
+    tlim = tlim ?? D.spec.lim
     tvals = tvals ?? linspace(...tlim, N)
+
+    // compute data values
     if (fx != null && fy != null) {
         xvals = tvals.map(fx)
         yvals = tvals.map(fy)
@@ -3265,7 +3282,9 @@ class Graph extends Group {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
-                return e.clone({ coord })
+                const cxlim = e.spec.xlim ?? [ xmin, xmax ]
+                const cylim = e.spec.ylim ?? [ ymin, ymax ]
+                return e.clone({ coord, xlim: cxlim, ylim: cylim })
             }
         })
 
@@ -3275,10 +3294,10 @@ class Graph extends Group {
     }
 }
 
-class Plot extends Group {
+class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, margin, border, fill, prec, aspect: aspect0, flex = false, ...attr0
         } = args
         const elems = ensure_array(children0)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
@@ -3403,8 +3422,9 @@ class Plot extends Group {
             children.push(title)
         }
 
-        // pass to Group
-        super({ children, aspect, ...attr })
+        // pass to Box
+        const inner = new Group({ children, aspect })
+        super({ children: inner, padding: margin, ...attr })
         this.args = args
     }
 }
