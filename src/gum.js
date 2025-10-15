@@ -496,7 +496,6 @@ function cbox_rect(cbox) {
 // rect aggregators
 function merge_rects(...rects) {
     if (rects.length == 0) return null
-    if (rects.length == 1) return rects[0]
     const [ xa, ya, xb, yb ] = zip(...rects)
     const [ xs, ys ] = [ [ ...xa, ...xb ], [ ...ya, ...yb ] ]
     return [ min(...xs), min(...ys), max(...xs), max(...ys) ]
@@ -505,6 +504,13 @@ function merge_rects(...rects) {
 function merge_points(...points) {
     const [ xs, ys ] = zip(...points)
     return [ min(...xs), min(...ys), max(...xs), max(...ys) ]
+}
+
+function merge_limits(...lims) {
+    if (lims.length == 0) return null
+    const [ za, zb ] = zip(...lims)
+    const zs = [ ...za, ...zb ]
+    return [ min(...zs), max(...zs) ]
 }
 
 function aspect_invariant(value, aspect, alpha = 0.5) {
@@ -912,8 +918,10 @@ class Group extends Element {
         const children = ensure_array(children0)
 
         // extract specs from children
-        const bounds = children_rect(children)
-        if (aspect == 'auto' && bounds != null) aspect = rect_aspect(bounds)
+        if (aspect == 'auto') {
+            const bounds = children_rect(children)
+            if (bounds != null) aspect = rect_aspect(bounds)
+        }
 
         // create debug boxes
         if (debug) {
@@ -928,7 +936,6 @@ class Group extends Element {
 
         // additional props
         this.children = children
-        this.bounds = bounds
     }
 
     inner(ctx) {
@@ -1080,7 +1087,7 @@ function ensure_orient(direc) {
 
 function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     // short circuit if empty
-    if (children.length == 0) return { bounds: null, aspect: null}
+    if (children.length == 0) return { ranges: null, aspect: null}
 
     // get size and aspect data from children
     // adjust for direction (invert aspect if horizontal)
@@ -1103,8 +1110,8 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     const getSizes = cs => cs.map(c => c.size ?? 0)
     const getAspect = direc == 'v' ? invert : (h => h)
 
-    // compute bounds with spacing
-    function getBounds(sizes0) {
+    // compute ranges with spacing
+    function getRanges(sizes0) {
         const sizes1 = sizes0.map(s0 => F_total * s0)
         const bases = cumsum(sizes1.map(s1 => s1 + spacing)).slice(0, -1)
         return zip(bases, sizes1).map(([b, s1]) => [b, b + s1])
@@ -1128,9 +1135,9 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     const S_sum = sum(getSizes(items))
     if (S_sum >= 1 || (expo.length == 0 && flex.length == 0)) {
         const sizes = getSizes(items)
-        const bounds = getBounds(sizes)
+        const ranges = getRanges(sizes)
         const aspect = getAspect(H_over)
-        return { bounds, aspect }
+        return { ranges, aspect }
     }
 
     // set height to maximally accommodate over-constrained children (or expandables)
@@ -1160,9 +1167,9 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
 
     // compute heights and aspect
     const sizes = getSizes(items)
-    const bounds = getBounds(sizes)
+    const ranges = getRanges(sizes)
     const aspect = getAspect(H_target)
-    return { bounds, aspect }
+    return { ranges, aspect }
 }
 
 // expects list of Element or [Element, height]
@@ -1176,12 +1183,12 @@ class Stack extends Group {
 
         // compute layout
         const expand = aspect == 'auto'
-        const { bounds, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing, expand })
+        const { ranges, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing, expand })
         aspect = aspect == 'auto' ? aspect_ideal : aspect
 
         // assign child rects
-        children = children.map((c, i) => {
-            const rect = join_lims({ [direc]: bounds[i] })
+        children = zip(children, ranges).map(([c, b]) => {
+            const rect = join_limits({ [direc]: b })
             return c.clone({ rect, align: justify })
         })
 
@@ -1241,10 +1248,10 @@ function computeGridLayout(children, rows, cols, widths, heights, spacing) {
     // get top left positions
     const lposit = cumsum(widths.map(w => w + spacex))
     const tposit = cumsum(heights.map(h => h + spacey))
-    const cbounds = zip(lposit, widths).map(([l, w]) => [l, l + w])
-    const rbounds = zip(tposit, heights).map(([t, h]) => [t, t + h])
+    const cranges = zip(lposit, widths).map(([l, w]) => [l, l + w])
+    const rranges = zip(tposit, heights).map(([t, h]) => [t, t + h])
 
-    return { cbounds, rbounds, aspect }
+    return { cranges, rranges, aspect }
 }
 
 class Grid extends Group {
@@ -1270,15 +1277,15 @@ class Grid extends Group {
         grid = padvec(grid, rows, filler)
 
         // compute layout
-        const { cbounds, rbounds, aspect: aspect_ideal } = computeGridLayout(grid, rows, cols, widths, heights, spacing)
+        const { cranges, rranges, aspect: aspect_ideal } = computeGridLayout(grid, rows, cols, widths, heights, spacing)
         aspect ??= aspect_ideal
 
         // make grid
-        const bounds = meshgrid(rbounds, cbounds).map(
+        const rects = meshgrid(rranges, cranges).map(
             ([[y0, y1], [x0, x1]]) => [x0, y0, x1, y1]
         )
-        children = children.map((c, i) =>
-            c.clone({ rect: bounds[i] })
+        children = zip(children, rects).map(([child, rect]) =>
+            child.clone({ rect })
         )
 
         // pass to Group
@@ -1292,7 +1299,7 @@ class Flip extends Group {
         let { children: children0, direc, ...attr } = args
         const child = check_singleton(children0)
         direc = ensure_orient(direc)
-        const rect = join_lims({ [direc]: [1, 0] })
+        const rect = join_limits({ [direc]: [1, 0] })
         const children = child.clone({ rect })
         const { aspect } = children.spec
         super({ children, aspect, ...attr })
@@ -1436,7 +1443,6 @@ class Line extends Element {
         // additional props
         this.pos1 = pos1
         this.pos2 = pos2
-        this.bounds = merge_points(this.pos1, this.pos2)
     }
 
     props(ctx) {
@@ -1599,7 +1605,13 @@ class Pointstring extends Element {
 
         // additional props
         this.points = points
-        this.bounds = points.length > 0 ? merge_points(points) : null
+
+        // set graph limits
+        if (points.length > 0) {
+            const [ xmin, ymin, xmax, ymax ] = merge_points(...points)
+            this.xlim = [ xmin, xmax ]
+            this.ylim = [ ymin, ymax ]
+        }
     }
 
     props(ctx) {
@@ -2927,7 +2939,7 @@ class Bars extends Group {
         const idirec = invert_direc(direc)
         children = children.map((child, i) => {
             const { loc = i, size } = child.attr
-            const rect = join_lims({
+            const rect = join_limits({
                 [direc]: [ zero, size ],
                 [idirec]: [ loc - width2, loc + width2 ],
             })
@@ -3064,7 +3076,7 @@ function get_lim(direc, coord) {
     return direc == 'v' ? [ ylo, yhi ] : [ xlo, xhi ]
 }
 
-function join_lims({ v = D.spec.lim, h = D.spec.lim } = {}) {
+function join_limits({ v = D.spec.lim, h = D.spec.lim } = {}) {
     const [ vlo, vhi ] = v
     const [ hlo, hhi ] = h
     return [ hlo, vlo, hhi, vhi ]
@@ -3130,9 +3142,9 @@ class Axis extends Group {
 
         // set up one-sides coordinate system
         const idirec = invert_direc(direc)
-        const coord = join_lims({ [direc]: lim })
-        const scale_rect = join_lims({ [idirec]: tick_lim })
-        const label_rect = join_lims({ [idirec]: label_lim })
+        const coord = join_limits({ [direc]: lim })
+        const scale_rect = join_limits({ [idirec]: tick_lim })
+        const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
         if (ticks != null) {
@@ -3185,7 +3197,7 @@ class BoxLabel extends Attach {
 class Mesh extends Scale {
     constructor(args = {}) {
         let { direc, locs, lim = D.spec.lim, opacity = 0.2, ...attr } = args
-        const coord = join_lims({ [direc]: lim })
+        const coord = join_limits({ [direc]: lim })
         super({ direc, locs, coord, opacity, ...attr })
         this.args = args
     }
@@ -3244,21 +3256,23 @@ class Legend extends Frame {
 }
 
 function expand_limits(lim, fact) {
+    if (lim == null) return null
     const [ lo, hi ] = lim
     const ex = fact * (hi - lo)
     return [ lo - ex, hi + ex ]
 }
 
 // find minimal containing limits
-function outer_limits(children, padding=0) {
+function outer_limits(children, { xlim, ylim, padding = 0 }) {
     if (children.length == 0) return null
     const [ xpad, ypad ] = ensure_vector(padding, 2)
-    const rects = children.map(c => c.bounds).filter(z => z != null)
-    if (rects.length == 0) return null
-    const [ xmin0, ymin0, xmax0, ymax0 ] = merge_rects(...rects)
-    const [ xmin, xmax ] = expand_limits([ xmin0, xmax0 ], xpad)
-    const [ ymin, ymax ] = expand_limits([ ymin0, ymax0 ], ypad)
-    return [ xmin, ymin, xmax, ymax ]
+    const xlims = children.map(c => c.xlim).filter(z => z != null)
+    const ylims = children.map(c => c.ylim).filter(z => z != null)
+    const xlim0 = merge_limits(...xlims)
+    const ylim0 = merge_limits(...ylims)
+    xlim ??= expand_limits(xlim0, xpad) ?? D.spec.lim
+    ylim ??= expand_limits(ylim0, ypad) ?? D.spec.lim
+    return join_limits({ h: xlim, v: ylim })
 }
 
 class Graph extends Group {
@@ -3267,23 +3281,20 @@ class Graph extends Group {
         const elems = ensure_array(children0)
 
         // get default outer limits
-        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.spec.coord
-        const [ xmin1, xmax1 ] = xlim ?? [ xmin0, xmax0 ]
-        const [ ymin1, ymax1 ] = ylim ?? [ ymin0, ymax0 ]
-        const coord0 = [ xmin1, ymin1, xmax1, ymax1 ]
+        coord ??= outer_limits(elems, { padding })
+        const [ xmin, ymin, xmax, ymax ] = coord
 
         // update coordinate system and aspect
-        const [ xmin, ymin, xmax, ymax ] = coord ?? coord0
-        coord = flip ? [ xmin, ymax, xmax, ymin ] : [ xmin, ymin, xmax, ymax ]
-        if (!flex && aspect == null) aspect = rect_aspect(coord)
+        if (flip) coord = [ xmin, ymax, xmax, ymin ]
+        if (!flex) aspect ??= rect_aspect(coord)
 
         // map coordinate system to all elements
         const children = elems.map(e => {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
-                const cxlim = e.spec.xlim ?? [ xmin, xmax ]
-                const cylim = e.spec.ylim ?? [ ymin, ymax ]
+                const cxlim = e.args.xlim ?? [ xmin, xmax ]
+                const cylim = e.args.ylim ?? [ ymin, ymax ]
                 return e.clone({ coord, xlim: cxlim, ylim: cylim })
             }
         })
@@ -3317,10 +3328,12 @@ class Plot extends Box {
         ylabel_attr = { ...label_attr, ...ylabel_attr }
 
         // determine coordinate system
-        const [ xmin0, ymin0, xmax0, ymax0 ] = outer_limits(elems, padding) ?? D.spec.coord
-        const [ xmin, xmax] = xlim ??= [ xmin0, xmax0 ]
-        const [ ymin, ymax] = ylim ??= [ ymin0, ymax0 ]
-        const coord = [ xmin, ymin, xmax, ymax ]
+        const coord = outer_limits(elems, { xlim, ylim, padding })
+        const [ xmin, ymin, xmax, ymax ] = coord
+        xlim = [ xmin, xmax ]
+        ylim = [ ymin, ymax ]
+
+        // default anchor points
         xanchor = xanchor ?? ymin
         yanchor = yanchor ?? xmin
 
@@ -3339,7 +3352,7 @@ class Plot extends Box {
             const tick_pos = invert_axispos(xtick_pos)
             const label_pos = invert_axispos(xtick_label_pos)
             const xtick_size1 = xtick_size * (ymax - ymin)
-            const xaxis_rect = join_lims({ h: xlim, v: [ xanchor - xtick_size1, xanchor + xtick_size1 ] })
+            const xaxis_rect = join_limits({ h: xlim, v: [ xanchor - xtick_size1, xanchor + xtick_size1 ] })
             xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, tick_pos, label_pos, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
@@ -3351,7 +3364,7 @@ class Plot extends Box {
             const tick_pos = invert_axispos(ytick_pos)
             const label_pos = invert_axispos(ytick_label_pos)
             const ytick_size1 = ytick_size * (xmax - xmin)
-            const yaxis_rect = join_lims({ h: [ yanchor - ytick_size1, yanchor + ytick_size1 ], v: ylim })
+            const yaxis_rect = join_limits({ h: [ yanchor - ytick_size1, yanchor + ytick_size1 ], v: ylim })
             yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, tick_pos, label_pos, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
