@@ -1114,7 +1114,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     // this is generically imperfect if len(over) > 1
     // single element case (exact): s * F_total * H * a = 1
     // multi element case (approximate): mean(s_i * S_total * H * a_i) = 1
-    const agg = x => mean(x) // mean
+    const agg = x => max(...x) // fit to max aspect, otherwise will underfit
     const H_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size * c.aspect))) : null
 
     // knock out (over/exactly)-budgeted case right away
@@ -1163,20 +1163,20 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 class Stack extends Group {
     constructor(args = {}) {
-        let { children, direc, expand = true, align: align0 = 'center', spacing = 0, aspect, ...attr } = args
+        let { children, direc, spacing = 0, justify = 'center', aspect = 'auto', ...attr } = args
         children = ensure_array(children)
         direc = ensure_orient(direc)
         spacing = spacing === true ? D.bool.spacing : spacing
 
         // compute layout
+        const expand = aspect == 'auto'
         const { bounds, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing, expand })
-        aspect ??= aspect_ideal
+        aspect = aspect == 'auto' ? aspect_ideal : aspect
 
         // assign child rects
         children = children.map((c, i) => {
             const rect = join_lims({ [direc]: bounds[i] })
-            const align = c.spec.align ?? align0
-            return c.clone({ rect, align })
+            return c.clone({ rect, align: justify })
         })
 
         // pass to Group
@@ -2035,7 +2035,7 @@ class TextLine extends Element {
 // wrap text to lines, this is the main text element
 class Text extends VStack {
     constructor(args = {}) {
-        let { children: children0, wrap = null, spacing = D.text.spacing, align = 'right', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, ...attr0 } = args
+        let { children: children0, wrap = null, spacing = D.text.spacing, justify = 'left', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, ...attr0 } = args
         const text = check_string(children0)
         const [ text_attr, attr ] = prefix_split(['text'], attr0)
 
@@ -2048,13 +2048,12 @@ class Text extends VStack {
         const nlines = lines.length
 
         // make texts from lines
-        const aspect = max(...widths)
         const children = tlines.map(r =>
-            new TextLine({ children: r, aspect, color, ...fargs, ...text_attr })
+            new TextLine({ children: r, color, stack_size: 1 / nlines, ...fargs, ...text_attr })
         )
 
         // stack it up
-        super({ children, align, spacing: spacing / nlines, ...attr })
+        super({ children, justify, spacing: spacing / nlines, ...attr })
         this.args = args
     }
 }
@@ -3464,12 +3463,12 @@ class TextStack extends VStack {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        let { children: children0, aspect, markdown = false, text_wrap = D.slide.wrap, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, ...attr0 } = args
+        let { children: children0, aspect, text_wrap = D.slide.wrap, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
 
         // make a stack out of the children
-        const stack = new TextStack({ children, aspect, spacing, text_wrap: text_wrap, ...text_attr })
+        const stack = new TextStack({ children, aspect, spacing, text_wrap, ...text_attr })
 
         // pass to TitleFrame
         super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
