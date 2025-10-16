@@ -1189,7 +1189,6 @@ class Stack extends Group {
         aspect = aspect == 'auto' ? aspect_ideal : aspect
 
         // assign child rects
-        console.log(justify)
         children = zip(children, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
             return c.clone({ rect, align: justify })
