@@ -83,6 +83,7 @@ const DEFAULTS = {
         wrap: 25,
         border: 1,
         rounded: 0.01,
+        spacing: 0.2,
         border_stroke: '#bbb',
         title_size: 0.05,
         font_weight: 'bold',

@@ -45,16 +45,19 @@ function h(tag, props, ...children) {
   return isClass(tag) ? new tag(props1) : tag(props1)
 }
 
+function trim_lines(s) {
+  return s.split('\n')
+          .map(l => l.trim())
+          .join('\n')
+}
+
 // preserve newlines inside JSX
 registerPlugin("preserve-jsx-whitespace", function ({ types: t }) {
   return {
       name: "preserve-jsx-whitespace",
       visitor: {
           JSXText(path) {
-              const raw = path.node.value
-                .replace(/ +/g, ' ')
-                .replace(/\n+/g, '\n')
-                .trim()
+              const raw = trim_lines(path.node.value).replace(/\n+/g, '\n').trim()
               path.replaceWith(t.JSXExpressionContainer(t.stringLiteral(raw)))
           },
       },

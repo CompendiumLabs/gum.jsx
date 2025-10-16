@@ -192,7 +192,8 @@ function filter_object(obj, fn) {
 //
 
 function ensure_array(x) {
-    return is_array(x) ? x : [ x ]
+    x = is_array(x) ? x : [ x ]
+    return x.filter(v => v != null)
 }
 
 function ensure_vector(x, n) {
@@ -469,10 +470,14 @@ function radial_rect(p, r) {
 }
 
 // box rect: min, size
-function rect_box(rect) {
+function rect_box(rect, absolute = false) {
     const [ x1, y1, x2, y2 ] = rect
     const [ w, h ] = [ x2 - x1, y2 - y1 ]
-    return [ x1, y1, w, h ]
+    if (absolute) {
+        return [ min(x1, x2), min(y1, y2), abs(w), abs(h) ]
+    } else {
+        return [ x1, y1, w, h ]
+    }
 }
 
 function box_rect(box) {
@@ -998,16 +1003,17 @@ function check_singleton(children) {
     return is_array ? children[0] : children
 }
 
-function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect = null, adjust = true } = {}) {
+function computeFrameLayout(child, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
     // convenience boxing
     padding = pad_rect(padding)
     margin = pad_rect(margin)
 
     // aspect adjusted padding/margin
     const { raspect: child_aspect } = child.spec
-    if (adjust && child_aspect != null) {
-        padding = aspect_invariant(padding, 1 / child_aspect)
-        margin = aspect_invariant(margin, 1 / child_aspect)
+    const aspect1 = aspect ?? child_aspect
+    if (adjust && aspect1 != null) {
+        padding = aspect_invariant(padding, 1 / aspect1)
+        margin = aspect_invariant(margin, 1 / aspect1)
     }
 
     // get box sizes
@@ -1020,18 +1026,24 @@ function computeFrameLayout(child, { padding = 0, margin = 0, border = 0, aspect
     return { irect, brect, aspect }
 }
 
-// TODO: auto-adjust padding/margin for aspect
-//       it seems adjust only does this if child aspect is not null
-//       but we also want to do it if own aspect is not null
+function maybe_rounded_rect(rounded) {
+    if (rounded == null) {
+        return (a => new Rect(a))
+    } else {
+        return (a => new RoundedRect({ rounded, ...a }))
+    }
+}
+
 // TODO: allow this to hold multiple children and somehow detect the aspect
 //       or at least inherit the aspect in the case of a single child
 class Box extends Group {
     constructor(args = {}) {
-        let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, ...attr0 } = args
+        let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, debug = false, ...attr0 } = args
         const child = check_singleton(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
         // tailwind style booleans
+        if (aspect === true) aspect = 1
         if (border === true) border = 1
         if (padding === true) padding = D.bool.padding
         if (margin === true) margin = D.bool.margin
@@ -1039,30 +1051,17 @@ class Box extends Group {
         if (fill === true) fill = gray
 
         // ensure shape is a function
-        if (shape == null) {
-            shape = rounded == null ?
-                (a => new Rect(a)) :
-                (a => new RoundedRect({ rounded, ...a }))
-        } else {
-            shape = ensure_function(shape)
-        }
+        shape = ensure_function(shape ?? maybe_rounded_rect(rounded))
 
         // compute layout
         const { irect, brect, aspect: aspect_outer } = computeFrameLayout(child, { padding, margin, border, aspect, adjust })
 
-        // make outer box
-        const children = []
-        if (border > 0) {
-            const rect = shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr })
-            children.push(rect)
-        }
-
-        // make inner group
-        const inner = new Group({ children: child, rect: irect })
-        children.push(inner)
+        // make child elements
+        const rect = border > 0 ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
+        const inner = new Group({ children: child, rect: irect, debug })
 
         // pass to Group
-        super({ children, aspect: aspect_outer, ...attr })
+        super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
         this.args = args
     }
 }
@@ -1181,12 +1180,16 @@ class Stack extends Group {
         direc = ensure_orient(direc)
         spacing = spacing === true ? D.bool.spacing : spacing
 
-        // compute layout
+        // handle defaults
+        const spacing1 = spacing / Math.max(children.length - 1, 1)
         const expand = aspect == 'auto'
-        const { ranges, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing, expand })
+
+        // compute layout
+        const { ranges, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing: spacing1, expand })
         aspect = aspect == 'auto' ? aspect_ideal : aspect
 
         // assign child rects
+        console.log(justify)
         children = zip(children, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
             return c.clone({ rect, align: justify })
@@ -2002,7 +2005,7 @@ function check_string(children) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextLine extends Element {
     constructor(args = {}) {
-        let { children: children0, font_family = D.font.family, font_weight = D.font.weight, font_size, color = 'black', voffset = D.text.voffset, ...attr } = args
+        let { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr } = args
         const child = check_string(children0)
 
         // compress whitespace, since that's what SVG does
@@ -2010,15 +2013,17 @@ class TextLine extends Element {
 
         // compute text box
         const fargs = { font_family, font_weight }
-        const aspect = textSizer(text, fargs)
+        const width = textSizer(text, fargs)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect, font_size, stroke: color, fill: color, ...fargs, ...attr })
+        super({ tag: 'text', unary: false, aspect: width, font_size, stroke: color, fill: color, ...fargs, ...attr })
         this.args = args
 
         // additional props
         this.text = escape_xml(text)
         this.voffset = voffset
+        this.twidth = width
+        this.halign = align_frac(justify)
     }
 
     // because text will always be displayed upright,
@@ -2027,14 +2032,16 @@ class TextLine extends Element {
     props(ctx) {
         const attr = super.props(ctx)
         const { prect } = ctx
-        const [ x0, y0, rx0, ry0 ] = rect_radial(prect)
+        let [ x0, y0, w0, h0 ] = rect_box(prect, true)
         const [ _, yoff ] = ctx.mapSize([ 0, this.voffset ])
 
+        // handlee horizontal justification
+        const ha = this.halign
+        const w = this.twidth * h0
+
         // get display position
-        const [ rx, ry ] = [ abs(rx0), abs(ry0) ]
-        const [ x1, y1 ] = [ x0 - rx, y0 + ry ]
+        const [ x1, y1 ] = [ x0 + ha * (w0 - w), y0 + h0 ]
         const [ x, y ] = [ x1, y1 + yoff ]
-        const h0 = 2 * ry
 
         // get font size
         const { font_size } = this.attr
@@ -2067,11 +2074,11 @@ class Text extends VStack {
         // make texts from lines
         const aspect = wrap == null ? max(...widths) : wrap
         const children = tlines.map(r =>
-            new TextLine({ children: r, color, aspect, stack_size: 1 / nlines, ...fargs, ...text_attr })
+            new TextLine({ children: r, color, aspect, justify, stack_size: 1 / nlines, ...fargs, ...text_attr })
         )
 
         // stack it up
-        super({ children, justify, spacing: spacing / nlines, ...attr })
+        super({ children, spacing: spacing / nlines, ...attr })
         this.args = args
     }
 }
@@ -2292,19 +2299,9 @@ class TextFrame extends Frame {
 
 class TitleFrame extends Frame {
     constructor(args = {}) {
-        let { children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, adjust = false, padding = 0, margin = 0, aspect, ...attr0 } = args
+        let { children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, padding = 0, margin = 0, aspect, ...attr0 } = args
         const child = check_singleton(children0)
         const [title_attr, frame_attr] = prefix_split(['title'], attr0)
-
-        // adjust padding for title
-        if (title != null && adjust) {
-            padding = pad_rect(padding)
-            margin = pad_rect(margin)
-            const [ pl, pt, pr, pb ] = padding
-            const [ ml, mt, mr, mb ] = margin
-            padding = [ pl, pt + title_size, pr, pb ]
-            margin = [ ml, mt + title_size, mr, mb ]
-        }
 
         // make outer box
         const box = new Box({ children: child, aspect, padding })
@@ -3482,30 +3479,29 @@ function ensure_text(c, args) {
 
 class TextStack extends VStack {
     constructor(args = {}) {
-        let { children: children0, ...attr0 } = args
-        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
+        let { children: children0, spacing, align, ...attr } = args
         const items = ensure_array(children0)
 
         // apply args to Text children
-        const children = items.map(c => ensure_text(c, text_attr)).flat()
+        const children = items.map(c => ensure_text(c, attr)).flat()
 
         // pass to VStack
-        super({ children, ...attr })
+        super({ children, spacing, align })
         this.args = args
     }
 }
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        let { children: children0, aspect, text_wrap = D.slide.wrap, spacing = D.bool.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, ...attr0 } = args
+        let { children: children0, aspect, wrap = D.slide.wrap, spacing = D.slide.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = 'top', ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
 
         // make a stack out of the children
-        const stack = new TextStack({ children, aspect, spacing, text_wrap, ...text_attr })
+        const stack = new TextStack({ children, spacing, wrap, align: justify, ...text_attr })
 
         // pass to TitleFrame
-        super({ children: stack, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
+        super({ children: stack, aspect, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
         this.args = args
     }
 }
