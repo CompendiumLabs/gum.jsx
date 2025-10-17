@@ -1017,16 +1017,25 @@ function apply_padmar(p, m, a) {
     return { irect, brect, aspect }
 }
 
+// case with multiple children is overdetermined
+function get_child_aspect(children) {
+    if (children.length == 1) {
+        const { rect, raspect } = children[0].spec
+        return rect == null ? raspect : null
+    } else {
+        return null
+    }
+}
+
 // TODO: allow this to hold multiple children and somehow detect the aspect
 //       or at least inherit the aspect in the case of a single child
-function computeFrameLayout(child, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
-    // convenience boxing
+function computeFrameLayout(children, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
+    // expand padding/margin to 4-element array
     padding = pad_rect(padding)
     margin = pad_rect(margin)
 
     // try to determine box aspect
-    const { raspect: child_aspect } = child.spec
-    const outer_aspect = aspect ?? child_aspect
+    const outer_aspect = aspect ?? get_child_aspect(children)
 
     // adjust padding/margin for aspect
     if (adjust && outer_aspect != null) {
@@ -1053,7 +1062,7 @@ function maybe_rounded_rect(rounded) {
 class Box extends Group {
     constructor(args = {}) {
         let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, debug = false, ...attr0 } = args
-        const child = check_singleton(children0)
+        const children = ensure_array(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
         // tailwind style booleans
@@ -1068,11 +1077,11 @@ class Box extends Group {
         shape = ensure_function(shape ?? maybe_rounded_rect(rounded))
 
         // compute layout
-        const { irect, brect, aspect: aspect_outer } = computeFrameLayout(child, { padding, margin, border, aspect, adjust })
+        const { irect, brect, aspect: aspect_outer } = computeFrameLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
         const rect = border > 0 ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
-        const inner = new Group({ children: child, rect: irect, debug })
+        const inner = new Group({ children, rect: irect, debug })
 
         // pass to Group
         super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
