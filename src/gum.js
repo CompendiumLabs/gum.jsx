@@ -414,18 +414,6 @@ function pad_rect(p) {
     }
 }
 
-// map padding/margin into internal boxes
-function map_padmar(p, m, a) {
-    const [ pl, pt, pr, pb ] = p
-    const [ ml, mt, mr, mb ] = m
-    const [ pw, ph ] = [ pl + 1 + pr, pt + 1 + pb ]
-    const [ tw, th ] = [ ml + pw + mr, mt + ph + mb ]
-    const irect = [ (ml + pl) / tw, (mt + pt) / th, 1 - (mr + pr) / tw, 1 - (mb + pb) / th ]
-    const brect = [ ml / tw, mt / th, 1 - mr / tw, 1 - mb / th ]
-    const aspect = (a != null) ? a * (tw / th) : null
-    return [ irect, brect, aspect ]
-}
-
 //
 // rect utils
 //
@@ -1003,24 +991,38 @@ function check_singleton(children) {
     return is_array ? children[0] : children
 }
 
+// map padding/margin into internal boxes
+function apply_padmar(p, m, a) {
+    const [ pl, pt, pr, pb ] = p
+    const [ ml, mt, mr, mb ] = m
+    const [ pw, ph ] = [ pl + 1 + pr, pt + 1 + pb ]
+    const [ tw, th ] = [ ml + pw + mr, mt + ph + mb ]
+    const irect = [ (ml + pl) / tw, (mt + pt) / th, 1 - (mr + pr) / tw, 1 - (mb + pb) / th ]
+    const brect = [ ml / tw, mt / th, 1 - mr / tw, 1 - mb / th ]
+    const aspect = (a != null) ? a * (tw / th) : null
+    return { irect, brect, aspect }
+}
+
+// TODO: allow this to hold multiple children and somehow detect the aspect
+//       or at least inherit the aspect in the case of a single child
 function computeFrameLayout(child, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
     // convenience boxing
     padding = pad_rect(padding)
     margin = pad_rect(margin)
 
-    // aspect adjusted padding/margin
+    // try to determine box aspect
     const { raspect: child_aspect } = child.spec
-    const aspect1 = aspect ?? child_aspect
-    if (adjust && aspect1 != null) {
-        padding = aspect_invariant(padding, 1 / aspect1)
-        margin = aspect_invariant(margin, 1 / aspect1)
+    const outer_aspect = aspect ?? child_aspect
+
+    // adjust padding/margin for aspect
+    if (adjust && outer_aspect != null) {
+        padding = aspect_invariant(padding, 1 / outer_aspect)
+        margin = aspect_invariant(margin, 1 / outer_aspect)
     }
 
-    // get box sizes
-    // TODO: this is not coord aware yet
-    const iasp = aspect ?? child_aspect
-    const [ irect, brect, fasp ] = map_padmar(padding, margin, iasp)
-    aspect ??= fasp
+    // apply padding/margin and get box sizes
+    const { irect, brect, aspect: frame_aspect } = apply_padmar(padding, margin, outer_aspect)
+    aspect ??= frame_aspect
 
     // return inner/outer rects and aspect
     return { irect, brect, aspect }
@@ -1034,8 +1036,6 @@ function maybe_rounded_rect(rounded) {
     }
 }
 
-// TODO: allow this to hold multiple children and somehow detect the aspect
-//       or at least inherit the aspect in the case of a single child
 class Box extends Group {
     constructor(args = {}) {
         let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, debug = false, ...attr0 } = args
@@ -3492,7 +3492,7 @@ class TextStack extends VStack {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        let { children: children0, aspect, wrap = D.slide.wrap, spacing = D.slide.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = 'top', ...attr0 } = args
+        let { children: children0, aspect, wrap = D.slide.wrap, spacing = D.slide.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = ['center', 'top'], ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
 

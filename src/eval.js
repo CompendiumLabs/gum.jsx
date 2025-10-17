@@ -89,16 +89,31 @@ function parseJSX(code) {
 // gum evaluator
 //
 
-class MessageError extends Error {
-  constructor(message) {
-    super(message)
-    this.name = 'MessageError'
+class ErrorNoCode extends Error {
+  constructor() {
+    super('No code provided')
+    this.name = 'ErrorNoCode'
+  }
+}
+
+class ErrorNoReturn extends Error {
+  constructor() {
+    super('No return value')
+    this.name = 'ErrorNoReturn'
+  }
+}
+
+class ErrorReturn extends Error {
+  constructor(value) {
+    super('Return value')
+    this.name = 'ErrorReturn'
+    this.value = value
   }
 }
 
 function evaluateGum(code, { size = 500, debug = false } = {}) {
   if (code.trim() == '') {
-    throw new MessageError(`No code provided`)
+    throw new ErrorNoCode()
   }
 
   // parse to property tree
@@ -107,9 +122,9 @@ function evaluateGum(code, { size = 500, debug = false } = {}) {
   // check if its actually a tree
   if (!is_object(element)) {
     if (element == null) {
-      throw new MessageError(`No return value`)
+      throw new ErrorNoReturn()
     } else {
-      throw new MessageError(`Return value:\n\n${element}`)
+      throw new ErrorReturn(element)
     }
   }
 
@@ -135,13 +150,7 @@ function evaluateGumSafe(code, { size: size0 } = {}) {
     svg = elem.svg()
     size = elem.size
   } catch (err) {
-    const { message } = err
-    if (err instanceof MessageError) {
-      error = message
-    } else {
-      const trace = err.stack.split('\n').slice(1).join('\n')
-      error = `${message}\n\n${trace}`
-    }
+    error = err
   }
 
   // return results
@@ -152,4 +161,4 @@ function evaluateGumSafe(code, { size: size0 } = {}) {
 // export
 //
 
-export { evaluateGum, evaluateGumSafe }
+export { evaluateGum, evaluateGumSafe, ErrorNoCode, ErrorNoReturn, ErrorReturn }
