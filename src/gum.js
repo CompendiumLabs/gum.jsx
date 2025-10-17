@@ -45,6 +45,10 @@ function concat(arrs) {
     return arrs.flat()
 }
 
+function squeeze(x) {
+    return is_array(x) && x.length == 1 ? x[0] : x
+}
+
 //
 // array reducers
 //
@@ -188,48 +192,8 @@ function filter_object(obj, fn) {
 }
 
 //
-// type checks
+// type tests
 //
-
-function ensure_array(x) {
-    x = is_array(x) ? x : [ x ]
-    return x.filter(v => v != null)
-}
-
-function ensure_vector(x, n) {
-    if (!is_array(x)) {
-        return range(n).map(i => x)
-    } else {
-        return x
-    }
-}
-
-function ensure_singleton(x) {
-    return is_array(x) ? x[0] : x
-}
-
-function squeeze(x) {
-    return is_array(x) && x.length == 1 ? x[0] : x
-}
-
-function ensure_element(x) {
-    if (is_prototype(x)) {
-        const { tag, props, children } = x
-        return new tag({ ...props, children })
-    } else if (is_element(x)) {
-        return x
-    } else {
-        throw new Error(`Element required: ${x}`)
-    }
-}
-
-function ensure_function(f) {
-    if (is_function(f)) {
-        return (...a) => ensure_element(f(...a))
-    } else {
-        return () => ensure_element(f)
-    }
-}
 
 function is_scalar(x) {
     return (
@@ -265,16 +229,71 @@ function is_element(x) {
     return x instanceof Element
 }
 
-function is_metaelement(x) {
-    return x instanceof MetaElement
-}
-
 function is_element_class(x) {
     return Element.prototype.isPrototypeOf(x.prototype)
 }
 
 function is_prototype(x) {
     return is_object(x) ? is_element_class(x.tag) : false
+}
+
+//
+// type conversions
+//
+
+function ensure_array(x) {
+    x = is_array(x) ? x : [ x ]
+    return x.filter(v => v != null)
+}
+
+function ensure_vector(x, n) {
+    if (!is_array(x)) {
+        return range(n).map(i => x)
+    } else {
+        return x
+    }
+}
+
+function ensure_singleton(x) {
+    return is_array(x) ? x[0] : x
+}
+
+function ensure_element(x) {
+    if (is_prototype(x)) {
+        const { tag, props, children } = x
+        return new tag({ ...props, children })
+    } else if (is_element(x)) {
+        return x
+    } else {
+        throw new Error(`Element required: ${x}`)
+    }
+}
+
+function ensure_function(f) {
+    if (is_function(f)) {
+        return (...a) => ensure_element(f(...a))
+    } else {
+        return () => ensure_element(f)
+    }
+}
+
+//
+// type checks
+//
+
+function check_singleton(children) {
+    if (children == null || (is_array(children) && children.length != 1)) {
+        throw new Error('Must have exactly one child')
+    }
+    return ensure_singleton(children)
+}
+
+function check_string(children) {
+    const child = check_singleton(children)
+    if (!is_string(child)) {
+        throw new Error('Child must be a string')
+    }
+    return child
 }
 
 //
@@ -314,19 +333,31 @@ const atan = Math.atan
 const isNan = Number.isNaN
 const isInf = x => !Number.isFinite(x)
 
+// follows numpy naming conventions
+const minimum = Math.min
+const maximum = Math.max
+
+function abs_min(x, y) {
+    return abs(x) < abs(y) ? x : y
+}
+
+function abs_max(x, y) {
+    return abs(x) > abs(y) ? x : y
+}
+
 // null on empty
-function min(...vals) {
+function min(vals) {
     vals = vals.filter(v => v != null)
     return (vals.length > 0) ? Math.min(...vals) : null
 }
-function max(...vals) {
+function max(vals) {
     vals = vals.filter(v => v != null)
     return (vals.length > 0) ? Math.max(...vals) : null
 }
 
 function clamp(x, lim) {
     const [ lo, hi ] = lim
-    return max(lo, min(x, hi))
+    return maximum(lo, minimum(x, hi))
 }
 
 function mask(x, lim) {
@@ -387,7 +418,7 @@ function uniform(lo, hi) {
     return lo + (hi - lo)*random()
 }
 
-// Standard Normal variate using Box-Muller transform.
+// standard normal using Box-Muller transform
 function normal(mean, stdv) {
     mean = mean ?? 0
     stdv = stdv ?? 1
@@ -462,7 +493,7 @@ function rect_box(rect, absolute = false) {
     const [ x1, y1, x2, y2 ] = rect
     const [ w, h ] = [ x2 - x1, y2 - y1 ]
     if (absolute) {
-        return [ min(x1, x2), min(y1, y2), abs(w), abs(h) ]
+        return [ minimum(x1, x2), minimum(y1, y2), abs(w), abs(h) ]
     } else {
         return [ x1, y1, w, h ]
     }
@@ -487,23 +518,23 @@ function cbox_rect(cbox) {
 }
 
 // rect aggregators
-function merge_rects(...rects) {
+function merge_rects(rects) {
     if (rects.length == 0) return null
     const [ xa, ya, xb, yb ] = zip(...rects)
     const [ xs, ys ] = [ [ ...xa, ...xb ], [ ...ya, ...yb ] ]
-    return [ min(...xs), min(...ys), max(...xs), max(...ys) ]
+    return [ min(xs), min(ys), max(xs), max(ys) ]
 }
 
-function merge_points(...points) {
+function merge_points(points) {
     const [ xs, ys ] = zip(...points)
-    return [ min(...xs), min(...ys), max(...xs), max(...ys) ]
+    return [ min(xs), min(ys), max(xs), max(ys) ]
 }
 
-function merge_limits(...lims) {
+function merge_limits(lims) {
     if (lims.length == 0) return null
     const [ za, zb ] = zip(...lims)
     const zs = [ ...za, ...zb ]
-    return [ min(...zs), max(...zs) ]
+    return [ min(zs), max(zs) ]
 }
 
 function aspect_invariant(value, aspect, alpha = 0.5) {
@@ -637,14 +668,6 @@ function align_frac(align) {
     }
 }
 
-function abs_min(x, y) {
-    return abs(x) < abs(y) ? x : y
-}
-
-function abs_max(x, y) {
-    return abs(x) > abs(y) ? x : y
-}
-
 function embed_rect(size, { aspect = null, expand = false } = {}) {
     if (aspect == null) return size
     const [ w0, h0 ] = size
@@ -683,7 +706,7 @@ function rotate_rect(size, rotate, { aspect = null, expand = false, invar = fals
         const paspect = abs(w0 / h0)
         const TAN = abs(tan(theta))
         const COT = abs(cot(theta))
-        const [ TL, TH ] = [ min(TAN, COT), max(TAN, COT) ]
+        const [ TL, TH ] = [ minimum(TAN, COT), maximum(TAN, COT) ]
         if (paspect < TL) {
             w = w0 / (2 * COS)
             h = w0 / (2 * SIN)
@@ -720,8 +743,8 @@ function rotate_aspect(aspect, rotate) {
 function ensure_upright(rect) {
     const [ x10, y10, x20, y20 ] = rect
     return [
-        min(x10, x20), min(y10, y20),
-        max(x10, x20), max(y10, y20),
+        minimum(x10, x20), minimum(y10, y20),
+        maximum(x10, x20), maximum(y10, y20),
     ]
 }
 
@@ -792,7 +815,6 @@ class Context {
 
     // map from range to pixel
     mapRange(direc, climit) {
-        direc = ensure_orient(direc)
         const [ clo, chi ] = climit
         const rescale = direc == 'v' ? this.rescaley : this.rescalex
         return [ rescale(clo), rescale(chi) ]
@@ -902,7 +924,7 @@ class Element {
 function children_rect(children) {
     const ctx = new Context()
     const rects = children.map(c => ctx.map(c.spec).prect)
-    return rects.length > 0 ? merge_rects(...rects) : null
+    return rects.length > 0 ? merge_rects(rects) : null
 }
 
 class Group extends Element {
@@ -982,14 +1004,6 @@ class Svg extends Group {
 //
 // layout classes
 //
-
-function check_singleton(children) {
-    const is_array = Array.isArray(children)
-    if (children == null || (is_array && children.length != 1)) {
-        throw Error('Must have exactly one child')
-    }
-    return is_array ? children[0] : children
-}
 
 // map padding/margin into internal boxes
 function apply_padmar(p, m, a) {
@@ -1074,16 +1088,6 @@ class Frame extends Box {
     }
 }
 
-function ensure_orient(direc) {
-    if (direc == 'v') {
-        return 'v'
-    } else if (direc == 'h') {
-        return 'h'
-    } else {
-        throw new Error(`Unrecognized direction specification: ${direc}`)
-    }
-}
-
 function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     // short circuit if empty
     if (children.length == 0) return { ranges: null, aspect: null}
@@ -1126,7 +1130,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     // this is generically imperfect if len(over) > 1
     // single element case (exact): s * F_total * H * a = 1
     // multi element case (approximate): mean(s_i * S_total * H * a_i) = 1
-    const agg = x => max(...x) // fit to max aspect, otherwise will underfit
+    const agg = x => max(x) // fit to max aspect, otherwise will underfit
     const H_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size * c.aspect))) : null
 
     // knock out (over/exactly)-budgeted case right away
@@ -1150,7 +1154,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
     // S_exp is the same but constrained so the sums are less than 1
     // should satisfy: s * F_total * H_target * a = 1
     const S_exp0 = sum(expo.map(c => 1 / (c.aspect * F_total * H_target)))
-    const S_exp = Math.min(S_exp0, 1 - S_sum)
+    const S_exp = minimum(S_exp0, 1 - S_sum)
     const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
     for (const c of expo) c.size = 1 / (c.aspect * F_total * H_target) * scale
 
@@ -1177,11 +1181,10 @@ class Stack extends Group {
     constructor(args = {}) {
         let { children, direc, spacing = 0, justify = 'center', aspect = 'auto', ...attr } = args
         children = ensure_array(children)
-        direc = ensure_orient(direc)
         spacing = spacing === true ? D.bool.spacing : spacing
 
         // handle defaults
-        const spacing1 = spacing / Math.max(children.length - 1, 1)
+        const spacing1 = spacing / maximum(children.length - 1, 1)
         const expand = aspect == 'auto'
 
         // compute layout
@@ -1300,7 +1303,6 @@ class Flip extends Group {
     constructor(args = {}) {
         let { children: children0, direc, ...attr } = args
         const child = check_singleton(children0)
-        direc = ensure_orient(direc)
         const rect = join_limits({ [direc]: [1, 0] })
         const children = child.clone({ rect })
         const { aspect } = children.spec
@@ -1459,7 +1461,6 @@ class Line extends Element {
 class UnitLine extends Line {
     constructor(args = {}) {
         let { direc, loc = D.spec.loc, lim = D.spec.lim, ...attr } = args
-        direc = ensure_orient(direc)
 
         // construct line positions
         const [ lo, hi ] = lim
@@ -1610,7 +1611,7 @@ class Pointstring extends Element {
 
         // set graph limits
         if (points.length > 0) {
-            const [ xmin, ymin, xmax, ymax ] = merge_points(...points)
+            const [ xmin, ymin, xmax, ymax ] = merge_points(points)
             this.xlim = [ xmin, xmax ]
             this.ylim = [ ymin, ymax ]
         }
@@ -1741,7 +1742,7 @@ class CornerCmd {
 
         // get corner point and fitted radius
         const [ cx, cy ] = diag ? [ x0, y1 ] : [ x1, y0 ]
-        const rad = Math.min(dx, dy)
+        const rad = minimum(dx, dy)
 
         // get the intra-radial points
         const sigx = right ? -1 :  1
@@ -1848,139 +1849,6 @@ class RoundedRect extends Path {
 }
 
 //
-// filters and effects
-//
-
-// random 6-digit hex
-function random_hex() {
-    return Math.floor(Math.random()*0x1000000).toString(16)
-}
-
-class MetaElement {
-    constructor(args = {}) {
-        let { tag, ...attr } = args
-        this.args = args
-
-        // core display
-        this.tag = tag
-        this.attr = attr
-    }
-
-    clone(args) {
-        return new this.constructor({ ...this.args, ...args })
-    }
-
-    inside(ctx) {
-        return null
-    }
-
-    svg(ctx) {
-        const inside = this.inside(ctx)
-        const props = Object.entries(this.attr).map(([k, v]) =>
-            `${k.replace('_', '-')}="${v}"`
-        ).join(' ')
-        if (inside == null) {
-            return `<${this.tag} ${props} />`
-        } else {
-            return `<${this.tag} ${props}>\n${inside}\n</${this.tag}>`
-        }
-    }
-}
-
-class MetaGroup extends MetaElement {
-    constructor(args = {}) {
-        let { children, tag, ...attr } = args
-        super({ tag, ...attr })
-        this.args = args
-
-        // additional props
-        this.children = children
-    }
-
-    inside(ctx) {
-        return this.children.map(c => c.svg(ctx)).join('\n')
-    }
-}
-
-class Defs extends MetaGroup {
-    constructor(args = {}) {
-        let { children, ...attr } = args
-        super({ tag: 'defs', children, ...attr })
-        this.args = args
-    }
-}
-
-class Style extends MetaElement {
-    constructor(args = {}) {
-        let { text, ...attr } = args
-
-        // pass to MetaElement
-        super({ tag: 'style', type: 'text/css', ...attr })
-        this.args = args
-
-        // additional props
-        this.text = text
-    }
-
-    inside(ctx) {
-        return this.text
-    }
-}
-
-class Effect extends MetaElement {
-    constructor(args = {}) {
-        let { name, ...attr } = args
-        super({ tag: `fe${name}`, ...attr })
-        this.args = args
-
-        // additional props
-        const klass = this.constructor.name.toLowerCase()
-        this.result = attr.result ?? `${klass}_${random_hex()}`
-    }
-}
-
-class Filter extends MetaGroup {
-    constructor(args = {}) {
-        let { name, effects, ...attr } = args
-        super({ tag: 'filter', effects, id: name, ...attr })
-        this.args = args
-    }
-}
-
-class DropShadow extends Effect {
-    constructor(args = {}) {
-        let { dx = 0, dy = 0, blur = 0, color = 'black', ...attr } = args
-        super({ dx, dy, stdDeviation: blur, flood_color: color, ...attr })
-        this.args = args
-    }
-}
-
-class GaussianBlur extends Effect {
-    constructor(args = {}) {
-        let { blur = 0, ...attr } = args
-        super({ tag: 'GaussianBlur', stdDeviation: blur, ...attr })
-        this.args = args
-    }
-}
-
-class MergeNode extends MetaElement {
-    constructor(args = {}) {
-        let { input, ...attr } = args
-        super({ tag: 'feMergeNode', in: input, ...attr })
-        this.args = args
-    }
-}
-
-class Merge extends MetaGroup {
-    constructor(args = {}) {
-        let { effects, ...attr } = args
-        const nodes = effects.map(e => new MergeNode({ input: e.result }))
-        super({ tag: 'feMerge', nodes, ...attr })
-        this.args = args
-    }
-}
-
-//
 // text elements
 //
 
@@ -1991,14 +1859,6 @@ function escape_xml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;')
-}
-
-function check_string(children) {
-    const child = check_singleton(children)
-    if (typeof child !== 'string') {
-        throw Error('Must be a string')
-    }
-    return child
 }
 
 // no wrapping at all, clobber newlines, mainly internal use
@@ -2071,7 +1931,7 @@ class Text extends VStack {
         const nlines = lines.length
 
         // make texts from lines
-        const aspect = wrap == null ? max(...widths) : wrap
+        const aspect = wrap == null ? max(widths) : wrap
         const children = tlines.map(r =>
             new TextLine({ children: r, color, aspect, justify, stack_size: 1 / nlines, ...fargs, ...text_attr })
         )
@@ -2097,7 +1957,7 @@ function get_font_size(text, w, h, spacing, fargs) {
         const lw = w / fs
         const { lines, widths } = wrapText(text, lw, fargs)
         if (lines.length <= n) {
-            const mw = max(...widths)
+            const mw = max(widths)
             return fs * mw < w ? fs : w / mw
         }
     }
@@ -2525,7 +2385,7 @@ class DataFill extends Polygon {
         let { xvals1, yvals1, xvals2, yvals2, xlim, ylim, ...attr } = args
 
         // repeat constants
-        const N = max(...[ xvals1, yvals1, xvals2, yvals2 ].map(v => v?.length))
+        const N = max([ xvals1, yvals1, xvals2, yvals2 ].map(v => v?.length))
         const [ xvals1v, yvals1v, xvals2v, yvals2v ] = broadcast_arrays(
             [ xvals1, yvals1, xvals2, yvals2 ], N
         )
@@ -2928,7 +2788,6 @@ class HMultiBar extends MultiBar {
 class Bars extends Group {
     constructor(args = {}) {
         let { children, direc = 'v', width = 0.75, zero = 0, ...attr } = args
-        direc = ensure_orient(direc)
 
         // make rects from sizes
         const width2 = width / 2
@@ -2973,14 +2832,6 @@ function ensure_tick(tick, prec = 2) {
     return new TextLine({ children: rounder(str, prec), tick: pos })
 }
 
-function invert_align(align) {
-    return align == 'left' ? 'right' :
-           align == 'right' ? 'left' :
-           align == 'bottom' ? 'top' :
-           align == 'top' ? 'bottom' :
-           align
-}
-
 function invert_direc(direc) {
     return direc == 'v' ? 'h' :
            direc == 'h' ? 'v' :
@@ -2990,7 +2841,6 @@ function invert_direc(direc) {
 class Scale extends Group {
     constructor(args = {}) {
         let { children: children0, direc, locs, ...attr } = args
-        direc = ensure_orient(direc)
 
         // make tick lines
         const tick_dir = invert_direc(direc)
@@ -3025,7 +2875,6 @@ class HScale extends Scale {
 class Labels extends Group {
     constructor(args = {}) {
         let { children, direc, locs, align = 'center', prec = 2, ...attr } = args
-        direc = ensure_orient(direc)
 
         // make children with tick data (if given)
         if (locs != null) children = locs.map(x => ensure_tick(x, prec))
@@ -3067,11 +2916,6 @@ class VLabels extends Labels {
     }
 }
 
-function get_lim(direc, coord) {
-    const [ xlo, ylo, xhi, yhi ] = coord
-    return direc == 'v' ? [ ylo, yhi ] : [ xlo, xhi ]
-}
-
 function join_limits({ v = D.spec.lim, h = D.spec.lim } = {}) {
     const [ vlo, vhi ] = v
     const [ hlo, hhi ] = h
@@ -3089,20 +2933,6 @@ function get_tick_lim(lim) {
         return [0, 0]
     } else {
         return lim
-    }
-}
-
-function ensure_axispos(label_pos) {
-    if (label_pos == 'outer') {
-        return 'outer'
-    } else if (label_pos == 'inner') {
-        return 'inner'
-    } else if (label_pos == 'both') {
-        return 'both'
-    } else if (label_pos == 'none') {
-        return 'none'
-    } else {
-        throw new Error(`Unrecognized label position: ${label_pos}`)
     }
 }
 
@@ -3125,9 +2955,6 @@ function invert_axispos(label_pos) {
 class Axis extends Group {
     constructor(args = {}) {
         let { children, lim = D.spec.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
-        direc = ensure_orient(direc)
-        tick_pos = ensure_axispos(tick_pos)
-        label_pos = ensure_axispos(label_pos)
         const [label_attr, tick_attr, line_attr, attr] = prefix_split(['label', 'tick', 'line'], attr0)
 
         // get tick and label limits
@@ -3264,8 +3091,8 @@ function outer_limits(children, { xlim, ylim, padding = 0 }) {
     const [ xpad, ypad ] = ensure_vector(padding, 2)
     const xlims = children.map(c => c.xlim).filter(z => z != null)
     const ylims = children.map(c => c.ylim).filter(z => z != null)
-    const xlim0 = merge_limits(...xlims)
-    const ylim0 = merge_limits(...ylims)
+    const xlim0 = merge_limits(xlims)
+    const ylim0 = merge_limits(ylims)
     xlim ??= expand_limits(xlim0, xpad) ?? D.spec.lim
     ylim ??= expand_limits(ylim0, ypad) ?? D.spec.lim
     return join_limits({ h: xlim, v: ylim })
@@ -3528,7 +3355,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, radial_rect
+    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3537,5 +3364,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Defs, Style, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Filter, Effect, DropShadow, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
