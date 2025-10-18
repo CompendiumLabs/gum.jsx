@@ -668,11 +668,15 @@ function align_frac(align) {
     }
 }
 
+function heavisign(x) {
+    return x >= 0 ? 1 : -1
+}
+
 function embed_rect(size, { aspect = null, expand = false } = {}) {
     if (aspect == null) return size
     const [ w0, h0 ] = size
     const [ aw, ah ] = [ abs(w0), abs(h0) ]
-    const [ sw, sh ] = [ sign(w0), sign(h0) ]
+    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
     const agg = expand ? maximum : minimum
     const h = agg(aw / aspect, ah)
     const w = h * aspect
