@@ -741,10 +741,10 @@ function rotate_aspect(aspect, rotate) {
 }
 
 function ensure_upright(rect) {
-    const [ x10, y10, x20, y20 ] = rect
+    const [ x1, y1, x2, y2 ] = rect
     return [
-        minimum(x10, x20), minimum(y10, y20),
-        maximum(x10, x20), maximum(y10, y20),
+        minimum(x1, x2), minimum(y1, y2),
+        maximum(x1, x2), maximum(y1, y2),
     ]
 }
 
@@ -852,13 +852,19 @@ class Context {
     }
 }
 
+function flip_rect(rect, vertical) {
+    const [ x1, y1, x2, y2 ] = rect ?? D.spec.coord
+    if (vertical) return [ x1, y2, x2, y1 ]
+    else return [ x2, y1, x1, y2 ]
+}
+
 // spec keys
 const spec_keys = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     constructor(args = {}) {
-        let { tag, unary, children, pos, rad, flex, spin, ...attr } = args
+        let { tag, unary, children, pos, rad, flex, spin, hflip, vflip, ...attr } = args
         this.args = args
 
         // core display
@@ -869,17 +875,12 @@ class Element {
         this.spec = filter_object(attr, (k, v) => v != null &&  spec_keys.includes(k))
         this.attr = filter_object(attr, (k, v) => v != null && !spec_keys.includes(k))
 
-        // pos/rad to rect convenience
+        // various convenience conversions
         if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? D.spec.rad)
-
-        // spin to rotate/invar convenience
-        if (spin != null) {
-            this.spec.rotate = spin
-            this.spec.invar = true
-        }
-
-        // flex aspect override convenience
-        if (flex != null) this.spec.aspect = null
+        if (spin != null) { this.spec.rotate = spin; this.spec.invar = true }
+        if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
+        if (vflip === true) this.spec.coord = flip_rect(this.spec.coord, true)
+        if (flex === true) this.spec.aspect = null
 
         // adjust aspect for rotation
         const { aspect, rotate } = this.spec
@@ -929,7 +930,7 @@ function children_rect(children) {
 
 class Group extends Element {
     constructor(args = {}) {
-        let { children: children0, coord, aspect, debug = false, tag = 'g', ...attr } = args
+        let { children: children0, aspect, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
         // extract specs from children
@@ -946,7 +947,7 @@ class Group extends Element {
         }
 
         // pass to Element
-        super({ tag, unary: false, coord, aspect, ...attr })
+        super({ tag, unary: false, aspect, ...attr })
         this.args = args
 
         // additional props
@@ -1061,7 +1062,7 @@ function maybe_rounded_rect(rounded) {
 
 class Box extends Group {
     constructor(args = {}) {
-        let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, coord, debug = false, ...attr0 } = args
+        let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
         const children = ensure_array(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
