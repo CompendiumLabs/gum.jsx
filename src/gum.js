@@ -671,10 +671,12 @@ function align_frac(align) {
 function embed_rect(size, { aspect = null, expand = false } = {}) {
     if (aspect == null) return size
     const [ w0, h0 ] = size
-    const agg = expand ? abs_max : abs_min
-    const h = agg(w0 / aspect, h0)
+    const [ aw, ah ] = [ abs(w0), abs(h0) ]
+    const [ sw, sh ] = [ sign(w0), sign(h0) ]
+    const agg = expand ? maximum : minimum
+    const h = agg(aw / aspect, ah)
     const w = h * aspect
-    return [ w, h ]
+    return [ sw * w, sh * h ]
 }
 
 function rotate_rect(size, rotate, { aspect = null, expand = false, invar = false, tol = 0.001 } = {}) {
