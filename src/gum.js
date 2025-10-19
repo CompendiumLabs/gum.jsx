@@ -337,6 +337,10 @@ const isInf = x => !Number.isFinite(x)
 const minimum = Math.min
 const maximum = Math.max
 
+function heavisign(x) {
+    return x >= 0 ? 1 : -1
+}
+
 function abs_min(x, y) {
     return abs(x) < abs(y) ? x : y
 }
@@ -666,10 +670,6 @@ function align_frac(align) {
     } else{
         throw new Error(`Unrecognized alignment specification: ${align}`)
     }
-}
-
-function heavisign(x) {
-    return x >= 0 ? 1 : -1
 }
 
 function embed_rect(size, { aspect = null, expand = false } = {}) {
@@ -1311,34 +1311,6 @@ class Grid extends Group {
 
         // pass to Group
         super({ children, aspect, ...attr })
-        this.args = args
-    }
-}
-
-class Flip extends Group {
-    constructor(args = {}) {
-        let { children: children0, direc, ...attr } = args
-        const child = check_singleton(children0)
-        const rect = join_limits({ [direc]: [1, 0] })
-        const children = child.clone({ rect })
-        const { aspect } = children.spec
-        super({ children, aspect, ...attr })
-        this.args = args
-    }
-}
-
-class VFlip extends Flip {
-    constructor(args = {}) {
-        let { ...attr } = args
-        super({ direc: 'v', ...attr })
-        this.args = args
-    }
-}
-
-class HFlip extends Flip {
-    constructor(args = {}) {
-        let { ...attr } = args
-        super({ direc: 'h', ...attr })
         this.args = args
     }
 }
@@ -2845,7 +2817,7 @@ class HBars extends Bars {
 
 function ensure_tick(tick, prec = 2) {
     const [ pos, str ] = is_scalar(tick) ? [tick, tick] : tick
-    return new TextLine({ children: rounder(str, prec), tick: pos })
+    return new TextLine({ children: rounder(str, prec), tick_pos: pos })
 }
 
 function invert_direc(direc) {
@@ -2895,19 +2867,15 @@ class Labels extends Group {
         // make children with tick data (if given)
         if (locs != null) children = locs.map(x => ensure_tick(x, prec))
 
-            // anchor vertical ticks to unit-aspect boxes
-        if (direc == 'v') {
-            children = children.map(c => {
-                const { tick } = c.attr
-                return new Anchor({ children: c, aspect: 1, side: align, tick })
-            })
-        }
-
         // place tick boxes using expanded lines
         children = children.map(c => {
-            const { tick: loc } = c.attr
-            const rect = direc == 'v' ? [0, loc, 1, loc] : [loc, 0, loc, 1]
-            return c.clone({ rect, expand: true })
+            const { tick_pos } = c.attr
+            const rect = join_limits({ [direc]: [tick_pos, tick_pos] })
+            if (direc == 'v') {
+                return new Anchor({ children: c, rect, expand: true, aspect: 1, side: align })
+            } else {
+                return c.clone({ rect, expand: true })
+            }
         })
 
         // pass to Group
@@ -2970,11 +2938,11 @@ function invert_axispos(label_pos) {
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        let { children, lim = D.spec.lim, direc, ticks, tick_pos = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
+        let { children, lim = D.spec.lim, direc, ticks, tick_lim = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
         const [label_attr, tick_attr, line_attr, attr] = prefix_split(['label', 'tick', 'line'], attr0)
+        tick_lim = get_tick_lim(tick_lim)
 
         // get tick and label limits
-        const tick_lim = get_tick_lim(tick_pos)
         const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'left' : 'right') : 'center'
         const label_base = (label_pos == 'outer') ? 1 + tick_label_offset : -tick_label_offset - tick_label_size
         const label_lim = [ label_base, label_base + tick_label_size ]
@@ -2990,7 +2958,7 @@ class Axis extends Group {
             ticks = is_scalar(ticks) ? linspace(...lim, ticks) : ticks
             children = ticks.map(t => ensure_tick(t, prec))
         }
-        const locs = children.map(c => c.attr.tick)
+        const locs = children.map(c => c.attr.tick_pos)
 
         // accumulate children
         const cline = new UnitLine({ direc, ...line_attr })
@@ -3147,7 +3115,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_pos = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, margin, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_lim = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, padding, margin, border, fill, prec, aspect: aspect0, flex = false, ...attr0
         } = args
         const elems = ensure_array(children0)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
@@ -3179,7 +3147,7 @@ class Plot extends Box {
         // determine aspect and tick sizes
         const aspect = (aspect0 == 'auto') ? rect_aspect(coord) : aspect0
         const [ xtick_size, ytick_size ] = aspect_invariant(axis_tick_size, aspect)
-        const [ xtick_pos, ytick_pos ] = ensure_vector(tick_pos, 2)
+        const [ xtick_lim, ytick_lim ] = ensure_vector(tick_lim, 2)
         const [ xtick_label_pos, ytick_label_pos ] = ensure_vector(tick_label_pos, 2)
 
         // collect axis elements
@@ -3188,11 +3156,11 @@ class Plot extends Box {
 
         // default xaxis generation
         if (xaxis === true) {
-            const tick_pos = invert_axispos(xtick_pos)
+            const tick_lim = invert_axispos(xtick_lim)
             const label_pos = invert_axispos(xtick_label_pos)
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_rect = join_limits({ h: xlim, v: [ xanchor - xtick_size1, xanchor + xtick_size1 ] })
-            xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, tick_pos, label_pos, ...xaxis_attr })
+            xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, tick_lim, label_pos, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
@@ -3200,11 +3168,11 @@ class Plot extends Box {
 
         // default yaxis generation
         if (yaxis === true) {
-            const tick_pos = invert_axispos(ytick_pos)
+            const tick_lim = invert_axispos(ytick_lim)
             const label_pos = invert_axispos(ytick_label_pos)
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_rect = join_limits({ h: [ yanchor - ytick_size1, yanchor + ytick_size1 ], v: ylim })
-            yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, tick_pos, label_pos, ...yaxis_attr })
+            yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, tick_lim, label_pos, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
@@ -3371,7 +3339,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
+    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3380,5 +3348,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Flip, VFlip, HFlip, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
