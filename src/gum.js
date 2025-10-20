@@ -480,9 +480,10 @@ function rect_aspect(rect) {
 }
 
 // radial rect: center, radius
-function rect_radial(rect) {
+function rect_radial(rect, absolute = false) {
     const [ cx, cy ] = rect_center(rect)
-    const [ rx, ry ] = rect_radius(rect)
+    const [ rx0, ry0 ] = rect_radius(rect)
+    const [ rx, ry ] = absolute ? [ abs(rx0), abs(ry0) ] : [ rx0, ry0 ]
     return [ cx, cy, rx, ry ]
 }
 
@@ -1034,8 +1035,6 @@ function get_child_aspect(children) {
     }
 }
 
-// TODO: allow this to hold multiple children and somehow detect the aspect
-//       or at least inherit the aspect in the case of a single child
 function computeFrameLayout(children, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
     // expand padding/margin to 4-element array
     padding = pad_rect(padding)
@@ -1364,15 +1363,15 @@ class Attach extends Group {
 
 class Points extends Group {
     constructor(args = {}) {
-        let { children: children0, locs, size = 0.01, shape: shape0, ...attr0 } = args
-        const shape = ensure_function(shape0 ?? (a => new Dot(a)))
+        let { children: children0, size = D.point.size, shape: shape0, ...attr0 } = args
+        const locs = ensure_array(children0)
+        const shape = shape0 ?? new Dot()
         const [ point_attr, attr ] = prefix_split([ 'point' ], attr0)
 
         // construct children (pos or [pos, rad])
-        const children = children0 ?? locs.map(loc => {
+        const children = locs.map(loc => {
             const [ pos, rad ] = is_scalar(loc[0]) ? [ loc, size ] : loc
-            const s = shape({ ...point_attr, pos, rad })
-            return s
+            return shape.clone({ ...point_attr, pos, rad })
         })
 
         // pass to Group
@@ -1381,30 +1380,31 @@ class Points extends Group {
     }
 }
 
-// BORKEN
 class Absolute extends Element {
     constructor(args = {}) {
         let { children: children0, size, ...attr } = args
         const child = check_singleton(children0)
+
+        // pass to Element
         super({ tag: 'g', unary: false, ...attr })
+        this.args = args
+
+        // additional props
         this.child = child
         this.size = size
-        this.place = attr
-        this.args = args
     }
 
     inner(ctx) {
         const { prect } = ctx
-        const { aspect } = this.child.spec
 
         // get relative size from absolute size
         const pcent = rect_center(prect)
-        const pradi = rect_radial(prect)
+        const pradi = rect_radius(prect)
         const psize = ensure_vector(this.size, 2)
         const rect = radial_rect(pcent, div(psize, pradi))
 
         // render child element
-        const ctx1 = ctx.map({ rect, aspect })
+        const ctx1 = ctx.map({ ...this.child.spec, rect })
         return this.child.svg(ctx1)
     }
 }
@@ -1497,11 +1497,7 @@ class Rect extends Element {
 
         // get true pixel rect
         const { prect } = ctx
-        let [ x, y, w, h ] = rect_box(prect)
-
-        // orient increasing
-        if (w < 0) { x += w; w *= -1 }
-        if (h < 0) { y += h; h *= -1 }
+        let [ x, y, w, h ] = rect_box(prect, true)
 
         // scale border rounded
         let rx, ry
@@ -1537,14 +1533,7 @@ class Ellipse extends Element {
     props(ctx) {
         const attr = super.props(ctx)
         const { prect } = ctx
-
-        // get core attributes
-        let [ cx, cy, rx, ry ] = rect_radial(prect)
-
-        // orient increasing
-        if (rx < 0) { rx *= -1 }
-        if (ry < 0) { ry *= -1 }
-
+        let [ cx, cy, rx, ry ] = rect_radial(prect, true)
         return { cx, cy, rx, ry, ...attr }
     }
 }
@@ -2494,17 +2483,17 @@ class Arrow extends Group {
 
 class Field extends Points {
     constructor(args = {}) {
-        let { children: children0, points, direcs, marker, size = 0.02, tail = 1, ...attr0 } = args
-        marker = marker ?? ((p, d, a) => {
-            const arrow = new Arrow({ direc: d, tail, ...a })
-            arrow.attr.pos = p
-            arrow.attr.rad = size
-            return arrow
-        })
+        let { children: children0, direcs, marker, size = D.point.size, tail = 1, ...attr0 } = args
+        const points = ensure_array(children0)
         const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
 
+        // set up marker function
+        marker = marker ?? ((p, d, a) =>
+            new Arrow({ direc: d, tail, pos: p, rad: size, ...a })
+        )
+
         // create children
-        const children = zip(points, direcs).map(([ p, d ]) => marker(p, d, marker_attr))
+        const children = points.map(([ p, d ]) => marker(p, d, marker_attr))
 
         // pass to Points
         super({ children, ...attr })
@@ -2821,7 +2810,11 @@ class HBars extends Bars {
 
 function ensure_tick(tick, prec = 2) {
     const [ pos, str ] = is_scalar(tick) ? [tick, tick] : tick
-    return new TextLine({ children: rounder(str, prec), tick_pos: pos })
+    if (is_element(str)) {
+        return str.clone({ tick_pos: pos })
+    } else {
+        return new TextLine({ children: rounder(str, prec), tick_pos: pos })
+    }
 }
 
 function invert_direc(direc) {

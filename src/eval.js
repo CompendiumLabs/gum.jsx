@@ -16,18 +16,14 @@ function isClass(func) {
          Object.getOwnPropertyDescriptor(func, 'prototype').writable === false
 }
 
+function isWhitespace(s) {
+  return typeof s === 'string' && s.replace(/\s/g, '') === ''
+}
+
 // recursively flatten all children, including nested arrays
-function flattenChildren(items) {
-  const result = []
-  for (const item of items) {
-      if (Array.isArray(item)) {
-        result.push(...flattenChildren(item))
-      } else if (item != null && item !== false && item !== true) {
-        if (typeof item === 'string' && item.replace(/\s/g, '') === '') continue
-        result.push(item)
-      }
-  }
-  return result
+function filterChildren(items) {
+  return items.flat(1)
+    .filter(item => item != null && item !== false && item !== true && !isWhitespace(item))
 }
 
 function convertKebab(props) {
@@ -39,8 +35,7 @@ function convertKebab(props) {
 }
 
 function h(tag, props, ...children) {
-  if (tag == 'br') return ''
-  const flattened = children.length > 0 ? flattenChildren(children) : null
+  const flattened = children.length > 0 ? filterChildren(children) : null
   const props1 = { children: flattened, ...convertKebab(props) }
   return isClass(tag) ? new tag(props1) : tag(props1)
 }

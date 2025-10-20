@@ -1,6 +1,7 @@
 // font shaping
 
 import LineBreaker from 'linebreak'
+import opentype from 'opentype.js'
 import { DEFAULTS as D } from './defaults.js'
 
 //
@@ -38,6 +39,24 @@ try {
 } catch (error) {
     console.log(error)
 }
+
+//
+// opentype renderer
+//
+
+const font_files = {
+    sans: 'IBMPlexSans-Thin.ttf',
+    mono: 'IBMPlexMono-Thin.ttf',
+    moji: 'NotoColorEmoji-Regular.ttf',
+}
+
+// load font data
+const fonts = Object.fromEntries(await Promise.all(
+    Object.entries(font_files).map( async ([ name, file ]) => {
+        const url = new URL(`./fonts/${file}`, import.meta.url)
+        return [ name, await opentype.load(url) ]
+    })
+))
 
 //
 // mathjax renderer
@@ -120,6 +139,17 @@ function wrapMultiText(text, text_wrap, fargs) {
     const lines = results.map(r => r.lines).flat()
     const widths = results.map(r => r.widths).flat()
     return { lines, widths }
+}
+
+//
+// glyph expansion
+//
+
+function getGlyphPath(font, glyph, pos, size) {
+    const data = fonts[font]
+    const [ x, y ] = pos
+    const path = data.getPath(glyph, x, y, size)
+    return path.toSVG()
 }
 
 export { textSizer, getBreaks, wrapText, wrapMultiText }
