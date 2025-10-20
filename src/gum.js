@@ -2024,8 +2024,10 @@ class EmojiDiv extends Element {
     props(ctx) {
         const attr = super.props(ctx)
         const { prect } = ctx
-        const [ w, h ] = rect_dims(prect)
-        const style = `font-size: ${abs(h)}px;`
+        const { aspect } = this.spec
+        const size = rect_dims(prect)
+        const [ _, h ] = embed_rect(size, aspect)
+        const style = `font-size: ${h}px;`
         return { style, ...attr }
     }
 
@@ -2034,33 +2036,35 @@ class EmojiDiv extends Element {
     }
 }
 
-class Emoji extends Group {
+// this can't accept debug, so mask it out of args
+class Foreign extends Group {
     constructor(args = {}) {
-        let { children: children0, offset = [ 0, -0.3 ], ...attr } = args
-        const name = check_string(children0)
-        const text = emoji_table[name] ?? name
-
-        // make outer div
-        const div = new EmojiDiv({ children: text, xmlns: 'http://www.w3.org/1999/xhtml', ...attr })
-        const aspect = div.spec.aspect
-
-        // pass to Group
-        super({ tag: 'foreignObject', children: div, aspect, ...attr })
-        this.args = args
-
-        // additional props
-        this.offset = offset
+        let { children: children0, debug, ...attr } = args
+        const children = ensure_array(children0)
+        super({ tag: 'foreignObject', unary: false, children, ...attr })
     }
 
     props(ctx) {
         const attr = super.props(ctx)
         const { prect } = ctx
-        const [ x0, y0, w, h0 ] = rect_box(prect)
-        const [ xoff, yoff ] = ctx.mapSize(this.offset)
-        const [ x, y ] = [ x0 - xoff, y0 + yoff ]
-        const y1 = (h0 < 0) ? y + h0 : y
-        const h = abs(h0) - 2 * yoff
-        return { x, y: y1, width: w, height: h, ...attr }
+        const [ x, y, w, h ] = rect_box(prect, true)
+        return { x, y, width: w, height: h, ...attr }
+    }
+}
+
+class Emoji extends Group {
+    constructor(args = {}) {
+        let { children: children0, voffset = D.text.voffset, aspect = 1, ...attr } = args
+        const name = check_string(children0)
+        const text = emoji_table[name] ?? name
+
+        // make outer div in foreignObject
+        const div = new EmojiDiv({ children: text, xmlns: 'http://www.w3.org/1999/xhtml' })
+        const foreign = new Foreign({ children: div, rect: [ 0, voffset, 1, 1 ] })
+
+        // pass to Group
+        super({ children: foreign, aspect, ...attr })
+        this.args = args
     }
 }
 
@@ -3289,14 +3293,14 @@ function ensure_text(c, args) {
 
 class TextStack extends VStack {
     constructor(args = {}) {
-        let { children: children0, spacing, align, ...attr } = args
+        let { children: children0, spacing, align, debug, ...attr } = args
         const items = ensure_array(children0)
 
         // apply args to Text children
         const children = items.map(c => ensure_text(c, attr)).flat()
 
         // pass to VStack
-        super({ children, spacing, align })
+        super({ children, spacing, align, debug })
         this.args = args
     }
 }
