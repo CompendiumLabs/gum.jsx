@@ -47,7 +47,6 @@ try {
 const font_files = {
     sans: 'IBMPlexSans-Thin.ttf',
     mono: 'IBMPlexMono-Thin.ttf',
-    moji: 'NotoColorEmoji-Regular.ttf',
 }
 
 // load font data
@@ -152,4 +151,4 @@ function getGlyphPath(font, glyph, pos, size) {
     return path.toSVG()
 }
 
-export { textSizer, getBreaks, wrapText, wrapMultiText }
+export { textSizer, getBreaks, wrapText, wrapMultiText, getGlyphPath }

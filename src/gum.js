@@ -269,11 +269,21 @@ function ensure_element(x) {
     }
 }
 
-function ensure_function(f) {
+function ensure_function(x) {
+    if (x == null) return null
+    if (is_function(x)) {
+        return x
+    } else {
+        return () => x
+    }
+}
+
+// a component is a function that returns an element
+function ensure_component(f) {
     if (is_function(f)) {
         return (...a) => ensure_element(f(...a))
     } else {
-        return () => ensure_element(f)
+        return (...a) => ensure_element(f)
     }
 }
 
@@ -524,13 +534,15 @@ function cbox_rect(cbox) {
 
 // rect aggregators
 function merge_rects(rects) {
-    if (rects.length == 0) return null
-    const [ xa, ya, xb, yb ] = zip(...rects)
+    const rects1 = rects.filter(r => r != null)
+    if (rects1.length == 0) return null
+    const [ xa, ya, xb, yb ] = zip(...rects1)
     const [ xs, ys ] = [ [ ...xa, ...xb ], [ ...ya, ...yb ] ]
     return [ min(xs), min(ys), max(xs), max(ys) ]
 }
 
 function merge_points(points) {
+    if (points.length == 0) return null
     const [ xs, ys ] = zip(...points)
     return [ min(xs), min(ys), max(xs), max(ys) ]
 }
@@ -540,6 +552,11 @@ function merge_limits(lims) {
     const [ za, zb ] = zip(...lims)
     const zs = [ ...za, ...zb ]
     return [ min(zs), max(zs) ]
+}
+
+function merge_values(vals) {
+    if (vals.length == 0) return null
+    return [ min(vals), max(vals) ]
 }
 
 function aspect_invariant(value, aspect, alpha = 0.5) {
@@ -568,17 +585,23 @@ function aspect_invariant(value, aspect, alpha = 0.5) {
 function prefix_split(pres, attr) {
     const attr1 = { ...attr }
     const pres1 = pres.map(p => `${p}_`)
-    const out = pres.map(p => Object())
+    const out = pres.map(p => ({}))
     Object.keys(attr).map(k => {
-        pres.forEach((p, i) => {
-            if (k.startsWith(pres1[i])) {
-                const k1 = k.slice(p.length + 1)
+        pres1.forEach((p1, i) => {
+            if (k.startsWith(p1)) {
+                const k1 = k.slice(p1.length)
                 out[i][k1] = attr1[k]
                 delete attr1[k]
             }
         })
     })
     return [ ...out, attr1 ]
+}
+
+function spec_split(attr) {
+    const spec  = filter_object(attr, (k, v) => v != null &&  SPEC_KEYS.includes(k))
+    const attr1 = filter_object(attr, (k, v) => v != null && !SPEC_KEYS.includes(k))
+    return [ spec, attr1 ]
 }
 
 function prefix_add(pre, attr) {
@@ -747,12 +770,17 @@ function rotate_aspect(aspect, rotate) {
     return DW / DH
 }
 
-function ensure_upright(rect) {
+function upright_rect(rect) {
     const [ x1, y1, x2, y2 ] = rect
     return [
         minimum(x1, x2), minimum(y1, y2),
         maximum(x1, x2), maximum(y1, y2),
     ]
+}
+
+function upright_limit(limit) {
+    const [ lo, hi ] = limit
+    return [ minimum(lo, hi), maximum(lo, hi) ]
 }
 
 function rescaler(lim_in, lim_out) {
@@ -836,7 +864,7 @@ class Context {
     // NOTE: this is the main mapping function! be very careful when changing it!
     map({ rect, aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.spec.coord } = {}) {
         // use parent coord as default rect
-        rect ??= ensure_upright(this.coord)
+        rect ??= upright_rect(this.coord)
 
         // get true pixel rect
         const prect0 = this.mapRect(rect)
@@ -866,24 +894,26 @@ function flip_rect(rect, vertical) {
 }
 
 // spec keys
-const spec_keys = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
+const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     constructor(args = {}) {
-        let { tag, unary, children, pos, rad, flex, spin, hflip, vflip, ...attr } = args
+        const { tag, unary, children, pos, rad, xlim, ylim, flex, spin, hflip, vflip, ...attr0 } = args
+        const [ spec, attr ] = spec_split(attr0)
         this.args = args
 
         // core display
         this.tag = tag
         this.unary = unary
 
-        // store layout params and attributes
-        this.spec = filter_object(attr, (k, v) => v != null &&  spec_keys.includes(k))
-        this.attr = filter_object(attr, (k, v) => v != null && !spec_keys.includes(k))
+        // store layout params
+        this.spec = spec
+        this.attr = attr
 
         // various convenience conversions
         if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? D.spec.rad)
+        if (xlim != null || ylim != null) this.spec.coord ??= join_limits({ h: xlim, v: ylim })
         if (spin != null) { this.spec.rotate = spin; this.spec.invar = true }
         if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
         if (vflip === true) this.spec.coord = flip_rect(this.spec.coord, true)
@@ -982,7 +1012,7 @@ class Svg extends Group {
         const children = ensure_array(children0)
 
         // pass to Group
-        const svg_attr = bare ? {} : { stroke: 'black', fill: 'none', font_family: D.font.family, font_weight: D.font.weight }
+        const svg_attr = bare ? {} : { stroke: black, fill: none, font_family: D.font.family, font_weight: D.font.weight }
         super({ tag: 'svg', children, aspect, ...svg_attr, ...attr })
         this.args = args
 
@@ -1080,7 +1110,7 @@ class Box extends Group {
         if (fill === true) fill = gray
 
         // ensure shape is a function
-        shape = ensure_function(shape ?? maybe_rounded_rect(rounded))
+        shape = ensure_component(shape ?? maybe_rounded_rect(rounded))
 
         // compute layout
         const { irect, brect, aspect: aspect_outer } = computeFrameLayout(children, { padding, margin, border, aspect, adjust })
@@ -1579,19 +1609,21 @@ function pointstring(pixels, prec = 2) {
 
 class Pointstring extends Element {
     constructor(args = {}) {
-        let { tag, points, ...attr } = args
-        super({ tag, unary: true, ...attr })
+        let { tag, points, xlim, ylim, ...attr } = args
+
+        // compute real limits
+        if (points.length > 0) {
+            const [ xvals, yvals ] = zip(...points)
+            xlim ??= merge_values(xvals)
+            ylim ??= merge_values(yvals)
+        }
+
+        // pass to Element
+        super({ tag, unary: true, xlim, ylim, ...attr })
         this.args = args
 
         // additional props
         this.points = points
-
-        // set graph limits
-        if (points.length > 0) {
-            const [ xmin, ymin, xmax, ymax ] = merge_points(points)
-            this.xlim = [ xmin, xmax ]
-            this.ylim = [ ymin, ymax ]
-        }
     }
 
     props(ctx) {
@@ -1605,7 +1637,7 @@ class Pointstring extends Element {
 class Polyline extends Pointstring {
     constructor(args = {}) {
         let { points, ...attr } = args
-        super({ tag: 'polyline', points, fill: 'none', ...attr })
+        super({ tag: 'polyline', points, fill: none, ...attr })
         this.args = args
     }
 }
@@ -2169,18 +2201,10 @@ class TitleFrame extends Frame {
 // parametric paths
 //
 
- function func_or_scalar(x) {
-    if (is_scalar(x)) {
-        return () => x
-    } else {
-        return x
-    }
-}
-
 // determines actual values given combinations of limits, values, and functions
 function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N } = {}) {
-    fx = func_or_scalar(fx)
-    fy = func_or_scalar(fy)
+    fx = ensure_function(fx)
+    fy = ensure_function(fy)
 
     // handle underspecified case
     if (
@@ -2224,13 +2248,13 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N
     // clip values
     if (clip) {
         if (xlim != null) {
-            const [ xmin, xmax ] = xlim
+            const [ xmin, xmax ] = upright_limit(xlim)
             xvals = xvals.map(x =>
                 (xmin <= x && x <= xmax) ? x : null
             )
         }
         if (ylim != null) {
-            const [ ymin, ymax ] = ylim
+            const [ ymin, ymax ] = upright_limit(ylim)
             yvals = yvals.map(y =>
                 (ymin <= y && y <= ymax) ? y : null
             )
@@ -2242,7 +2266,8 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N
 
 class SymPath extends Polyline {
     constructor(args = {}) {
-        let { fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N, ...attr } = args
+        const { fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N, ...attr } = args
+
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N
@@ -2254,14 +2279,15 @@ class SymPath extends Polyline {
         )
 
         // pass to element
-        super({ points, ...attr })
+        super({ points, xlim, ylim, ...attr })
         this.args = args
     }
 }
 
 class SymFill extends Polygon {
     constructor(args = {}) {
-        let { fx1, fy1, fx2, fy2, xlim, ylim, tlim, xvals, yvals, tvals, N, stroke = 'none', ...attr } = args
+        const { fx1, fy1, fx2, fy2, xlim, ylim, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, ...attr } = args
+
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
             fx: fx1, fy: fy1, xlim, ylim, tlim, xvals, yvals, tvals, N
@@ -2276,7 +2302,7 @@ class SymFill extends Polygon {
         )
 
         // pass to element
-        super({ points, stroke, ...attr })
+        super({ points, xlim, ylim, stroke, fill, ...attr })
         this.args = args
     }
 }
@@ -2294,16 +2320,19 @@ class SymPoly extends Polygon {
         const points = zip(xvals1, yvals1)
 
         // pass to element
-        super({ points, ...attr })
+        super({ points, xlim, ylim, ...attr })
         this.args = args
     }
 }
 
+// TODO: could we generalize xlim/ylim detection to Group level?
 class SymPoints extends Group {
     constructor(args = {}) {
-        let { children: children0, fx, fy, fs, fr, size = D.point.size, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, coord, ...attr } = args
-        const shape = ensure_function(shape0 ?? (() => new Dot()))
-        const fsize = is_number(size) ? (() => size) : size
+        let { children: children0, fx, fy, size = D.point.size, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr0 } = args
+        const [ spec, attr ] = spec_split(attr0)
+        const shape = shape0 ?? ensure_singleton(children0)
+        const fshap = ensure_component(shape ?? new Dot())
+        const fsize = ensure_function(size)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -2313,14 +2342,17 @@ class SymPoints extends Group {
         // make points
         const points = zip(tvals1, xvals1, yvals1)
         const children = enumerate(points).map(([i, [t, x, y]]) => {
-            const sh = shape(x, y, t, i)
-            const sz = fsize(x, y, t, i)
-            const rect = radial_rect([x, y], sz)
-            return sh.clone({ rect, ...attr })
+            const sh = fshap(x, y, t, i)
+            const sz = sh.args.rad ?? fsize(x, y, t, i)
+            return sh.clone({ pos: [x, y], rad: sz, ...attr })
         })
 
-        // pass  to element
-        super({ children, coord })
+        // compute real limits
+        xlim ??= merge_values(xvals1)
+        ylim ??= merge_values(yvals1)
+
+        // pass to element
+        super({ children, xlim, ylim, ...spec })
         this.args = args
     }
 }
@@ -2356,7 +2388,7 @@ class DataPoints extends Points {
     constructor(args = {}) {
         let { xvals, yvals, xlim, ylim, ...attr } = args
         const points = datapoints({ xvals, yvals, xlim, ylim })
-        super({ points, ...attr })
+        super({ children: points, ...attr })
         this.args = args
     }
 }
@@ -2481,36 +2513,43 @@ class Arrow extends Group {
     }
 }
 
-class Field extends Points {
+class Field extends Group {
     constructor(args = {}) {
-        let { children: children0, direcs, marker, size = D.point.size, tail = 1, ...attr0 } = args
+        let { children: children0, marker, size = D.point.size, tail = 1, coord, ...attr0 } = args
         const points = ensure_array(children0)
         const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
 
+        // determine coordinate system
+        coord ??= merge_points(points.map(([ p, d ]) => p))
+
         // set up marker function
-        marker = marker ?? ((p, d, a) =>
+        marker ??= ((p, d, a) =>
             new Arrow({ direc: d, tail, pos: p, rad: size, ...a })
         )
 
         // create children
         const children = points.map(([ p, d ]) => marker(p, d, marker_attr))
 
-        // pass to Points
-        super({ children, ...attr })
+        // pass to Group
+        super({ children, coord, ...attr })
         this.args = args
     }
 }
 
 class SymField extends Field {
     constructor(args = {}) {
-        let { func, xlim, ylim, N = 10, ...attr } = args
+        let { children: children0, func, xlim, ylim, N = 10, coord,...attr } = args
+
+        // determine coordinate system
+        coord ??= join_limits({ h: xlim, v: ylim })
 
         // create points and direcs
-        const points = lingrid(xlim, ylim, N)
-        const direcs = points.map(([x, y]) => func(x, y))
+        const points = lingrid(xlim, ylim, N).map(
+            ([x, y]) => [ [ x, y ], func(x, y) ]
+        )
 
         // pass to Field
-        super({ points, direcs, ...attr })
+        super({ children: points, coord, ...attr })
         this.args = args
     }
 }
@@ -2903,6 +2942,11 @@ function join_limits({ v = D.spec.lim, h = D.spec.lim } = {}) {
     return [ hlo, vlo, hhi, vhi ]
 }
 
+function split_limits(coord) {
+    const [ xlo, ylo, xhi, yhi ] = coord
+    return [ [ xlo, xhi ], [ ylo, yhi ] ]
+}
+
 function get_tick_lim(lim) {
     if (lim == 'inner') {
         return [0, 0.5]
@@ -3067,39 +3111,39 @@ function expand_limits(lim, fact) {
 }
 
 // find minimal containing limits
-function outer_limits(children, { xlim, ylim, padding = 0 }) {
+function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
     if (children.length == 0) return null
     const [ xpad, ypad ] = ensure_vector(padding, 2)
-    const xlims = children.map(c => c.xlim).filter(z => z != null)
-    const ylims = children.map(c => c.ylim).filter(z => z != null)
-    const xlim0 = merge_limits(xlims)
-    const ylim0 = merge_limits(ylims)
-    xlim ??= expand_limits(xlim0, xpad) ?? D.spec.lim
-    ylim ??= expand_limits(ylim0, ypad) ?? D.spec.lim
+    const coord0 = merge_rects(children.map(c => c.spec.coord))
+    if (coord0 != null) {
+        const [ xlim0, ylim0 ] = split_limits(coord0)
+        xlim ??= expand_limits(xlim0, xpad)
+        ylim ??= expand_limits(ylim0, ypad)
+    }
     return join_limits({ h: xlim, v: ylim })
 }
 
 class Graph extends Group {
     constructor(args = {}) {
-        let { children: children0, xlim, ylim, coord, aspect, padding = 0, flex = false, flip = true, ...attr } = args
+        let { children: children0, xlim, ylim, coord, aspect, padding = 0, flip = true, ...attr } = args
         const elems = ensure_array(children0)
 
         // get default outer limits
-        coord ??= outer_limits(elems, { padding })
-        const [ xmin, ymin, xmax, ymax ] = coord
+        coord ??= outer_limits(elems, { xlim, ylim, padding })
+        if (flip) coord = flip_rect(coord, true)
+        const [ xlim0, ylim0 ] = split_limits(coord)
 
-        // update coordinate system and aspect
-        if (flip) coord = [ xmin, ymax, xmax, ymin ]
-        if (!flex) aspect ??= rect_aspect(coord)
+        // determine aspect automatically
+        aspect ??= rect_aspect(coord)
 
         // map coordinate system to all elements
         const children = elems.map(e => {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
-                const cxlim = e.args.xlim ?? [ xmin, xmax ]
-                const cylim = e.args.ylim ?? [ ymin, ymax ]
-                return e.clone({ coord, xlim: cxlim, ylim: cylim })
+                const xlim = e.args.xlim ?? xlim0
+                const ylim = e.args.ylim ?? ylim0
+                return e.clone({ xlim, ylim })
             }
         })
 
