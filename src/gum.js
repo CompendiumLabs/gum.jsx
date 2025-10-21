@@ -967,7 +967,7 @@ function children_rect(children) {
 
 class Group extends Element {
     constructor(args = {}) {
-        let { children: children0, aspect, debug = false, tag = 'g', ...attr } = args
+        let { children: children0, aspect, coord, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
         // automatic aspect detection
@@ -975,6 +975,9 @@ class Group extends Element {
             const bounds = children_rect(children)
             if (bounds != null) aspect = rect_aspect(bounds)
         }
+
+        // automatic coord detection
+        if (coord == 'auto') coord = children_rect(children)
 
         // create debug boxes
         if (debug) {
@@ -984,7 +987,7 @@ class Group extends Element {
         }
 
         // pass to Element
-        super({ tag, unary: false, aspect, ...attr })
+        super({ tag, unary: false, aspect, coord, ...attr })
         this.args = args
 
         // additional props
@@ -2516,7 +2519,7 @@ class Arrow extends Group {
 
 class Field extends Group {
     constructor(args = {}) {
-        let { children: children0, marker, size = D.point.size, tail = 1, coord, ...attr0 } = args
+        let { children: children0, marker, size = D.point.size, tail = 1, xlim, ylim, ...attr0 } = args
         const points = ensure_array(children0)
         const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
 
@@ -2529,10 +2532,14 @@ class Field extends Group {
         const children = points.map(([ p, d ]) => marker(p, d, marker_attr))
 
         // determine coordinate system
-        coord ??= merge_points(points.map(([ p, d ]) => p))
+        if (points.length > 0) {
+            const [ xvals, yvals ] = zip(...points.map(([ p, d ]) => p))
+            xlim ??= merge_values(xvals)
+            ylim ??= merge_values(yvals)
+        }
 
         // pass to Group
-        super({ children, coord, ...attr })
+        super({ children, xlim, ylim, ...attr })
         this.args = args
     }
 }
@@ -3121,6 +3128,7 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
     return join_limits({ h: xlim, v: ylim })
 }
 
+// plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args = {}) {
         let { children: children0, xlim, ylim, coord, aspect, padding = 0, flip = true, ...attr } = args
