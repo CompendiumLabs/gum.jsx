@@ -2340,7 +2340,7 @@ function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, 
         .map(v => v.length)
     )
     if (Ns.size > 1) {
-        throw new Error(`Error: data sizes must be in aggreement but got ${Ns}`)
+        throw new Error(`Error: data sizes must be in aggreement but got ${[...Ns]}`)
     } else if (Ns.size == 1) {
         N = [...Ns][0]
     } else {
@@ -2367,8 +2367,6 @@ function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, 
     } else if (xvals != null && yvals == null) {
         ylim ??= D.spec.lim
         yvals = linspace(...ylim, N)
-    } else {
-        throw new Error('Error: insufficient data values specified')
     }
 
     // clip values
@@ -2399,9 +2397,9 @@ function detect_coords(xvals, yvals, { xlim = null, ylim = null } = {}) {
 
 class DataPoints extends Group {
     constructor(args = {}) {
-        let { children: children0, fx, fy, size = D.point.size, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = args
+        let { children: children0, fx, fy, size = D.point.size, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
-        const shape = shape0 ?? ensure_singleton(children0)
+        const shape = ensure_singleton(children0)
         const fshap = ensure_component(shape ?? new Dot())
         const fsize = ensure_function(size)
         const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
@@ -2507,22 +2505,22 @@ class DataFill extends Polygon {
     }
 }
 
-class DataField extends Field {
+class DataField extends DataPoints {
     constructor(args = {}) {
-        let { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, coord: coord0, ...attr } = args
+        const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, coord: coord0, ...attr } = args
+        const shape = ensure_singleton(children0) ?? (direc => new Arrow({ direc, tail: 1 }))
         const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
-        // create points and direcs
-        const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N).map(
-            ([x, y]) => [ [ x, y ], func(x, y) ]
-        ).filter(([p, d]) => d != null) : []
+        // create points and shape function
+        const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
+        const fshap = (x, y, t, i) => shape(func(x, y))
 
         // compute real limits
-        const [ xvals, yvals ] = points.length > 0 ? zip(...points.map(([ p, d ]) => p)) : [ null, null ]
+        const [ xvals, yvals ] = points.length > 0 ? zip(...points) : [ [], [] ]
         const coord = coord0 ?? detect_coords(xvals, yvals, { xlim, ylim })
 
-        // pass to Field
-        super({ children: points, coord, ...attr })
+        // pass to DataPoints
+        super({ children: fshap, xvals, yvals, coord, ...attr })
         this.args = args
     }
 }
