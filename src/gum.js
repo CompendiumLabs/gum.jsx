@@ -1400,16 +1400,15 @@ class Points extends Group {
         let { children: children0, size = D.point.size, shape: shape0, ...attr0 } = args
         const locs = ensure_array(children0)
         const shape = shape0 ?? new Dot()
-        const [ point_attr, attr ] = prefix_split([ 'point' ], attr0)
+        const [ spec, attr ] = spec_split(attr0)
 
-        // construct children (pos or [pos, rad])
-        const children = locs.map(loc => {
-            const [ pos, rad ] = is_scalar(loc[0]) ? [ loc, size ] : loc
-            return shape.clone({ ...point_attr, pos, rad })
-        })
+        // construct children
+        const children = locs.map(pos =>
+            shape.clone({ ...attr, pos, rad: size })
+        )
 
         // pass to Group
-        super({ children, ...attr })
+        super({ children, ...spec })
         this.args = args
     }
 }
@@ -1855,6 +1854,124 @@ class RoundedRect extends Path {
 }
 
 //
+// arrows and fields
+//
+
+function vector_angle(vector) {
+    const [ x, y ] = vector
+    return r2d * Math.atan2(y, x)
+}
+
+function unit_direc(direc) {
+    const theta = is_scalar(direc) ? direc : vector_angle(direc)
+    const rad = d2r * theta
+    return [ cos(rad), sin(rad) ]
+}
+
+// the definition of an direc in non-square aspects is weird?
+class ArrowHead extends Element {
+    constructor(args = {}) {
+        let { direc, arc = 60, base = false, fill, ...attr } = args
+        const tag = base ? 'polygon' : 'polyline'
+        if (fill === true) fill = gray
+
+        // pass to element
+        super({ tag, unary: true, fill, ...attr })
+        this.args = args
+
+        // additional props
+        this.direc = direc
+        this.arc = arc
+    }
+
+    props(ctx) {
+        const attr = super.props(ctx)
+        const [ cx, cy, rx, ry ] = rect_radial(ctx.prect)
+
+        // get true angle in aspect
+        const unit = unit_direc(this.direc)
+        const direc = ctx.mapSize(unit)
+        const angle = vector_angle(direc)
+
+        // get arc angles
+        const [ arcx, arcy ] = [ -angle - this.arc / 2, -angle + this.arc / 2 ]
+        const [ delx, dely ] = [ unit_direc(arcx), unit_direc(arcy) ]
+
+        // get arc points
+        const size = 0.5 * (abs(rx) + abs(ry))
+        const rad = [ sign(rx) * size, sign(ry) * size ]
+        const [ dx1, dy1 ] = mul(delx, rad)
+        const [ dx2, dy2 ] = mul(dely, rad)
+
+        // construct triangle points
+        const pixels = [
+            [ cx - dx1, cy - dy1 ],
+            [ cx, cy ],
+            [ cx - dx2, cy - dy2 ],
+        ]
+
+        // map into pointstring
+        const points = pointstring(pixels, ctx.prec)
+        return { points, ...attr }
+    }
+}
+
+class Arrow extends Group {
+    constructor(args = {}) {
+        let { children: children0, direc: direc0, tail = 0, shape = 'arrow', graph = true, ...attr0 } = args
+        const [head_attr, tail_attr, attr] = prefix_split(['head', 'tail'], attr0)
+
+        // baked in shapes
+        if (shape == 'circle') {
+            shape = (_, a) => new Dot(a)
+        } else if (shape == 'arrow') {
+            shape = (t, a) => new ArrowHead({ direc: t, ...a })
+        } else {
+            throw new Error(`Unrecognized arrow shape: ${shape}`)
+        }
+
+        // ensure vector direction
+        const theta = is_scalar(direc0) ? direc0 : vector_angle(direc0)
+        let direc = unit_direc(theta)
+
+        // sort out graph direction
+        direc = graph ? mul(direc, [ 1, -1 ]) : direc
+
+        // create head (override with null direction)
+        const arrow = shape(theta, head_attr)
+        const head_elem = norm(direc, 2) == 0 ? new Dot(head_attr) : arrow
+
+        // create tail
+        const tail_direc = direc.map(z => -tail * z)
+        const tail_pos = add([0.5, 0.5], tail_direc)
+        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, ...tail_attr })
+
+        super({ children: [ tail_elem, head_elem ], ...attr })
+        this.args = args
+    }
+}
+
+class Field extends Group {
+    constructor(args = {}) {
+        let { children: children0, shape, size = D.point.size, tail = 1, ...attr0 } = args
+        const points = ensure_array(children0)
+        const [ spec, attr ] = spec_split(attr0)
+
+        // set up marker function
+        shape ??= (direc) => new Arrow({ direc, tail })
+
+        // create children
+        const children = points.map(([ p, d ]) =>
+            shape(d).clone({ pos: p, rad: size, ...attr })
+        )
+
+        // pass to Group
+        super({ children, ...spec })
+        this.args = args
+    }
+}
+
+//
 // text elements
 //
 
@@ -2195,11 +2312,15 @@ class TitleFrame extends Frame {
 }
 
 //
-// parametric paths
+// data plotters
 //
 
+// GRAPHABLE ELEMENTS: DataPoints, DataPath, DataPoly, DataFill, DataField
+// these should take xlim/ylim/coord and give coord precedence over xlim/ylim
+// they should compute their coordinate limits and report them in coord (for Graph)
+
 // determines actual values given combinations of limits, values, and functions
-function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N } = {}) {
+function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N } = {}) {
     fx = ensure_function(fx)
     fy = ensure_function(fy)
 
@@ -2223,7 +2344,7 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N
     } else if (Ns.size == 1) {
         N = [...Ns][0]
     } else {
-        N = N ?? D.sym.N
+        N = N ?? D.data.N
     }
 
     // generate tvals
@@ -2235,11 +2356,19 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N
         xvals = tvals.map(fx)
         yvals = tvals.map(fy)
     } else if (fy != null) {
-        xvals = xvals ?? linspace(...xlim, N)
+        xvals ??= linspace(...xlim, N)
         yvals = xvals.map(fy)
     } else if (fx != null) {
-        yvals = yvals ?? linspace(...ylim, N)
+        yvals ??= linspace(...ylim, N)
         xvals = yvals.map(fx)
+    } else if (yvals != null && xvals == null) {
+        xlim ??= D.spec.lim
+        xvals = linspace(...xlim, N)
+    } else if (xvals != null && yvals == null) {
+        ylim ??= D.spec.lim
+        yvals = linspace(...ylim, N)
+    } else {
+        throw new Error('Error: insufficient data values specified')
     }
 
     // clip values
@@ -2268,80 +2397,7 @@ function detect_coords(xvals, yvals, { xlim = null, ylim = null } = {}) {
     })
 }
 
-class SymPath extends Polyline {
-    constructor(args = {}) {
-        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, clip, N, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
-
-        // compute path values
-        const [ tvals1, xvals1, yvals1 ] = sympath({
-            fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N
-        })
-
-        // get valid point pairs
-        const points = zip(xvals1, yvals1).filter(
-            ([ x, y ]) => (x != null) && (y != null)
-        )
-
-        // compute real limits
-        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
-
-        // pass to element
-        super({ points, coord, ...attr })
-        this.args = args
-    }
-}
-
-class SymFill extends Polygon {
-    constructor(args = {}) {
-        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
-
-        // compute point values
-        const [tvals1, xvals1, yvals1] = sympath({
-            fx: fx1, fy: fy1, xlim, ylim, tlim, xvals, yvals, tvals, N
-        })
-        const [tvals2, xvals2, yvals2] = sympath({
-            fx: fx2, fy: fy2, xlim, ylim, tlim, xvals, yvals, tvals, N
-        })
-
-        // get valid point pairs
-        const points = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
-            ([x, y]) => (x != null) && (y != null)
-        )
-
-        // compute real limits
-        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
-
-        // pass to element
-        super({ points, stroke, fill, coord, ...attr })
-        this.args = args
-    }
-}
-
-class SymPoly extends Polygon {
-    constructor(args = {}) {
-        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
-
-        // compute point values
-        const [tvals1, xvals1, yvals1] = sympath({
-            fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
-        })
-
-        // get valid point pairs
-        const points = zip(xvals1, yvals1)
-
-        // compute real limits
-        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
-
-        // pass to element
-        super({ points, coord, ...attr })
-        this.args = args
-    }
-}
-
-class SymPoints extends Group {
+class DataPoints extends Group {
     constructor(args = {}) {
         let { children: children0, fx, fy, size = D.point.size, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
@@ -2351,7 +2407,7 @@ class SymPoints extends Group {
         const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = sympath({
+        const [tvals1, xvals1, yvals1] = datapath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -2364,7 +2420,7 @@ class SymPoints extends Group {
         })
 
         // compute real limits
-        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
 
         // pass to element
         super({ children, coord, ...spec })
@@ -2372,195 +2428,92 @@ class SymPoints extends Group {
     }
 }
 
-function datapoints({ xvals, yvals, xlim, ylim, N } = {}) {
-    if (xvals == null) {
-        N = N ?? yvals.length
-        xlim = xlim ?? [ 0, N - 1 ]
-        xvals = linspace(...xlim, N)
-    }
-    if (yvals == null) {
-        N = N ?? xvals.length
-        ylim = ylim ?? [0, N - 1]
-        yvals = linspace(...ylim, N)
-    }
-    return zip(xvals, yvals)
-}
-
-function broadcast_arrays(vs, N) {
-    return vs.map(v => (v != null) ? ensure_vector(v, N) : null)
-}
-
 class DataPath extends Polyline {
     constructor(args = {}) {
-        let { xvals, yvals, xlim, ylim, ...attr } = args
-        const points = datapoints({ xvals, yvals, xlim, ylim })
-        super({ points, ...attr })
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, clip, N, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+
+        // compute path values
+        const [ tvals1, xvals1, yvals1 ] = datapath({
+            fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N
+        })
+
+        // get valid point pairs
+        const points = zip(xvals1, yvals1).filter(
+            ([ x, y ]) => (x != null) && (y != null)
+        )
+
+        // compute real limits
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
+
+        // pass to element
+        super({ points, coord, ...attr })
         this.args = args
     }
 }
 
-class DataPoints extends Points {
+class DataPoly extends Polygon {
     constructor(args = {}) {
-        let { xvals, yvals, xlim, ylim, ...attr } = args
-        const points = datapoints({ xvals, yvals, xlim, ylim })
-        super({ children: points, ...attr })
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+
+        // compute point values
+        const [tvals1, xvals1, yvals1] = datapath({
+            fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
+        })
+
+        // get valid point pairs
+        const points = zip(xvals1, yvals1)
+
+        // compute real limits
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
+
+        // pass to element
+        super({ points, coord, ...attr })
         this.args = args
     }
 }
 
 class DataFill extends Polygon {
     constructor(args = {}) {
-        let { xvals1, yvals1, xvals2, yvals2, xlim, ylim, ...attr } = args
+        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
-        // repeat constants
-        const N = max([ xvals1, yvals1, xvals2, yvals2 ].map(v => v?.length))
-        const [ xvals1v, yvals1v, xvals2v, yvals2v ] = broadcast_arrays(
-            [ xvals1, yvals1, xvals2, yvals2 ], N
+        // compute point values
+        const [tvals1, xvals1, yvals1] = datapath({
+            fx: fx1, fy: fy1, xlim, ylim, tlim, xvals, yvals, tvals, N
+        })
+        const [tvals2, xvals2, yvals2] = datapath({
+            fx: fx2, fy: fy2, xlim, ylim, tlim, xvals, yvals, tvals, N
+        })
+
+        // get valid point pairs
+        const points = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
+            ([x, y]) => (x != null) && (y != null)
         )
-
-        // make forward-backard shape
-        const points1 = datapoints({ xvals: xvals1v, yvals: yvals1v, xlim, ylim, N })
-        const points2 = datapoints({ xvals: xvals2v, yvals: yvals2v, xlim, ylim, N })
-        const points = [ ...points1, ...points2.reverse() ]
-
-        // pass to pointstring
-        super({ points, ...attr })
-        this.args = args
-    }
-}
-
-//
-// arrows and fields
-//
-
-
-function vector_angle(vector) {
-    const [ x, y ] = vector
-    return r2d * Math.atan2(y, x)
-}
-
-function unit_direc(direc) {
-    const theta = is_scalar(direc) ? direc : vector_angle(direc)
-    const rad = d2r * theta
-    return [ cos(rad), sin(rad) ]
-}
-
-// the definition of an direc in non-square aspects is weird?
-class ArrowHead extends Element {
-    constructor(args = {}) {
-        let { direc, arc = 60, base = false, fill, ...attr } = args
-        const tag = base ? 'polygon' : 'polyline'
-        if (fill === true) fill = gray
-
-        // pass to element
-        super({ tag, unary: true, fill, ...attr })
-        this.args = args
-
-        // additional props
-        this.direc = direc
-        this.arc = arc
-    }
-
-    props(ctx) {
-        const attr = super.props(ctx)
-        const [ cx, cy, rx, ry ] = rect_radial(ctx.prect)
-
-        // get true angle in aspect
-        const unit = unit_direc(this.direc)
-        const direc = ctx.mapSize(unit)
-        const angle = vector_angle(direc)
-
-        // get arc angles
-        const [ arcx, arcy ] = [ -angle - this.arc / 2, -angle + this.arc / 2 ]
-        const [ delx, dely ] = [ unit_direc(arcx), unit_direc(arcy) ]
-
-        // get arc points
-        const size = 0.5 * (abs(rx) + abs(ry))
-        const rad = [ sign(rx) * size, sign(ry) * size ]
-        const [ dx1, dy1 ] = mul(delx, rad)
-        const [ dx2, dy2 ] = mul(dely, rad)
-
-        // construct triangle points
-        const pixels = [
-            [ cx - dx1, cy - dy1 ],
-            [ cx, cy ],
-            [ cx - dx2, cy - dy2 ],
-        ]
-
-        // map into pointstring
-        const points = pointstring(pixels, ctx.prec)
-        return { points, ...attr }
-    }
-}
-
-class Arrow extends Group {
-    constructor(args = {}) {
-        let { children: children0, direc: direc0, tail = 0, shape = 'arrow', graph = true, ...attr0 } = args
-        const [head_attr, tail_attr, attr] = prefix_split(['head', 'tail'], attr0)
-
-        // baked in shapes
-        if (shape == 'circle') {
-            shape = (_, a) => new Dot(a)
-        } else if (shape == 'arrow') {
-            shape = (t, a) => new ArrowHead({ direc: t, ...a })
-        } else {
-            throw new Error(`Unrecognized arrow shape: ${shape}`)
-        }
-
-        // ensure vector direction
-        const theta = is_scalar(direc0) ? direc0 : vector_angle(direc0)
-        let direc = unit_direc(theta)
-
-        // sort out graph direction
-        direc = graph ? mul(direc, [ 1, -1 ]) : direc
-
-        // create head (override with null direction)
-        const arrow = shape(theta, head_attr)
-        const head_elem = norm(direc, 2) == 0 ? new Dot(head_attr) : arrow
-
-        // create tail
-        const tail_direc = direc.map(z => -tail * z)
-        const tail_pos = add([0.5, 0.5], tail_direc)
-        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, ...tail_attr })
-
-        super({ children: [ tail_elem, head_elem ], ...attr })
-        this.args = args
-    }
-}
-
-class Field extends Group {
-    constructor(args = {}) {
-        let { children: children0, marker, size = D.point.size, tail = 1, coord: coord0, ...attr0 } = args
-        const points = ensure_array(children0)
-        const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
-
-        // set up marker function
-        marker ??= ((p, d, a) =>
-            new Arrow({ direc: d, tail, pos: p, rad: size, ...a })
-        )
-
-        // create children
-        const children = points.map(([ p, d ]) => marker(p, d, marker_attr))
 
         // compute real limits
-        const [ xvals, yvals ] = points.length > 0 ? zip(...points.map(([ p, d ]) => p)) : [ null, null ]
-        const coord = coord0 ?? detect_coords(xvals, yvals)
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
 
-        // pass to Group
-        super({ children, coord, ...attr })
+        // pass to element
+        super({ points, stroke, fill, coord, ...attr })
         this.args = args
     }
 }
 
-class SymField extends Field {
+class DataField extends Field {
     constructor(args = {}) {
-        let { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, coord, ...attr } = args
-        const [ xlim, ylim ] = coord != null ? split_limits(coord) : [ xlim0, ylim0 ]
+        let { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
         // create points and direcs
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N).map(
             ([x, y]) => [ [ x, y ], func(x, y) ]
         ) : []
+
+        // compute real limits
+        const [ xvals, yvals ] = points.length > 0 ? zip(...points.map(([ p, d ]) => p)) : [ null, null ]
+        const coord = coord0 ?? detect_coords(xvals, yvals, { xlim, ylim })
 
         // pass to Field
         super({ children: points, coord, ...attr })
@@ -2604,7 +2557,7 @@ function cubic_spline(x0, x1, d0, d1) {
     return t => a + b * t + c * t**2 + d * t**3
 }
 
-class CubicSpline extends SymPath {
+class CubicSpline extends DataPath {
     constructor(args = {}) {
         let { pos1, pos2, dir1, dir2, ...attr } = args
 
@@ -2618,7 +2571,7 @@ class CubicSpline extends SymPath {
         const fx = cubic_spline(x0, x1, dx0, dx1)
         const fy = cubic_spline(y0, y1, dy0, dy1)
 
-        // pass to SymPah
+        // pass to DataPath
         super({ fx, fy, ...attr })
         this.args = args
     }
@@ -3392,7 +3345,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
+    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3401,5 +3354,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, Arrow, Field, SymField, ArrowHead, ArrowPath, Node, Edge, Network, SymPath, SymFill, SymPoly, SymPoints, DataPath, DataPoints, DataFill, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextStack, FlexText, Emoji, Latex, TextFrame, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }

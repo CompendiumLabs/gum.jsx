@@ -42,7 +42,7 @@ const DEFAULTS = {
         size: 0.025,
     },
 
-    sym: {
+    data: {
         N: 100,
     },
 
