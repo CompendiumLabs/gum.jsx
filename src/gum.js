@@ -534,6 +534,7 @@ function cbox_rect(cbox) {
 
 // rect aggregators
 function merge_rects(rects) {
+    if (rects == null || rects.length == 0) return null
     const rects1 = rects.filter(r => r != null)
     if (rects1.length == 0) return null
     const [ xa, ya, xb, yb ] = zip(...rects1)
@@ -542,20 +543,20 @@ function merge_rects(rects) {
 }
 
 function merge_points(points) {
-    if (points.length == 0) return null
+    if (points == null || points.length == 0) return null
     const [ xs, ys ] = zip(...points)
     return [ min(xs), min(ys), max(xs), max(ys) ]
 }
 
 function merge_limits(lims) {
-    if (lims.length == 0) return null
+    if (lims == null || lims.length == 0) return null
     const [ za, zb ] = zip(...lims)
     const zs = [ ...za, ...zb ]
     return [ min(zs), max(zs) ]
 }
 
 function merge_values(vals) {
-    if (vals.length == 0) return null
+    if (vals == null || vals.length == 0) return null
     return [ min(vals), max(vals) ]
 }
 
@@ -1612,17 +1613,10 @@ function pointstring(pixels, prec = 2) {
 
 class Pointstring extends Element {
     constructor(args = {}) {
-        let { tag, points, xlim, ylim, ...attr } = args
-
-        // compute real limits
-        if (points.length > 0) {
-            const [ xvals, yvals ] = zip(...points)
-            xlim ??= merge_values(xvals)
-            ylim ??= merge_values(yvals)
-        }
+        const { tag, points, ...attr } = args
 
         // pass to Element
-        super({ tag, unary: true, xlim, ylim, ...attr })
+        super({ tag, unary: true, ...attr })
         this.args = args
 
         // additional props
@@ -2267,9 +2261,17 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N
     return [ tvals, xvals, yvals ]
 }
 
+function detect_coords(xvals, yvals, { xlim = null, ylim = null } = {}) {
+    return join_limits({
+        h: xlim ?? merge_values(xvals),
+        v: ylim ?? merge_values(yvals),
+    })
+}
+
 class SymPath extends Polyline {
     constructor(args = {}) {
-        const { fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N, ...attr } = args
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, clip, N, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = sympath({
@@ -2281,15 +2283,19 @@ class SymPath extends Polyline {
             ([ x, y ]) => (x != null) && (y != null)
         )
 
+        // compute real limits
+        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
+
         // pass to element
-        super({ points, xlim, ylim, ...attr })
+        super({ points, coord, ...attr })
         this.args = args
     }
 }
 
 class SymFill extends Polygon {
     constructor(args = {}) {
-        const { fx1, fy1, fx2, fy2, xlim, ylim, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, ...attr } = args
+        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -2304,15 +2310,19 @@ class SymFill extends Polygon {
             ([x, y]) => (x != null) && (y != null)
         )
 
+        // compute real limits
+        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
+
         // pass to element
-        super({ points, xlim, ylim, stroke, fill, ...attr })
+        super({ points, stroke, fill, coord, ...attr })
         this.args = args
     }
 }
 
 class SymPoly extends Polygon {
     constructor(args = {}) {
-        let { fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr } = args
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -2322,19 +2332,23 @@ class SymPoly extends Polygon {
         // get valid point pairs
         const points = zip(xvals1, yvals1)
 
+        // compute real limits
+        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
+
         // pass to element
-        super({ points, xlim, ylim, ...attr })
+        super({ points, coord, ...attr })
         this.args = args
     }
 }
 
 class SymPoints extends Group {
     constructor(args = {}) {
-        let { children: children0, fx, fy, size = D.point.size, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr0 } = args
+        let { children: children0, fx, fy, size = D.point.size, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
         const shape = shape0 ?? ensure_singleton(children0)
         const fshap = ensure_component(shape ?? new Dot())
         const fsize = ensure_function(size)
+        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -2350,13 +2364,10 @@ class SymPoints extends Group {
         })
 
         // compute real limits
-        if (points.length > 0) {
-            xlim ??= merge_values(xvals1)
-            ylim ??= merge_values(yvals1)
-        }
+        const coord = detect_coords(xvals1, yvals1, { xlim, ylim })
 
         // pass to element
-        super({ children, xlim, ylim, ...spec })
+        super({ children, coord, ...spec })
         this.args = args
     }
 }
@@ -2519,7 +2530,7 @@ class Arrow extends Group {
 
 class Field extends Group {
     constructor(args = {}) {
-        let { children: children0, marker, size = D.point.size, tail = 1, xlim, ylim, ...attr0 } = args
+        let { children: children0, marker, size = D.point.size, tail = 1, coord: coord0, ...attr0 } = args
         const points = ensure_array(children0)
         const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
 
@@ -2531,22 +2542,20 @@ class Field extends Group {
         // create children
         const children = points.map(([ p, d ]) => marker(p, d, marker_attr))
 
-        // determine coordinate system
-        if (points.length > 0) {
-            const [ xvals, yvals ] = zip(...points.map(([ p, d ]) => p))
-            xlim ??= merge_values(xvals)
-            ylim ??= merge_values(yvals)
-        }
+        // compute real limits
+        const [ xvals, yvals ] = points.length > 0 ? zip(...points.map(([ p, d ]) => p)) : [ null, null ]
+        const coord = coord0 ?? detect_coords(xvals, yvals)
 
         // pass to Group
-        super({ children, xlim, ylim, ...attr })
+        super({ children, coord, ...attr })
         this.args = args
     }
 }
 
 class SymField extends Field {
     constructor(args = {}) {
-        let { children: children0, func, xlim, ylim, N = 10, ...attr } = args
+        let { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, coord, ...attr } = args
+        const [ xlim, ylim ] = coord != null ? split_limits(coord) : [ xlim0, ylim0 ]
 
         // create points and direcs
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N).map(
@@ -2554,7 +2563,7 @@ class SymField extends Field {
         ) : []
 
         // pass to Field
-        super({ children: points, xlim, ylim, ...attr })
+        super({ children: points, coord, ...attr })
         this.args = args
     }
 }
@@ -2941,9 +2950,9 @@ class VLabels extends Labels {
     }
 }
 
-function join_limits({ v = D.spec.lim, h = D.spec.lim } = {}) {
-    const [ vlo, vhi ] = v
-    const [ hlo, hhi ] = h
+function join_limits({ v, h } = {}) {
+    const [ vlo, vhi ] = v ?? D.spec.lim
+    const [ hlo, hhi ] = h ?? D.spec.lim
     return [ hlo, vlo, hhi, vhi ]
 }
 
@@ -3140,16 +3149,13 @@ class Graph extends Group {
 
         // flip coordinate system if requested
         if (flip) coord = flip_rect(coord, true)
-        const [ xlim0, ylim0 ] = split_limits(coord)
 
         // map coordinate system to all elements
         const children = elems.map(e => {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
-                const xlim = e.args.xlim ?? xlim0
-                const ylim = e.args.ylim ?? ylim0
-                return e.clone({ xlim, ylim })
+                return e.clone({ coord })
             }
         })
 
