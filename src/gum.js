@@ -2412,7 +2412,11 @@ class DataPoints extends Group {
         })
 
         // make points
-        const points = zip(tvals1, xvals1, yvals1)
+        const points = zip(tvals1, xvals1, yvals1).filter(
+            ([t, x, y]) => (x != null) && (y != null)
+        )
+
+        // make children
         const children = enumerate(points).map(([i, [t, x, y]]) => {
             const sh = fshap(x, y, t, i)
             const sz = sh.args.rad ?? fsize(x, y, t, i)
@@ -2463,7 +2467,9 @@ class DataPoly extends Polygon {
         })
 
         // get valid point pairs
-        const points = zip(xvals1, yvals1)
+        const points = zip(xvals1, yvals1).filter(
+            ([x, y]) => (x != null) && (y != null)
+        )
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
@@ -2509,7 +2515,7 @@ class DataField extends Field {
         // create points and direcs
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N).map(
             ([x, y]) => [ [ x, y ], func(x, y) ]
-        ) : []
+        ).filter(([p, d]) => d != null) : []
 
         // compute real limits
         const [ xvals, yvals ] = points.length > 0 ? zip(...points.map(([ p, d ]) => p)) : [ null, null ]
