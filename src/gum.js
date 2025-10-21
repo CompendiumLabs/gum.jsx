@@ -970,7 +970,7 @@ class Group extends Element {
         let { children: children0, aspect, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
-        // extract specs from children
+        // automatic aspect detection
         if (aspect == 'auto') {
             const bounds = children_rect(children)
             if (bounds != null) aspect = rect_aspect(bounds)
@@ -2325,7 +2325,6 @@ class SymPoly extends Polygon {
     }
 }
 
-// TODO: could we generalize xlim/ylim detection to Group level?
 class SymPoints extends Group {
     constructor(args = {}) {
         let { children: children0, fx, fy, size = D.point.size, shape: shape0, xlim, ylim, tlim, xvals, yvals, tvals, N, ...attr0 } = args
@@ -2348,8 +2347,10 @@ class SymPoints extends Group {
         })
 
         // compute real limits
-        xlim ??= merge_values(xvals1)
-        ylim ??= merge_values(yvals1)
+        if (points.length > 0) {
+            xlim ??= merge_values(xvals1)
+            ylim ??= merge_values(yvals1)
+        }
 
         // pass to element
         super({ children, xlim, ylim, ...spec })
@@ -2519,9 +2520,6 @@ class Field extends Group {
         const points = ensure_array(children0)
         const [ marker_attr, attr ] = prefix_split([ 'marker' ], attr0)
 
-        // determine coordinate system
-        coord ??= merge_points(points.map(([ p, d ]) => p))
-
         // set up marker function
         marker ??= ((p, d, a) =>
             new Arrow({ direc: d, tail, pos: p, rad: size, ...a })
@@ -2529,6 +2527,9 @@ class Field extends Group {
 
         // create children
         const children = points.map(([ p, d ]) => marker(p, d, marker_attr))
+
+        // determine coordinate system
+        coord ??= merge_points(points.map(([ p, d ]) => p))
 
         // pass to Group
         super({ children, coord, ...attr })
@@ -2538,18 +2539,15 @@ class Field extends Group {
 
 class SymField extends Field {
     constructor(args = {}) {
-        let { children: children0, func, xlim, ylim, N = 10, coord,...attr } = args
-
-        // determine coordinate system
-        coord ??= join_limits({ h: xlim, v: ylim })
+        let { children: children0, func, xlim, ylim, N = 10, ...attr } = args
 
         // create points and direcs
-        const points = lingrid(xlim, ylim, N).map(
+        const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N).map(
             ([x, y]) => [ [ x, y ], func(x, y) ]
-        )
+        ) : []
 
         // pass to Field
-        super({ children: points, coord, ...attr })
+        super({ children: points, xlim, ylim, ...attr })
         this.args = args
     }
 }
@@ -3130,11 +3128,11 @@ class Graph extends Group {
 
         // get default outer limits
         coord ??= outer_limits(elems, { xlim, ylim, padding })
+        aspect ??= rect_aspect(coord)
+
+        // flip coordinate system if requested
         if (flip) coord = flip_rect(coord, true)
         const [ xlim0, ylim0 ] = split_limits(coord)
-
-        // determine aspect automatically
-        aspect ??= rect_aspect(coord)
 
         // map coordinate system to all elements
         const children = elems.map(e => {
