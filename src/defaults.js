@@ -58,7 +58,7 @@ const DEFAULTS = {
         rad: 0.05,
         rounded: 0.05,
         padding: 0.1,
-        wrap: 10,
+        wrap: 6,
     },
 
     // plot defaults
@@ -71,6 +71,7 @@ const DEFAULTS = {
         label_offset: [ 0.11, 0.18 ],
         title_size: 0.1,
         title_offset: 0.05,
+        grid_opacity: 0.2,
     },
 
     // titleframe size
