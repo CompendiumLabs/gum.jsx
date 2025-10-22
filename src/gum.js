@@ -1601,7 +1601,7 @@ class Ray extends Line {
 }
 
 //
-// path builder
+// point strings
 //
 
 function pointstring(pixels, prec = 2) {
@@ -1612,7 +1612,8 @@ function pointstring(pixels, prec = 2) {
 
 class Pointstring extends Element {
     constructor(args = {}) {
-        const { tag, points, ...attr } = args
+        const { tag, children, ...attr } = args
+        const points = ensure_array(children)
 
         // pass to Element
         super({ tag, unary: true, ...attr })
@@ -1632,28 +1633,32 @@ class Pointstring extends Element {
 
 class Polyline extends Pointstring {
     constructor(args = {}) {
-        let { points, ...attr } = args
-        super({ tag: 'polyline', points, fill: none, ...attr })
+        const { children, ...attr } = args
+        super({ tag: 'polyline', children, fill: none, ...attr })
         this.args = args
     }
 }
 
 class Polygon extends Pointstring {
     constructor(args = {}) {
-        let { points, ...attr } = args
-        super({ tag: 'polygon', points, ...attr })
+        const { children, ...attr } = args
+        super({ tag: 'polygon', children, ...attr })
         this.args = args
     }
 }
 
 class Triangle extends Polygon {
     constructor(args = {}) {
-        let { ...attr } = args
-        const points = [[0.5, 0], [1, 1], [0, 1]]
-        super({ points, ...attr })
+        const { ...attr } = args
+        const children = [[0.5, 0], [1, 1], [0, 1]]
+        super({ children, ...attr })
         this.args = args
     }
 }
+
+//
+// path builder
+//
 
 class Path extends Element {
     constructor(args = {}) {
@@ -1764,6 +1769,10 @@ class CornerCmd {
     }
 }
 
+//
+// path elements
+//
+
 function norm_angle(deg) {
     if (deg == 360) return 359.99
     deg = deg % 360
@@ -1842,12 +1851,10 @@ class RoundedRect extends Path {
 
     // intercept prect and ensure its upright
     // otherwide CornerCmd will fail going counter-clockwise
+    // TODO: could this be yet another spec property?
     props(ctx) {
         const { prect: prect0 } = ctx
-        let [ x, y, w, h ] = rect_box(prect0)
-        if (w < 0) { x += w; w *= -1 }
-        if (h < 0) { y += h; h *= -1 }
-        const prect = box_rect([ x, y, w, h ])
+        const prect = upright_rect(prect0)
         const ctx1 = ctx.clone({ prect })
         return super.props(ctx1)
     }
@@ -1953,16 +1960,14 @@ class Arrow extends Group {
 
 class Field extends Group {
     constructor(args = {}) {
-        let { children: children0, shape, size = D.point.size, tail = 1, ...attr0 } = args
+        const { children: children0, shape: shape0, size = D.point.size, tail = 1, ...attr0 } = args
         const points = ensure_array(children0)
+        const shape = shape0 ?? new Arrow({ tail })
         const [ spec, attr ] = spec_split(attr0)
-
-        // set up marker function
-        shape ??= (direc) => new Arrow({ direc, tail })
 
         // create children
         const children = points.map(([ p, d ]) =>
-            shape(d).clone({ pos: p, rad: size, ...attr })
+            shape.clone({ pos: p, rad: size, spin: d, ...attr })
         )
 
         // pass to Group
@@ -2316,7 +2321,7 @@ class TitleFrame extends Frame {
 //
 
 // GRAPHABLE ELEMENTS: DataPoints, DataPath, DataPoly, DataFill, DataField
-// these should take xlim/ylim/coord and give coord precedence over xlim/ylim
+// these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
 // they should compute their coordinate limits and report them in coord (for Graph)
 
 // determines actual values given combinations of limits, values, and functions
@@ -2388,7 +2393,12 @@ function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, 
     return [ tvals, xvals, yvals ]
 }
 
-function detect_coords(xvals, yvals, { xlim = null, ylim = null } = {}) {
+function resolve_limits(xlim, ylim, coord) {
+    const [ xlim0, ylim0 ] = coord != null ? split_limits(coord) : [ null, null ]
+    return [ xlim ?? xlim0, ylim ?? ylim0 ]
+}
+
+function detect_coords(xvals, yvals, xlim, ylim) {
     return join_limits({
         h: xlim ?? merge_values(xvals),
         v: ylim ?? merge_values(yvals),
@@ -2402,7 +2412,7 @@ class DataPoints extends Group {
         const shape = ensure_singleton(children0)
         const fshap = ensure_component(shape ?? new Dot())
         const fsize = ensure_function(size)
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = datapath({
@@ -2421,8 +2431,8 @@ class DataPoints extends Group {
             return sh.clone({ pos: [x, y], rad: sz, ...attr })
         })
 
-        // compute real limits
-        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
+        // compute coords
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to element
         super({ children, coord, ...spec })
@@ -2432,8 +2442,8 @@ class DataPoints extends Group {
 
 class DataPath extends Polyline {
     constructor(args = {}) {
-        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, clip, N, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, clip, N, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = datapath({
@@ -2441,23 +2451,23 @@ class DataPath extends Polyline {
         })
 
         // get valid point pairs
-        const points = zip(xvals1, yvals1).filter(
+        const children = zip(xvals1, yvals1).filter(
             ([ x, y ]) => (x != null) && (y != null)
         )
 
         // compute real limits
-        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to element
-        super({ points, coord, ...attr })
+        // pass to Polyline
+        super({ children, coord, ...attr })
         this.args = args
     }
 }
 
 class DataPoly extends Polygon {
     constructor(args = {}) {
-        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = datapath({
@@ -2465,23 +2475,23 @@ class DataPoly extends Polygon {
         })
 
         // get valid point pairs
-        const points = zip(xvals1, yvals1).filter(
+        const children = zip(xvals1, yvals1).filter(
             ([x, y]) => (x != null) && (y != null)
         )
 
         // compute real limits
-        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to element
-        super({ points, coord, ...attr })
+        // pass to Polygon
+        super({ children, coord, ...attr })
         this.args = args
     }
 }
 
 class DataFill extends Polygon {
     constructor(args = {}) {
-        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+        const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = args
+        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = datapath({
@@ -2492,15 +2502,15 @@ class DataFill extends Polygon {
         })
 
         // get valid point pairs
-        const points = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
+        const children = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
             ([x, y]) => (x != null) && (y != null)
         )
 
         // compute real limits
-        const coord = coord0 ?? detect_coords(xvals1, yvals1, { xlim, ylim })
+        const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to element
-        super({ points, stroke, fill, coord, ...attr })
+        // pass to Polygon
+        super({ children, stroke, fill, coord, ...attr })
         this.args = args
     }
 }
@@ -2509,7 +2519,7 @@ class DataField extends DataPoints {
     constructor(args = {}) {
         const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, coord: coord0, ...attr } = args
         const shape = ensure_singleton(children0) ?? (direc => new Arrow({ direc, tail: 1 }))
-        const [ xlim, ylim ] = coord0 != null ? split_limits(coord0) : [ xlim0, ylim0 ]
+        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
         // create points and shape function
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
@@ -2517,7 +2527,7 @@ class DataField extends DataPoints {
 
         // compute real limits
         const [ xvals, yvals ] = points.length > 0 ? zip(...points) : [ [], [] ]
-        const coord = coord0 ?? detect_coords(xvals, yvals, { xlim, ylim })
+        const coord = coord0 ?? detect_coords(xvals, yvals, xlim, ylim)
 
         // pass to DataPoints
         super({ children: fshap, xvals, yvals, coord, ...attr })
