@@ -1823,7 +1823,7 @@ function parse_rounded(rounded) {
 // supports different rounded for each corner
 class RoundedRect extends Path {
     constructor(args = {}) {
-        let { rounded = 0, border = 1, ...attr } = args
+        let { children: children0, rounded = 0, border = 1, ...attr } = args
         rounded = rounded === true ? D.bool.rounded : rounded
 
         // convert to array of arrays
@@ -2940,9 +2940,9 @@ function split_limits(coord) {
 
 function get_tick_lim(lim) {
     if (lim == 'inner') {
-        return [0, 0.5]
-    } else if (lim == 'outer') {
         return [0.5, 1]
+    } else if (lim == 'outer') {
+        return [0, 0.5]
     } else if (lim == 'both') {
         return [0, 1]
     } else if (lim == 'none') {
@@ -2970,9 +2970,9 @@ function invert_axispos(label_pos) {
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        let { children, lim = D.spec.lim, direc, ticks, tick_lim = 'both', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
+        let { children, lim = D.spec.lim, direc, ticks, tick_pos = 'inner', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
         const [label_attr, tick_attr, line_attr, attr] = prefix_split(['label', 'tick', 'line'], attr0)
-        tick_lim = get_tick_lim(tick_lim)
+        const tick_lim = get_tick_lim(tick_pos)
 
         // get tick and label limits
         const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'left' : 'right') : 'center'

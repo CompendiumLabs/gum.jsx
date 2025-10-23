@@ -30,6 +30,7 @@
     "plotting": [
         "Graph",
         "Plot",
+        "Axis",
         "BarPlot"
     ],
     "networks": [
