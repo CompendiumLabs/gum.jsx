@@ -25,6 +25,6 @@ const code = Object.fromEntries(readdirSync('docs/code').map(
 mkdirSync('src/docs', { recursive: true })
 
 // write to src/docs
-writeFileSync('src/docs/meta.json', JSON.stringify(meta))
-writeFileSync('src/docs/text.json', JSON.stringify(text))
-writeFileSync('src/docs/code.json', JSON.stringify(code))
+writeFileSync('src/docs/meta.json', JSON.stringify(meta, null, 2))
+writeFileSync('src/docs/text.json', JSON.stringify(text, null, 2))
+writeFileSync('src/docs/code.json', JSON.stringify(code, null, 2))

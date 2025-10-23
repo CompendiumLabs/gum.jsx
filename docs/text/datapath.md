@@ -1,4 +1,4 @@
-# SymPath
+# DataPath
 
 *Inherits*: [Polyline](/docs/polyline) > [Pointstring](/docs/pointstring) > [Element](/docs/element)
 

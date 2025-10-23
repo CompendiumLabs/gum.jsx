@@ -1,2 +1,5 @@
-// The text "Hello World!" in bold is placed near the botton left of the figure.
-<Text font-weight="bold" pos={[0.35, 0.7]} rad={0.2}>Hello World!</Text>
+// The text "Hello World!" / "Multiline text is supported." in a rounded frame
+<TextFrame margin rounded>
+  Hello World!
+  Multiline text is supported.
+</TextFrame>

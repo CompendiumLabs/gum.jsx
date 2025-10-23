@@ -3,4 +3,5 @@ const prect = [ 50, 50, 150, 150 ]
 const ctx = new Context({ prect })
 const [fx, fy] = [0.3, 0.5]
 const [px, py] = ctx.mapPoint([fx, fy])
-return `[${fx}, ${fy}] → [${px}, ${py}]`
+const text = `[${fx}, ${fy}] → [${px}, ${py}]`
+return <Text>{text}</Text>

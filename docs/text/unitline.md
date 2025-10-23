@@ -6,3 +6,5 @@ Draw a horizontal or vertical line at a particular position over a particular ra
 
 Parameters:
 - `direc` — the direction of the line (`'v'` or `'h'`)
+- `loc` = `0.5` — the position of the line
+- `lim` = `[0, 1]` — the range of the line

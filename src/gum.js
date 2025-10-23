@@ -1484,7 +1484,7 @@ class Line extends Element {
 // plottable and coord adaptive
 class UnitLine extends Line {
     constructor(args = {}) {
-        const { direc, loc = D.spec.loc, lim = D.spec.lim, ...attr } = args
+        const { direc = 'h', loc = D.spec.loc, lim = D.spec.lim, ...attr } = args
 
         // construct line positions
         const [ lo, hi ] = lim
@@ -1516,8 +1516,8 @@ class HLine extends UnitLine {
 
 class Rect extends Element {
     constructor(args = {}) {
-        const { rounded: rounded0, ...attr } = args
-        const rounded = rounded0 === true ? D.bool.rounded : rounded0
+        let { rounded, ...attr } = args
+        rounded = rounded === true ? D.bool.rounded : rounded
 
         // pass to Element
         super({ tag: 'rect', unary: true, ...attr })
@@ -1652,7 +1652,7 @@ class Polygon extends Pointstring {
 
 class Triangle extends Polygon {
     constructor(args = {}) {
-        const { ...attr } = args
+        const { children: children0, ...attr } = args
         const children = [[0.5, 0], [1, 1], [0, 1]]
         super({ children, ...attr })
         this.args = args
@@ -1665,7 +1665,8 @@ class Triangle extends Polygon {
 
 class Path extends Element {
     constructor(args = {}) {
-        const { cmds, ...attr } = args
+        const { children, ...attr } = args
+        const cmds = ensure_array(children)
         super({ tag: 'path', unary: true, ...attr })
         this.cmds = cmds
         this.args = args
@@ -1800,11 +1801,11 @@ class Arc extends Path {
         const sweep = delta < 0 ? 1 : 0
 
         // send commands to path
-        const cmds = [
+        const children = [
             new MoveCmd(pos0),
             new ArcCmd(pos1, rad, large, sweep),
         ]
-        super({ cmds, ...attr })
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -1833,7 +1834,7 @@ class RoundedRect extends Path {
         const [ rblx, rbly ] = rbl
 
         // make command list
-        const cmds = [
+        const children = [
             new MoveCmd([1 - rtrx, 0]),
             new LineCmd([rtlx, 0]),
             new CornerCmd([rtlx, 0], [0, rtly]),
@@ -1846,7 +1847,7 @@ class RoundedRect extends Path {
         ]
 
         // pass to Path
-        super({ cmds, stroke_width: border, ...attr })
+        super({ children, stroke_width: border, ...attr })
         this.args = args
     }
 
@@ -2097,7 +2098,7 @@ function get_font_size(text, w, h, spacing, fargs) {
 // text fits outer shape
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
-class FlexText extends Element {
+class TextFlex extends Element {
     constructor(args = {}) {
         const { children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
         const children = check_string(children0)
@@ -3375,7 +3376,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, FlexText, Emoji, Latex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
+    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3384,5 +3385,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, FlexText, Emoji, Latex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }

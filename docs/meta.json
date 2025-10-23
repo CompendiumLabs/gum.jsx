@@ -5,7 +5,7 @@
         "Context"
     ],
     "layout": [
-        "Frame",
+        "Box",
         "Stack",
         "Grid",
         "Points"
@@ -13,19 +13,21 @@
     "shapes": [
         "Rect",
         "Ellipse",
-        "Triangle",
         "Line",
-        "UnitLine",
         "Polyline"
     ],
-    "symbolic": [
-        "SymPoints",
-        "SymPath",
-        "SymFill",
-        "SymPoly"
+    "text": [
+        "Text",
+        "Emoji",
+        "Latex",
+        "TitleFrame"
+    ],
+    "data": [
+        "DataPoints",
+        "DataPath",
+        "DataFill"
     ],
     "plotting": [
-        "Axis",
         "Graph",
         "Plot",
         "BarPlot"
@@ -34,13 +36,6 @@
         "Node",
         "Edge",
         "Network"
-    ],
-    "text": [
-        "Text",
-        "Emoji",
-        "Latex",
-        "TextFrame",
-        "TitleFrame"
     ],
     "functions": [
         "Math",

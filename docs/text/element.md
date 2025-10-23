@@ -3,10 +3,19 @@
 The base class for all `gum.js` objects. You will usually not be working with this object directly unless you are implementing your own custom elements. An **Element** has a few methods that can be overriden, each of which takes a [Context](/docs/context) object as an argument. The vast majority of implementations will override only `props` and `inner` (for non-unary elements).
 
 Parameters:
-- `children` = `[]` — a list of child elements
 - `tag` = `g` — the SVG tag associated with this element
 - `unary` = `false` — whether there is inner text for this element
 - `aspect` = `null` — the width to height ratio for this element
+- `pos` — the desired position of the center of the child's rectangle
+- `rad` ­— the desired radius of the child's rectangle (can be single number or pair)
+- `rect` — a fully specified rectangle to place the child in (this will override `pos`/`rad`)
+- `aspect` — the aspect ratio of the child's rectangle
+- `expand` — when `true`, instead of embedding the child within `rect`, it will make the child just large enough to fully contain `rect`
+- `align` — how to align the child when it doesn't fit exactly within `rect`, options are `left`, `right`, `center`, or a fractional position (can set vertical and horizontal separately with a pair)
+- `rotate` — how much to rotate the child by (degrees counterclockwise)
+- `spin` — like rotate but will maintain the same size
+- `vflip/hflip` — flip the child horizontally or vertically
+- `flex` ­— override to set `aspect = null`
 - `...` = `{}` — additional attributes that are included in `props`
 
 Methods:
