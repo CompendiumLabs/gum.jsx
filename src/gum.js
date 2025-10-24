@@ -2648,7 +2648,7 @@ class ArrowPath extends Group {
 
 class Node extends Frame {
     constructor(args = {}) {
-        const { children: children0, label, wrap = D.node.wrap, justify = 'center', padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = args
+        const { children: children0, label, wrap, justify = 'center', padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
         // make frame: handle text / element / list
@@ -2698,16 +2698,13 @@ class Edge extends Element {
 
 class Network extends Group {
     constructor(args = {}) {
-        const { children: children0, xlim, ylim, coord: coord0, ...attr } = args
-
-        // resolve coordinate system
-        const [ xlo, xhi ] = xlim ?? D.spec.lim
-        const [ ylo, yhi ] = ylim ?? D.spec.lim
-        const coord = coord0 ?? [ xlo, ylo, xhi, yhi ]
+        const { children: children0, node_rad = 0.1, xlim, ylim, coord: coord0, ...attr0 } = args
+        const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
+        const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
 
         // collect nodes and edges
-        const edges = children0.filter(c => c instanceof Edge)
-        const nodes = children0.filter(c => c instanceof Node)
+        const edges = children0.filter(c => c instanceof Edge).map(e => e.clone(edge_attr))
+        const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ rad: node_rad, ...node_attr }))
         const other = children0.filter(c => !(c instanceof Node || c instanceof Edge))
 
         // create arrow paths from edges
