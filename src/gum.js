@@ -567,6 +567,20 @@ function merge_values(vals) {
     return [ min(vals), max(vals) ]
 }
 
+function expand_limits(lim, fact) {
+    if (lim == null) return null
+    const [ lo, hi ] = lim
+    const ex = fact * (hi - lo)
+    return [ lo - ex, hi + ex ]
+}
+
+function expand_rect(rect, expand) {
+    if (rect == null) return null
+    const [ xexp, yexp ] = ensure_vector(expand, 2)
+    const [ x1, y1, x2, y2 ] = rect
+    return [ x1 - xexp, y1 - yexp, x2 + xexp, y2 + yexp ]
+}
+
 function aspect_invariant(value, aspect, alpha = 0.5) {
     aspect = aspect ?? 1
 
@@ -1014,7 +1028,7 @@ class Group extends Element {
 
 class Svg extends Group {
     constructor(args = {}) {
-        let { children: children0, size = D.svg.size, prec = D.svg.prec, bare = false, filters = null, aspect = 'auto', ...attr } = args
+        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, filters = null, aspect = 'auto', ...attr } = args
         const children = ensure_array(children0)
 
         // pass to Group
@@ -1023,24 +1037,31 @@ class Svg extends Group {
         this.args = args
 
         // auto-detect size and aspect
-        size = is_scalar(size) ? [ size, size ] : size
-        size = embed_rect(size, { aspect: this.spec.aspect })
+        const { aspect: aspect1 } = this.spec
+        const size = ensure_vector(size0, 2)
+        const size1 = embed_rect(size, { aspect: aspect1 })
 
         // additional props
-        this.size = size
+        this.size = size1
+        this.padding = padding
         this.prec = prec
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const [ w, h ] = this.size
-        const viewBox = `0 0 ${rounder(w, ctx.prec)} ${rounder(h, ctx.prec)}`
+        const { padding } = this
+        const { prect, prec } = ctx
+        const vbox = expand_rect(prect, padding)
+        const [ x, y, w, h ] = rect_box(vbox)
+        const viewBox = `${rounder(x, prec)} ${rounder(y, prec)} ${rounder(w, prec)} ${rounder(h, prec)}`
         return { viewBox, xmlns: D.svg.ns, ...attr }
     }
 
     svg(args) {
-        const prect = [ 0, 0, ...this.size ]
-        const ctx = new Context({ prect, prec: this.prec, ...args })
+        const { size, prec } = this
+        const [ w, h ] = size
+        const prect = [ 0, 0, w, h ]
+        const ctx = new Context({ prect, prec, ...args })
         return super.svg(ctx)
     }
 }
@@ -3090,13 +3111,6 @@ class Legend extends Frame {
         super({ children: vs, ...attr })
         this.args = args
     }
-}
-
-function expand_limits(lim, fact) {
-    if (lim == null) return null
-    const [ lo, hi ] = lim
-    const ex = fact * (hi - lo)
-    return [ lo - ex, hi + ex ]
 }
 
 // find minimal containing limits

@@ -1,4 +1,4 @@
-# Math
+# Latex
 
 *Inherits*: [Text](/docs/text) > [Element](/docs/element)
 

@@ -1,9 +1,8 @@
 // draw a row of emojis with various faces
-const tags = [ 'grinning', 'neutral_face', 'confused', 'scream', 'joy', 'heart_eyes' ]
-return <HStack spacing={0.1}>
-  {tags.map(t =>
+<HStack spacing={0.1}>
+  { [ 'grinning', 'neutral_face', 'scream', 'joy', 'heart_eyes' ].map(t =>
     <Frame rounded fill>
       <Emoji>{t}</Emoji>
     </Frame>
-  )}
+  ) }
 </HStack>

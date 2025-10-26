@@ -1,5 +1,5 @@
 // draw a grid of square boxes filled in light gray. each box contains an arrow that is pointing in a particular direction. that direction rotates clockwise as we move through the grid.
-<Frame padding margin rounded>
+<Frame padding rounded>
   <Grid rows={3} spacing>
     { linspace(0, 360, 10).slice(0, 9).map(th =>
       <Frame padding rounded fill>
