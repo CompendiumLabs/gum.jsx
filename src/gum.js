@@ -1051,17 +1051,25 @@ class Svg extends Group {
         const attr = super.props(ctx)
         const { padding } = this
         const { prect, prec } = ctx
+
+        // construct viewBox with padding
         const vbox = expand_rect(prect, padding)
         const [ x, y, w, h ] = rect_box(vbox)
         const viewBox = `${rounder(x, prec)} ${rounder(y, prec)} ${rounder(w, prec)} ${rounder(h, prec)}`
+
+        // return attributes
         return { viewBox, xmlns: D.svg.ns, ...attr }
     }
 
     svg(args) {
         const { size, prec } = this
+
+        // make new context
         const [ w, h ] = size
         const prect = [ 0, 0, w, h ]
         const ctx = new Context({ prect, prec, ...args })
+
+        // render children
         return super.svg(ctx)
     }
 }
@@ -3116,6 +3124,7 @@ class Legend extends Frame {
 // find minimal containing limits
 function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
     if (children.length == 0) return null
+    padding = padding === true ? D.bool.padding : padding
     const [ xpad, ypad ] = ensure_vector(padding, 2)
 
     // pull in child coordinate system

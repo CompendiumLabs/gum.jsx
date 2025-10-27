@@ -1,6 +1,6 @@
 # Emoji
 
-*Inherits*: [Element](/docs/element)
+*Inherits*: [Element](/docs/Element)
 
 Creates a new `Emoji` element from a Github emoji name (like "smile" = "🙂"). Note that you do not need to include the ":" characters around the name.
 

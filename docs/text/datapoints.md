@@ -1,6 +1,6 @@
 # DataPoints
 
-*Inherits*: [Group](/docs/group) > [Element](/docs/element)
+*Inherits*: [Group](/docs/Group) > [Element](/docs/Element)
 
 Flexible interface to generate sets of points symbolically or in combination with fixed inputs. The most common usage is to specify the range for x-values with `xlim` and a function to plot with `fy`. But you can specify the transpose with `ylim`/`fx`, or do a fully parametric path using `tlim`/`fx`/`fy`.
 

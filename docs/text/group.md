@@ -1,6 +1,6 @@
 # Group
 
-*Inherits*: [Element](/docs/element)
+*Inherits*: [Element](/docs/Element)
 
 This is the main container class that all compound elements are derived from. It accepts a list of child elements and attempts to place them according to their declared properties.
 

@@ -1,6 +1,6 @@
 # Rect
 
-*Inherits*: [Element](/docs/element)
+*Inherits*: [Element](/docs/Element)
 
 This makes a rectangle. Without any arguments it will fill its entire allocated space. Unless otherwise specified, it has a `null` aspect. Use **Square** for a square with a unit aspect.
 

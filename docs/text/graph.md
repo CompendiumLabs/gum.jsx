@@ -1,8 +1,8 @@
 # Graph
 
-*Inherits*: [Group](/docs/group) > [Element](/docs/element)
+*Inherits*: [Group](/docs/Group) > [Element](/docs/Element)
 
-This is the core graphing functionality used in [Plot](/docs/plot) without the axes and labels. The default coordinate system is the unit square, `[0, 0, 1, 1]`. This can be overridden with custom `xlim`/`ylim` specifications. The Elements that are passed to **Graph** can express their position and size information in this new coordinate system.
+This is the core graphing functionality used in [Plot](/docs/Plot) without the axes and labels. The default coordinate system is the unit square, `[0, 0, 1, 1]`. This can be overridden with custom `xlim`/`ylim` specifications. The Elements that are passed to **Graph** can express their position and size information in this new coordinate system.
 
 Parameters:
 - `xlim`/`ylim` = `[0, 1]` — the range over which to graph

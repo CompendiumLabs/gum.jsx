@@ -1,4 +1,4 @@
 // The text "GUM" in a simple frame
-<Frame padding margin border rounded>
+<Frame padding rounded>
   <Text>GUM</Text>
 </Frame>
