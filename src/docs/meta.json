@@ -21,7 +21,8 @@
     "Text",
     "Emoji",
     "Latex",
-    "TitleFrame"
+    "TitleFrame",
+    "Slide"
   ],
   "data": [
     "DataPoints",
