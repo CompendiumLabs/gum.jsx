@@ -49,7 +49,8 @@ const DEFAULTS = {
     text: {
         color: 'black',
         wrap: 20,
-        spacing: 0.2,
+        word_spacing: 0.1,
+        line_spacing: 0.2,
         padding: 0.1,
         voffset: -0.12,
     },

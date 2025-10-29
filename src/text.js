@@ -83,12 +83,23 @@ function getBreaks(text) {
     return breaks
 }
 
+function splitWords(text, trim = false) {
+    const breaks = getBreaks(text)
+    const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
+    return trim ? words.map(w => w.trim()) : words
+}
+
+function sum(arr) {
+    arr = arr.filter(v => v != null)
+    return arr.reduce((a, b) => a + b, 0)
+}
+
 function wrapWidths(objects, maxWidth) {
     // handle null case
     if (maxWidth == null) {
         return {
-            rows: [ objects ],
-            widths: [ sum(objects.map(o => o.size)) ]
+            rows: [ objects.map(o => o[0]) ],
+            widths: [ sum(objects.map(o => o[1])) ]
         }
     }
 
@@ -101,7 +112,7 @@ function wrapWidths(objects, maxWidth) {
     let width = 0
 
     // iterate over sizes
-    for (const { object, size } of objects) {
+    for (const [ object, size ] of objects) {
         const width1 = width + size
         if (buffer.length > 0 && width1 > maxWidth) {
             // start a new line
@@ -126,62 +137,22 @@ function wrapWidths(objects, maxWidth) {
     return { rows, widths }
 }
 
-function splitWords(text) {
-    const breaks = getBreaks(text)
-    const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
-    return words
-}
-
 function wrapText(text, maxWidth, args) {
-    // handle null case
-    if (maxWidth == null) {
-        return {
-            lines: [ [ text ] ],
-            widths: [ textSizer(text, args) ]
-        }
-    }
-
-    // get size of chunks and a single space
     // compress whitespace, since that's what SVG does
-    const widthOf = s => textSizer(s, args)
     const chunks = splitWords(text.replace(/\s+/g, ' '))
-    const sizes = chunks.map(c => widthOf(c))
 
-    // iterate over breaks
-    let width = 0
-    let buffer = []
-    let lines = []
-    let widths = []
-    for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i]
-        const size = sizes[i]
-        const width1 = width + size
-        if (buffer.length > 0 && width1 > maxWidth) {
-            lines.push(buffer)
-            widths.push(width)
-            buffer = [ chunk ]
-            width = size
-        } else {
-            buffer.push(chunk)
-            width = width1
-        }
-    }
+    // get width of chunks for wrapping
+    const objects = chunks.map(c => [ c, textSizer(c, args) ])
 
-    // add any remaining buffer
-    if (buffer.length > 0) {
-        lines.push(buffer)
-        widths.push(width)
-    }
-
-    // return lines
-    return { lines, widths }
+    // return wrapped lines
+    return wrapWidths(objects, maxWidth)
 }
 
 function wrapMultiText(text, text_wrap, fargs) {
     const results = text.split('\n').map(t => wrapText(t, text_wrap, fargs))
-    const lines = results.map(r => r.lines).flat()
+    const rows = results.map(r => r.rows).flat()
     const widths = results.map(r => r.widths).flat()
-    return { lines, widths }
+    return { rows, widths }
 }
 
 //
@@ -195,4 +166,4 @@ function getGlyphPath(font, glyph, pos, size) {
     return path.toSVG()
 }
 
-export { textSizer, getBreaks, wrapText, wrapWidths, wrapMultiText, getGlyphPath }
+export { textSizer, getBreaks, splitWords, wrapWidths, wrapText, wrapMultiText, getGlyphPath }

@@ -2,7 +2,7 @@
 
 import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
-import { textSizer, wrapWidths, wrapText, wrapMultiText } from './text.js'
+import { textSizer, splitWords, wrapWidths, wrapText, wrapMultiText } from './text.js'
 
 //
 // array utils
@@ -1303,14 +1303,12 @@ class HStack extends Stack {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args = {}) {
-        const { children: children0, spacing, justify, wrap = null, debug, ...attr } = args
+        const { children: children0, spacing = 0, justify, wrap = null, debug, ...attr } = args
         const children = ensure_array(children0)
         const [ hspace, vspace ] = ensure_vector(spacing, 2)
 
         // get element widths
-        const objects = children.map(c => ({
-            object: c, size: c.spec.aspect ?? 1
-        }))
+        const objects = children.map(c => [ c, c.spec.aspect ?? 1 ])
         const { rows } = wrapWidths(objects, wrap)
 
         // make children
@@ -2103,7 +2101,7 @@ class TextLine extends Element {
 // wrap text to lines, this is the main text element
 class Text extends VStack {
     constructor(args = {}) {
-        const { children: children0, wrap = null, spacing = D.text.spacing, justify = 'left', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, ...attr0 } = args
+        const { children: children0, wrap = null, line_spacing = D.text.line_spacing, justify = 'left', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, ...attr0 } = args
         const [ text_attr, attr ] = prefix_split(['text'], attr0)
 
         // get text content
@@ -2111,20 +2109,75 @@ class Text extends VStack {
 
         // wrap text to lines
         const fargs = { font_family, font_weight }
-        const { lines, widths } = wrapMultiText(text, wrap, fargs)
+        const { rows, widths } = wrapMultiText(text, wrap, fargs)
 
-        // get number of lines
-        const tlines = lines.map(r => r.join(' '))
+        // get number of lines and shape
+        const lines = rows.map(r => r.join(' '))
         const nlines = lines.length
+        const aspect = wrap == null ? max(widths) : wrap
 
         // make texts from lines
-        const aspect = wrap == null ? max(widths) : wrap
-        const children = tlines.map(r =>
+        const children = lines.map(r =>
             new TextLine({ children: r, color, aspect, justify, stack_size: 1 / nlines, ...fargs, ...text_attr })
         )
 
         // stack it up
-        super({ children, spacing: spacing / nlines, ...attr })
+        super({ children, spacing: line_spacing / nlines, ...attr })
+        this.args = args
+    }
+}
+
+function is_text(c) {
+    return c instanceof Text || c instanceof TextLine || c instanceof TextBox
+}
+
+function ensure_textline(c, args) {
+    if (is_string(c)) {
+        return splitWords(c, true).map(c =>
+            new TextLine({ children: c, ...args })
+        )
+    } else if (is_text(c)) {
+        return c.clone({ ...args })
+    } else {
+        return c
+    }
+}
+
+function ensure_text(c, args) {
+    if (is_string(c)) {
+        return new Text({ children: c, ...args })
+    } else if (is_text(c)) {
+        return c.clone({ ...args })
+    } else {
+        return c
+    }
+}
+
+// wrap text or elements to multiple lines with fixed line height
+class TextWrap extends HWrap {
+    constructor(args = {}) {
+        const { children: children0, word_spacing = D.text.word_spacing, line_spacing = D.text.line_spacing, justify = 'left', wrap, debug, ...attr } = args
+        const items = ensure_array(children0)
+
+        // make text items
+        const texts = items.map(c => ensure_textline(c, attr)).flat()
+
+        // pass to HWrap
+        const spacing = [ word_spacing, line_spacing ]
+        super({ children: texts, spacing, justify, wrap, debug })
+    }
+}
+
+class TextStack extends VStack {
+    constructor(args = {}) {
+        const { children: children0, line_spacing, align, debug, ...attr } = args
+        const items = ensure_array(children0)
+
+        // apply args to Text children
+        const children = items.map(c => ensure_text(c, attr)).flat()
+
+        // pass to VStack
+        super({ children, spacing: line_spacing, align, debug })
         this.args = args
     }
 }
@@ -2155,7 +2208,7 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_size is absolutely scaled
 class TextFlex extends Element {
     constructor(args = {}) {
-        const { children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
+        const { children: children0, font_scale, font_size, line_spacing = D.text.line_spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
         const children = check_string(children0)
 
         // pass to Element
@@ -2164,8 +2217,8 @@ class TextFlex extends Element {
 
         // additional props
         this.text = children
-        this.spacing = spacing
         this.voffset = voffset
+        this.line_spacing = line_spacing
         this.font_scale = font_scale
         this.font_size = font_size
         this.font_args = { font_family, font_weight }
@@ -2187,9 +2240,9 @@ class TextFlex extends Element {
         } else if (this.font_scale != null) {
             fs = this.font_scale * h
         } else {
-            fs = get_font_size(this.text, w, h, this.spacing, this.font_args)
+            fs = get_font_size(this.text, w, h, this.line_spacing, this.font_args)
         }
-        const lh = fs * ( 1 + this.spacing )
+        const lh = fs * ( 1 + this.line_spacing )
 
         // compute wrapped rows
         const mw = w / fs
@@ -2350,68 +2403,6 @@ class TextBox extends Box {
 class TextFrame extends TextBox {
     constructor(args = {}) {
         super({ ...args, border: 1 })
-    }
-}
-
-function is_text(c) {
-    return c instanceof Text || c instanceof TextLine || c instanceof TextBox
-}
-
-function ensure_spans(c, args) {
-    return c.split(/\b\w+\s*/g).map(c =>
-        new TextLine({ children: c, ...args })
-    )
-}
-
-function ensure_textline(c, args) {
-    if (is_string(c)) {
-        return c.split(/\s+/).map(c =>
-            new TextLine({ children: c, trim: false, ...args })
-        )
-    } else if (is_text(c)) {
-        return c.clone({ ...args })
-    } else {
-        return c
-    }
-}
-
-function ensure_text(c, args) {
-    if (is_string(c)) {
-        return c.split('\n').map(
-            t => new Text({ children: t, ...args })
-        )
-    } else if (is_text(c)) {
-        return c.clone({ ...args })
-    } else {
-        return c
-    }
-}
-
-class TextStack extends VStack {
-    constructor(args = {}) {
-        const { children: children0, spacing, align, debug, ...attr } = args
-        const items = ensure_array(children0)
-
-        // apply args to Text children
-        const children = items.map(c => ensure_text(c, attr)).flat()
-
-        // pass to VStack
-        super({ children, spacing, align, debug })
-        this.args = args
-    }
-}
-
-// wrap text or elements to multiple lines with fixed line height
-class TextWrap extends HWrap {
-    constructor(args = {}) {
-        const { children: children0, spacing = D.text.spacing, justify = 'left', wrap, debug, ...attr } = args
-        const items = ensure_array(children0)
-
-        // make text items
-        const texts = items.map(c => ensure_textline(c, attr)).flat()
-
-        // pass to HWrap
-        super({ children: texts, spacing, justify, wrap, debug })
     }
 }
 
@@ -3422,12 +3413,12 @@ class BarPlot extends Plot {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        const { children: children0, aspect, wrap = D.slide.wrap, spacing = D.slide.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = ['center', 'top'], ...attr0 } = args
+        const { children: children0, aspect, wrap = D.slide.wrap, line_spacing = D.slide.line_spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = ['center', 'top'], ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
 
         // make a stack out of the children
-        const stack = new TextStack({ children, spacing, wrap, align: justify, ...text_attr })
+        const stack = new TextStack({ children, line_spacing, wrap, align: justify, ...text_attr })
 
         // pass to TitleFrame
         super({ children: stack, aspect, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
