@@ -83,6 +83,55 @@ function getBreaks(text) {
     return breaks
 }
 
+function wrapWidths(objects, maxWidth) {
+    // handle null case
+    if (maxWidth == null) {
+        return {
+            rows: [ objects ],
+            widths: [ sum(objects.map(o => o.size)) ]
+        }
+    }
+
+    // return values
+    const rows = []
+    const widths = []
+
+    // line accumulation
+    let buffer = []
+    let width = 0
+
+    // iterate over sizes
+    for (const { object, size } of objects) {
+        const width1 = width + size
+        if (buffer.length > 0 && width1 > maxWidth) {
+            // start a new line
+            rows.push(buffer)
+            widths.push(width)
+            buffer = [ object ]
+            width = size
+        } else {
+            // append to current line
+            buffer.push(object)
+            width = width1
+        }
+    }
+
+    // add any remaining buffer
+    if (buffer.length > 0) {
+        rows.push(buffer)
+        widths.push(width)
+    }
+
+    // return rows and widths
+    return { rows, widths }
+}
+
+function splitWords(text) {
+    const breaks = getBreaks(text)
+    const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
+    return words
+}
+
 function wrapText(text, maxWidth, args) {
     // handle null case
     if (maxWidth == null) {
@@ -92,15 +141,10 @@ function wrapText(text, maxWidth, args) {
         }
     }
 
-    // accurate, kerning-aware width
-    const widthOf = s => textSizer(s, args)
-
-    // compress whitespace, since that's what SVG does
-    text = text.replace(/\s+/g, ' ')
-    const breaks = getBreaks(text)
-
     // get size of chunks and a single space
-    const chunks = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
+    // compress whitespace, since that's what SVG does
+    const widthOf = s => textSizer(s, args)
+    const chunks = splitWords(text.replace(/\s+/g, ' '))
     const sizes = chunks.map(c => widthOf(c))
 
     // iterate over breaks
@@ -108,7 +152,7 @@ function wrapText(text, maxWidth, args) {
     let buffer = []
     let lines = []
     let widths = []
-    for (let i = 0; i < breaks.length - 1; i++) {
+    for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i]
         const size = sizes[i]
         const width1 = width + size
@@ -151,4 +195,4 @@ function getGlyphPath(font, glyph, pos, size) {
     return path.toSVG()
 }
 
-export { textSizer, getBreaks, wrapText, wrapMultiText, getGlyphPath }
+export { textSizer, getBreaks, wrapText, wrapWidths, wrapMultiText, getGlyphPath }

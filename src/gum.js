@@ -2,7 +2,7 @@
 
 import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
-import { textSizer, wrapText, wrapMultiText } from './text.js'
+import { textSizer, wrapWidths, wrapText, wrapMultiText } from './text.js'
 
 //
 // array utils
@@ -1274,7 +1274,8 @@ class Stack extends Group {
         // assign child rects
         children = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
-            return c.clone({ rect, align: justify })
+            const align = c.spec.align ?? justify
+            return c.clone({ rect, align })
         }) : []
 
         // pass to Group
@@ -1295,6 +1296,31 @@ class HStack extends Stack {
     constructor(args = {}) {
         const { ...attr } = args
         super({ direc: 'h', ...attr })
+        this.args = args
+    }
+}
+
+// like stack but wraps elements to multiple lines/columns
+class HWrap extends VStack {
+    constructor(args = {}) {
+        const { children: children0, spacing, justify, wrap = null, debug, ...attr } = args
+        const children = ensure_array(children0)
+        const [ hspace, vspace ] = ensure_vector(spacing, 2)
+
+        // get element widths
+        const objects = children.map(c => ({
+            object: c, size: c.spec.aspect ?? 1
+        }))
+        const { rows } = wrapWidths(objects, wrap)
+
+        // make children
+        const nrows = rows.length
+        const lines = rows.map(row =>
+            new HStack({ children: row, stack_size: 1 / nrows, spacing: hspace, debug })
+        )
+
+        // pass to VStack
+        super({ children: lines, spacing: vspace, justify, debug, ...attr })
         this.args = args
     }
 }
@@ -2023,11 +2049,11 @@ function escape_xml(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextLine extends Element {
     constructor(args = {}) {
-        const { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr } = args
+        const { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, trim = true, ...attr } = args
         const child = check_string(children0)
 
         // compress whitespace, since that's what SVG does
-        const text = child.replace(/\s+/g, ' ').trim()
+        const text = trim ? child.replace(/\s+/g, ' ').trim() : child
 
         // compute text box
         const fargs = { font_family, font_weight }
@@ -2250,28 +2276,32 @@ function get_attributes(elem) {
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
-        const { children, ...attr } = args
+        const { children, display = false, voffset = D.text.voffset, ...attr } = args
         const text = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
-        let svg_attr, math, aspect
+        let svg_attr, math, aspect, vshift
         if (typeof MathJax !== 'undefined') {
             // render with mathjax
-            const output = MathJax.tex2svg(text)
+            const output = MathJax.tex2svg(text, { display })
             const svg = output.children[0]
 
-            // strip outer size attributes
+            // get sizing in ex units
+            const width_ex = svg.getAttribute('width')
+            const height_ex = svg.getAttribute('height')
+            const width_em = parseFloat(width_ex) / 2
+            const height_em = parseFloat(height_ex) / 2
+
+            // compute aspect and vertical shift
+            aspect = width_em / maximum(1, height_em)
+            vshift = -D.text.voffset + maximum(0, 0.55 - height_em)
+
+            // get stripped attributes
             svg.removeAttribute('width')
             svg.removeAttribute('height')
-
-            // get aspect ratio
-            const viewBox = svg.getAttribute('viewBox')
-            const viewNum = viewBox.split(' ').map(Number)
-            const [ width, height ] = viewNum.slice(2)
-            aspect = width / height
-
-            // get tag info and inner svg
             svg_attr = get_attributes(svg)
+
+            // get math expression
             math = svg.innerHTML
         } else {
             math = text
@@ -2283,26 +2313,15 @@ class Latex extends Element {
 
         // additional props
         this.math = math
+        this.vshift = vshift
     }
 
     props(ctx) {
-        // get context information
         const attr = super.props(ctx)
         const { prect } = ctx
-        const [ x0, y0, rx0, ry0 ] = rect_radial(prect)
-
-        // get display position
-        const [ rx, ry ] = [ abs(rx0), abs(ry0) ]
-        const [ x, y ] = [ x0 - rx, y0 - ry ]
-        const h0 = 2 * ry
-
-        // get font size
-        const { font_size } = this.attr
-        const h = font_size ?? h0
-        const w = h * this.spec.aspect
-
-        // get adjusted size
-        return { x, y, width: w, height: h, font_size: `${h}px`, ...attr }
+        const [ x, y0, w, h ] = rect_box(prect, true)
+        const y = y0 + this.vshift * h
+        return { x, y, width: w, height: h, ...attr }
     }
 
     inner(ctx) {
@@ -2310,12 +2329,19 @@ class Latex extends Element {
     }
 }
 
+class Equation extends Latex {
+    constructor(args = {}) {
+        const { ...attr } = args
+        super({ display: true, ...attr })
+    }
+}
+
 class TextBox extends Box {
     constructor(args = {}) {
-        const { children: children0, padding = D.text.padding, wrap, ...attr0 } = args
+        const { children: children0, padding = D.text.padding, justify, wrap, ...attr0 } = args
         const text = ensure_array(children0)
         const [ text_attr, attr ] = prefix_split(['text'], attr0)
-        const children = !is_element(text) ? new Text({ children: text, wrap, ...text_attr }) : text
+        const children = !is_element(text) ? new Text({ children: text, align: justify, wrap, ...text_attr }) : text
         super({ children, padding, ...attr })
         this.args = args
     }
@@ -2324,6 +2350,68 @@ class TextBox extends Box {
 class TextFrame extends TextBox {
     constructor(args = {}) {
         super({ ...args, border: 1 })
+    }
+}
+
+function is_text(c) {
+    return c instanceof Text || c instanceof TextLine || c instanceof TextBox
+}
+
+function ensure_spans(c, args) {
+    return c.split(/\b\w+\s*/g).map(c =>
+        new TextLine({ children: c, ...args })
+    )
+}
+
+function ensure_textline(c, args) {
+    if (is_string(c)) {
+        return c.split(/\s+/).map(c =>
+            new TextLine({ children: c, trim: false, ...args })
+        )
+    } else if (is_text(c)) {
+        return c.clone({ ...args })
+    } else {
+        return c
+    }
+}
+
+function ensure_text(c, args) {
+    if (is_string(c)) {
+        return c.split('\n').map(
+            t => new Text({ children: t, ...args })
+        )
+    } else if (is_text(c)) {
+        return c.clone({ ...args })
+    } else {
+        return c
+    }
+}
+
+class TextStack extends VStack {
+    constructor(args = {}) {
+        const { children: children0, spacing, align, debug, ...attr } = args
+        const items = ensure_array(children0)
+
+        // apply args to Text children
+        const children = items.map(c => ensure_text(c, attr)).flat()
+
+        // pass to VStack
+        super({ children, spacing, align, debug })
+        this.args = args
+    }
+}
+
+// wrap text or elements to multiple lines with fixed line height
+class TextWrap extends HWrap {
+    constructor(args = {}) {
+        const { children: children0, spacing = D.text.spacing, justify = 'left', wrap, debug, ...attr } = args
+        const items = ensure_array(children0)
+
+        // make text items
+        const texts = items.map(c => ensure_textline(c, attr)).flat()
+
+        // pass to HWrap
+        super({ children: texts, spacing, justify, wrap, debug })
     }
 }
 
@@ -3332,32 +3420,6 @@ class BarPlot extends Plot {
 // slides
 //
 
-function ensure_text(c, args) {
-    if (is_string(c)) {
-        return c.split('\n').map(
-            t => new Text({ children: t, ...args })
-        )
-    } else if (c instanceof Text || c instanceof TextBox) {
-        return c.clone({ ...args })
-    } else {
-        return c
-    }
-}
-
-class TextStack extends VStack {
-    constructor(args = {}) {
-        const { children: children0, spacing, align, debug, ...attr } = args
-        const items = ensure_array(children0)
-
-        // apply args to Text children
-        const children = items.map(c => ensure_text(c, attr)).flat()
-
-        // pass to VStack
-        super({ children, spacing, align, debug })
-        this.args = args
-    }
-}
-
 class Slide extends TitleFrame {
     constructor(args = {}) {
         const { children: children0, aspect, wrap = D.slide.wrap, spacing = D.slide.spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = ['center', 'top'], ...attr0 } = args
@@ -3396,7 +3458,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
+    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextWrap, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3405,5 +3467,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextWrap, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
