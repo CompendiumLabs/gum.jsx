@@ -2,110 +2,8 @@
 
 import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
+import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, add, sub, mul, div } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText, wrapMultiText } from './text.js'
-
-//
-// array utils
-//
-
-function* gzip(...iterables) {
-    if (iterables.length == 0) {
-        return
-    }
-    const iterators = iterables.map(i => i[Symbol.iterator]())
-    while (true) {
-        const results = iterators.map(iter => iter.next())
-        if (results.some(res => res.done)) {
-            return
-        } else {
-            yield results.map(res => res.value)
-        }
-    }
-}
-
-function zip(...iterables) {
-    return [...gzip(...iterables)]
-}
-
-function reshape(arr, shape) {
-    const [n, m] = shape
-    const ret = []
-    for (let i = 0; i < n; i++) {
-        ret.push(arr.slice(i*m, (i+1)*m))
-    }
-    return ret
-}
-
-function split(arr, len) {
-    const n = Math.ceil(arr.length / len)
-    return reshape(arr, [n, len])
-}
-
-function concat(arrs) {
-    return arrs.flat()
-}
-
-function squeeze(x) {
-    return is_array(x) && x.length == 1 ? x[0] : x
-}
-
-//
-// array reducers
-//
-
-function sum(arr) {
-    arr = arr.filter(v => v != null)
-    return arr.reduce((a, b) => a + b, 0)
-}
-
-function prod(arr) {
-    arr = arr.filter(v => v != null)
-    return arr.reduce((a, b) => a * b, 1)
-}
-
-function mean(arr) {
-    return sum(arr) / arr.length
-}
-
-function all(arr) {
-    return arr.reduce((a, b) => a && b)
-}
-
-function any(arr) {
-    return arr.reduce((a, b) => a || b)
-}
-
-// vector ops
-
-function broadcast_tuple(x, y) {
-    const xa = is_array(x)
-    const ya = is_array(y)
-    if (xa == ya) return [ x, y ]
-    if (!xa) x = [ x, x, x, x ]
-    if (!ya) y = [ y, y, y, y ]
-    return [ x, y ]
-}
-
-function broadcastFunc(f) {
-    return (x0, y0) => {
-        const [ x, y] = broadcast_tuple(x0, y0)
-        if (is_scalar(x) && is_scalar(y)) return f(x, y)
-        else return zip(x, y).map(([ a, b ]) => f(a, b))
-    }
-}
-
-function add(x, y) {
-    return broadcastFunc((a, b) => a + b)(x, y)
-}
-function sub(x, y) {
-    return broadcastFunc((a, b) => a - b)(x, y)
-}
-function mul(x, y) {
-    return broadcastFunc((a, b) => a * b)(x, y)
-}
-function div(x, y) {
-    return broadcastFunc((a, b) => a / b)(x, y)
-}
 
 //
 // array ops
@@ -192,38 +90,8 @@ function filter_object(obj, fn) {
 }
 
 //
-// type tests
+// element tests
 //
-
-function is_scalar(x) {
-    return (
-        (typeof(x) == 'number') ||
-        (typeof(x) == 'object' && (
-            (x.constructor.name == 'Number') ||
-            (x.constructor.name == 'NamedNumber')
-        ))
-    )
-}
-
-function is_string(x) {
-    return typeof(x) == 'string'
-}
-
-function is_number(x) {
-    return typeof(x) == 'number'
-}
-
-function is_object(x) {
-    return typeof(x) == 'object'
-}
-
-function is_function(x) {
-    return typeof(x) == 'function'
-}
-
-function is_array(x) {
-    return Array.isArray(x)
-}
 
 function is_element(x) {
     return x instanceof Element
@@ -2045,7 +1913,7 @@ function escape_xml(text) {
 }
 
 // no wrapping at all, clobber newlines, mainly internal use
-class TextLine extends Element {
+class TextSpan extends Element {
     constructor(args = {}) {
         const { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, trim = true, ...attr } = args
         const child = check_string(children0)
@@ -2118,7 +1986,7 @@ class Text extends VStack {
 
         // make texts from lines
         const children = lines.map(r =>
-            new TextLine({ children: r, color, aspect, justify, stack_size: 1 / nlines, ...fargs, ...text_attr })
+            new TextSpan({ children: r, color, aspect, justify, stack_size: 1 / nlines, ...fargs, ...text_attr })
         )
 
         // stack it up
@@ -2128,13 +1996,13 @@ class Text extends VStack {
 }
 
 function is_text(c) {
-    return c instanceof Text || c instanceof TextLine || c instanceof TextBox
+    return c instanceof TextSpan || c instanceof Text || c instanceof TextWrap || c instanceof TextBox
 }
 
-function ensure_textline(c, args) {
+function ensure_textspan(c, args) {
     if (is_string(c)) {
         return splitWords(c, true).map(c =>
-            new TextLine({ children: c, ...args })
+            new TextSpan({ children: c, ...args })
         )
     } else if (is_text(c)) {
         return c.clone({ ...args })
@@ -2159,8 +2027,8 @@ class TextWrap extends HWrap {
         const { children: children0, word_spacing = D.text.word_spacing, line_spacing = D.text.line_spacing, justify = 'left', wrap, debug, ...attr } = args
         const items = ensure_array(children0)
 
-        // make text items
-        const texts = items.map(c => ensure_textline(c, attr)).flat()
+        // make text items when possible
+        const texts = items.map(c => ensure_textspan(c, attr)).flat()
 
         // pass to HWrap
         const spacing = [ word_spacing, line_spacing ]
@@ -2948,7 +2816,7 @@ function ensure_tick(tick, prec = 2) {
     if (is_element(str)) {
         return str.clone({ tick_pos: pos })
     } else {
-        return new TextLine({ children: rounder(str, prec), tick_pos: pos })
+        return new TextSpan({ children: rounder(str, prec), tick_pos: pos })
     }
 }
 
@@ -3132,7 +3000,7 @@ class BoxLabel extends Attach {
         const { children: children0, ...attr0 } = args
         const text = check_singleton(children0)
         const [text_attr, attr] = prefix_split(['text'], attr0)
-        const label = is_element(text) ? text : new TextLine({ children: text, ...text_attr })
+        const label = is_element(text) ? text : new TextSpan({ children: text, ...text_attr })
         super({ children: label, ...attr })
         this.args = args
     }
@@ -3176,7 +3044,7 @@ function make_legendbadge(c, attr) {
 }
 
 function make_legendlabel(s) {
-    return new TextLine({ children: s })
+    return new TextSpan({ children: s })
 }
 
 class Legend extends Frame {
@@ -3366,7 +3234,7 @@ class Plot extends Box {
             children.push(xlabel)
         }
         if (ylabel != null) {
-            const ylabel_text = new TextLine({ children: ylabel, ...ylabel_attr, rotate: -90 })
+            const ylabel_text = new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
             ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, align: ylabel_align, ...ylabel_attr })
             children.push(ylabel)
         }
@@ -3449,7 +3317,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextWrap, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
+    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, TextBox, TextFrame, TextStack, TextWrap, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3458,5 +3326,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextLine, Text, TextBox, TextFrame, TextStack, TextWrap, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, TextBox, TextFrame, TextStack, TextWrap, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }

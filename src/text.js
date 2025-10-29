@@ -3,6 +3,7 @@
 import LineBreaker from 'linebreak'
 import opentype from 'opentype.js'
 import { DEFAULTS as D } from './defaults.js'
+import { sum } from './utils.js'
 
 //
 // canvas text sizer
@@ -87,11 +88,6 @@ function splitWords(text, trim = false) {
     const breaks = getBreaks(text)
     const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
     return trim ? words.map(w => w.trim()) : words
-}
-
-function sum(arr) {
-    arr = arr.filter(v => v != null)
-    return arr.reduce((a, b) => a + b, 0)
 }
 
 function wrapWidths(objects, maxWidth) {
