@@ -1969,8 +1969,8 @@ class TextSpan extends Element {
 // wrap text to lines, this is the main text element
 class Text extends VStack {
     constructor(args = {}) {
-        const { children: children0, wrap = null, line_spacing = D.text.line_spacing, justify = 'left', color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, ...attr0 } = args
-        const [ text_attr, attr ] = prefix_split(['text'], attr0)
+        const { children: children0, wrap = null, justify = 'left', line_spacing = D.text.line_spacing, font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
+        const [ spec, attr ] = spec_split(attr0)
 
         // get text content
         const text = is_array(children0) ? children0.join('\n') : check_string(children0)
@@ -1986,17 +1986,13 @@ class Text extends VStack {
 
         // make texts from lines
         const children = lines.map(r =>
-            new TextSpan({ children: r, color, aspect, justify, stack_size: 1 / nlines, ...fargs, ...text_attr })
+            new TextSpan({ children: r, stack_size: 1 / nlines, aspect, ...fargs, ...attr })
         )
 
         // stack it up
-        super({ children, spacing: line_spacing / nlines, ...attr })
+        super({ children, spacing: line_spacing / nlines, justify, debug, ...spec })
         this.args = args
     }
-}
-
-function is_text(c) {
-    return c instanceof TextSpan || c instanceof Text || c instanceof TextWrap || c instanceof TextBox
 }
 
 function ensure_textspan(c, args) {
@@ -2004,27 +2000,16 @@ function ensure_textspan(c, args) {
         return splitWords(c, true).map(c =>
             new TextSpan({ children: c, ...args })
         )
-    } else if (is_text(c)) {
-        return c.clone({ ...args })
     } else {
-        return c
-    }
-}
-
-function ensure_text(c, args) {
-    if (is_string(c)) {
-        return new Text({ children: c, ...args })
-    } else if (is_text(c)) {
         return c.clone({ ...args })
-    } else {
-        return c
     }
 }
 
 // wrap text or elements to multiple lines with fixed line height
 class TextWrap extends HWrap {
     constructor(args = {}) {
-        const { children: children0, word_spacing = D.text.word_spacing, line_spacing = D.text.line_spacing, justify = 'left', wrap, debug, ...attr } = args
+        const { children: children0, word_spacing = D.text.word_spacing, line_spacing = D.text.line_spacing, justify = 'left', wrap, debug, ...attr0 } = args
+        const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
         // make text items when possible
@@ -2032,20 +2017,30 @@ class TextWrap extends HWrap {
 
         // pass to HWrap
         const spacing = [ word_spacing, line_spacing ]
-        super({ children: texts, spacing, justify, wrap, debug })
+        super({ children: texts, spacing, justify, wrap, debug, ...spec })
+        this.args = args
+    }
+}
+
+function ensure_text(c, args) {
+    if (is_string(c)) {
+        return new Text({ children: c, ...args })
+    } else {
+        return c.clone({ ...args })
     }
 }
 
 class TextStack extends VStack {
     constructor(args = {}) {
-        const { children: children0, line_spacing, align, debug, ...attr } = args
+        const { children: children0, line_spacing, align, debug, ...attr0 } = args
+        const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
         // apply args to Text children
         const children = items.map(c => ensure_text(c, attr)).flat()
 
         // pass to VStack
-        super({ children, spacing: line_spacing, align, debug })
+        super({ children, spacing: line_spacing, align, debug, ...spec })
         this.args = args
     }
 }
