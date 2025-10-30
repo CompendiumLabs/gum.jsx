@@ -2194,6 +2194,14 @@ function get_attributes(elem) {
     )
 }
 
+function parse_viewbox(viewbox) {
+    // get bound box in standard rect format
+    const box = viewbox.split(' ').map(parseFloat)
+    const [ x10, y10, x20, y20 ] = box_rect(box)
+    const [ x1, y1, x2, y2 ] = [ x10, -y20, x20, -y10 ]
+    return [ x1, y1, x2, y2 ]
+}
+
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
@@ -2207,19 +2215,22 @@ class Latex extends Element {
             const output = MathJax.tex2svg(text, { display })
             const svg = output.children[0]
 
-            // get sizing in ex units
-            const width_ex = svg.getAttribute('width')
-            const height_ex = svg.getAttribute('height')
-            const width_em = parseFloat(width_ex) / 2
-            const height_em = parseFloat(height_ex) / 2
+            // get true viewbox
+            const viewBox = svg.getAttribute('viewBox')
+            const [ vx1, vy1, vx2, vy2 ] = parse_viewbox(viewBox)
 
             // compute aspect and vertical shift
-            aspect = width_em / maximum(1, height_em)
-            vshift = -D.text.voffset + maximum(0, 0.55 - height_em)
+            const vheight = 1000
+            const vwidth = vx2 - vx1
+            aspect = vwidth / vheight
+            vshift = voffset
 
             // get stripped attributes
             svg.removeAttribute('width')
             svg.removeAttribute('height')
+            svg.removeAttribute('viewBox')
+            svg.setAttribute('viewBox', `0 ${-vheight} ${vwidth} ${vheight}`)
+            svg.setAttribute('preserveAspectRatio', 'none')
             svg_attr = get_attributes(svg)
 
             // get math expression
