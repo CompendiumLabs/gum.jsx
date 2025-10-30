@@ -2209,7 +2209,7 @@ class Latex extends Element {
         const text = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
-        let svg_attr, math, aspect, vshift
+        let svg_attr, math, aspect
         if (typeof MathJax !== 'undefined') {
             // render with mathjax
             const output = MathJax.tex2svg(text, { display })
@@ -2223,7 +2223,6 @@ class Latex extends Element {
             const vheight = 1000
             const vwidth = vx2 - vx1
             aspect = vwidth / vheight
-            vshift = voffset
 
             // get stripped attributes
             svg.removeAttribute('width')
@@ -2245,14 +2244,12 @@ class Latex extends Element {
 
         // additional props
         this.math = math
-        this.vshift = vshift
     }
 
     props(ctx) {
         const attr = super.props(ctx)
         const { prect } = ctx
-        const [ x, y0, w, h ] = rect_box(prect, true)
-        const y = y0 + this.vshift * h
+        const [ x, y, w, h ] = rect_box(prect, true)
         return { x, y, width: w, height: h, ...attr }
     }
 
