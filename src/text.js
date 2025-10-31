@@ -90,12 +90,12 @@ function splitWords(text, trim = false) {
     return trim ? words.map(w => w.trim()) : words
 }
 
-function wrapWidths(objects, maxWidth) {
+function wrapWidths(objects, measure, maxWidth) {
     // handle null case
     if (maxWidth == null) {
         return {
-            rows: [ objects.map(o => o[0]) ],
-            widths: [ sum(objects.map(o => o[1])) ]
+            rows: [ objects ],
+            widths: [ sum(objects.map(measure)) ]
         }
     }
 
@@ -108,7 +108,8 @@ function wrapWidths(objects, maxWidth) {
     let width = 0
 
     // iterate over sizes
-    for (const [ object, size ] of objects) {
+    for (const object of objects) {
+        const size = measure(object)
         const width1 = width + size
         if (buffer.length > 0 && width1 > maxWidth) {
             // start a new line
@@ -133,15 +134,11 @@ function wrapWidths(objects, maxWidth) {
     return { rows, widths }
 }
 
+// compress whitespace, since that's what SVG does
 function wrapText(text, maxWidth, args) {
-    // compress whitespace, since that's what SVG does
     const chunks = splitWords(text.replace(/\s+/g, ' '))
-
-    // get width of chunks for wrapping
-    const objects = chunks.map(c => [ c, textSizer(c, args) ])
-
-    // return wrapped lines
-    return wrapWidths(objects, maxWidth)
+    const measure = c => textSizer(c, args)
+    return wrapWidths(chunks, measure, maxWidth)
 }
 
 function wrapMultiText(text, text_wrap, fargs) {

@@ -813,8 +813,7 @@ class Element {
         if (flex === true) this.spec.aspect = null
 
         // adjust aspect for rotation
-        const { aspect, rotate } = this.spec
-        this.spec.raspect = rotate_aspect(aspect, rotate)
+        if (this.spec.rotate != 0) this.spec.aspect = rotate_aspect(this.spec.aspect, this.spec.rotate)
 
         // warn if children are passed
         if (children != null) console.warn(`Got children in ${this.tag}`)
@@ -962,22 +961,22 @@ function apply_padmar(p, m, a) {
 }
 
 // case with multiple children is overdetermined
-function get_child_aspect(children) {
+function computeBoxAspect(children) {
     if (children.length == 1) {
-        const { rect, raspect } = children[0].spec
-        return rect == null ? raspect : null
+        const { rect, aspect } = children[0].spec
+        return rect == null ? aspect : null
     } else {
         return null
     }
 }
 
-function computeFrameLayout(children, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
+function computeBoxLayout(children, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
     // expand padding/margin to 4-element array
     padding = pad_rect(padding)
     margin = pad_rect(margin)
 
     // try to determine box aspect
-    const outer_aspect = aspect ?? get_child_aspect(children)
+    const outer_aspect = aspect ?? computeBoxAspect(children)
 
     // adjust padding/margin for aspect
     if (adjust && outer_aspect != null) {
@@ -986,8 +985,8 @@ function computeFrameLayout(children, { padding = 0, margin = 0, aspect = null, 
     }
 
     // apply padding/margin and get box sizes
-    const { irect, brect, aspect: frame_aspect } = apply_padmar(padding, margin, outer_aspect)
-    aspect ??= frame_aspect
+    const { irect, brect, aspect: box_aspect } = apply_padmar(padding, margin, outer_aspect)
+    aspect ??= box_aspect
 
     // return inner/outer rects and aspect
     return { irect, brect, aspect }
@@ -1019,7 +1018,7 @@ class Box extends Group {
         shape = ensure_component(shape ?? maybe_rounded_rect(rounded))
 
         // compute layout
-        const { irect, brect, aspect: aspect_outer } = computeFrameLayout(children, { padding, margin, border, aspect, adjust })
+        const { irect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
         const rect = (border > 0 || fill != null) ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
@@ -1039,14 +1038,14 @@ class Frame extends Box {
     }
 }
 
-function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
+function computeStackLayout(direc, children, { spacing = 0, expand = true, even = false }) {
     // short circuit if empty
     if (children.length == 0) return { ranges: null, aspect: null}
 
     // get size and aspect data from children
     // adjust for direction (invert aspect if horizontal)
     const items = children.map(c => {
-        const size = c.attr.stack_size
+        const size = c.attr.stack_size ?? (even ? 1 / children.length : null)
         const expd = c.attr.stack_expand ?? expand
         const aspect = expd ? c.spec.aspect : null
         return { size, aspect }
@@ -1130,7 +1129,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true }) {
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 class Stack extends Group {
     constructor(args = {}) {
-        let { children, direc, spacing = 0, justify = 'center', aspect = 'auto', ...attr } = args
+        let { children, direc, spacing = 0, justify = 'center', aspect = 'auto', even = false, ...attr } = args
         children = ensure_array(children)
         spacing = spacing === true ? D.bool.spacing : spacing
 
@@ -1139,7 +1138,7 @@ class Stack extends Group {
         const expand = aspect == 'auto'
 
         // compute layout
-        const { ranges, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing: spacing1, expand })
+        const { ranges, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing: spacing1, expand, even })
         aspect = aspect == 'auto' ? aspect_ideal : aspect
 
         // assign child rects
@@ -1174,22 +1173,17 @@ class HStack extends Stack {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args = {}) {
-        const { children: children0, spacing = 0, justify, wrap = null, debug, ...attr } = args
+        const { children: children0, spacing = 0, wrap = null, measure: measure0 = null, debug, ...attr } = args
         const children = ensure_array(children0)
+        const measure = measure0 ?? (c => c.spec.aspect ?? 1)
         const [ hspace, vspace ] = ensure_vector(spacing, 2)
 
-        // get element widths
-        const objects = children.map(c => [ c, c.spec.aspect ?? 1 ])
-        const { rows } = wrapWidths(objects, wrap)
-
-        // make children
-        const nrows = rows.length
-        const lines = rows.map(row =>
-            new HStack({ children: row, stack_size: 1 / nrows, spacing: hspace, debug })
-        )
+        // make HStack rows
+        const { rows } = wrapWidths(children, measure, wrap)
+        const lines = rows.map(row => new HStack({ children: row, spacing: hspace, debug }))
 
         // pass to VStack
-        super({ children: lines, spacing: vspace, justify, debug, ...attr })
+        super({ children: lines, spacing: vspace, even: true, debug, ...attr })
         this.args = args
     }
 }
@@ -1981,19 +1975,14 @@ class Text extends VStack {
         // wrap text to lines
         const fargs = { font_family, font_weight }
         const { rows, widths } = wrapMultiText(text, wrap, fargs)
-
-        // get number of lines and shape
         const lines = rows.map(r => r.join(' '))
-        const nlines = lines.length
-        const aspect = wrap == null ? max(widths) : wrap
 
         // make texts from lines
-        const children = lines.map(r =>
-            new TextSpan({ children: r, stack_size: 1 / nlines, aspect, ...fargs, ...attr })
-        )
+        const aspect = wrap == null ? max(widths) : wrap
+        const children = lines.map(r => new TextSpan({ children: r, aspect, ...fargs, ...attr }))
 
         // stack it up
-        super({ children, spacing: line_spacing, justify, debug, ...spec })
+        super({ children, spacing: line_spacing, even: true, justify, debug, ...spec })
         this.args = args
     }
 }
@@ -2027,7 +2016,7 @@ class TextWrap extends HWrap {
 
 function ensure_text(c, args) {
     if (is_string(c)) {
-        return c.split('\n').map(t =>
+        return c.split('\n\n').map(t =>
             new Text({ children: t, ...args })
         )
     } else {
@@ -2301,7 +2290,7 @@ class TitleFrame extends Frame {
         }
 
         // apply margin only box
-        const group_aspect = aspect ?? box.spec.raspect
+        const group_aspect = aspect ?? box.spec.aspect
         const group = new Group({ children: subs, aspect: group_aspect })
 
         // pass to Group
