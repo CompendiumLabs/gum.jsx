@@ -472,6 +472,11 @@ function aspect_invariant(value, aspect, alpha = 0.5) {
 // attributes
 //
 
+// reserved keys
+const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
+const STACK_KEYS = [ 'stack_size', 'stack_expand' ]
+const RESERVED_KEYS = [ ...SPEC_KEYS, ...STACK_KEYS ]
+
 function prefix_split(pres, attr) {
     const attr1 = { ...attr }
     const pres1 = pres.map(p => `${p}_`)
@@ -488,9 +493,10 @@ function prefix_split(pres, attr) {
     return [ ...out, attr1 ]
 }
 
-function spec_split(attr) {
-    const spec  = filter_object(attr, (k, v) => v != null &&  SPEC_KEYS.includes(k))
-    const attr1 = filter_object(attr, (k, v) => v != null && !SPEC_KEYS.includes(k))
+function spec_split(attr, extended = true) {
+    const SPLIT_KEYS = extended ? RESERVED_KEYS : SPEC_KEYS
+    const spec  = filter_object(attr, (k, v) => v != null &&  SPLIT_KEYS.includes(k))
+    const attr1 = filter_object(attr, (k, v) => v != null && !SPLIT_KEYS.includes(k))
     return [ spec, attr1 ]
 }
 
@@ -783,14 +789,11 @@ function flip_rect(rect, vertical) {
     else return [ x2, y1, x1, y2 ]
 }
 
-// spec keys
-const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
-
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     constructor(args = {}) {
         const { tag, unary, children, pos, rad, xlim, ylim, flex, spin, hflip, vflip, ...attr0 } = args
-        const [ spec, attr ] = spec_split(attr0)
+        const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
         // core display
@@ -1990,7 +1993,7 @@ class Text extends VStack {
         )
 
         // stack it up
-        super({ children, spacing: line_spacing / nlines, justify, debug, ...spec })
+        super({ children, spacing: line_spacing, justify, debug, ...spec })
         this.args = args
     }
 }
@@ -2008,7 +2011,7 @@ function ensure_textspan(c, args) {
 // wrap text or elements to multiple lines with fixed line height
 class TextWrap extends HWrap {
     constructor(args = {}) {
-        const { children: children0, word_spacing = D.text.word_spacing, line_spacing = D.text.line_spacing, justify = 'left', wrap, debug, ...attr0 } = args
+        const { children: children0, spacing: line_spacing = D.text.line_spacing, word_spacing = D.text.word_spacing, justify = 'left', wrap, debug, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
@@ -2024,7 +2027,9 @@ class TextWrap extends HWrap {
 
 function ensure_text(c, args) {
     if (is_string(c)) {
-        return new Text({ children: c, ...args })
+        return c.split('\n').map(t =>
+            new Text({ children: t, ...args })
+        )
     } else {
         return c.clone({ ...args })
     }
@@ -2032,7 +2037,7 @@ function ensure_text(c, args) {
 
 class TextStack extends VStack {
     constructor(args = {}) {
-        const { children: children0, line_spacing, align, debug, ...attr0 } = args
+        const { children: children0, spacing = D.text.para_spacing, align, debug, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
@@ -2040,7 +2045,7 @@ class TextStack extends VStack {
         const children = items.map(c => ensure_text(c, attr)).flat()
 
         // pass to VStack
-        super({ children, spacing: line_spacing, align, debug, ...spec })
+        super({ children, spacing, align, debug, ...spec })
         this.args = args
     }
 }
@@ -3284,12 +3289,12 @@ class BarPlot extends Plot {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        const { children: children0, aspect, wrap = D.slide.wrap, line_spacing = D.slide.line_spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = ['center', 'top'], ...attr0 } = args
+        const { children: children0, aspect, wrap = D.slide.wrap, spacing = D.slide.para_spacing, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, justify = ['center', 'top'], ...attr0 } = args
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
         const children = ensure_array(children0)
 
         // make a stack out of the children
-        const stack = new TextStack({ children, line_spacing, wrap, align: justify, ...text_attr })
+        const stack = new TextStack({ children, spacing, wrap, align: justify, ...text_attr })
 
         // pass to TitleFrame
         super({ children: stack, aspect, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
