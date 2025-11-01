@@ -1170,22 +1170,8 @@ class HStack extends Stack {
     }
 }
 
-class Br extends Element {
-    constructor(args = {}) {
-        super(args)
-    }
-
-    svg(ctx) {
-        return ''
-    }
-}
-
 function default_measure(c) {
-    if (c instanceof Br) {
-        return null
-    } else {
-        return c.spec.aspect ?? 1
-    }
+    return c.spec.aspect ?? 1
 }
 
 // like stack but wraps elements to multiple lines/columns
@@ -1988,12 +1974,24 @@ function ensure_textspan(c, args) {
     }
 }
 
+function trim_string_list(items) {
+    if (items.length > 0 && is_string(items[0])) {
+        items[0] = items[0].trimStart()
+    }
+    if (items.length > 0 && is_string(items[items.length - 1])) {
+        items[items.length - 1] = items[items.length - 1].trimEnd()
+    }
+}
+
 // wrap text or elements to multiple lines with fixed line height
 class Text extends VStack {
     constructor(args = {}) {
         const { children: children0, wrap, line_spacing = D.text.line_spacing, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
+
+        // trim start and end items
         const items = ensure_array(children0)
+        trim_string_list(items)
 
         // pass through font attributes
         const font_args = { font_family, font_weight }
