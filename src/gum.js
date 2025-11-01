@@ -449,6 +449,36 @@ function expand_rect(rect, expand) {
     return [ x1 - xexp, y1 - yexp, x2 + xexp, y2 + yexp ]
 }
 
+function flip_rect(rect, vertical) {
+    const [ x1, y1, x2, y2 ] = rect ?? D.spec.coord
+    if (vertical) return [ x1, y2, x2, y1 ]
+    else return [ x2, y1, x1, y2 ]
+}
+
+function embed_rect(size, { aspect = null, expand = false } = {}) {
+    if (aspect == null) return size
+    const [ w0, h0 ] = size
+    const [ aw, ah ] = [ abs(w0), abs(h0) ]
+    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
+    const agg = expand ? maximum : minimum
+    const h = agg(aw / aspect, ah)
+    const w = h * aspect
+    return [ sw * w, sh * h ]
+}
+
+function upright_rect(rect) {
+    const [ x1, y1, x2, y2 ] = rect
+    return [
+        minimum(x1, x2), minimum(y1, y2),
+        maximum(x1, x2), maximum(y1, y2),
+    ]
+}
+
+function upright_limit(limit) {
+    const [ lo, hi ] = limit
+    return [ minimum(lo, hi), maximum(lo, hi) ]
+}
+
 function aspect_invariant(value, aspect, alpha = 0.5) {
     aspect = aspect ?? 1
 
@@ -592,17 +622,6 @@ function align_frac(align) {
     }
 }
 
-function embed_rect(size, { aspect = null, expand = false } = {}) {
-    if (aspect == null) return size
-    const [ w0, h0 ] = size
-    const [ aw, ah ] = [ abs(w0), abs(h0) ]
-    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
-    const agg = expand ? maximum : minimum
-    const h = agg(aw / aspect, ah)
-    const w = h * aspect
-    return [ sw * w, sh * h ]
-}
-
 function rotate_rect(size, rotate, { aspect = null, expand = false, invar = false, tol = 0.001 } = {}) {
     // knock out easy case
     if (rotate == 0 || invar) return embed_rect(size, { aspect, expand })
@@ -664,19 +683,6 @@ function rotate_aspect(aspect, rotate) {
     const DW = aspect * COS + SIN
     const DH = aspect * SIN + COS
     return DW / DH
-}
-
-function upright_rect(rect) {
-    const [ x1, y1, x2, y2 ] = rect
-    return [
-        minimum(x1, x2), minimum(y1, y2),
-        maximum(x1, x2), maximum(y1, y2),
-    ]
-}
-
-function upright_limit(limit) {
-    const [ lo, hi ] = limit
-    return [ minimum(lo, hi), maximum(lo, hi) ]
 }
 
 function rescaler(lim_in, lim_out) {
@@ -783,12 +789,6 @@ class Context {
     }
 }
 
-function flip_rect(rect, vertical) {
-    const [ x1, y1, x2, y2 ] = rect ?? D.spec.coord
-    if (vertical) return [ x1, y2, x2, y1 ]
-    else return [ x2, y1, x1, y2 ]
-}
-
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     constructor(args = {}) {
@@ -848,6 +848,24 @@ class Element {
         } else {
             return `<${this.tag}${pre}${props}>${this.inner(ctx)}</${this.tag}>`
         }
+    }
+}
+
+class Debug {
+    constructor(args = {}) {
+        const { children: children0, ...attr } = args
+        this.children = ensure_array(children0)
+        this.attr = attr
+    }
+
+    svg(ctx) {
+        console.log('======== DEBUG START ========')
+        console.log('ATTRIBUTES:')
+        console.log(this.attr)
+        console.log('CHILDREN:')
+        console.log(this.children)
+        console.log('======== DEBUG END ========')
+        return ''
     }
 }
 
@@ -1981,6 +1999,7 @@ function trim_string_list(items) {
     if (items.length > 0 && is_string(items[items.length - 1])) {
         items[items.length - 1] = items[items.length - 1].trimEnd()
     }
+    return items
 }
 
 // wrap text or elements to multiple lines with fixed line height
@@ -1990,8 +2009,7 @@ class Text extends VStack {
         const [ spec, attr ] = spec_split(attr0)
 
         // trim start and end items
-        const items = ensure_array(children0)
-        trim_string_list(items)
+        const items = trim_string_list(ensure_array(children0))
 
         // pass through font attributes
         const font_args = { font_family, font_weight }
@@ -3301,7 +3319,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3310,5 +3328,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, sans, mono, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
