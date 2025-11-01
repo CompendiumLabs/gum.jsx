@@ -1933,11 +1933,11 @@ function escape_xml(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextSpan extends Element {
     constructor(args = {}) {
-        const { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, trim = false, ...attr } = args
+        const { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr } = args
         const child = check_string(children0)
 
         // compress whitespace, since that's what SVG does
-        const text = trim ? child.replace(/\s+/g, ' ').trim() : child
+        const text = child.replace(/\s+/g, ' ')
 
         // compute text box
         const fargs = { font_family, font_weight }
@@ -1988,35 +1988,43 @@ function ensure_textspan(c, args) {
     if (is_string(c)) {
         return new TextSpan({ children: c, ...args })
     } else {
-        return c.clone({ ...args })
+        return c
     }
 }
 
-function trim_string_list(items) {
-    if (items.length > 0 && is_string(items[0])) {
-        items[0] = items[0].trimStart()
-    }
-    if (items.length > 0 && is_string(items[items.length - 1])) {
-        items[items.length - 1] = items[items.length - 1].trimEnd()
-    }
-    return items
+function pad_object_list(items, spacing = 0.25) {
+    const spacer = new Spacer({ aspect: spacing })
+    return items.map((c, i) => {
+        if (is_string(c)) {
+            if (i == 0) {
+                return c.trimStart()
+            } else if (i == items.length - 1) {
+                return c.trimEnd()
+            } else {
+                return c
+            }
+        } else {
+            return [ spacer, c, spacer ]
+        }
+    }).flat()
 }
 
 // wrap text or elements to multiple lines with fixed line height
 class Text extends VStack {
     constructor(args = {}) {
-        const { children: children0, wrap, line_spacing = D.text.line_spacing, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
+        const { children: children0, wrap, line_spacing = D.text.line_spacing, item_spacing = 0.25, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
+        const items = ensure_array(children0)
 
         // trim start and end items
-        const items = trim_string_list(ensure_array(children0))
+        const objects = pad_object_list(items, item_spacing)
 
         // pass through font attributes
         const font_args = { font_family, font_weight }
         const text_attr = { ...font_args, ...attr }
 
         // split objects into multiple lines
-        const words = items.map(c => is_string(c) ? splitWords(c) : c).flat()
+        const words = objects.map(c => is_string(c) ? splitWords(c) : c).flat()
         const measure = c => is_string(c) ? textSizer(c, font_args) : default_measure(c)
         const { rows } = wrapWidths(words, measure, wrap)
 
