@@ -2205,12 +2205,12 @@ function get_attributes(elem) {
     )
 }
 
-function parse_viewbox(viewbox) {
-    // get bound box in standard rect format
-    const box = viewbox.split(' ').map(parseFloat)
-    const [ x10, y10, x20, y20 ] = box_rect(box)
-    const [ x1, y1, x2, y2 ] = [ x10, -y20, x20, -y10 ]
-    return [ x1, y1, x2, y2 ]
+function parse_style(style) {
+    return new Map(style.split(';').map(s => s.split(':')))
+}
+
+function parse_ex(s) {
+    return parseFloat(s) / 2
 }
 
 // TODO: this is slow. can we get katex back somehow?
@@ -2220,47 +2220,43 @@ class Latex extends Element {
         const text = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
-        let svg_attr, math, aspect
+        let math, viewBox, aspect, vshift = 0
         if (typeof MathJax !== 'undefined') {
             // render with mathjax
             const output = MathJax.tex2svg(text, { display })
             const svg = output.children[0]
 
-            // get true viewbox
-            const viewBox = svg.getAttribute('viewBox')
-            const [ vx1, vy1, vx2, vy2 ] = parse_viewbox(viewBox)
+            // get size and position attributes
+            const viewBox0 = svg.getAttribute('viewBox')
+            const style = parse_style(svg.getAttribute('style'))
+            const width = parse_ex(svg.getAttribute('width'))
+            const height = parse_ex(svg.getAttribute('height'))
+            const valign = -parse_ex(style.get('vertical-align'))
+            const vshift0 = voffset + valign + (1 - height) / 2
 
             // compute aspect and vertical shift
-            const vheight = 1000
-            const vwidth = vx2 - vx1
-            aspect = vwidth / vheight
-
-            // get stripped attributes
-            svg.removeAttribute('width')
-            svg.removeAttribute('height')
-            svg.removeAttribute('viewBox')
-            svg.setAttribute('viewBox', `0 ${-vheight} ${vwidth} ${vheight}`)
-            svg.setAttribute('preserveAspectRatio', 'none')
-            svg_attr = get_attributes(svg)
-
-            // get math expression
             math = svg.innerHTML
+            viewBox = viewBox0
+            aspect = width
+            vshift = vshift0
         } else {
             math = text
         }
 
         // pass to element
-        super({ tag: 'svg', unary: false, aspect, ...svg_attr, ...attr })
+        super({ tag: 'svg', unary: false, aspect, viewBox, ...attr })
         this.args = args
 
         // additional props
         this.math = math
+        this.vshift = vshift
     }
 
     props(ctx) {
         const attr = super.props(ctx)
         const { prect } = ctx
-        const [ x, y, w, h ] = rect_box(prect, true)
+        const [ x, y0, w, h ] = rect_box(prect, true)
+        const y = y0 + this.vshift * h
         return { x, y, width: w, height: h, ...attr }
     }
 
