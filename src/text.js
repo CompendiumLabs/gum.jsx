@@ -3,7 +3,7 @@
 import LineBreaker from 'linebreak'
 import opentype from 'opentype.js'
 import { DEFAULTS as D } from './defaults.js'
-import { sum } from './utils.js'
+import { is_string } from './utils.js'
 
 //
 // canvas text sizer
@@ -30,11 +30,12 @@ if (typeof window == 'undefined') {
     canvas = document.createElement('canvas')
 }
 
-// try for browser environment
+// size text with canvas available
 let textSizer = null
 try {
     const ctx = canvas.getContext('2d')
     textSizer = function(text, args) {
+        if (text == '\n') return null
         return canvasTextSizer(ctx, text, args)
     }
 } catch (error) {
@@ -84,21 +85,17 @@ function getBreaks(text) {
     return breaks
 }
 
-function splitWords(text, trim = false) {
+function splitWords(text) {
     const breaks = getBreaks(text)
     const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
-    return trim ? words.map(w => w.trim()) : words
+    return words.map(w =>
+        w.length > 1 && w.endsWith('\n') ?
+        [ w.slice(0, -1), '\n' ] : w
+    ).flat()
 }
 
+// when measure is null, that means mandatory line break (but zero width)
 function wrapWidths(objects, measure, maxWidth) {
-    // handle null case
-    if (maxWidth == null) {
-        return {
-            rows: [ objects ],
-            widths: [ sum(objects.map(measure)) ]
-        }
-    }
-
     // return values
     const rows = []
     const widths = []
@@ -110,8 +107,13 @@ function wrapWidths(objects, measure, maxWidth) {
     // iterate over sizes
     for (const object of objects) {
         const size = measure(object)
-        const width1 = width + size
-        if (buffer.length > 0 && width1 > maxWidth) {
+        if (size == null) {
+            // mandatory new line
+            rows.push(buffer)
+            widths.push(width)
+            buffer = []
+            width = 0
+        } else if (maxWidth != null && width + size > maxWidth) {
             // start a new line
             rows.push(buffer)
             widths.push(width)
@@ -120,7 +122,7 @@ function wrapWidths(objects, measure, maxWidth) {
         } else {
             // append to current line
             buffer.push(object)
-            width = width1
+            width = width + size
         }
     }
 
@@ -141,11 +143,24 @@ function wrapText(text, maxWidth, args) {
     return wrapWidths(chunks, measure, maxWidth)
 }
 
-function wrapMultiText(text, text_wrap, fargs) {
-    const results = text.split('\n').map(t => wrapText(t, text_wrap, fargs))
-    const rows = results.map(r => r.rows).flat()
-    const widths = results.map(r => r.widths).flat()
-    return { rows, widths }
+function mergeStrings(items) {
+    const lines = []
+    let buffer = ''
+    for (const item of items) {
+        if (is_string(item)) {
+            buffer += item
+        } else {
+            if (buffer.length > 0) {
+                lines.push(buffer)
+                buffer = ''
+            }
+            lines.push(item)
+        }
+    }
+    if (buffer.length > 0) {
+        lines.push(buffer)
+    }
+    return lines
 }
 
 //
@@ -159,4 +174,4 @@ function getGlyphPath(font, glyph, pos, size) {
     return path.toSVG()
 }
 
-export { textSizer, getBreaks, splitWords, wrapWidths, wrapText, wrapMultiText, getGlyphPath }
+export { textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings, getGlyphPath }
