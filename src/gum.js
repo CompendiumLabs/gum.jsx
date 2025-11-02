@@ -980,7 +980,7 @@ function apply_padmar(p, m, a) {
 
 // case with multiple children is overdetermined
 function computeBoxAspect(children) {
-    if (children.length == 1) {
+    if (children.length >= 1) {
         const { rect, aspect } = children[0].spec
         return rect == null ? aspect : null
     } else {
@@ -2208,14 +2208,13 @@ class Emoji extends Group {
     }
 }
 
-function get_attributes(elem) {
-    return Object.fromEntries(
-        Array.from(elem.attributes, ({name, value}) => [name, value])
-    )
-}
-
 function parse_style(style) {
-    return new Map(style.split(';').map(s => s.split(':')))
+    return new Map(style
+        .split(';')
+        .filter(s => s.includes(':'))
+        .map(s => s.split(':'))
+        .map(([k, v]) => [k.trim(), v.trim()])
+    )
 }
 
 function parse_ex(s) {
@@ -2229,31 +2228,46 @@ class Latex extends Element {
         const text = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
-        let math, viewBox, aspect, vshift = 0
+        let math = '', svg_attr = {}, vshift = 0
         if (typeof MathJax !== 'undefined') {
             // render with mathjax
             const output = MathJax.tex2svg(text, { display })
             const svg = output.children[0]
 
             // get size and position attributes
-            const viewBox0 = svg.getAttribute('viewBox')
+            const viewBox = svg.getAttribute('viewBox')
             const style = parse_style(svg.getAttribute('style'))
             const width = parse_ex(svg.getAttribute('width'))
             const height = parse_ex(svg.getAttribute('height'))
             const valign = -parse_ex(style.get('vertical-align'))
-            const vshift0 = voffset + valign + (1 - height) / 2
+            const vshift0 = voffset + valign + 0.25 * (1 - height)
+
+            /*
+            console.log('======== LATEX ========')
+            console.log(text)
+            console.log(viewBox0)
+            console.log(width)
+            console.log(height)
+            console.log(valign)
+            console.log('======== LATEX ========')
+            */
+
+            // immediate attributes
+            svg_attr = {
+                viewBox,
+                aspect: width / height,
+                preserveAspectRatio: 'none',
+            }
 
             // compute aspect and vertical shift
             math = svg.innerHTML
-            viewBox = viewBox0
-            aspect = width
             vshift = vshift0
         } else {
             math = text
         }
 
         // pass to element
-        super({ tag: 'svg', unary: false, aspect, viewBox, ...attr })
+        super({ tag: 'svg', unary: false, ...svg_attr, ...attr })
         this.args = args
 
         // additional props
