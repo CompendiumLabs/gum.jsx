@@ -3,7 +3,7 @@
 import LineBreaker from 'linebreak'
 import opentype from 'opentype.js'
 import { DEFAULTS as D } from './defaults.js'
-import { is_string } from './utils.js'
+import { is_string, compress_whitespace } from './utils.js'
 
 //
 // canvas text sizer
@@ -36,7 +36,8 @@ try {
     const ctx = canvas.getContext('2d')
     textSizer = function(text, args) {
         if (text == '\n') return null
-        return canvasTextSizer(ctx, text, args)
+        const text1 = compress_whitespace(text)
+        return canvasTextSizer(ctx, text1, args)
     }
 } catch (error) {
     console.log(error)

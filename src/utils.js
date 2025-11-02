@@ -138,7 +138,15 @@ function div(x, y) {
 }
 
 //
+// string utils
+//
+
+function compress_whitespace(text) {
+    return text.replace(/\s+/g, ' ').trimLeft()
+}
+
+//
 // export
 //
 
-export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, all, any, add, sub, mul, div }
+export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, all, any, add, sub, mul, div, compress_whitespace }

@@ -2,7 +2,7 @@
 
 import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
-import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, add, sub, mul, div } from './utils.js'
+import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, add, sub, mul, div, compress_whitespace } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText, mergeStrings } from './text.js'
 
 //
@@ -1937,7 +1937,7 @@ class TextSpan extends Element {
         const child = check_string(children0)
 
         // compress whitespace, since that's what SVG does
-        const text = child.replace(/\s+/g, ' ')
+        const text = compress_whitespace(child)
 
         // compute text box
         const fargs = { font_family, font_weight }
@@ -1993,7 +1993,6 @@ function ensure_textspan(c, args) {
 }
 
 function pad_object_list(items, spacing = 0.25) {
-    const spacer = new Spacer({ aspect: spacing })
     return items.map((c, i) => {
         if (is_string(c)) {
             if (i == 0) {
@@ -2004,9 +2003,11 @@ function pad_object_list(items, spacing = 0.25) {
                 return c
             }
         } else {
-            return [ spacer, c, spacer ]
+            const caspect = c.spec.aspect ?? 1
+            const aspect = caspect + 2 * spacing
+            return new Box({ children: c, aspect })
         }
-    }).flat()
+    })
 }
 
 // wrap text or elements to multiple lines with fixed line height
@@ -2016,15 +2017,15 @@ class Text extends VStack {
         const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
-        // trim start and end items
-        const objects = pad_object_list(items, item_spacing)
-
         // pass through font attributes
         const font_args = { font_family, font_weight }
         const text_attr = { ...font_args, ...attr }
 
-        // split objects into multiple lines
+        // split into words and objects
+        const objects = pad_object_list(items, item_spacing)
         const words = objects.map(c => is_string(c) ? splitWords(c) : c).flat()
+
+        // split objects into multiple lines
         const measure = c => is_string(c) ? textSizer(c, font_args) : default_measure(c)
         const { rows } = wrapWidths(words, measure, wrap)
 
