@@ -53,11 +53,12 @@ const DEFAULTS = {
         line_spacing: 0.1,
         para_spacing: 0.2,
         padding: 0.1,
+        rounded: 0.05,
         voffset: -0.12,
     },
 
     node: {
-        rad: 0.05,
+        rad: 0.15,
         rounded: 0.05,
         padding: 0.1,
         wrap: 6,

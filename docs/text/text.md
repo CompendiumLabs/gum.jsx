@@ -2,12 +2,11 @@
 
 *Inherits*: [VStack](/docs/VStack) > [Element](/docs/Element)
 
-Displays text. Uses built-in browser facilities when available to calculate font size and aspect ratio. Note that you will typically not set the font size of the text here, as this will fill the entire space with the provided text.
+Displays text and other elements. Uses built-in browser facilities when available to calculate font size and aspect ratio. Note that you will typically not set the font size of the text here, as this will fill the entire space with the provided text.
 
-If `wrap` is specified, the text will be wrapped to the specified width. In either case, newlines will be respected, though other whitespace will be compressed. There are a number of related elements that can handle different types of text:
+If `wrap` is specified, the text will be wrapped to the specified width. In either case, single newlines will be respected, though whitespace will be compressed. There are two wrapper elements related to text:
 
-- [TextBox](/docs/TextBox) can handle text with a border and background
-- **TextFlex** can handle text with a border and background
+- [TextBox](/docs/TextBox) / **TextFrame** can handle text with a border and background
 - **TextStack** can handle multiple lines of text that are passed in as an array
 
 Parameters:

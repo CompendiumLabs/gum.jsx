@@ -455,7 +455,7 @@ function flip_rect(rect, vertical) {
     else return [ x2, y1, x1, y2 ]
 }
 
-function embed_rect(size, { aspect = null, expand = false } = {}) {
+function embed_size(size, { aspect = null, expand = false } = {}) {
     if (aspect == null) return size
     const [ w0, h0 ] = size
     const [ aw, ah ] = [ abs(w0), abs(h0) ]
@@ -624,7 +624,7 @@ function align_frac(align) {
 
 function rotate_rect(size, rotate, { aspect = null, expand = false, invar = false, tol = 0.001 } = {}) {
     // knock out easy case
-    if (rotate == 0 || invar) return embed_rect(size, { aspect, expand })
+    if (rotate == 0 || invar) return embed_size(size, { aspect, expand })
 
     // unpack inputs
     const [ w0, h0 ] = size
@@ -813,7 +813,7 @@ class Element {
         if (flex === true) this.spec.aspect = null
 
         // adjust aspect for rotation
-        if (this.spec.rotate != 0) this.spec.aspect = rotate_aspect(this.spec.aspect, this.spec.rotate)
+        if (this.spec.rotate != 0 && !this.spec.invar) this.spec.aspect = rotate_aspect(this.spec.aspect, this.spec.rotate)
 
         // warn if children are passed
         if (children != null) console.warn(`Got children in ${this.tag}`)
@@ -927,7 +927,7 @@ class Svg extends Group {
         // auto-detect size and aspect
         const { aspect: aspect1 } = this.spec
         const size = ensure_vector(size0, 2)
-        const size1 = embed_rect(size, { aspect: aspect1 })
+        const size1 = embed_size(size, { aspect: aspect1 })
 
         // additional props
         this.size = size1
@@ -2066,7 +2066,7 @@ class TextBox extends Box {
 
 class TextFrame extends TextBox {
     constructor(args = {}) {
-        super({ ...args, border: 1 })
+        super({ ...args, border: 1, rounded: D.text.rounded })
     }
 }
 
@@ -2166,7 +2166,7 @@ class EmojiDiv extends Element {
         const { prect } = ctx
         const { aspect } = this.spec
         const size = rect_dims(prect)
-        const [ _, h ] = embed_rect(size, aspect)
+        const [ _, h ] = embed_size(size, aspect)
         const style = `font-size: ${h}px;`
         return { style, ...attr }
     }
@@ -2619,17 +2619,12 @@ class ArrowPath extends Group {
     }
 }
 
-class Node extends Frame {
+class Node extends TextFrame {
     constructor(args = {}) {
-        const { children: children0, label, wrap, justify = 'center', padding = D.node.padding, rounded = D.node.rounded, ...attr0 } = args
-        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
+        const { children, label, rad = D.node.rad, ...attr } = args
 
-        // make frame: handle text / element / list
-        const children = ensure_array(children0)
-        const text = is_element(children) ? children : new Text({ children, wrap, justify, slim: true, ...text_attr })
-
-        // pass to Frame
-        super({ children: text, padding, rounded, expand: true, ...attr })
+        // pass to TextFrame
+        super({ children, rad, flex: true, ...attr })
         this.args = args
 
         // additional props
@@ -2643,7 +2638,7 @@ class Node extends Frame {
 
     get_anchor(direc) {
         const { rect } = this.spec
-        const [ xmin, ymin, xmax, ymax ] = rect
+        const [ xmin, ymin, xmax, ymax] = rect
         const [ xmid, ymid ] = rect_center(rect)
         return (direc == 'n') ? [ xmid, ymin ] :
                (direc == 's') ? [ xmid, ymax ] :
@@ -2671,13 +2666,13 @@ class Edge extends Element {
 
 class Network extends Group {
     constructor(args = {}) {
-        const { children: children0, node_rad = 0.1, xlim, ylim, coord: coord0, ...attr0 } = args
+        const { children: children0, xlim, ylim, coord: coord0, ...attr0 } = args
         const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
 
         // collect nodes and edges
-        const edges = children0.filter(c => c instanceof Edge).map(e => e.clone(edge_attr))
-        const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ rad: node_rad, ...node_attr }))
+        const edges = children0.filter(c => c instanceof Edge).map(e => e.clone({ ...edge_attr, ...e.args }))
+        const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ ...node_attr, ...n.args }))
         const other = children0.filter(c => !(c instanceof Node || c instanceof Edge))
 
         // create arrow paths from edges
@@ -2697,7 +2692,8 @@ class Network extends Group {
         })
 
         // pass to Graph
-        super({ children: [...nodes, ...paths, ...other], coord, ...attr })
+        const children = [ ...nodes, ...paths, ...other ]
+        super({ children, coord, ...attr })
         this.args = args
     }
 }
