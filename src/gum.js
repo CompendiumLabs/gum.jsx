@@ -1056,7 +1056,7 @@ class Frame extends Box {
     }
 }
 
-function computeStackLayout(direc, children, { spacing = 0, expand = true, even = false }) {
+function computeStackLayout(direc, children, { spacing = 0, expand = true, even = false, aspect: aspect0 = null }) {
     // short circuit if empty
     if (children.length == 0) return { ranges: null, aspect: null}
 
@@ -1115,7 +1115,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
     // add up lengths required to make expandables height 1 (w = a)
     // set length to satisfy: L_expand * (1 - S_sum) * F_total = sum(w) = sum(a)
     const L_expand = (expo.length > 0) ? sum(expo.map(c => c.aspect)) / ((1 - S_sum) * F_total) : null
-    const L_target = (over.length > 0) ? L_over : L_expand
+    const L_target = aspect0 ?? ((over.length > 0) ? L_over : L_expand)
 
     // allocate space to expand then flex children
     // S_exp0 gets full length of expandables given realized L_target
@@ -1126,14 +1126,11 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
     const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
     for (const c of expo) c.size = c.aspect / (F_total * L_target) * scale
 
-    // distribute remaining space to flex children, or expo children if no flex children
+    // distribute remaining space to flex children, if any
     // S_left is the remaining space after pre-allocated and expandables (may hit 0)
     const S_left = 1 - S_sum - S_exp
     if (flex.length > 0) {
         for (const c of flex) c.size = S_left / flex.length
-    } else if (expo.length > 0) {
-        const S_exp1 = sum(expo.map(c => c.size))
-        for (const c of expo) c.size *= (1 - S_sum) / S_exp1
     }
 
     // compute heights and aspect
@@ -1147,17 +1144,13 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 class Stack extends Group {
     constructor(args = {}) {
-        let { children, direc, spacing = 0, justify = 'center', aspect = 'auto', even = false, ...attr } = args
+        let { children, direc, spacing = 0, justify = 'center', aspect: aspect0, expand = true, even = false, ...attr } = args
         children = ensure_array(children)
         spacing = spacing === true ? D.bool.spacing : spacing
 
-        // handle defaults
-        const spacing1 = spacing / maximum(children.length - 1, 1)
-        const expand = aspect == 'auto'
-
         // compute layout
-        const { ranges, aspect: aspect_ideal } = computeStackLayout(direc, children, { spacing: spacing1, expand, even })
-        aspect = aspect == 'auto' ? aspect_ideal : aspect
+        const spacing1 = spacing / maximum(children.length - 1, 1)
+        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, expand, even, aspect: aspect0 })
 
         // assign child rects
         children = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
@@ -2030,9 +2023,8 @@ class Text extends VStack {
         const { rows } = wrapWidths(words, measure, wrap)
 
         // merge strings into lines
-        const aspect = wrap == null ? 'auto' : wrap
         const lines = rows.map(r => mergeStrings(r).map(c => ensure_textspan(c, text_attr)))
-        const children = lines.map(l => new HStack({ children: l, aspect, justify, debug }))
+        const children = lines.map(l => new HStack({ children: l, aspect: wrap, justify, debug }))
 
         // pass to VStack
         super({ children, even: true, spacing: line_spacing, justify, debug, ...spec })
