@@ -2224,9 +2224,8 @@ function parse_ex(s) {
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
-        const { children, display = false, voffset: voffset0, ...attr } = args
+        const { children, display = false, voffset = D.text.voffset, ...attr } = args
         const text = check_string(children)
-        const voffset = voffset0 ?? (display ? D.text.voffset : 0)
 
         // render with mathjax (or do nothing if mathjax is not available)
         let math = '', svg_attr = {}, vshift = 0
@@ -2243,7 +2242,7 @@ class Latex extends Element {
             const valign = -parse_ex(style.get('vertical-align'))
 
             // handle vertical offset
-            const vfactor = display ? 0.55 : 0.25
+            const vfactor = display ? 0.5 : 0.25
             const vshift0 = voffset + valign + vfactor * (1 - height)
 
             /*
