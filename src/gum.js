@@ -1070,7 +1070,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
     })
 
     // handle horizontal case (invert aspect)
-    if (direc == 'h') {
+    if (direc == 'v') {
         for (const c of items) c.aspect = invert(c.aspect)
     }
 
@@ -1079,7 +1079,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
 
     // for computing return values
     const getSizes = cs => cs.map(c => c.size ?? 0)
-    const getAspect = direc == 'v' ? invert : (h => h)
+    const getAspect = direc == 'v' ? invert : (a => a)
 
     // compute ranges with spacing
     function getRanges(sizes0) {
@@ -1096,10 +1096,10 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
 
     // get target aspect from over-constrained children
     // this is generically imperfect if len(over) > 1
-    // single element case (exact): s * F_total * H * a = 1
-    // multi element case (approximate): mean(s_i * S_total * H * a_i) = 1
+    // single element case (exact): s * F_total * L = a
+    // multi element case (approximate): agg(s_i / a_i) * F_total * L = 1
     const agg = x => max(x) // fit to max aspect, otherwise will underfit
-    const H_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size * c.aspect))) : null
+    const L_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size / c.aspect))) : null
 
     // knock out (over/exactly)-budgeted case right away
     // short-circuit since this is relatively simple
@@ -1107,24 +1107,24 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
     if (S_sum >= 1 || (expo.length == 0 && flex.length == 0)) {
         const sizes = getSizes(items)
         const ranges = getRanges(sizes)
-        const aspect = getAspect(H_over)
+        const aspect = getAspect(L_over)
         return { ranges, aspect }
     }
 
-    // set height to maximally accommodate over-constrained children (or expandables)
-    // add up heights required to make expandables width 1 (h * a = 1)
-    // set height to satisfy: H_expand * (1 - S_sum) * F_total = sum(h) = sum(1 / a)
-    const H_expand = (expo.length > 0) ? sum(expo.map(c =>  1 / c.aspect)) / ((1 - S_sum) * F_total) : null
-    const H_target = (over.length > 0) ? H_over : H_expand
+    // set length to maximally accommodate over-constrained children (or expandables)
+    // add up lengths required to make expandables height 1 (w = a)
+    // set length to satisfy: L_expand * (1 - S_sum) * F_total = sum(w) = sum(a)
+    const L_expand = (expo.length > 0) ? sum(expo.map(c => c.aspect)) / ((1 - S_sum) * F_total) : null
+    const L_target = (over.length > 0) ? L_over : L_expand
 
     // allocate space to expand then flex children
-    // S_exp0 gets full height of expandables given realized H_target
+    // S_exp0 gets full length of expandables given realized L_target
     // S_exp is the same but constrained so the sums are less than 1
-    // should satisfy: s * F_total * H_target * a = 1
-    const S_exp0 = sum(expo.map(c => 1 / (c.aspect * F_total * H_target)))
+    // should satisfy: s * F_total * L_target = a
+    const S_exp0 = sum(expo.map(c => c.aspect / (F_total * L_target)))
     const S_exp = minimum(S_exp0, 1 - S_sum)
     const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
-    for (const c of expo) c.size = 1 / (c.aspect * F_total * H_target) * scale
+    for (const c of expo) c.size = c.aspect / (F_total * L_target) * scale
 
     // distribute remaining space to flex children, or expo children if no flex children
     // S_left is the remaining space after pre-allocated and expandables (may hit 0)
@@ -1139,7 +1139,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
     // compute heights and aspect
     const sizes = getSizes(items)
     const ranges = getRanges(sizes)
-    const aspect = getAspect(H_target)
+    const aspect = getAspect(L_target)
     return { ranges, aspect }
 }
 
@@ -2013,7 +2013,7 @@ function pad_object_list(items, spacing = 0.25) {
 // wrap text or elements to multiple lines with fixed line height
 class Text extends VStack {
     constructor(args = {}) {
-        const { children: children0, wrap, line_spacing = D.text.line_spacing, item_spacing = 0.25, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
+        const { children: children0, wrap = null, line_spacing = D.text.line_spacing, item_spacing = 0.25, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
@@ -2030,8 +2030,9 @@ class Text extends VStack {
         const { rows } = wrapWidths(words, measure, wrap)
 
         // merge strings into lines
+        const aspect = wrap == null ? 'auto' : wrap
         const lines = rows.map(r => mergeStrings(r).map(c => ensure_textspan(c, text_attr)))
-        const children = lines.map(l => new HStack({ children: l, debug }))
+        const children = lines.map(l => new HStack({ children: l, aspect, justify, debug }))
 
         // pass to VStack
         super({ children, even: true, spacing: line_spacing, justify, debug, ...spec })
