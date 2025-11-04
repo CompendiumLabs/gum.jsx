@@ -65,9 +65,21 @@ const fonts = Object.fromEntries(await Promise.all(
 //
 
 try {
-    await import('mathjax/es5/tex-svg.js')
+    window.MathJax = {
+        loader: {
+            load: [ 'input/tex', 'output/svg' ],
+        },
+        svg: {
+            useXlink: false,
+        },
+        tex: {
+            packages: [ 'base', 'ams', 'unicode' ],
+        }
+    }
+    const mathjax_url = new URL('mathjax/tex-mml-svg.js', import.meta.url)
+    await import(mathjax_url)
 } catch (error) {
-    // console.log(error)
+    console.log(error)
 }
 
 //

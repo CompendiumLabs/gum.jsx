@@ -2227,8 +2227,9 @@ class Latex extends Element {
         let math = '', svg_attr = {}, vshift = 0
         if (typeof MathJax !== 'undefined') {
             // render with mathjax
-            const output = MathJax.tex2svg(text, { display })
-            const svg = output.children[0]
+            const mml = MathJax.tex2mml(text)
+            const out = MathJax.mathml2svg(mml, { display })
+            const svg = out.children[0]
 
             // get size and position attributes
             const viewBox = svg.getAttribute('viewBox')
@@ -2241,21 +2242,21 @@ class Latex extends Element {
             const vfactor = display ? 0.5 : 0.25
             const vshift0 = voffset + valign + vfactor * (1 - height)
 
-            /*
-            console.log('======== LATEX ========')
-            console.log(text)
-            console.log(viewBox0)
-            console.log(width)
-            console.log(height)
-            console.log(valign)
-            console.log('======== LATEX ========')
-            */
+            // console.log('======== LATEX ========')
+            // console.log(text)
+            // console.log(viewBox)
+            // console.log(width)
+            // console.log(height)
+            // console.log(valign)
+            // console.log(svg.outerHTML)
+            // console.log('======== LATEX ========')
 
             // immediate attributes
             svg_attr = {
                 viewBox,
                 aspect: width / height,
                 preserveAspectRatio: 'none',
+                'xmlns': 'http://www.w3.org/2000/svg',
             }
 
             // compute aspect and vertical shift
