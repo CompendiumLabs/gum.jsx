@@ -2062,7 +2062,8 @@ class TextBox extends Box {
 
 class TextFrame extends TextBox {
     constructor(args = {}) {
-        super({ ...args, border: 1, rounded: D.text.rounded })
+        const { border = 1, rounded = D.text.rounded, ...attr } = args
+        super({ border, rounded, ...attr })
     }
 }
 
