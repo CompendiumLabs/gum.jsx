@@ -79,6 +79,10 @@ function squeeze(x) {
     return is_array(x) && x.length == 1 ? x[0] : x
 }
 
+function intersperse(items, spacer) {
+    return items.flatMap((item, i) => i > 0 ? [ spacer, item ] : [ item ])
+}
+
 //
 // array reducers
 //
@@ -149,4 +153,4 @@ function compress_whitespace(text) {
 // export
 //
 
-export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, all, any, add, sub, mul, div, compress_whitespace }
+export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, compress_whitespace }

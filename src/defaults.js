@@ -48,10 +48,7 @@ const DEFAULTS = {
 
     text: {
         color: 'black',
-        wrap: 20,
-        word_spacing: 0.1,
-        line_spacing: 0.1,
-        para_spacing: 0.2,
+        spacing: 0.1,
         padding: 0.1,
         rounded: 0.05,
         voffset: -0.12,
@@ -61,7 +58,6 @@ const DEFAULTS = {
         rad: 0.15,
         rounded: 0.05,
         padding: 0.1,
-        wrap: 6,
     },
 
     // plot defaults
@@ -85,12 +81,10 @@ const DEFAULTS = {
 
     slide: {
         wrap: 25,
-        border: 1,
         rounded: 0.01,
-        para_spacing: 0.2,
         border_stroke: '#bbb',
         title_size: 0.05,
-        font_weight: 'bold',
+        title_font_weight: 'bold',
     },
 }
 

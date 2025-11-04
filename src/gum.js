@@ -2,7 +2,7 @@
 
 import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
-import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, sum, prod, mean, add, sub, mul, div, compress_whitespace } from './utils.js'
+import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, compress_whitespace } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText, mergeStrings } from './text.js'
 
 //
@@ -1056,6 +1056,7 @@ class Frame extends Box {
     }
 }
 
+// TODO: better justify handling with aspect override (right now it's sort of "left" justified)
 function computeStackLayout(direc, children, { spacing = 0, expand = true, even = false, aspect: aspect0 = null }) {
     // short circuit if empty
     if (children.length == 0) return { ranges: null, aspect: null}
@@ -2006,7 +2007,7 @@ function pad_object_list(items, spacing = 0.25) {
 // wrap text or elements to multiple lines with fixed line height
 class Text extends VStack {
     constructor(args = {}) {
-        const { children: children0, wrap = null, line_spacing = D.text.line_spacing, item_spacing = 0.25, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
+        const { children: children0, wrap = null, spacing = D.text.spacing, item_spacing = 0.25, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
         const items = ensure_array(children0)
 
@@ -2027,21 +2028,23 @@ class Text extends VStack {
         const children = lines.map(l => new HStack({ children: l, aspect: wrap, justify, debug }))
 
         // pass to VStack
-        super({ children, even: true, spacing: line_spacing, justify, debug, ...spec })
+        super({ children, even: true, spacing, justify, debug, ...spec })
         this.args = args
     }
 }
 
 class TextStack extends VStack {
     constructor(args = {}) {
-        const { children: children0, spacing = D.text.para_spacing, ...attr0 } = args
-        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
+        const { children: children0, wrap = null, ...attr0 } = args
+        const [ text_attr0, attr ] = prefix_split([ 'text' ], attr0)
 
         // apply wrap to children
-        const children = children0.map(c => c.clone(text_attr))
+        const text_attr = { ...text_attr0, wrap }
+        const rows = children0.map(c => c.clone(text_attr))
+        const children = wrap != null ? intersperse(rows, new Spacer({ aspect: wrap })) : rows
 
         // pass to VStack
-        super({ children, spacing, ...attr })
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -2089,7 +2092,7 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_size is absolutely scaled
 class TextFlex extends Element {
     constructor(args = {}) {
-        const { children: children0, font_scale, font_size, line_spacing = D.text.line_spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
+        const { children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
         const children = check_string(children0)
 
         // pass to Element
@@ -2099,7 +2102,7 @@ class TextFlex extends Element {
         // additional props
         this.text = children
         this.voffset = voffset
-        this.line_spacing = line_spacing
+        this.spacing = spacing
         this.font_scale = font_scale
         this.font_size = font_size
         this.font_args = { font_family, font_weight }
@@ -2121,9 +2124,9 @@ class TextFlex extends Element {
         } else if (this.font_scale != null) {
             fs = this.font_scale * h
         } else {
-            fs = get_font_size(this.text, w, h, this.line_spacing, this.font_args)
+            fs = get_font_size(this.text, w, h, this.spacing, this.font_args)
         }
-        const lh = fs * ( 1 + this.line_spacing )
+        const lh = fs * ( 1 + this.spacing )
 
         // compute wrapped rows
         const mw = w / fs
@@ -3294,12 +3297,12 @@ class TitleFrame extends Frame {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        const { children: children0, aspect, padding = D.bool.padding, margin = D.bool.margin, border = D.slide.border, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.font_weight, wrap = D.slide.wrap, spacing = D.slide.para_spacing, justify = 'left', ...attr0 } = args
+        const { children: children0, aspect, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.title_font_weight, wrap = D.slide.wrap, spacing = 0, justify = 'left', ...attr0 } = args
         const children = ensure_array(children0)
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
         // stack up children
-        const stack = new TextStack({ children, spacing, justify, text_wrap: wrap, ...text_attr })
+        const stack = new TextStack({ children, spacing, justify, wrap, ...text_attr })
 
         // pass to TitleFrame
         super({ children: stack, aspect, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, ...attr })
