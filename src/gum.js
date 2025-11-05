@@ -455,17 +455,6 @@ function flip_rect(rect, vertical) {
     else return [ x2, y1, x1, y2 ]
 }
 
-function embed_size(size, { aspect = null, expand = false } = {}) {
-    if (aspect == null) return size
-    const [ w0, h0 ] = size
-    const [ aw, ah ] = [ abs(w0), abs(h0) ]
-    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
-    const agg = expand ? maximum : minimum
-    const h = agg(aw / aspect, ah)
-    const w = h * aspect
-    return [ sw * w, sh * h ]
-}
-
 function upright_rect(rect) {
     const [ x1, y1, x2, y2 ] = rect
     return [
@@ -622,6 +611,7 @@ function align_frac(align) {
     }
 }
 
+// get the size of an `aspect` rect that will fit in `size` after `rotate`
 function rotate_rect(size, rotate, { aspect = null, expand = false, invar = false, tol = 0.001 } = {}) {
     // knock out easy case
     if (rotate == 0 || invar) return embed_size(size, { aspect, expand })
@@ -675,6 +665,19 @@ function rotate_rect(size, rotate, { aspect = null, expand = false, invar = fals
     return [ w, h ]
 }
 
+// embed a rect of given `aspect` into rect of given `size`
+function embed_size(size, { aspect = null, expand = false } = {}) {
+    if (aspect == null) return size
+    const [ w0, h0 ] = size
+    const [ aw, ah ] = [ abs(w0), abs(h0) ]
+    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
+    const agg = expand ? maximum : minimum
+    const h = agg(aw / aspect, ah)
+    const w = h * aspect
+    return [ sw * w, sh * h ]
+}
+
+// get the aspect of a rect of given `aspect` after rotating it by `rotate` degrees
 function rotate_aspect(aspect, rotate) {
     if (aspect == null || rotate == null) return aspect
     const theta = d2r * rotate
@@ -774,7 +777,7 @@ class Context {
 
         // rotate rect inside
         const [ w, h ] = rotate_rect([ w0, h0 ], rotate, { aspect, expand, invar })
-        const transform = rotate != 0 ? `rotate(${rotate}, ${x0}, ${y0})` : null
+        const transform = (rotate != null && rotate != 0) ? `rotate(${rotate}, ${x0}, ${y0})` : null
 
         // broadcast align into [ halign, valign ] components
         const [ hafrac, vafrac ] = ensure_vector(align, 2).map(align_frac)
@@ -870,10 +873,42 @@ class Debug {
     }
 }
 
+function rotated_vertices(rect, rotate) {
+    // handle zero case first
+    if (rotate == 0) {
+        const [ x1, y1, x2, y2 ] = rect
+        return [ [ x1, y1], [ x2, y2 ] ]
+    }
+
+    // get vertices of rect
+    const [ cx, cy, rw, rh ] = rect_radial(rect)
+    const verts = [
+        [-rw, -rh], [ rw, -rh],
+        [-rw,  rh], [ rw,  rh],
+    ]
+
+    // return rotated vertices
+    const theta = d2r * rotate
+    const [ SIN, COS ] = [ sin(theta), cos(theta) ]
+    return verts.map(([ dx, dy ]) => [
+        cx + dx * COS - dy * SIN,
+        cy + dx * SIN + dy * COS,
+    ])
+}
+
 function children_rect(children) {
+    if (children.length == 0) return null
+
+    // get post-rotated vertices of children
     const ctx = new Context()
-    const rects = children.map(c => ctx.map(c.spec).prect)
-    return rects.length > 0 ? merge_rects(rects) : null
+    const verts = children.flatMap(c => {
+        const { prect } = ctx.map(c.spec)
+        const rot = c.spec.invar ? 0 : c.spec.rotate
+        return rotated_vertices(prect, rot ?? 0)
+    })
+
+    // find enclosing rect for vertices
+    return merge_points(verts)
 }
 
 class Group extends Element {
