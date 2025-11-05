@@ -764,7 +764,7 @@ class Context {
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.spec.coord } = {}) {
+    map({ rect, aspect0: aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.spec.coord } = {}) {
         // use parent coord as default rect
         rect ??= upright_rect(this.coord)
 
@@ -813,7 +813,8 @@ class Element {
         if (flex === true) this.spec.aspect = null
 
         // adjust aspect for rotation
-        if (this.spec.rotate != 0 && !this.spec.invar) this.spec.aspect = rotate_aspect(this.spec.aspect, this.spec.rotate)
+        this.spec.aspect0 = this.spec.aspect
+        this.spec.aspect = this.spec.invar ? this.spec.aspect0 : rotate_aspect(this.spec.aspect, this.spec.rotate)
 
         // warn if children are passed
         if (children != null) console.warn(`Got children in ${this.tag}`)
@@ -3107,7 +3108,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_lim = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, grid_opacity = D.plot.grid_opacity, padding, margin, border, fill, prec, aspect: aspect0, flex = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_lim = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, grid_opacity = D.plot.grid_opacity, padding, margin, border, fill, prec, aspect: aspect0, flex = false, debug, ...attr0
         } = args
         const elems = ensure_array(children0, false)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
@@ -3220,18 +3221,18 @@ class Plot extends Box {
 
         // optional axis labels
         if (xlabel != null) {
-            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', size: xlabel_size, offset: xlabel_offset, align: xlabel_align, ...xlabel_attr })
+            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', size: xlabel_size, offset: xlabel_offset, align: xlabel_align, debug, ...xlabel_attr })
             children.push(xlabel)
         }
         if (ylabel != null) {
             const ylabel_text = new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
-            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, align: ylabel_align, ...ylabel_attr })
+            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, align: ylabel_align, debug, ...ylabel_attr })
             children.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new BoxLabel({ children: title, side: 'top', size: title_size, offset: title_offset, ...title_attr })
+            title = new BoxLabel({ children: title, side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
             children.push(title)
         }
 
