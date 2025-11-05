@@ -69,11 +69,15 @@ try {
         loader: {
             load: [ 'input/tex', 'output/svg' ],
         },
+        options: {
+            enableSpeech: false,
+            enableBraille: false,
+        },
         svg: {
             useXlink: false,
         },
         tex: {
-            packages: [ 'base', 'ams', 'unicode' ],
+            packages: [ 'base', 'ams' ],
         }
     }
     const mathjax_url = new URL('mathjax/tex-mml-svg.js', import.meta.url)
