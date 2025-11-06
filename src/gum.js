@@ -705,12 +705,31 @@ function resizer(lim_in, lim_out) {
     return x => x * abs(out_len) / abs(in_len)
 }
 
+class Metadata {
+    constructor() {
+        this.uuid = 0 // next uuid
+        this.defs = [] // defs list
+    }
+
+    getUid() {
+        return `uid-${this.uuid++}`
+    }
+
+    addDef(def) {
+        this.defs.push(def)
+    }
+
+    svg() {
+        return this.defs.map(def => `<defs>${def}</defs>`).join('\n')
+    }
+}
+
 // context holds the current pixel rect and other global settings
 // map() will create a new sub-context using rect in coord space
 // map*() functions map from coord to pixel space (in prect)
 class Context {
     constructor(args = {}) {
-        const { prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec } = args
+        const { prect = D.spec.rect, coord = D.spec.coord, transform = null, prec = D.svg.prec, meta = null } = args
         this.args = args
 
         // coordinate transform
@@ -721,12 +740,15 @@ class Context {
         // top level arguments
         this.prec = prec // string precision
 
+        // percolated upwards
+        this.meta = meta ?? new Metadata() // meta data
+
         // make rescaler / resizer
         this.init_scalers()
     }
 
     clone(args) {
-        return new Context({ ...this.args, ...args })
+        return new Context({ ...this.args, meta: this.meta, ...args })
     }
 
     init_scalers() {
@@ -788,7 +810,7 @@ class Context {
 
         // return new context
         const prect = cbox_rect([ x, y, w, h ])
-        return new Context({ prect, coord, transform, prec: this.prec })
+        return new Context({ prect, coord, transform, prec: this.prec, meta: this.meta })
     }
 }
 
@@ -952,21 +974,20 @@ class Group extends Element {
 
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, filters = null, aspect = 'auto', ...attr } = args
+        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, filters = null, aspect: aspect0 = 'auto', ...attr } = args
         const children = ensure_array(children0)
+        const size = ensure_vector(size0, 2)
 
         // pass to Group
         const svg_attr = bare ? {} : { stroke: black, fill: none, font_family: D.font.family, font_weight: D.font.weight }
-        super({ tag: 'svg', children, aspect, ...svg_attr, ...attr })
+        super({ tag: 'svg', children, aspect: aspect0, ...svg_attr, ...attr })
         this.args = args
 
         // auto-detect size and aspect
-        const { aspect: aspect1 } = this.spec
-        const size = ensure_vector(size0, 2)
-        const size1 = embed_size(size, { aspect: aspect1 })
+        const size_embed = embed_size(size, { aspect: this.spec.aspect })
 
         // additional props
-        this.size = size1
+        this.size = size_embed
         this.padding = padding
         this.prec = prec
     }
@@ -983,6 +1004,12 @@ class Svg extends Group {
 
         // return attributes
         return { viewBox, xmlns: D.svg.ns, ...attr }
+    }
+
+    inner(ctx) {
+        const inner = super.inner(ctx)
+        const defs = ctx.meta.svg()
+        return `${defs}\n${inner}`
     }
 
     svg(args) {
@@ -1054,9 +1081,19 @@ function maybe_rounded_rect(rounded) {
     }
 }
 
+class ClipPath extends Group {
+    constructor(args = {}) {
+        const { children: children0, ...attr } = args
+        const children = ensure_array(children0)
+        super({ tag: 'clipPath', children, ...attr })
+        this.args = args
+    }
+}
+
+// TODO: add mask={color} option to apply color mask outside of border
 class Box extends Group {
     constructor(args = {}) {
-        let { children: children0, padding = 0, margin = 0, border = 0, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
+        let { children: children0, padding = 0, margin = 0, border = 0, mask = null, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
         const children = ensure_array(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
@@ -1075,12 +1112,27 @@ class Box extends Group {
         const { irect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
-        const rect = (border > 0 || fill != null) ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
+        const rect = (border != null || fill != null || mask != null) ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
         const inner = new Group({ children, rect: irect, debug })
 
         // pass to Group
         super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
         this.args = args
+
+        // additional props
+        this.mask = mask != null ? rect : null
+    }
+
+    props(ctx) {
+        const props = super.props(ctx)
+        let clip_path = null
+        if (this.mask != null) {
+            const id = ctx.meta.getUid()
+            const clip = new ClipPath({ children: this.mask, id })
+            ctx.meta.addDef(clip.svg(ctx))
+            clip_path = `url(#${id})`
+        }
+        return { ...props, clip_path }
     }
 }
 
@@ -1641,9 +1693,13 @@ class Path extends Element {
         this.args = args
     }
 
+    data(ctx) {
+        return this.cmds.map(c => c.data(ctx)).join(' ')
+    }
+
     props(ctx) {
         const attr = super.props(ctx)
-        const d = this.cmds.map(c => c.data(ctx)).join(' ')
+        const d = this.data(ctx)
         return { d, ...attr }
     }
 }
@@ -2341,7 +2397,7 @@ class Equation extends Latex {
 // they should compute their coordinate limits and report them in coord (for Graph)
 
 // determines actual values given combinations of limits, values, and functions
-function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, N } = {}) {
+function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
     fx = ensure_function(fx)
     fy = ensure_function(fy)
 
@@ -2388,22 +2444,6 @@ function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip = true, 
     } else if (xvals != null && yvals == null) {
         ylim ??= D.spec.lim
         yvals = linspace(...ylim, N)
-    }
-
-    // clip values
-    if (clip) {
-        if (xlim != null) {
-            const [ xmin, xmax ] = upright_limit(xlim)
-            xvals = xvals.map(x =>
-                (xmin <= x && x <= xmax) ? x : null
-            )
-        }
-        if (ylim != null) {
-            const [ ymin, ymax ] = upright_limit(ylim)
-            yvals = yvals.map(y =>
-                (ymin <= y && y <= ymax) ? y : null
-            )
-        }
     }
 
     return [ tvals, xvals, yvals ]
@@ -2458,12 +2498,12 @@ class DataPoints extends Group {
 
 class DataPath extends Polyline {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, clip, N, coord: coord0, ...attr } = args
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
         const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = datapath({
-            fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, clip, N
+            fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
         // get valid point pairs
