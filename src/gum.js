@@ -1090,10 +1090,9 @@ class ClipPath extends Group {
     }
 }
 
-// TODO: add mask={color} option to apply color mask outside of border
 class Box extends Group {
     constructor(args = {}) {
-        let { children: children0, padding = 0, margin = 0, border = 0, mask = null, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
+        let { children: children0, padding = 0, margin = 0, border = 0, mask = false, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
         const children = ensure_array(children0)
         const [border_attr, attr] = prefix_split(['border'], attr0)
 
@@ -1120,13 +1119,13 @@ class Box extends Group {
         this.args = args
 
         // additional props
-        this.mask = mask != null ? rect : null
+        this.mask = mask ? rect : null
     }
 
     props(ctx) {
         const props = super.props(ctx)
         let clip_path = null
-        if (this.mask != null) {
+        if (this.mask) {
             const id = ctx.meta.getUid()
             const clip = new ClipPath({ children: this.mask, id })
             ctx.meta.addDef(clip.svg(ctx))
