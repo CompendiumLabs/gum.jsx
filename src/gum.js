@@ -1090,6 +1090,10 @@ class ClipPath extends Group {
     }
 }
 
+function makeUID(prefix) {
+    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 class Box extends Group {
     constructor(args = {}) {
         let { children: children0, padding = 0, margin = 0, border = 0, mask = false, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
@@ -1107,31 +1111,31 @@ class Box extends Group {
         // ensure shape is a function
         shape = ensure_component(shape ?? maybe_rounded_rect(rounded))
 
+        // make possible clip path
+        const clip_id = mask ? makeUID('clip') : null
+        const clip_path = mask ? `url(#${clip_id})` : null
+
         // compute layout
         const { irect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
         const rect = (border != null || fill != null || mask != null) ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
-        const inner = new Group({ children, rect: irect, debug })
+        const inner = new Group({ children, rect: irect, clip_path, debug })
 
         // pass to Group
         super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
         this.args = args
 
         // additional props
-        this.mask = mask ? rect : null
+        this.mask = mask ? new ClipPath({ children: rect, id: clip_id }) : null
     }
 
-    props(ctx) {
-        const props = super.props(ctx)
-        let clip_path = null
-        if (this.mask) {
-            const id = ctx.meta.getUid()
-            const clip = new ClipPath({ children: this.mask, id })
-            ctx.meta.addDef(clip.svg(ctx))
-            clip_path = `url(#${id})`
+    svg(ctx) {
+        if (this.mask != null) {
+            const def = this.mask.svg(ctx)
+            ctx.meta.addDef(def)
         }
-        return { ...props, clip_path }
+        return super.svg(ctx)
     }
 }
 
