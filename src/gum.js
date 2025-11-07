@@ -150,15 +150,6 @@ function ensure_function(x) {
     }
 }
 
-// a component is a function that returns an element
-function ensure_component(f) {
-    if (is_function(f)) {
-        return (...a) => ensure_element(f(...a))
-    } else {
-        return (...a) => ensure_element(f)
-    }
-}
-
 //
 // type checks
 //
@@ -933,6 +924,7 @@ function children_rect(children) {
     return merge_points(verts)
 }
 
+// TODO: move mask to Group constructor
 class Group extends Element {
     constructor(args = {}) {
         const { children: children0, aspect: aspect0, coord: coord0, debug = false, tag = 'g', ...attr } = args
@@ -1075,9 +1067,9 @@ function computeBoxLayout(children, { padding = 0, margin = 0, aspect = null, ad
 
 function maybe_rounded_rect(rounded) {
     if (rounded == null) {
-        return (a => new Rect(a))
+        return new Rect()
     } else {
-        return (a => new RoundedRect({ rounded, ...a }))
+        return new RoundedRect({ rounded })
     }
 }
 
@@ -1098,7 +1090,7 @@ class Box extends Group {
     constructor(args = {}) {
         let { children: children0, padding = 0, margin = 0, border = 0, mask = false, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
         const children = ensure_array(children0)
-        const [border_attr, attr] = prefix_split(['border'], attr0)
+        const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
 
         // tailwind style booleans
         if (aspect === true) aspect = 1
@@ -1109,7 +1101,7 @@ class Box extends Group {
         if (fill === true) fill = gray
 
         // ensure shape is a function
-        shape = ensure_component(shape ?? maybe_rounded_rect(rounded))
+        shape ??= maybe_rounded_rect(rounded)
 
         // make possible clip path
         const clip_id = mask ? makeUID('clip') : null
@@ -1119,15 +1111,17 @@ class Box extends Group {
         const { irect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
-        const rect = (border != null || fill != null || mask != null) ? shape({ rect: brect, stroke_width: border, stroke, fill, ...border_attr }) : null
+        const rect_bg = fill != null ? shape.clone({ rect: brect, fill, ...fill_attr }) : null
+        const rect_fg = border != null ? shape.clone({ rect: brect, stroke_width: border, stroke, ...border_attr }) : null
         const inner = new Group({ children, rect: irect, clip_path, debug })
 
         // pass to Group
-        super({ children: [ rect, inner ], aspect: aspect_outer, ...attr })
+        super({ children: [ rect_bg, inner, rect_fg ], aspect: aspect_outer, ...attr })
         this.args = args
 
         // additional props
-        this.mask = mask ? new ClipPath({ children: rect, id: clip_id }) : null
+        const rect_cl = mask ? shape.clone({ rect: brect }) : null
+        this.mask = mask ? new ClipPath({ children: rect_cl, id: clip_id }) : null
     }
 
     svg(ctx) {
@@ -2464,12 +2458,18 @@ function detect_coords(xvals, yvals, xlim, ylim) {
     })
 }
 
+// a component is a function that returns an element
+function ensure_shapefunc(f) {
+    const f1 = ensure_function(f)
+    return (...a) => f1(...a)
+}
+
 class DataPoints extends Group {
     constructor(args = {}) {
         const { children: children0, fx, fy, size = D.point.size, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
         const shape = ensure_singleton(children0)
-        const fshap = ensure_component(shape ?? new Dot())
+        const fshap = ensure_shapefunc(shape ?? new Dot())
         const fsize = ensure_function(size)
         const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
 
