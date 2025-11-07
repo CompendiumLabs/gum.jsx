@@ -1124,7 +1124,7 @@ class Box extends Group {
 
         // make child elements
         const rect_cl = clip ? shape.clone({ rect: brect }) : false
-        const rect_bg = fill != null ? shape.clone({ rect: brect, fill, ...fill_attr }) : null
+        const rect_bg = fill != null ? shape.clone({ rect: brect, fill, stroke: none, ...fill_attr }) : null
         const rect_fg = border != null ? shape.clone({ rect: brect, stroke_width: border, stroke, ...border_attr }) : null
         const inner = new Group({ children, rect: irect, debug })
 
@@ -3340,30 +3340,25 @@ class BarPlot extends Plot {
 // slides
 //
 
-class TitleFrame extends Frame {
+class TitleFrame extends Box {
     constructor(args = {}) {
-        const { children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, padding = 0, margin = 0, aspect, ...attr0 } = args
+        const { children: children0, title, title_size = D.titleframe.title_size, title_fill = 'white', title_offset = 0, title_rounded = D.titleframe.title_rounded, margin, ...attr0 } = args
         const child = check_singleton(children0)
-        const [title_attr, frame_attr] = prefix_split(['title'], attr0)
+        const [ title_attr, attr ] = prefix_split(['title'], attr0)
 
         // make outer box
-        const box = new Box({ children: child, aspect, padding })
-        const subs = [ box ]
+        const box = new Frame({ children: child, ...attr })
 
         // make optional title box
+        let title_box = null
         if (title != null) {
-            const base = title_offset * title_size
-            const title_rect = radial_rect([ 0.5, base ], [ 0.5, title_size ])
-            const title_box = new TextFrame({ children: title, rect: title_rect, fill: title_fill, rounded: title_rounded, ...title_attr })
-            subs.push(title_box)
+            const title_pos = [ 0.5, title_size * title_offset ]
+            const title_rad = [ 0.5, title_size ]
+            title_box = new TextFrame({ children: title, pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
         }
 
-        // apply margin only box
-        const group_aspect = aspect ?? box.spec.aspect
-        const group = new Group({ children: subs, aspect: group_aspect })
-
-        // pass to Group
-        super({ children: group, margin, ...frame_attr })
+        // pass to Box for margin
+        super({ children: [ box, title_box ], margin })
         this.args = args
     }
 }
