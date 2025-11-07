@@ -930,11 +930,11 @@ function makeUID(prefix) {
 
 class Group extends Element {
     constructor(args = {}) {
-        const { children: children0, aspect: aspect0, coord: coord0, clip = false, debug = false, tag = 'g', ...attr } = args
+        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0 = false, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
         // handle boolean args
-        if (clip === true) clip = new Rect()
+        const clip = clip0 === true ? new Rect() : clip0
 
         // automatic aspect and coord detection
         const aspect = aspect0 == 'auto' ? rect_aspect(children_rect(children)) : aspect0
@@ -3159,12 +3159,12 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args = {}) {
-        let { children: children0, xlim, ylim, coord, aspect, padding = 0, flip = true, ...attr } = args
+        let { children: children0, xlim, ylim, coord = 'auto', aspect = 'auto', padding = 0, flip = true, ...attr } = args
         const elems = ensure_array(children0)
 
         // get default outer limits
-        coord ??= outer_limits(elems, { xlim, ylim, padding })
-        aspect ??= rect_aspect(coord)
+        coord = coord == 'auto' ? outer_limits(elems, { xlim, ylim, padding }) : coord
+        aspect = aspect == 'auto' ? rect_aspect(coord) : aspect
 
         // flip coordinate system if requested
         if (flip) coord = flip_rect(coord, true)
@@ -3187,7 +3187,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_lim = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, grid_opacity = D.plot.grid_opacity, padding, margin, border, fill, prec, aspect: aspect0, flex = false, debug, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_lim = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, grid_opacity = D.plot.grid_opacity, padding, prec, aspect: aspect0, flex = false, clip = false, debug, ...attr0
         } = args
         const elems = ensure_array(children0, false)
         aspect0 = flex ? null : (aspect0 ?? 'auto')
@@ -3195,9 +3195,9 @@ class Plot extends Box {
         // some advanced piping
         let [
             xaxis_attr, yaxis_attr, axis_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr,
-            ylabel_attr, label_attr, title_attr, border_attr, attr
+            ylabel_attr, label_attr, title_attr, attr
         ] = prefix_split([
-            'xaxis', 'yaxis', 'axis', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title', 'border'
+            'xaxis', 'yaxis', 'axis', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
         ], attr0)
         xaxis_attr = { ...axis_attr, ...xaxis_attr }
         yaxis_attr = { ...axis_attr, ...yaxis_attr }
@@ -3217,7 +3217,7 @@ class Plot extends Box {
         yanchor = yanchor ?? xmin
 
         // determine aspect and tick sizes
-        const aspect = (aspect0 == 'auto') ? rect_aspect(coord) : aspect0
+        const aspect = flex ? null : (aspect0 == 'auto' ? rect_aspect(coord) : aspect0)
         const [ xtick_size, ytick_size ] = aspect_invariant(axis_tick_size, aspect)
         const [ xtick_lim, ytick_lim ] = ensure_vector(tick_lim, 2)
         const [ xtick_label_pos, ytick_label_pos ] = ensure_vector(tick_label_pos, 2)
@@ -3226,14 +3226,6 @@ class Plot extends Box {
         const bg_elems = []
         const fg_elems = []
 
-        // fill background
-        if (border != null || fill != null) {
-            border = border === true ? 1 : border ?? 0
-            fill = fill === true ? gray : fill
-            border = new Rect({ stroke_width: border, fill, ...border_attr })
-            bg_elems.push(border)
-        }
-
         // default xaxis generation
         if (xaxis === true) {
             const tick_lim = invert_axispos(xtick_lim)
@@ -3241,7 +3233,7 @@ class Plot extends Box {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_rect = join_limits({ h: xlim, v: [ xanchor - xtick_size1, xanchor + xtick_size1 ] })
             xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, tick_lim, label_pos, ...xaxis_attr })
-            bg_elems.push(xaxis)
+            fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
         }
@@ -3253,7 +3245,7 @@ class Plot extends Box {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_rect = join_limits({ h: [ yanchor - ytick_size1, yanchor + ytick_size1 ], v: ylim })
             yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, tick_lim, label_pos, ...yaxis_attr })
-            bg_elems.push(yaxis)
+            fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
         }
@@ -3261,25 +3253,24 @@ class Plot extends Box {
         // automatic grid path
         if (grid === true || xgrid === true) {
             const locs = is_array(xgrid) ? xgrid : (xaxis != null) ? xaxis.locs : null
-            xgrid = new HMesh({ children: locs, lim: xlim, ...xgrid_attr })
+            xgrid = new HMesh({ children: locs, lim: xlim, rect: coord, ...xgrid_attr })
             bg_elems.push(xgrid)
         } else {
             xgrid = null
         }
         if (grid === true || ygrid === true) {
             const locs = is_array(ygrid) ? ygrid : (yaxis != null) ? yaxis.locs : null
-            ygrid = new VMesh({ children: locs, lim: ylim, ...ygrid_attr })
+            ygrid = new VMesh({ children: locs, lim: ylim, rect: coord, ...ygrid_attr })
             bg_elems.push(ygrid)
         } else {
             ygrid = null
         }
 
         // create graph from core elements
-        const bg_group = new Group({ children: bg_elems })
-        const fg_group = new Group({ children: fg_elems })
-        const elems1 = [ bg_group, ...elems, fg_group ].filter(z => z != null)
-        const graph = new Graph({ children: elems1, coord, aspect, flex })
-        const children = [ graph ]
+        const elems1 = [ ...bg_elems, ...elems ].filter(z => z != null)
+        const graph = new Graph({ children: elems1, coord, aspect: null, clip })
+        const fg_graph = new Graph({ children: fg_elems, coord, aspect: null })
+        const children = [ graph, fg_graph ]
 
         // sort out label size and offset
         if (xlabel != null || ylabel != null) {
@@ -3317,7 +3308,7 @@ class Plot extends Box {
 
         // pass to Box
         const inner = new Group({ children, aspect })
-        super({ children: inner, padding: margin, ...attr })
+        super({ children: inner, ...attr })
         this.args = args
     }
 }
