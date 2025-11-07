@@ -924,11 +924,17 @@ function children_rect(children) {
     return merge_points(verts)
 }
 
-// TODO: move mask to Group constructor
+function makeUID(prefix) {
+    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 class Group extends Element {
     constructor(args = {}) {
-        const { children: children0, aspect: aspect0, coord: coord0, debug = false, tag = 'g', ...attr } = args
+        const { children: children0, aspect: aspect0, coord: coord0, clip = false, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
+
+        // handle boolean args
+        if (clip === true) clip = new Rect()
 
         // automatic aspect and coord detection
         const aspect = aspect0 == 'auto' ? rect_aspect(children_rect(children)) : aspect0
@@ -941,15 +947,29 @@ class Group extends Element {
             children.push(...irects, ...orects)
         }
 
+        // make actual clip mask
+        let clip_path = null, clip_mask = null
+        if (clip != false) {
+            const clip_id = makeUID('clip')
+            clip_path = `url(#${clip_id})`
+            clip_mask = new ClipPath({ children: clip, id: clip_id })
+        }
+
         // pass to Element
-        super({ tag, unary: false, aspect, coord, ...attr })
+        super({ tag, unary: false, aspect, coord, clip_path, ...attr })
         this.args = args
 
         // additional props
         this.children = children
+        this.clip_mask = clip_mask
     }
 
     inner(ctx) {
+        if (this.clip_mask != null) {
+            const def = this.clip_mask.svg(ctx.map(this.clip_mask.spec))
+            ctx.meta.addDef(def)
+        }
+
         // empty group
         if (this.children.length == 0) return '\n'
 
@@ -961,6 +981,15 @@ class Group extends Element {
 
         // return padded
         return `\n${inside}\n`
+    }
+}
+
+class ClipPath extends Group {
+    constructor(args = {}) {
+        const { children: children0, ...attr } = args
+        const children = ensure_array(children0)
+        super({ tag: 'clipPath', children, ...attr })
+        this.args = args
     }
 }
 
@@ -1073,22 +1102,9 @@ function maybe_rounded_rect(rounded) {
     }
 }
 
-class ClipPath extends Group {
-    constructor(args = {}) {
-        const { children: children0, ...attr } = args
-        const children = ensure_array(children0)
-        super({ tag: 'clipPath', children, ...attr })
-        this.args = args
-    }
-}
-
-function makeUID(prefix) {
-    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 class Box extends Group {
     constructor(args = {}) {
-        let { children: children0, padding = 0, margin = 0, border = 0, mask = false, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
+        let { children: children0, padding = 0, margin = 0, border = 0, clip = false, aspect, adjust = true, shape, rounded, stroke, fill, debug = false, ...attr0 } = args
         const children = ensure_array(children0)
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
 
@@ -1103,33 +1119,18 @@ class Box extends Group {
         // ensure shape is a function
         shape ??= maybe_rounded_rect(rounded)
 
-        // make possible clip path
-        const clip_id = mask ? makeUID('clip') : null
-        const clip_path = mask ? `url(#${clip_id})` : null
-
         // compute layout
         const { irect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
+        const rect_cl = clip ? shape.clone({ rect: brect }) : false
         const rect_bg = fill != null ? shape.clone({ rect: brect, fill, ...fill_attr }) : null
         const rect_fg = border != null ? shape.clone({ rect: brect, stroke_width: border, stroke, ...border_attr }) : null
-        const inner = new Group({ children, rect: irect, clip_path, debug })
+        const inner = new Group({ children, rect: irect, debug })
 
         // pass to Group
-        super({ children: [ rect_bg, inner, rect_fg ], aspect: aspect_outer, ...attr })
+        super({ children: [ rect_bg, inner, rect_fg ], aspect: aspect_outer, clip: rect_cl, ...attr })
         this.args = args
-
-        // additional props
-        const rect_cl = mask ? shape.clone({ rect: brect }) : null
-        this.mask = mask ? new ClipPath({ children: rect_cl, id: clip_id }) : null
-    }
-
-    svg(ctx) {
-        if (this.mask != null) {
-            const def = this.mask.svg(ctx)
-            ctx.meta.addDef(def)
-        }
-        return super.svg(ctx)
     }
 }
 
