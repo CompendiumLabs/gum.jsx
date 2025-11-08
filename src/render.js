@@ -14,16 +14,21 @@ if (typeof window == 'undefined') {
 // render svg to png
 function renderSvg(svg, { size = 500, fonts = null }) {
     const fontsArgs = (typeof window == 'undefined') ? {
+        loadSystemFonts: false,
         fontFiles: fonts ?? [
+            './fonts/IBMPlexSans-Thin.ttf',
             './fonts/IBMPlexSans-Regular.ttf',
             './fonts/IBMPlexMono-Regular.ttf',
-        ]
+        ],
+        defaultFontFamily: 'IBM Plex Sans',
+        sansFamily: 'IBM Plex Sans',
+        monoFamily: 'IBM Plex Mono',
     } : {
         fontBuffers: fonts
     }
 
     const resvgjs = new resvg.Resvg(svg, {
-        background: '#ffffff',
+        background: 'rgba(255, 255, 255, 1)',
         fitTo: {
             mode: 'width',
             width: size,

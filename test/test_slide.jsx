@@ -1,10 +1,8 @@
-<TitleFrame margin padding rounded={0.02} stroke="#aaa" title="Basic Shapes" title-fill={black} title-text-color={white}>
-  <VStack spacing>
-    <TextBox wrap-width={20}>Here we have a basic square dude going on. Then adding more text makes it wrap.</TextBox>
-    <HStack stack-size={1/3} stack-expand={false} spacing={0.2}>
-      <Square rounded fill={blue} />
-      <Circle fill={red} />
-    </HStack>
-    <TextBox wrap-width={20}>Here we have the circle being displayed. Now the text is wrapping over to the next line, and what's this its getting even large. When will the system break down?</TextBox>
-  </VStack>
-</TitleFrame>
+<Slide title="The Art of the Sine Wave">
+  <Text>Here's a plot of a sine wave below. It has to be the right size to fit in with the figure correctly.</Text>
+  <Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} fill="#f6f6f6" grid margin={[0.25, 0.05]}>
+    <DataPath fy={sin} stroke={blue} stroke-width={2} />
+    <DataPoints fy={sin} N={10} size={0.06} fill={white} />
+  </Plot>
+  <Text>It ranges from low to high and has some extra vertical space to allow us to see the full curve.</Text>
+</Slide>

@@ -23,7 +23,8 @@ let canvas = null
 if (typeof window == 'undefined') {
     const { createCanvas, registerFont } = await import('canvas')
     registerFont('./src/fonts/IBMPlexSans-Thin.ttf', { family: 'IBM Plex Sans' })
-    registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: 'IBM Plex Mono' })
+    registerFont('./src/fonts/IBMPlexMono-Regular.ttf', { family: 'IBM Plex Mono' })
+    registerFont('./src/fonts/IBMPlexSans-Regular.ttf', { family: 'IBM Plex Sans', weight: 'bold' })
     const [ width, height ] = [ D.svg.size, D.svg.size ]
     canvas = createCanvas(width, height)
 } else {
@@ -40,7 +41,7 @@ try {
         return canvasTextSizer(ctx, text1, args)
     }
 } catch (error) {
-    console.log(error)
+    // console.log(error)
 }
 
 //
@@ -83,7 +84,7 @@ try {
     const mathjax_url = new URL('mathjax/tex-mml-svg.js', import.meta.url)
     await import( /* @vite-ignore */ mathjax_url)
 } catch (error) {
-    console.log(error)
+    // console.log(error)
 }
 
 //

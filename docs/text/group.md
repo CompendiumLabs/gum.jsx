@@ -10,3 +10,4 @@ Parameters:
 - `children` = `[]` — a list of child elements
 - `aspect` = `null` — the aspect ratio of the group's rectangle (can pass `'auto'` to infer from the children)
 - `coord` = `[0, 0, 1, 1]` — the internal coordinate space to use for child elements (can pass `'auto'` to contain children's rects)
+- `clip` = `false` — clip children to the group's rectangle if `true` (or a custom shape if specified)
