@@ -993,14 +993,21 @@ class ClipPath extends Group {
     }
 }
 
+const SVG_ATTR = {
+    stroke: black,
+    fill: none,
+    font_family: D.font.family,
+    font_weight: D.font.weight,
+}
+
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, filters = null, aspect: aspect0 = 'auto', ...attr } = args
+        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, dims = false, filters = null, aspect: aspect0 = 'auto', ...attr } = args
         const children = ensure_array(children0)
         const size = ensure_vector(size0, 2)
 
         // pass to Group
-        const svg_attr = bare ? {} : { stroke: black, fill: none, font_family: D.font.family, font_weight: D.font.weight }
+        const svg_attr = bare ? {} : SVG_ATTR
         super({ tag: 'svg', children, aspect: aspect0, ...svg_attr, ...attr })
         this.args = args
 
@@ -1011,11 +1018,12 @@ class Svg extends Group {
         this.size = size_embed
         this.padding = padding
         this.prec = prec
+        this.dims = dims
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const { padding } = this
+        const { padding, size } = this
         const { prect, prec } = ctx
 
         // construct viewBox with padding
@@ -1023,8 +1031,12 @@ class Svg extends Group {
         const [ x, y, w, h ] = rect_box(vbox)
         const viewBox = `${rounder(x, prec)} ${rounder(y, prec)} ${rounder(w, prec)} ${rounder(h, prec)}`
 
+        // add dimensions if requested
+        const [ width, height ] = size
+        const dims = this.dims ? { width, height } : {}
+
         // return attributes
-        return { viewBox, xmlns: D.svg.ns, ...attr }
+        return { viewBox, xmlns: D.svg.ns, ...dims, ...attr }
     }
 
     inner(ctx) {
@@ -2880,13 +2892,13 @@ class HBars extends Bars {
 // plotting elements
 //
 
-function ensure_tick(tick, prec = 2) {
+function ensure_tick(tick, attr = {}, prec = 2) {
     if (is_element(tick)) return tick
     const [ pos, str ] = is_scalar(tick) ? [ tick, tick ] : tick
     if (is_element(str)) {
         return str.clone({ tick_pos: pos })
     } else {
-        return new TextSpan({ children: rounder(str, prec), tick_pos: pos })
+        return new TextSpan({ children: rounder(str, prec), tick_pos: pos, ...attr })
     }
 }
 
@@ -2933,12 +2945,13 @@ class HScale extends Scale {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args = {}) {
-        const { children: children0, direc = 'h', align = 'center', prec = 2, ...attr } = args
+        const { children: children0, direc = 'h', align = 'center', prec = 2, ...attr0 } = args
         const items = ensure_array(children0)
+        const [ spec, attr ] = spec_split(attr0)
 
         // place tick boxes using expanded lines
         const children = items.map(c0 => {
-            const c = ensure_tick(c0, prec)
+            const c = ensure_tick(c0, attr, prec)
             const { tick_pos } = c.attr
             const rect = join_limits({ [direc]: [tick_pos, tick_pos] })
             if (direc == 'v') {
@@ -2949,7 +2962,7 @@ class Labels extends Group {
         })
 
         // pass to Group
-        super({ children, ...attr })
+        super({ children, ...spec })
         this.args = args
     }
 }
@@ -3014,7 +3027,7 @@ function invert_axispos(label_pos) {
 class Axis extends Group {
     constructor(args = {}) {
         let { children, lim = D.spec.lim, direc, ticks, tick_pos = 'inner', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
-        const [label_attr, tick_attr, line_attr, attr] = prefix_split(['label', 'tick', 'line'], attr0)
+        const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
 
         // get tick and label limits
@@ -3031,14 +3044,14 @@ class Axis extends Group {
         // extract tick information
         if (ticks != null) {
             ticks = is_scalar(ticks) ? linspace(...lim, ticks) : ticks
-            children = ticks.map(t => ensure_tick(t, prec))
+            children = ticks.map(t => ensure_tick(t, label_attr, prec))
         }
         const locs = children.map(c => c.attr.tick_pos)
 
         // accumulate children
         const cline = new UnitLine({ direc, ...line_attr })
         const scale = new Scale({ children: locs, direc, rect: scale_rect, coord, ...tick_attr })
-        const label = new Labels({ children, direc, align: label_align, rect: label_rect, coord, ...label_attr })
+        const label = new Labels({ children, direc, align: label_align, rect: label_rect, coord })
 
         // pass to Group
         super({ children: [ cline, scale, label ], ...attr })

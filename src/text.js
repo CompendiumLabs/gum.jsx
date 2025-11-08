@@ -1,90 +1,28 @@
 // font shaping
 
 import LineBreaker from 'linebreak'
-import opentype from 'opentype.js'
+
 import { DEFAULTS as D } from './defaults.js'
 import { is_string, compress_whitespace } from './utils.js'
+import { makeCanvas } from './deps.js'
 
 //
 // canvas text sizer
 //
 
-// canvas text sizer
-function canvasTextSizer(ctx, text, {
-    font_family = D.font.family_sans, font_weight = D.font.weight, calc_size = D.font.calc_size
-} = {}) {
-    ctx.font = `${font_weight} ${calc_size}px ${font_family}`
-    const { width } = ctx.measureText(text)
-    return width / calc_size
-}
-
-// get a canvas (browser or node)
-let canvas = null
-if (typeof window == 'undefined') {
-    const { createCanvas, registerFont } = await import('canvas')
-    registerFont('./src/fonts/IBMPlexSans-Thin.ttf', { family: 'IBM Plex Sans' })
-    registerFont('./src/fonts/IBMPlexMono-Regular.ttf', { family: 'IBM Plex Mono' })
-    registerFont('./src/fonts/IBMPlexSans-Regular.ttf', { family: 'IBM Plex Sans', weight: 'bold' })
-    const [ width, height ] = [ D.svg.size, D.svg.size ]
-    canvas = createCanvas(width, height)
-} else {
-    canvas = document.createElement('canvas')
-}
+// we can reuse these
+const canvas = makeCanvas()
+const ctx = canvas.getContext('2d')
 
 // size text with canvas available
-let textSizer = null
-try {
-    const ctx = canvas.getContext('2d')
-    textSizer = function(text, args) {
-        if (text == '\n') return null
-        const text1 = compress_whitespace(text)
-        return canvasTextSizer(ctx, text1, args)
-    }
-} catch (error) {
-    // console.log(error)
-}
-
-//
-// opentype renderer
-//
-
-const font_files = {
-    sans: 'IBMPlexSans-Thin.ttf',
-    mono: 'IBMPlexMono-Thin.ttf',
-}
-
-// load font data
-const fonts = Object.fromEntries(await Promise.all(
-    Object.entries(font_files).map( async ([ name, file ]) => {
-        const url = new URL(`./fonts/${file}`, import.meta.url)
-        return [ name, await opentype.load(url) ]
-    })
-))
-
-//
-// mathjax renderer
-//
-
-try {
-    window.MathJax = {
-        loader: {
-            load: [ 'input/tex', 'output/svg' ],
-        },
-        options: {
-            enableSpeech: false,
-            enableBraille: false,
-        },
-        svg: {
-            useXlink: false,
-        },
-        tex: {
-            packages: [ 'base', 'ams' ],
-        }
-    }
-    const mathjax_url = new URL('mathjax/tex-mml-svg.js', import.meta.url)
-    await import( /* @vite-ignore */ mathjax_url)
-} catch (error) {
-    // console.log(error)
+function textSizer(text, {
+    font_family = D.font.family_sans, font_weight = D.font.weight, calc_size = D.font.calc_size
+} = {}) {
+    if (text == '\n') return null
+    const text1 = compress_whitespace(text)
+    ctx.font = `${font_weight} ${calc_size}px ${font_family}`
+    const { width } = ctx.measureText(text1)
+    return width / calc_size
 }
 
 //
@@ -182,14 +120,7 @@ function mergeStrings(items) {
 }
 
 //
-// glyph expansion
+// exports
 //
 
-function getGlyphPath(font, glyph, pos, size) {
-    const data = fonts[font]
-    const [ x, y ] = pos
-    const path = data.getPath(glyph, x, y, size)
-    return path.toSVG()
-}
-
-export { textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings, getGlyphPath }
+export { textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }

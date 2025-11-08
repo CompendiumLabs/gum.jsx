@@ -2,7 +2,7 @@
 
 import { program } from 'commander'
 import { evaluateGum } from './eval.js'
-import { renderSvg } from './render.js'
+import { renderSvg } from './deps.js'
 
 // wait for stdin
 function waitForStdin() {
@@ -29,13 +29,13 @@ if (code.length == 0) {
 }
 
 // evaluate gum with size
-const elem = evaluateGum(code, { size: size0 })
+const elem = evaluateGum(code, { size: size0, dims: true })
 const svg = elem.svg()
 const { size } = elem
 
 // output svg or png
 if (type == 'png') {
-  const png = renderSvg(svg, { size })
+  const png = await renderSvg(svg, { size })
   process.stdout.write(png)
 } else if (type == 'svg') {
   process.stdout.write(svg)

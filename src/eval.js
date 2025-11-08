@@ -106,7 +106,7 @@ class ErrorReturn extends Error {
   }
 }
 
-function evaluateGum(code, { size = 500, debug = false } = {}) {
+function evaluateGum(code, { size = [500, 500], dims = false, debug = false, ...args } = {}) {
   if (code.trim() == '') {
     throw new ErrorNoCode()
   }
@@ -125,13 +125,7 @@ function evaluateGum(code, { size = 500, debug = false } = {}) {
 
   // wrap it in Svg if not already
   if (!(element instanceof Svg)) {
-    let args = { size }
-    if (!is_scalar(size)) {
-      const [ width, height ] = size
-      args.width = width
-      args.height = height
-    }
-    element = new Svg({ children: element, debug, ...args })
+    element = new Svg({ children: element, size, dims, debug, ...args })
   }
 
   // return element

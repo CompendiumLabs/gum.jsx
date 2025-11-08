@@ -2,22 +2,13 @@
 // rendering
 //
 
-// for server side rendering
-let resvg = null
-if (typeof window == 'undefined') {
-    resvg = await import('@resvg/resvg-js')
-} else {
-    resvg = window.resvg
-    await resvg.initWasm(fetch('https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm'))
-}
+import { resvg } from './deps.js'
 
-// render svg to png
-function renderSvg(svg, { size = 500, fonts = null }) {
+function resvgRender(svg, { size = 500, fonts = null }) {
     const fontsArgs = (typeof window == 'undefined') ? {
         loadSystemFonts: false,
         fontFiles: fonts ?? [
-            './fonts/IBMPlexSans-Thin.ttf',
-            './fonts/IBMPlexSans-Regular.ttf',
+            './fonts/IBMPlexSans-Variable.ttf',
             './fonts/IBMPlexMono-Regular.ttf',
         ],
         defaultFontFamily: 'IBM Plex Sans',
@@ -33,14 +24,15 @@ function renderSvg(svg, { size = 500, fonts = null }) {
             mode: 'width',
             width: size,
         },
-        font: {
-            loadSystemFonts: false,
-            ...fontsArgs,
-        },
+        font: fontsArgs,
     })
 
     const data = resvgjs.render()
     return data.asPng()
 }
 
-export { renderSvg }
+//
+// exports
+//
+
+export { resvgRender }
