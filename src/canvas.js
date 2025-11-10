@@ -6,8 +6,9 @@ const CANVAS_SIZE = [ 500, 500 ]
 
 class BaseCanvas {
     async init() {
-        this.canvas = this.makeCanvas()
-        this.ctx = this.canvas.getContext('2d')
+        const { canvas, ctx } = this.makeCanvas()
+        this.canvas = canvas
+        this.ctx = ctx
     }
 
     makeCanvas(size = CANVAS_SIZE) {
@@ -36,12 +37,13 @@ class NodeCanvas extends BaseCanvas {
 
     makeCanvas(size = CANVAS_SIZE) {
         const [ width, height ] = size
-        return this.lib.createCanvas(width, height)
+        const canvas = this.lib.createCanvas(width, height)
+        const ctx = canvas.getContext('2d')
+        return { canvas, ctx }
     }
 
     async renderPng(svg, { size = CANVAS_SIZE } = {}) {
-        const canvas = this.makeCanvas(size)
-        const ctx = canvas.getContext('2d')
+        const { canvas, ctx } = this.makeCanvas(size)
         const data = Buffer.from(svg).toString('base64')
         const url = `data:image/svg+xml;base64,${data}`
         const img = await this.lib.loadImage(url)
@@ -51,20 +53,24 @@ class NodeCanvas extends BaseCanvas {
 }
 
 class BrowserCanvas extends BaseCanvas {
-    makeCanvas(size = CANVAS_SIZE) {
+    makeCanvas(size = CANVAS_SIZE, { dpr: dpr0 = null } = {}) {
+        const dpr = dpr0 ?? window.devicePixelRatio ?? 1
         const canvas = document.createElement('canvas')
         const [ width, height ] = size
-        canvas.width = width
-        canvas.height = height
-        return canvas
+        canvas.width = Math.round(width * dpr)
+        canvas.height = Math.round(height * dpr)
+        canvas.style.width = `${Math.round(width)}px`
+        canvas.style.height = `${Math.round(height)}px`
+        const ctx = canvas.getContext('2d')
+        ctx.scale(dpr, dpr)
+        return { canvas, ctx }
     }
 
     async renderPng(svg, { size = CANVAS_SIZE } = {}) {
         return new Promise((resolve, reject) => {
             // make canvas and context
-            const canvas = this.makeCanvas(size)
-            const ctx = canvas.getContext('2d')
-            const [ width, height ] = size
+            const { canvas, ctx } = this.makeCanvas(size)
+            const { canvas: exportCanvas, ctx: exportCtx } = this.makeCanvas(size, { dpr: 1 })
 
             // create blob and url
             const blob = new Blob([ svg ], { type: 'image/svg+xml' })
@@ -73,8 +79,10 @@ class BrowserCanvas extends BaseCanvas {
             // set up image and draw svg
             const img = new Image()
             img.onload = () => {
+                const [ width, height ] = size
                 ctx.drawImage(img, 0, 0, width, height)
-                canvas.toBlob((blob) => {
+                exportCtx.drawImage(canvas, 0, 0, width, height)
+                exportCanvas.toBlob((blob) => {
                     if (blob) {
                         URL.revokeObjectURL(url)
                         resolve(blob)

@@ -994,6 +994,19 @@ class ClipPath extends Group {
     }
 }
 
+class Style extends Element {
+    constructor(args = {}) {
+        const { children: children0 } = args
+        const text = check_string(children0)
+        super({ tag: 'style', unary: false })
+        this.text = text
+    }
+
+    inner(ctx) {
+        return this.text
+    }
+}
+
 const SVG_ATTR = {
     xmlns: D.svg.ns,
     stroke: black,
@@ -1004,7 +1017,7 @@ const SVG_ATTR = {
 
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, ...attr } = args
+        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, ...attr } = args
         const children = ensure_array(children0)
         const size_base = ensure_vector(size0, 2)
 
@@ -1015,6 +1028,9 @@ class Svg extends Group {
         // compute outer viewBox
         const viewrect0 = view0 ?? [ 0, 0, width, height ]
         const viewrect = expand_rect(viewrect0, padding)
+
+        // make style element
+        const style_elem = style != null ? new Style({ children: style }) : null
 
         // construct svg attributes
         const svg_attr = bare ? {} : SVG_ATTR
@@ -1027,6 +1043,7 @@ class Svg extends Group {
         // additional props
         this.size = [ width, height ]
         this.viewrect = viewrect
+        this.style = style_elem
         this.prec = prec
     }
 
@@ -1046,7 +1063,8 @@ class Svg extends Group {
     inner(ctx) {
         const inner = super.inner(ctx)
         const defs = ctx.meta.svg()
-        return `${defs}\n${inner}`
+        const style = this.style != null ? this.style.svg(ctx) : ''
+        return `${defs}\n${style}\n${inner}`
     }
 
     svg(args) {
