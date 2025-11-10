@@ -2,7 +2,7 @@
 
 import { program } from 'commander'
 import { evaluateGum } from './eval.js'
-import { renderPng } from './deps.js'
+import { canvas } from './canvas.js'
 
 // wait for stdin
 function waitForStdin() {
@@ -35,7 +35,7 @@ const { size } = elem
 
 // output svg or png
 if (type == 'png') {
-  const png = await renderPng(svg, { size })
+  const png = await canvas.renderPng(svg, { size })
   process.stdout.write(png)
 } else if (type == 'svg') {
   process.stdout.write(svg)

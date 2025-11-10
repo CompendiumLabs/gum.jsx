@@ -29,8 +29,8 @@ class BaseCanvas {
 class NodeCanvas extends BaseCanvas {
     async init() {
         this.lib = await import('canvas')
-        registerFont('./src/fonts/IBMPlexSans-Variable.ttf', { family: 'IBM Plex Sans' })
-        registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: 'IBM Plex Mono' })
+        this.lib.registerFont('./src/fonts/IBMPlexSans-Variable.ttf', { family: 'IBM Plex Sans' })
+        this.lib.registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: 'IBM Plex Mono' })
         await super.init()
     }
 
@@ -42,13 +42,51 @@ class NodeCanvas extends BaseCanvas {
     }
 
     async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
+        const [ width, height ] = size
+
+        // make canvas and context
         const { canvas, ctx } = this.makeCanvas(size)
-        const data = Buffer.from(svg).toString('base64')
-        const url = `data:image/svg+xml;base64,${data}`
-        const img = await this.lib.loadImage(url)
+
+        // load svg image
+        const img = await new Promise((resolve, reject) => {
+            const img = new this.lib.Image()
+            img.onload = () => resolve(img)
+            img.onerror = err => { throw err }
+            img.src = Buffer.from(svg)
+        })
+
+        // fill background
+        ctx.fillStyle = background
+        ctx.fillRect(0, 0, width, height)
+
+        // draw svg and return buffer
         ctx.drawImage(img, 0, 0)
-        return canvas.toBuffer('image/png')
+        const data = canvas.toBuffer('image/png')
+
+        // return png data
+        return data
     }
+}
+
+function loadImage(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => resolve(img)
+        img.onerror = () => reject(new Error('Failed to load image'))
+        img.src = url
+    })
+}
+
+function canvasToBlob(canvas) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob)
+            } else {
+                reject(new Error('Failed to convert canvas to blob'))
+            }
+        })
+    })
 }
 
 class BrowserCanvas extends BaseCanvas {
@@ -72,35 +110,31 @@ class BrowserCanvas extends BaseCanvas {
     }
 
     async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
-        return new Promise((resolve, reject) => {
-            // make canvas and context
-            const { canvas, ctx } = this.makeCanvas(size)
-            const { canvas: exportCanvas, ctx: exportCtx } = this.makeCanvas(size, { dpr: 1 })
+        const [ width, height ] = size
 
-            // create blob and url
-            const blob = new Blob([ svg ], { type: 'image/svg+xml' })
-            const url = URL.createObjectURL(blob)
+        // make canvas and context
+        const { canvas, ctx } = this.makeCanvas(size)
+        const { canvas: exportCanvas, ctx: exportCtx } = this.makeCanvas(size, { dpr: 1 })
 
-            // set up image and draw svg
-            const img = new Image()
-            img.onload = () => {
-                const [ width, height ] = size
-                ctx.fillStyle = background
-                ctx.fillRect(0, 0, width, height)
-                ctx.drawImage(img, 0, 0, width, height)
-                exportCtx.drawImage(canvas, 0, 0, width, height)
-                exportCanvas.toBlob((blob) => {
-                    if (blob) {
-                        URL.revokeObjectURL(url)
-                        resolve(blob)
-                    } else {
-                        const error = new Error('Failed to convert canvas to blob')
-                        reject(error)
-                    }
-                })
-            }
-            img.src = url
-        })
+        // load svg image
+        const svgBlob = new Blob([ svg ], { type: 'image/svg+xml' })
+        const svgUrl = URL.createObjectURL(svgBlob)
+        const svgImg = await loadImage(svgUrl)
+
+        // fill background
+        ctx.fillStyle = background
+        ctx.fillRect(0, 0, width, height)
+
+        // draw svg and export canvas
+        ctx.drawImage(svgImg, 0, 0, width, height)
+        exportCtx.drawImage(canvas, 0, 0, width, height)
+
+        // convert export canvas to blob
+        const pngBlob = await canvasToBlob(exportCanvas)
+        URL.revokeObjectURL(svgUrl)
+
+        // return png blob
+        return pngBlob
     }
 }
 
