@@ -84,7 +84,7 @@ const DEFAULTS = {
         rounded: 0.01,
         border_stroke: '#bbb',
         title_size: 0.05,
-        title_font_weight: 'bold',
+        title_font_weight: 300,
     },
 }
 

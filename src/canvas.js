@@ -15,7 +15,7 @@ class BaseCanvas {
         throw new Error('makeCanvas not implemented')
     }
 
-    async renderPng(svg, { size = CANVAS_SIZE } = {}) {
+    async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
         throw new Error('renderSvg not implemented')
     }
 
@@ -29,9 +29,8 @@ class BaseCanvas {
 class NodeCanvas extends BaseCanvas {
     async init() {
         this.lib = await import('canvas')
-        registerFont('./src/fonts/IBMPlexSans-Thin.ttf', { family: 'IBM Plex Sans' })
-        registerFont('./src/fonts/IBMPlexMono-Regular.ttf', { family: 'IBM Plex Mono' })
-        registerFont('./src/fonts/IBMPlexSans-Regular.ttf', { family: 'IBM Plex Sans', weight: 'bold' })
+        registerFont('./src/fonts/IBMPlexSans-Variable.ttf', { family: 'IBM Plex Sans' })
+        registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: 'IBM Plex Mono' })
         await super.init()
     }
 
@@ -42,7 +41,7 @@ class NodeCanvas extends BaseCanvas {
         return { canvas, ctx }
     }
 
-    async renderPng(svg, { size = CANVAS_SIZE } = {}) {
+    async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
         const { canvas, ctx } = this.makeCanvas(size)
         const data = Buffer.from(svg).toString('base64')
         const url = `data:image/svg+xml;base64,${data}`
@@ -55,18 +54,24 @@ class NodeCanvas extends BaseCanvas {
 class BrowserCanvas extends BaseCanvas {
     makeCanvas(size = CANVAS_SIZE, { dpr: dpr0 = null } = {}) {
         const dpr = dpr0 ?? window.devicePixelRatio ?? 1
-        const canvas = document.createElement('canvas')
         const [ width, height ] = size
+
+        // make canvas and ensize
+        const canvas = document.createElement('canvas')
         canvas.width = Math.round(width * dpr)
         canvas.height = Math.round(height * dpr)
         canvas.style.width = `${Math.round(width)}px`
         canvas.style.height = `${Math.round(height)}px`
+
+        // make context and scale
         const ctx = canvas.getContext('2d')
         ctx.scale(dpr, dpr)
+
+        // return canvas and context
         return { canvas, ctx }
     }
 
-    async renderPng(svg, { size = CANVAS_SIZE } = {}) {
+    async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
         return new Promise((resolve, reject) => {
             // make canvas and context
             const { canvas, ctx } = this.makeCanvas(size)
@@ -80,6 +85,8 @@ class BrowserCanvas extends BaseCanvas {
             const img = new Image()
             img.onload = () => {
                 const [ width, height ] = size
+                ctx.fillStyle = background
+                ctx.fillRect(0, 0, width, height)
                 ctx.drawImage(img, 0, 0, width, height)
                 exportCtx.drawImage(canvas, 0, 0, width, height)
                 exportCanvas.toBlob((blob) => {
