@@ -16,6 +16,7 @@
   "exports": {
     ".": "./src/gum.js",
     "./eval": "./src/eval.js",
+    "./canvas": "./src/canvas.js",
     "./docs/*": "./src/docs/*",
     "./fonts/*": "./src/fonts/*"
   },

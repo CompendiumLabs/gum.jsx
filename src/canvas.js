@@ -14,7 +14,7 @@ class BaseCanvas {
         throw new Error('makeCanvas not implemented')
     }
 
-    async renderSvg(svg, { size = 500 }) {
+    async renderPng(svg, { size = CANVAS_SIZE } = {}) {
         throw new Error('renderSvg not implemented')
     }
 
@@ -39,7 +39,7 @@ class NodeCanvas extends BaseCanvas {
         return this.lib.createCanvas(width, height)
     }
 
-    async renderSvg(svg, { size = 500 }) {
+    async renderPng(svg, { size = CANVAS_SIZE } = {}) {
         const canvas = this.makeCanvas(size)
         const ctx = canvas.getContext('2d')
         const data = Buffer.from(svg).toString('base64')
@@ -53,18 +53,40 @@ class NodeCanvas extends BaseCanvas {
 class BrowserCanvas extends BaseCanvas {
     makeCanvas(size = CANVAS_SIZE) {
         const canvas = document.createElement('canvas')
-        canvas.width = size[0]
-        canvas.height = size[1]
+        const [ width, height ] = size
+        canvas.width = width
+        canvas.height = height
         return canvas
     }
 
-    async renderSvg(svg, { size = 500 }) {
-        const canvas = this.makeCanvas(size)
-        const ctx = canvas.getContext('2d')
-        const img = new Image()
-        img.src = svg
-        ctx.drawImage(img, 0, 0)
-        return canvas.toBuffer('image/png')
+    async renderPng(svg, { size = CANVAS_SIZE } = {}) {
+        console.log('rendering png', svg.length, size)
+        return new Promise((resolve, reject) => {
+            // make canvas and context
+            const canvas = this.makeCanvas(size)
+            const ctx = canvas.getContext('2d')
+            const [ width, height ] = size
+
+            // create blob and url
+            const blob = new Blob([ svg ], { type: 'image/svg+xml' })
+            const url = URL.createObjectURL(blob)
+
+            // set up image and draw svg
+            const img = new Image()
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, width, height)
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        URL.revokeObjectURL(url)
+                        resolve(blob)
+                    } else {
+                        const error = new Error('Failed to convert canvas to blob')
+                        reject(error)
+                    }
+                })
+            }
+            img.src = url
+        })
     }
 }
 
