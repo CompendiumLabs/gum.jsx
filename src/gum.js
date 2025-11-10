@@ -995,6 +995,7 @@ class ClipPath extends Group {
 }
 
 const SVG_ATTR = {
+    xmlns: D.svg.ns,
     stroke: black,
     fill: none,
     font_family: D.font.family,
@@ -1003,41 +1004,43 @@ const SVG_ATTR = {
 
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, dims = false, filters = null, aspect: aspect0 = 'auto', ...attr } = args
+        const { children: children0, size : size0 = D.svg.size, prec = D.svg.prec, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, ...attr } = args
         const children = ensure_array(children0)
-        const size = ensure_vector(size0, 2)
+        const size_base = ensure_vector(size0, 2)
+
+        // precompute aspect info
+        const aspect = aspect0 == 'auto' ? rect_aspect(children_rect(children)) : aspect0
+        const [ width, height ] = embed_size(size_base, { aspect })
+
+        // compute outer viewBox
+        const viewrect0 = view0 ?? [ 0, 0, width, height ]
+        const viewrect = expand_rect(viewrect0, padding)
+
+        // construct svg attributes
+        const svg_attr = bare ? {} : SVG_ATTR
+        const dims_attr = dims ? { width, height } : {}
 
         // pass to Group
-        const svg_attr = bare ? {} : SVG_ATTR
-        super({ tag: 'svg', children, aspect: aspect0, ...svg_attr, ...attr })
+        super({ tag: 'svg', children, aspect, ...svg_attr, ...dims_attr, ...attr })
         this.args = args
 
-        // auto-detect size and aspect
-        const size_embed = embed_size(size, { aspect: this.spec.aspect })
-
         // additional props
-        this.size = size_embed
-        this.padding = padding
+        this.size = [ width, height ]
+        this.viewrect = viewrect
         this.prec = prec
-        this.dims = dims
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const { padding, size } = this
-        const { prect, prec } = ctx
+        const { viewrect } = this
+        const { prec } = ctx
 
-        // construct viewBox with padding
-        const vbox = expand_rect(prect, padding)
-        const [ x, y, w, h ] = rect_box(vbox)
+        // construct viewBox
+        const [ x, y, w, h ] = rect_box(viewrect)
         const viewBox = `${rounder(x, prec)} ${rounder(y, prec)} ${rounder(w, prec)} ${rounder(h, prec)}`
 
-        // add dimensions if requested
-        const [ width, height ] = size
-        const dims = this.dims ? { width, height } : {}
-
         // return attributes
-        return { viewBox, xmlns: D.svg.ns, ...dims, ...attr }
+        return { viewBox, ...attr }
     }
 
     inner(ctx) {

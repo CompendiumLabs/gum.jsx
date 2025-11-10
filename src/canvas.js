@@ -60,7 +60,6 @@ class BrowserCanvas extends BaseCanvas {
     }
 
     async renderPng(svg, { size = CANVAS_SIZE } = {}) {
-        console.log('rendering png', svg.length, size)
         return new Promise((resolve, reject) => {
             // make canvas and context
             const canvas = this.makeCanvas(size)
