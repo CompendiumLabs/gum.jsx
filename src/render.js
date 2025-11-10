@@ -2,7 +2,14 @@
 // rendering
 //
 
-import { resvg } from './deps.js'
+// for server side rendering
+let resvg = null
+if (typeof window == 'undefined') {
+    resvg = await import('@resvg/resvg-js')
+} else {
+    // resvg = window.resvg
+    // await resvg.initWasm(fetch('https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm'))
+}
 
 function resvgRender(svg, { size = 500, fonts = null }) {
     const fontsArgs = (typeof window == 'undefined') ? {

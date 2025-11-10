@@ -4,6 +4,7 @@ import { DEFAULTS as D } from './defaults.js'
 import { emoji_table } from './emoji.js'
 import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, compress_whitespace } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText, mergeStrings } from './text.js'
+import './math.js'
 
 //
 // array ops

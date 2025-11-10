@@ -4,15 +4,11 @@ import LineBreaker from 'linebreak'
 
 import { DEFAULTS as D } from './defaults.js'
 import { is_string, compress_whitespace } from './utils.js'
-import { makeCanvas } from './deps.js'
+import { canvas } from './canvas.js'
 
 //
 // canvas text sizer
 //
-
-// we can reuse these
-const canvas = makeCanvas()
-const ctx = canvas.getContext('2d')
 
 // size text with canvas available
 function textSizer(text, {
@@ -20,8 +16,8 @@ function textSizer(text, {
 } = {}) {
     if (text == '\n') return null
     const text1 = compress_whitespace(text)
-    ctx.font = `${font_weight} ${calc_size}px ${font_family}`
-    const { width } = ctx.measureText(text1)
+    const font = `${font_weight} ${calc_size}px ${font_family}`
+    const width = canvas.textSizer(text1, font)
     return width / calc_size
 }
 
