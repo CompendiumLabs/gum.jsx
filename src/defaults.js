@@ -71,6 +71,7 @@ const DEFAULTS = {
         title_size: 0.1,
         title_offset: 0.05,
         grid_opacity: 0.2,
+        margin: 0.2,
     },
 
     // titleframe size

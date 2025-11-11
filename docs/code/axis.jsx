@@ -2,5 +2,5 @@
 const emoji = ['A', 'B', 'C', 'D', 'E']
 const ticks = zip(linspace(0, 1, emoji.length), emoji)
 return <Box margin={0.6}>
-  <HAxis ticks={ticks} aspect={15} />
+  <HAxis ticks={ticks} aspect={15} tick-pos="outer" />
 </Box>

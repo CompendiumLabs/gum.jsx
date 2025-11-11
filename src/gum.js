@@ -505,17 +505,17 @@ function prefix_split(pres, attr) {
     return [ ...out, attr1 ]
 }
 
+function prefix_join(pre, attr) {
+    return Object.fromEntries(
+        Object.entries(attr).map(([ k, v ]) => [ `${pre}_${k}`, v ])
+    )
+}
+
 function spec_split(attr, extended = true) {
     const SPLIT_KEYS = extended ? RESERVED_KEYS : SPEC_KEYS
     const spec  = filter_object(attr, (k, v) => v != null &&  SPLIT_KEYS.includes(k))
     const attr1 = filter_object(attr, (k, v) => v != null && !SPLIT_KEYS.includes(k))
     return [ spec, attr1 ]
-}
-
-function prefix_add(pre, attr) {
-    return Object.fromEntries(
-        Object.entries(attr).map(([ k, v ]) => [ `${pre}_${k}`, v ])
-    )
 }
 
 //
@@ -2933,18 +2933,19 @@ function invert_direc(direc) {
 
 class Scale extends Group {
     constructor(args = {}) {
-        const { children: children0, direc = 'h', span = D.spec.lim, ...attr } = args
+        const { children: children0, direc = 'h', span = D.spec.lim, ...attr0 } = args
+        const [ spec, attr ] = spec_split(attr0)
         const locs = ensure_array(children0)
         const tick_dir = invert_direc(direc)
 
         // make tick lines
         const children = locs.map(t => {
             const rect = join_limits({ [direc]: [t, t], [tick_dir]: span })
-            return new UnitLine({ direc: tick_dir, rect, expand: true })
+            return new UnitLine({ direc: tick_dir, rect, expand: true, ...attr })
         })
 
         // set coordinate system
-        super({ children, ...attr })
+        super({ children, ...spec })
         this.args = args
     }
 }
@@ -3049,13 +3050,13 @@ function invert_axispos(label_pos) {
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        let { children, lim = D.spec.lim, direc, ticks, tick_pos = 'inner', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
+        const { children, lim = D.spec.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
 
         // get tick and label limits
-        const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'left' : 'right') : 'center'
-        const label_base = (label_pos == 'outer') ? 1 + tick_label_offset : -tick_label_offset - tick_label_size
+        const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'right' : 'left') : 'center'
+        const label_base = (label_pos == 'inner') ? 1 + tick_label_offset : -tick_label_offset - tick_label_size
         const label_lim = [ label_base, label_base + tick_label_size ]
 
         // set up one-sides coordinate system
@@ -3065,16 +3066,14 @@ class Axis extends Group {
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        if (ticks != null) {
-            ticks = is_scalar(ticks) ? linspace(...lim, ticks) : ticks
-            children = ticks.map(t => ensure_tick(t, label_attr, prec))
-        }
-        const locs = children.map(c => c.attr.tick_pos)
+        const ticks = is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0
+        const labels = children ?? ticks.map(t => ensure_tick(t, label_attr, prec))
+        const locs = labels.map(c => c.attr.tick_pos)
 
         // accumulate children
         const cline = new UnitLine({ direc, ...line_attr })
         const scale = new Scale({ children: locs, direc, rect: scale_rect, coord, ...tick_attr })
-        const label = new Labels({ children, direc, align: label_align, rect: label_rect, coord })
+        const label = new Labels({ children: labels, direc, align: label_align, rect: label_rect, coord })
 
         // pass to Group
         super({ children: [ cline, scale, label ], ...attr })
@@ -3223,22 +3222,25 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size, label_offset, label_align, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xlabel_align, ylabel_align, tick_lim = 'inner', tick_label_pos = 'outer', axis_tick_size = D.plot.tick_size, grid_opacity = D.plot.grid_opacity, padding, prec, aspect: aspect0, flex = false, clip = false, debug, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, grid_opacity = D.plot.grid_opacity, padding, margin: margin0, aspect: aspect0, flex = false, clip = false, prec, debug, ...attr0
         } = args
         const elems = ensure_array(children0, false)
-        aspect0 = flex ? null : (aspect0 ?? 'auto')
+        const margin = margin0 == true ? D.plot.margin : margin0
 
         // some advanced piping
         let [
-            xaxis_attr, yaxis_attr, axis_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr,
+            xaxis_attr, yaxis_attr, axis_attr, xtick_attr, ytick_attr, tick_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr,
             ylabel_attr, label_attr, title_attr, attr
         ] = prefix_split([
-            'xaxis', 'yaxis', 'axis', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
+            'xaxis', 'yaxis', 'axis', 'xtick', 'ytick', 'tick', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
         ], attr0)
-        xaxis_attr = { ...axis_attr, ...xaxis_attr }
-        yaxis_attr = { ...axis_attr, ...yaxis_attr }
-        xgrid_attr = { opacity: grid_opacity, ...grid_attr, ...xgrid_attr }
-        ygrid_attr = { opacity: grid_opacity, ...grid_attr, ...ygrid_attr }
+        xtick_attr = { ...xtick_attr, ...tick_attr }
+        ytick_attr = { ...ytick_attr, ...tick_attr }
+        xaxis_attr = { ...axis_attr, ...xaxis_attr, ...prefix_join('tick', xtick_attr) }
+        yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr) }
+        grid_attr = { opacity: grid_opacity, ...grid_attr }
+        xgrid_attr = { ...grid_attr, ...xgrid_attr }
+        ygrid_attr = { ...grid_attr, ...ygrid_attr }
         xlabel_attr = { ...label_attr, ...xlabel_attr }
         ylabel_attr = { ...label_attr, ...ylabel_attr }
 
@@ -3254,9 +3256,7 @@ class Plot extends Box {
 
         // determine aspect and tick sizes
         const aspect = flex ? null : (aspect0 == 'auto' ? rect_aspect(coord) : aspect0)
-        const [ xtick_size, ytick_size ] = aspect_invariant(axis_tick_size, aspect)
-        const [ xtick_lim, ytick_lim ] = ensure_vector(tick_lim, 2)
-        const [ xtick_label_pos, ytick_label_pos ] = ensure_vector(tick_label_pos, 2)
+        const [ xtick_size, ytick_size ] = aspect_invariant(tick_size, aspect)
 
         // collect axis elements
         const bg_elems = []
@@ -3264,11 +3264,9 @@ class Plot extends Box {
 
         // default xaxis generation
         if (xaxis === true) {
-            const tick_lim = invert_axispos(xtick_lim)
-            const label_pos = invert_axispos(xtick_label_pos)
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_rect = join_limits({ h: xlim, v: [ xanchor - xtick_size1, xanchor + xtick_size1 ] })
-            xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, tick_lim, label_pos, ...xaxis_attr })
+            xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
@@ -3276,11 +3274,9 @@ class Plot extends Box {
 
         // default yaxis generation
         if (yaxis === true) {
-            const tick_lim = invert_axispos(ytick_lim)
-            const label_pos = invert_axispos(ytick_label_pos)
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_rect = join_limits({ h: [ yanchor - ytick_size1, yanchor + ytick_size1 ], v: ylim })
-            yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, tick_lim, label_pos, ...yaxis_attr })
+            yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
@@ -3310,29 +3306,23 @@ class Plot extends Box {
 
         // sort out label size and offset
         if (xlabel != null || ylabel != null) {
-            label_size = label_size ?? D.plot.label_size
             const [ xlabelsize, ylabelsize ] = aspect_invariant(label_size, aspect)
-            xlabel_size = xlabel_size ?? xlabelsize
-            ylabel_size = ylabel_size ?? ylabelsize
+            xlabel_size ??= xlabelsize
+            ylabel_size ??= ylabelsize
 
-            label_offset = label_offset ?? D.plot.label_offset
             const [ xlabeloffset, ylabeloffset ] = aspect_invariant(label_offset, aspect)
-            xlabel_offset = xlabel_offset ?? xlabeloffset
-            ylabel_offset = ylabel_offset ?? ylabeloffset
-
-            label_align = label_align ?? 'center'
-            xlabel_align = xlabel_align ?? label_align
-            ylabel_align = ylabel_align ?? label_align
+            xlabel_offset ??= xlabeloffset
+            ylabel_offset ??= ylabeloffset
         }
 
         // optional axis labels
         if (xlabel != null) {
-            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', size: xlabel_size, offset: xlabel_offset, align: xlabel_align, debug, ...xlabel_attr })
+            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', size: xlabel_size, offset: xlabel_offset, debug, ...xlabel_attr })
             children.push(xlabel)
         }
         if (ylabel != null) {
             const ylabel_text = new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
-            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, align: ylabel_align, debug, ...ylabel_attr })
+            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
             children.push(ylabel)
         }
 
@@ -3344,7 +3334,7 @@ class Plot extends Box {
 
         // pass to Box
         const inner = new Group({ children, aspect })
-        super({ children: inner, ...attr })
+        super({ children: inner, margin, ...attr })
         this.args = args
     }
 }

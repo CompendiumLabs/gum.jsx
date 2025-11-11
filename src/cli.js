@@ -16,7 +16,7 @@ function waitForStdin() {
 
 // get options from commander
 program
-  .option('-s, --size <size>', 'size of the image', (value) => parseInt(value), 500)
+  .option('-s, --size <size>', 'size of the image', (value) => parseInt(value), 1000)
   .option('-t, --type <type>', 'type of the image', 'png')
   .option('-b, --background <color>', 'background color', null)
   .parse()
