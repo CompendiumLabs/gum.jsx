@@ -18,8 +18,9 @@ function waitForStdin() {
 program
   .option('-s, --size <size>', 'size of the image', (value) => parseInt(value), 500)
   .option('-t, --type <type>', 'type of the image', 'png')
+  .option('-b, --background <color>', 'background color', null)
   .parse()
-const { size: size0, type } = program.opts()
+const { size: size0, type, background } = program.opts()
 
 // wait for stdin
 const code = await waitForStdin()
@@ -35,7 +36,7 @@ const { size } = elem
 
 // output svg or png
 if (type == 'png') {
-  const png = await canvas.renderPng(svg, { size })
+  const png = await canvas.renderPng(svg, { size, background })
   process.stdout.write(png)
 } else if (type == 'svg') {
   process.stdout.write(svg)

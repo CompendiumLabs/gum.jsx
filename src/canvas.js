@@ -15,7 +15,7 @@ class BaseCanvas {
         throw new Error('makeCanvas not implemented')
     }
 
-    async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
+    async renderPng(svg, { size = CANVAS_SIZE, background = null } = {}) {
         throw new Error('renderSvg not implemented')
     }
 
@@ -41,7 +41,7 @@ class NodeCanvas extends BaseCanvas {
         return { canvas, ctx }
     }
 
-    async renderPng(svg, { size = CANVAS_SIZE, background = 'white' } = {}) {
+    async renderPng(svg, { size = CANVAS_SIZE, background = null } = {}) {
         const [ width, height ] = size
 
         // make canvas and context
@@ -56,8 +56,10 @@ class NodeCanvas extends BaseCanvas {
         })
 
         // fill background
-        ctx.fillStyle = background
-        ctx.fillRect(0, 0, width, height)
+        if (background != null) {
+            ctx.fillStyle = background
+            ctx.fillRect(0, 0, width, height)
+        }
 
         // draw svg and return buffer
         ctx.drawImage(img, 0, 0)
@@ -122,8 +124,10 @@ class BrowserCanvas extends BaseCanvas {
         const svgImg = await loadImage(svgUrl)
 
         // fill background
-        ctx.fillStyle = background
-        ctx.fillRect(0, 0, width, height)
+        if (background != null) {
+            ctx.fillStyle = background
+            ctx.fillRect(0, 0, width, height)
+        }
 
         // draw svg and export canvas
         ctx.drawImage(svgImg, 0, 0, width, height)
