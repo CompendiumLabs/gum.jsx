@@ -494,13 +494,15 @@ function prefix_split(pres, attr) {
     const pres1 = pres.map(p => `${p}_`)
     const out = pres.map(p => ({}))
     Object.keys(attr).map(k => {
-        pres1.forEach((p1, i) => {
+        for (const i in pres1) {
+            const p1 = pres1[i]
             if (k.startsWith(p1)) {
                 const k1 = k.slice(p1.length)
                 out[i][k1] = attr1[k]
                 delete attr1[k]
+                break
             }
-        })
+        }
     })
     return [ ...out, attr1 ]
 }
@@ -3102,11 +3104,11 @@ class VAxis extends Axis {
 
 class BoxLabel extends Attach {
     constructor(args = {}) {
-        const { children: children0, ...attr0 } = args
+        const { children: children0, size, offset, side, ...attr0 } = args
         const text = check_singleton(children0)
-        const [text_attr, attr] = prefix_split(['text'], attr0)
-        const label = is_element(text) ? text : new TextSpan({ children: text, ...text_attr })
-        super({ children: label, ...attr })
+        const [ spec, attr ] = spec_split(attr0)
+        const label = is_element(text) ? text : new TextSpan({ children: text, ...attr })
+        super({ children: label, side, size, offset, ...spec })
         this.args = args
     }
 }
@@ -3222,41 +3224,54 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, grid_opacity = D.plot.grid_opacity, padding, margin: margin0, aspect: aspect0, flex = false, clip = false, prec, debug, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, grid_opacity = D.plot.grid_opacity, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin: margin0 = 0, aspect: aspect0, flex = false, clip = false, debug = false, ...attr0
         } = args
         const elems = ensure_array(children0, false)
-        const margin = margin0 == true ? D.plot.margin : margin0
+        const margin = margin0 === true ? D.plot.margin : margin0
 
-        // some advanced piping
-        let [
-            xaxis_attr, yaxis_attr, axis_attr, xtick_attr, ytick_attr, tick_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr,
-            ylabel_attr, label_attr, title_attr, attr
-        ] = prefix_split([
-            'xaxis', 'yaxis', 'axis', 'xtick', 'ytick', 'tick', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
-        ], attr0)
-        xtick_attr = { ...xtick_attr, ...tick_attr }
-        ytick_attr = { ...ytick_attr, ...tick_attr }
-        xaxis_attr = { ...axis_attr, ...xaxis_attr, ...prefix_join('tick', xtick_attr) }
-        yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr) }
-        grid_attr = { opacity: grid_opacity, ...grid_attr }
-        xgrid_attr = { ...grid_attr, ...xgrid_attr }
-        ygrid_attr = { ...grid_attr, ...ygrid_attr }
-        xlabel_attr = { ...label_attr, ...xlabel_attr }
-        ylabel_attr = { ...label_attr, ...ylabel_attr }
-
-        // determine coordinate system
+        // determine coordinate system and aspect
         const coord = outer_limits(elems, { xlim, ylim, padding })
         const [ xmin, ymin, xmax, ymax ] = coord
         xlim = [ xmin, xmax ]
         ylim = [ ymin, ymax ]
 
-        // default anchor points
-        xanchor = xanchor ?? ymin
-        yanchor = yanchor ?? xmin
-
-        // determine aspect and tick sizes
+        // determine aspect and tick/size/offset
         const aspect = flex ? null : (aspect0 == 'auto' ? rect_aspect(coord) : aspect0)
-        const [ xtick_size, ytick_size ] = aspect_invariant(tick_size, aspect)
+        const [ xtick_size0, ytick_size0 ] = aspect_invariant(tick_size, aspect)
+        const [ xlabel_size0, ylabel_size0 ] = aspect_invariant(label_size, aspect)
+        const [ xlabel_offset0, ylabel_offset0 ] = aspect_invariant(label_offset, aspect)
+
+        // default anchor points
+        xanchor ??= ymin
+        yanchor ??= xmin
+
+        // set aspect aware default values
+        xtick_size ??= xtick_size0
+        ytick_size ??= ytick_size0
+        xlabel_size ??= xlabel_size0
+        ylabel_size ??= ylabel_size0
+        xlabel_offset ??= xlabel_offset0
+        ylabel_offset ??= ylabel_offset0
+
+        // some advanced piping
+        let [
+            xaxis_attr, yaxis_attr, axis_attr, xtick_label_attr, xtick_attr, ytick_label_attr, ytick_attr, tick_label_attr, tick_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr,
+            ylabel_attr, label_attr, title_attr, attr
+        ] = prefix_split([
+            'xaxis', 'yaxis', 'axis', 'xtick_label', 'xtick', 'ytick_label', 'ytick', 'tick_label', 'tick', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
+        ], attr0)
+        xtick_attr = { ...xtick_attr, ...tick_attr }
+        ytick_attr = { ...ytick_attr, ...tick_attr }
+        xtick_label_attr = { ...xtick_label_attr, ...tick_label_attr }
+        ytick_label_attr = { ...ytick_label_attr, ...tick_label_attr }
+        xaxis_attr = { ...axis_attr, ...xaxis_attr, ...prefix_join('tick', xtick_attr), ...prefix_join('label', xtick_label_attr) }
+        yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr), ...prefix_join('label', ytick_label_attr) }
+        grid_attr = { opacity: grid_opacity, ...grid_attr }
+        xgrid_attr = { ...grid_attr, ...xgrid_attr }
+        ygrid_attr = { ...grid_attr, ...ygrid_attr }
+        xlabel_attr = { size: xlabel_size, offset: xlabel_offset, ...label_attr, ...xlabel_attr }
+        ylabel_attr = { size: ylabel_size, offset: ylabel_offset, ...label_attr, ...ylabel_attr }
+        title_attr = { size: title_size, offset: title_offset, ...title_attr }
 
         // collect axis elements
         const bg_elems = []
@@ -3282,7 +3297,7 @@ class Plot extends Box {
             yaxis = null
         }
 
-        // automatic grid path
+        // automatic xgrid generation
         if (grid === true || xgrid === true) {
             const locs = is_array(xgrid) ? xgrid : (xaxis != null) ? xaxis.locs : null
             xgrid = new HMesh({ children: locs, lim: xlim, rect: coord, ...xgrid_attr })
@@ -3290,6 +3305,8 @@ class Plot extends Box {
         } else {
             xgrid = null
         }
+
+        // automatic ygrid generation
         if (grid === true || ygrid === true) {
             const locs = is_array(ygrid) ? ygrid : (yaxis != null) ? yaxis.locs : null
             ygrid = new VMesh({ children: locs, lim: ylim, rect: coord, ...ygrid_attr })
@@ -3304,31 +3321,22 @@ class Plot extends Box {
         const fg_graph = new Graph({ children: fg_elems, coord, aspect: null })
         const children = [ graph, fg_graph ]
 
-        // sort out label size and offset
-        if (xlabel != null || ylabel != null) {
-            const [ xlabelsize, ylabelsize ] = aspect_invariant(label_size, aspect)
-            xlabel_size ??= xlabelsize
-            ylabel_size ??= ylabelsize
-
-            const [ xlabeloffset, ylabeloffset ] = aspect_invariant(label_offset, aspect)
-            xlabel_offset ??= xlabeloffset
-            ylabel_offset ??= ylabeloffset
-        }
-
-        // optional axis labels
+        // optional xaxis label
         if (xlabel != null) {
-            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', size: xlabel_size, offset: xlabel_offset, debug, ...xlabel_attr })
+            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', debug, ...xlabel_attr })
             children.push(xlabel)
         }
+
+        // optional yaxis label
         if (ylabel != null) {
             const ylabel_text = new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
-            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
+            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', debug, ...ylabel_attr })
             children.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new BoxLabel({ children: title, side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
+            title = new BoxLabel({ children: title, side: 'top', debug, ...title_attr })
             children.push(title)
         }
 
