@@ -2513,7 +2513,13 @@ function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
         yvals = linspace(...ylim, N)
     }
 
-    return [ tvals, xvals, yvals ]
+    // filter out nan values
+    const data = zip(tvals, xvals, yvals).filter(
+        ([t, x, y]) => !isNaN(t) && !isNaN(x) && !isNaN(y)
+    )
+
+    // return dataset
+    return zip(...data)
 }
 
 // a component is a function that returns an element
@@ -3325,7 +3331,8 @@ class Plot extends Box {
         }
 
         // pass to Box
-        super({ children, margin, aspect, ...attr })
+        const inner = new Group({ children, aspect })
+        super({ children: inner, margin, ...attr })
         this.args = args
     }
 }
