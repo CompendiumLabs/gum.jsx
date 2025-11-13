@@ -2935,9 +2935,8 @@ function invert_direc(direc) {
 
 class Scale extends Group {
     constructor(args = {}) {
-        const { children: children0, direc = 'h', span = D.spec.lim, ...attr0 } = args
+        const { children: children0, locs, direc = 'h', span = D.spec.lim, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0)
-        const locs = ensure_array(children0)
         const tick_dir = invert_direc(direc)
 
         // make tick lines
@@ -3075,7 +3074,7 @@ class Axis extends Group {
 
         // accumulate children
         const cline = new UnitLine({ direc, ...line_attr })
-        const scale = new Scale({ children: locs, direc, rect: scale_rect, coord, ...tick_attr })
+        const scale = new Scale({ locs, direc, rect: scale_rect, coord, ...tick_attr })
         const label = new Labels({ children: labels, direc, align: label_align, rect: label_rect, coord })
 
         // pass to Group
@@ -3116,10 +3115,10 @@ class BoxLabel extends Attach {
 
 class Mesh extends Scale {
     constructor(args = {}) {
-        const { children: children0, direc = 'h', lim = D.spec.lim, span = D.spec.lim, N = 10, ...attr } = args
-        const children = children0 ?? linspace(...lim, N)
+        const { children: children0, locs: locs0 = 10, direc = 'h', lim = D.spec.lim, span = D.spec.lim, ...attr } = args
+        const locs = is_scalar(locs0) ? linspace(...lim, locs0) : locs0
         const coord = join_limits({ [direc]: lim })
-        super({ children, direc, coord, span, ...attr })
+        super({ locs, direc, coord, span, ...attr })
         this.args = args
     }
 }
@@ -3300,7 +3299,7 @@ class Plot extends Box {
         // automatic xgrid generation
         if (grid === true || xgrid === true) {
             const locs = is_array(xgrid) ? xgrid : (xaxis != null) ? xaxis.locs : null
-            xgrid = new HMesh({ children: locs, lim: xlim, rect: coord, ...xgrid_attr })
+            xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
             bg_elems.push(xgrid)
         } else {
             xgrid = null
@@ -3309,7 +3308,7 @@ class Plot extends Box {
         // automatic ygrid generation
         if (grid === true || ygrid === true) {
             const locs = is_array(ygrid) ? ygrid : (yaxis != null) ? yaxis.locs : null
-            ygrid = new VMesh({ children: locs, lim: ylim, rect: coord, ...ygrid_attr })
+            ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
             bg_elems.push(ygrid)
         } else {
             ygrid = null
