@@ -65,7 +65,7 @@ const DEFAULTS = {
         num_ticks: 5,
         tick_size: 0.015,
         tick_label_size: 1.5,
-        tick_label_offset: 0.5,
+        tick_label_offset: 1.0,
         label_size: 0.05,
         label_offset: [ 0.11, 0.18 ],
         title_size: 0.1,

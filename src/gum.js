@@ -3052,14 +3052,15 @@ function invert_axispos(label_pos) {
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        const { children, lim = D.spec.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', tick_size = D.plot.tick_size, tick_label_size = D.plot.tick_label_size, tick_label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
+        const { children, lim = D.spec.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = D.plot.tick_label_size, label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
+        const [ tick_lo, tick_hi ] = tick_lim
 
         // get tick and label limits
         const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'right' : 'left') : 'center'
-        const label_base = (label_pos == 'inner') ? 1 + tick_label_offset : -tick_label_offset - tick_label_size
-        const label_lim = [ label_base, label_base + tick_label_size ]
+        const label_base = (label_pos == 'inner') ? (tick_hi + label_offset) : (tick_lo - label_offset - label_size)
+        const label_lim = [ label_base, label_base + label_size ]
 
         // set up one-sides coordinate system
         const idirec = invert_direc(direc)
@@ -3255,8 +3256,7 @@ class Plot extends Box {
 
         // some advanced piping
         let [
-            xaxis_attr, yaxis_attr, axis_attr, xtick_label_attr, xtick_attr, ytick_label_attr, ytick_attr, tick_label_attr, tick_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr,
-            ylabel_attr, label_attr, title_attr, attr
+            xaxis_attr, yaxis_attr, axis_attr, xtick_label_attr, xtick_attr, ytick_label_attr, ytick_attr, tick_label_attr, tick_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr, ylabel_attr, label_attr, title_attr, attr
         ] = prefix_split([
             'xaxis', 'yaxis', 'axis', 'xtick_label', 'xtick', 'ytick_label', 'ytick', 'tick_label', 'tick', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
         ], attr0)
