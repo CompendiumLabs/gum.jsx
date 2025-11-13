@@ -481,13 +481,49 @@ function aspect_invariant(value, aspect, alpha = 0.5) {
 }
 
 //
+// limit utils
+//
+
+function join_limits({ v, h } = {}) {
+    const [ vlo, vhi ] = v ?? D.spec.lim
+    const [ hlo, hhi ] = h ?? D.spec.lim
+    return [ hlo, vlo, hhi, vhi ]
+}
+
+
+function split_limits(coord) {
+    if (coord == null) return {}
+    const [ xlo, ylo, xhi, yhi ] = coord
+    return { xlim: [ xlo, xhi ], ylim: [ ylo, yhi ] }
+}
+
+
+function resolve_limits(xlim, ylim, coord) {
+    const { xlim: xlim0, ylim: ylim0 } = split_limits(coord)
+    return { xlim: xlim ?? xlim0, ylim: ylim ?? ylim0 }
+}
+
+function detect_coords(xvals, yvals, xlim, ylim) {
+    return join_limits({
+        h: xlim ?? merge_values(xvals),
+        v: ylim ?? merge_values(yvals),
+    })
+}
+
+function invert_direc(direc) {
+    return direc == 'v' ? 'h' :
+           direc == 'h' ? 'v' :
+           direc
+}
+
+//
 // attributes
 //
 
 // reserved keys
 const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
-const STACK_KEYS = [ 'stack_size', 'stack_expand' ]
-const RESERVED_KEYS = [ ...SPEC_KEYS, ...STACK_KEYS ]
+const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
+const RESERVED_KEYS = [ ...SPEC_KEYS, ...OTHER_KEYS ]
 
 function prefix_split(pres, attr) {
     const attr1 = { ...attr }
@@ -1180,7 +1216,7 @@ class Frame extends Box {
 }
 
 // TODO: better justify handling with aspect override (right now it's sort of "left" justified)
-function computeStackLayout(direc, children, { spacing = 0, expand = true, even = false, aspect: aspect0 = null }) {
+function computeStackLayout(direc, children, { spacing = 0, even = false, aspect: aspect0 = null }) {
     // short circuit if empty
     if (children.length == 0) return { ranges: null, aspect: null}
 
@@ -1188,7 +1224,7 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
     // adjust for direction (invert aspect if horizontal)
     const items = children.map(c => {
         const size = c.attr.stack_size ?? (even ? 1 / children.length : null)
-        const expd = c.attr.stack_expand ?? expand
+        const expd = c.attr.stack_expand ?? true
         const aspect = expd ? c.spec.aspect : null
         return { size, aspect }
     })
@@ -1268,13 +1304,13 @@ function computeStackLayout(direc, children, { spacing = 0, expand = true, even 
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 class Stack extends Group {
     constructor(args = {}) {
-        let { children, direc, spacing = 0, justify = 'center', aspect: aspect0, expand = true, even = false, ...attr } = args
+        let { children, direc, spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = args
         children = ensure_array(children)
         spacing = spacing === true ? D.bool.spacing : spacing
 
         // compute layout
         const spacing1 = spacing / maximum(children.length - 1, 1)
-        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, expand, even, aspect: aspect0 })
+        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, even, aspect: aspect0 })
 
         // assign child rects
         children = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
@@ -2106,11 +2142,7 @@ class TextSpan extends Element {
 }
 
 function ensure_textspan(c, args) {
-    if (is_string(c)) {
-        return new TextSpan({ children: c, ...args })
-    } else {
-        return c
-    }
+    return is_element(c) ? c : new TextSpan({ children: c, ...args })
 }
 
 function pad_object_list(items, spacing = 0.25) {
@@ -2484,18 +2516,6 @@ function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
     return [ tvals, xvals, yvals ]
 }
 
-function resolve_limits(xlim, ylim, coord) {
-    const [ xlim0, ylim0 ] = coord != null ? split_limits(coord) : [ null, null ]
-    return [ xlim ?? xlim0, ylim ?? ylim0 ]
-}
-
-function detect_coords(xvals, yvals, xlim, ylim) {
-    return join_limits({
-        h: xlim ?? merge_values(xvals),
-        v: ylim ?? merge_values(yvals),
-    })
-}
-
 // a component is a function that returns an element
 function ensure_shapefunc(f) {
     const f1 = ensure_function(f)
@@ -2509,7 +2529,7 @@ class DataPoints extends Group {
         const shape = ensure_singleton(children0)
         const fshap = ensure_shapefunc(shape ?? new Dot())
         const fsize = ensure_function(size)
-        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = datapath({
@@ -2540,7 +2560,7 @@ class DataPoints extends Group {
 class DataPath extends Polyline {
     constructor(args = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = datapath({
@@ -2564,7 +2584,7 @@ class DataPath extends Polyline {
 class DataPoly extends Polygon {
     constructor(args = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = datapath({
@@ -2588,7 +2608,7 @@ class DataPoly extends Polygon {
 class DataFill extends Polygon {
     constructor(args = {}) {
         const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = datapath({
@@ -2615,7 +2635,7 @@ class DataFill extends Polygon {
 class DataField extends DataPoints {
     constructor(args = {}) {
         const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, coord: coord0, ...attr } = args
-        const [ xlim, ylim ] = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
         const shape = ensure_singleton(children0) ?? (direc => new Arrow({ direc, tail: 1 }))
         const size = size0 ?? 0.25 / N
 
@@ -2917,20 +2937,10 @@ class HBars extends Bars {
 // plotting elements
 //
 
-function ensure_tick(tick, attr = {}, prec = 2) {
-    if (is_element(tick)) return tick
-    const [ pos, str ] = is_scalar(tick) ? [ tick, tick ] : tick
-    if (is_element(str)) {
-        return str.clone({ tick_pos: pos })
-    } else {
-        return new TextSpan({ children: rounder(str, prec), tick_pos: pos, ...attr })
-    }
-}
-
-function invert_direc(direc) {
-    return direc == 'v' ? 'h' :
-           direc == 'h' ? 'v' :
-           direc
+function ensure_label(label, attr = {}, prec = 2) {
+    if (is_element(label)) return label.clone(attr)
+    const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
+    return new TextSpan({ children: rounder(str, prec), loc, ...attr })
 }
 
 class Scale extends Group {
@@ -2976,9 +2986,9 @@ class Labels extends Group {
 
         // place tick boxes using expanded lines
         const children = items.map(c0 => {
-            const c = ensure_tick(c0, attr, prec)
-            const { tick_pos } = c.attr
-            const rect = join_limits({ [direc]: [tick_pos, tick_pos] })
+            const c = ensure_label(c0, attr, prec)
+            const { loc } = c.attr
+            const rect = join_limits({ [direc]: [ loc, loc ] })
             if (direc == 'v') {
                 return new Anchor({ children: c, rect, expand: true, aspect: 1, side: align })
             } else {
@@ -3008,17 +3018,6 @@ class VLabels extends Labels {
     }
 }
 
-function join_limits({ v, h } = {}) {
-    const [ vlo, vhi ] = v ?? D.spec.lim
-    const [ hlo, hhi ] = h ?? D.spec.lim
-    return [ hlo, vlo, hhi, vhi ]
-}
-
-function split_limits(coord) {
-    const [ xlo, ylo, xhi, yhi ] = coord
-    return [ [ xlo, xhi ], [ ylo, yhi ] ]
-}
-
 function get_tick_lim(lim) {
     if (lim == 'inner') {
         return [0.5, 1]
@@ -3033,25 +3032,11 @@ function get_tick_lim(lim) {
     }
 }
 
-function invert_axispos(label_pos) {
-    if (label_pos == 'outer') {
-        return 'inner'
-    } else if (label_pos == 'inner') {
-        return 'outer'
-    } else if (label_pos == 'both') {
-        return 'both'
-    } else if (label_pos == 'none') {
-        return 'none'
-    } else {
-        throw new Error(`Unrecognized label position: ${label_pos}`)
-    }
-}
-
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        const { children, lim = D.spec.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = D.plot.tick_label_size, label_offset = D.plot.tick_label_offset, prec = 2, ...attr0 } = args
+        const { children, lim = D.spec.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = D.plot.tick_label_size, label_offset = D.plot.tick_label_offset, prec = 2, debug, ...attr0 } = args
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
         const [ tick_lo, tick_hi ] = tick_lim
@@ -3069,16 +3054,16 @@ class Axis extends Group {
 
         // extract tick information
         const ticks = is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0
-        const labels = children ?? ticks.map(t => ensure_tick(t, label_attr, prec))
-        const locs = labels.map(c => c.attr.tick_pos)
+        const labels = children ?? ticks.map(t => ensure_label(t, label_attr, prec))
+        const locs = labels.map(c => c.attr.loc)
 
         // accumulate children
         const cline = new UnitLine({ direc, ...line_attr })
-        const scale = new Scale({ locs, direc, rect: scale_rect, coord, ...tick_attr })
-        const label = new Labels({ children: labels, direc, align: label_align, rect: label_rect, coord })
+        const scale = new Scale({ locs, direc, rect: scale_rect, coord, debug, ...tick_attr })
+        const label = new Labels({ children: labels, direc, align: label_align, rect: label_rect, coord, debug })
 
         // pass to Group
-        super({ children: [ cline, scale, label ], ...attr })
+        super({ children: [ cline, scale, label ], debug, ...attr })
         this.args = args
 
         // additional props
@@ -3183,7 +3168,7 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
 
     // pull in child coordinate system
     const coord0 = merge_rects(children.map(c => c.spec.coord))
-    const [ xlim0, ylim0 ] = resolve_limits(xlim, ylim, coord0)
+    const { xlim: xlim0, ylim: ylim0 } = resolve_limits(xlim, ylim, coord0)
 
     // expand with padding
     xlim = expand_limits(xlim0 ?? D.spec.lim, xpad)
