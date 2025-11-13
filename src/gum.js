@@ -3209,11 +3209,10 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, grid_opacity = D.plot.grid_opacity, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin: margin0 = 0, aspect: aspect0 = 'auto', clip = false, fill: fill0 = null, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, grid_opacity = D.plot.grid_opacity, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin: margin0 = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = args
         const elems = ensure_array(children0, false)
         const margin = margin0 === true ? D.plot.margin : margin0
-        const fill = fill0 == true ? D.bool.fill : fill0
 
         // determine coordinate system and aspect
         const coord = outer_limits(elems, { xlim, ylim, padding })
@@ -3241,9 +3240,9 @@ class Plot extends Box {
 
         // some advanced piping
         let [
-            xaxis_attr, yaxis_attr, axis_attr, xtick_label_attr, xtick_attr, ytick_label_attr, ytick_attr, tick_label_attr, tick_attr, fill_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr, ylabel_attr, label_attr, title_attr, attr
+            xaxis_attr, yaxis_attr, axis_attr, xtick_label_attr, xtick_attr, ytick_label_attr, ytick_attr, tick_label_attr, tick_attr, xgrid_attr, ygrid_attr, grid_attr, xlabel_attr, ylabel_attr, label_attr, title_attr, attr
         ] = prefix_split([
-            'xaxis', 'yaxis', 'axis', 'xtick_label', 'xtick', 'ytick_label', 'ytick', 'tick_label', 'tick', 'fill', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
+            'xaxis', 'yaxis', 'axis', 'xtick_label', 'xtick', 'ytick_label', 'ytick', 'tick_label', 'tick', 'xgrid', 'ygrid', 'grid', 'xlabel', 'ylabel', 'label', 'title'
         ], attr0)
         xtick_attr = { ...xtick_attr, ...tick_attr }
         ytick_attr = { ...ytick_attr, ...tick_attr }
@@ -3280,12 +3279,6 @@ class Plot extends Box {
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
-        }
-
-        // background fill rect
-        if (fill != null) {
-            const fill_rect = new Rect({ fill, ...fill_attr })
-            bg_elems.push(fill_rect)
         }
 
         // automatic xgrid generation
@@ -3332,8 +3325,7 @@ class Plot extends Box {
         }
 
         // pass to Box
-        const inner = new Group({ children, aspect })
-        super({ children: inner, margin, ...attr })
+        super({ children, margin, aspect, ...attr })
         this.args = args
     }
 }

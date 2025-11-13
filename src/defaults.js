@@ -29,6 +29,7 @@ const DEFAULTS = {
         margin: 0.1,
         padding: 0.1,
         spacing: 0.1,
+        border: 1,
         fill: '#f0f0f0',
     },
 
