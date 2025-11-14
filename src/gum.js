@@ -2108,17 +2108,18 @@ class TextSpan extends Element {
     constructor(args = {}) {
         const { children: children0, color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr0 } = args
         const child = check_string(children0)
-        const [ spec, attr ] = spec_split(attr0, false)
+        const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(child)
 
         // compute text box
-        const fargs = { font_family, font_weight, ...attr }
+        const fargs = { font_family, font_weight, ...font_attr }
         const width = textSizer(text, fargs)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect: width, stroke: color, fill: color, ...fargs, ...spec })
+        super({ tag: 'text', unary: false, aspect: width, stroke: color, fill: color, ...fargs, ...attr })
         this.args = args
 
         // additional props
@@ -2153,65 +2154,26 @@ class TextSpan extends Element {
     }
 }
 
-function ensure_textspan(c, args) {
-    return is_element(c) ? c : new TextSpan({ children: c, ...args })
-}
-
-function pad_object_list(items, spacing = 0.25) {
-    return items.map((c, i) => {
-        if (is_string(c)) {
-            if (i == 0) {
-                return c.trimStart()
-            } else if (i == items.length - 1) {
-                return c.trimEnd()
-            } else {
-                return c
-            }
-        } else {
-            const caspect = c.spec.aspect ?? 1
-            const aspect = caspect + 2 * spacing
-            return new Box({ children: c, aspect })
-        }
-    })
-}
-
-class TextLine extends HStack {
-    constructor(args = {}) {
-        const { children: children0, justify = 'left', ...attr0 } = args
-        const [ spec, attr ] = spec_split(attr0)
-        const children = ensure_array(children0)
-        const nodes = children.map(c => ensure_textspan(c, attr))
-        super({ children: nodes, justify, ...spec })
-        this.args = args
-    }
+function pad_element(child, spacing = 0.25) {
+    const caspect = child.spec.aspect ?? 1
+    const aspect = caspect + 2 * spacing
+    return new Box({ children: child, aspect })
 }
 
 // wrap text or elements to multiple lines with fixed line height
-class Text extends VStack {
+class Text extends HWrap {
     constructor(args = {}) {
-        const { children: children0, wrap = null, spacing = D.text.spacing, item_spacing = 0.25, justify = 'left', font_family = D.font.family, font_weight = D.font.weight, debug, ...attr0 } = args
-        const [ spec, attr ] = spec_split(attr0)
+        const { children: children0, wrap = null, spacing = D.text.spacing, item_spacing = 0.25, justify = 'left', debug, ...attr0 } = args
         const items = ensure_array(children0)
+        const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
+        const font_args = prefix_join('font', font_attr)
 
-        // pass through font attributes
-        const font_args = { font_family, font_weight }
-        const text_attr = { ...font_args, ...attr }
+        // split into words and elements
+        const words = items.flatMap(c => is_string(c) ? splitWords(c) : c)
+        const spans = words.map(w => is_string(w) ? new TextSpan({ children: w, ...font_args }) : pad_element(w, item_spacing))
 
-        // split into words and objects
-        const objects = pad_object_list(items, item_spacing)
-        const words = objects.map(c => is_string(c) ? splitWords(c) : c).flat()
-
-        // split objects into multiple lines
-        const measure = c => is_string(c) ? textSizer(c, font_args) : default_measure(c)
-        const { rows } = wrapWidths(words, measure, wrap)
-
-        // merge strings into lines
-        const lines = rows.map(mergeStrings)
-        console.log(lines)
-        const children = lines.map(l => new TextLine({ children: l, aspect: wrap, justify, debug, ...text_attr }))
-
-        // pass to VStack
-        super({ children, even: true, spacing, justify, debug, ...spec })
+        // pass to HWrap
+        super({ children: spans, spacing, justify, wrap, debug, ...attr })
         this.args = args
     }
 }
@@ -2232,6 +2194,25 @@ class TextStack extends VStack {
     }
 }
 
+class TextBox extends Box {
+    constructor(args = {}) {
+        const { children: children0, padding = D.text.padding, justify, wrap, ...attr0 } = args
+        const text = ensure_array(children0)
+        const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
+        const children = new Text({ children: text, align: justify, wrap, ...text_attr, ...font_attr })
+        super({ children, padding, ...attr })
+        this.args = args
+    }
+}
+
+class TextFrame extends TextBox {
+    constructor(args = {}) {
+        const { border = 1, rounded = D.text.rounded, ...attr } = args
+        super({ border, rounded, ...attr })
+    }
+}
+
 function process_marktree(tree, mods = null) {
     if (is_element(tree)) return tree
 
@@ -2244,11 +2225,11 @@ function process_marktree(tree, mods = null) {
     } else if (type == 'strong') {
         const mods1 = { ...mods, font_weight: 'bold' }
         const children1 = children.map(c => process_marktree(c, mods1))
-        return new TextLine({ children: children1 })
+        return new Text({ children: children1 })
     } else if (type == 'emphasis') {
         const mods1 = { ...mods, font_style: 'italic' }
         const children1 = children.map(c => process_marktree(c, mods1))
-        return new TextLine({ children: children1 })
+        return new Text({ children: children1 })
     }
 }
 
@@ -2259,24 +2240,6 @@ class Markdown extends Text {
         const tree = children.flatMap(c => is_string(c) ? parseMarkdown(c) : c)
         const nodes = tree.flatMap(x => process_marktree(x))
         super({ children: nodes, wrap, ...attr })
-    }
-}
-
-class TextBox extends Box {
-    constructor(args = {}) {
-        const { children: children0, padding = D.text.padding, justify, wrap, ...attr0 } = args
-        const text = ensure_array(children0)
-        const [ text_attr, attr ] = prefix_split(['text'], attr0)
-        const children = !is_element(text) ? new Text({ children: text, align: justify, wrap, ...text_attr }) : text
-        super({ children, padding, ...attr })
-        this.args = args
-    }
-}
-
-class TextFrame extends TextBox {
-    constructor(args = {}) {
-        const { border = 1, rounded = D.text.rounded, ...attr } = args
-        super({ border, rounded, ...attr })
     }
 }
 
