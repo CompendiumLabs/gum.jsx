@@ -146,7 +146,7 @@ function div(x, y) {
 //
 
 function compress_whitespace(text) {
-    return text.replace(/\s+/g, ' ').trimLeft()
+    return text.replace(/\s+/g, ' ').trimStart()
 }
 
 //

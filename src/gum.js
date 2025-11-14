@@ -2103,6 +2103,10 @@ function escape_xml(text) {
         .replace(/'/g, '&apos;')
 }
 
+function ensure_tail(text) {
+    return `${text.trimEnd()} `
+}
+
 // no wrapping at all, clobber newlines, mainly internal use
 class TextSpan extends Element {
     constructor(args = {}) {
@@ -2154,27 +2158,65 @@ class TextSpan extends Element {
     }
 }
 
-function pad_element(child, spacing = 0.25) {
-    const caspect = child.spec.aspect ?? 1
-    const aspect = caspect + 2 * spacing
-    return new Box({ children: child, aspect })
+class ElemSpan extends Group {
+    constructor(args = {}) {
+        const { children: children0, spacing = 0.25, ...attr } = args
+        const children = check_singleton(children0)
+        const aspect0 = children.spec.aspect ?? 1
+        const aspect = aspect0 + spacing
+        const child = children.clone({ align: 'left' })
+        super({ children: child, aspect, ...attr })
+    }
+}
+
+function compress_spans(children, font_args = {}) {
+    return children.flatMap((child, i) => {
+        const first_child = i == 0
+        const last_child = i == children.length - 1
+        if (is_string(child)) {
+            if (first_child) child = child.trimStart()
+            if (!last_child) child = ensure_tail(child)
+            if (last_child) child = child.trimEnd()
+            const words = splitWords(child)
+            return words.map(w => new TextSpan({ children: w, ...font_args }))
+        } else if (child instanceof Text) {
+            return child.spans.map((s, i) => {
+                if (!(s instanceof TextSpan)) return s
+                let { text } = s
+                if (i == 0 && first_child) text = text.trimStart()
+                if (i == child.spans.length - 1 && !last_child) text = ensure_tail(text)
+                if (i == child.spans.length - 1 && last_child) text = text.trimEnd()
+                return s.clone({ children: text, ...font_args })
+            })
+        } else if (child instanceof TextSpan) {
+            let { text } = child
+            if (first_child) text = text.trimStart()
+            if (!last_child) text = ensure_tail(text)
+            if (last_child) text = text.trimEnd()
+            return child.clone({ children: text, ...font_args })
+        } else {
+            return (child instanceof ElemSpan) ? child : new ElemSpan({ children: child })
+        }
+    })
 }
 
 // wrap text or elements to multiple lines with fixed line height
 class Text extends HWrap {
     constructor(args = {}) {
-        const { children: children0, wrap = null, spacing = D.text.spacing, item_spacing = 0.25, justify = 'left', debug, ...attr0 } = args
+        const { children: children0, wrap = null, spacing = D.text.spacing, justify = 'left', debug, ...attr0 } = args
         const items = ensure_array(children0)
         const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
         const font_args = prefix_join('font', font_attr)
 
         // split into words and elements
-        const words = items.flatMap(c => is_string(c) ? splitWords(c) : c)
-        const spans = words.map(w => is_string(w) ? new TextSpan({ children: w, ...font_args }) : pad_element(w, item_spacing))
+        const spans = compress_spans(items, font_args)
 
         // pass to HWrap
         super({ children: spans, spacing, justify, wrap, debug, ...attr })
         this.args = args
+
+        // additional props
+        this.spans = spans
     }
 }
 
