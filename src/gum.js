@@ -2255,23 +2255,21 @@ class TextFrame extends TextBox {
     }
 }
 
-function process_marktree(tree, mods = null) {
+function process_marktree(tree) {
     if (is_element(tree)) return tree
 
     // process nodes recursively
     const { type, children, value } = tree
     if (type == 'paragraph') {
-        return children.map(x => process_marktree(x, mods))
+        return children.map(x => process_marktree(x))
     } else if (type == 'text') {
-        return mods != null ? new TextSpan({ children: value, ...mods }) : value
+        return value
     } else if (type == 'strong') {
-        const mods1 = { ...mods, font_weight: 'bold' }
-        const children1 = children.map(c => process_marktree(c, mods1))
-        return new Text({ children: children1 })
+        const children1 = children.map(c => process_marktree(c))
+        return new Text({ children: children1, font_weight: 'bold' })
     } else if (type == 'emphasis') {
-        const mods1 = { ...mods, font_style: 'italic' }
-        const children1 = children.map(c => process_marktree(c, mods1))
-        return new Text({ children: children1 })
+        const children1 = children.map(c => process_marktree(c))
+        return new Text({ children: children1, font_style: 'italic' })
     }
 }
 
