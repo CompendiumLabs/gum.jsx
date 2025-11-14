@@ -2106,25 +2106,25 @@ function escape_xml(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextSpan extends Element {
     constructor(args = {}) {
-        const { children: children0, justify = 'left', color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr } = args
+        const { children: children0, color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr0 } = args
         const child = check_string(children0)
+        const [ spec, attr ] = spec_split(attr0, false)
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(child)
 
         // compute text box
-        const fargs = { font_family, font_weight }
+        const fargs = { font_family, font_weight, ...attr }
         const width = textSizer(text, fargs)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect: width, font_size, stroke: color, fill: color, ...fargs, ...attr })
+        super({ tag: 'text', unary: false, aspect: width, stroke: color, fill: color, ...fargs, ...spec })
         this.args = args
 
         // additional props
         this.text = escape_xml(text)
+        this.size = font_size
         this.voffset = voffset
-        this.twidth = width
-        this.halign = align_frac(justify)
     }
 
     // because text will always be displayed upright,
@@ -2132,21 +2132,17 @@ class TextSpan extends Element {
     // and then offset it by the given offset
     props(ctx) {
         const attr = super.props(ctx)
+        const { size, voffset } = this
         const { prect } = ctx
-        let [ x0, y0, w0, h0 ] = rect_box(prect, true)
-        const [ _, yoff ] = ctx.mapSize([ 0, this.voffset ])
 
-        // handlee horizontal justification
-        const ha = this.halign
-        const w = this.twidth * h0
+        // get position and size
+        let [ x0, y0, w0, h0 ] = rect_box(prect, true)
+        const yoff = voffset * h0
+        const h = size ?? h0
 
         // get display position
-        const [ x1, y1 ] = [ x0 + ha * (w0 - w), y0 + h0 ]
+        const [ x1, y1 ] = [ x0, y0 + h0 ]
         const [ x, y ] = [ x1, y1 + yoff ]
-
-        // get font size
-        const { font_size } = this.attr
-        const h = font_size ?? h0
 
         // get adjusted size
         return { x, y, font_size: `${h}px`, ...attr }
