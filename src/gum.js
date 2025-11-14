@@ -2220,6 +2220,34 @@ class Text extends HWrap {
     }
 }
 
+function process_marktree(tree) {
+    if (is_element(tree)) return tree
+
+    // process nodes recursively
+    const { type, children, value } = tree
+    if (type == 'paragraph') {
+        return children.map(x => process_marktree(x))
+    } else if (type == 'text') {
+        return value
+    } else if (type == 'strong') {
+        const children1 = children.map(c => process_marktree(c))
+        return new Text({ children: children1, font_weight: 'bold' })
+    } else if (type == 'emphasis') {
+        const children1 = children.map(c => process_marktree(c))
+        return new Text({ children: children1, font_style: 'italic' })
+    }
+}
+
+class Markdown extends Text {
+    constructor(args = {}) {
+        const { children: children0, ...attr } = args
+        const children = ensure_array(children0)
+        const tree = children.flatMap(c => is_string(c) ? parseMarkdown(c) : c)
+        const nodes = tree.flatMap(x => process_marktree(x))
+        super({ children: nodes, ...attr })
+    }
+}
+
 class TextStack extends VStack {
     constructor(args = {}) {
         const { children: children0, wrap = null, ...attr0 } = args
@@ -2252,34 +2280,6 @@ class TextFrame extends TextBox {
     constructor(args = {}) {
         const { border = 1, rounded = D.text.rounded, ...attr } = args
         super({ border, rounded, ...attr })
-    }
-}
-
-function process_marktree(tree) {
-    if (is_element(tree)) return tree
-
-    // process nodes recursively
-    const { type, children, value } = tree
-    if (type == 'paragraph') {
-        return children.map(x => process_marktree(x))
-    } else if (type == 'text') {
-        return value
-    } else if (type == 'strong') {
-        const children1 = children.map(c => process_marktree(c))
-        return new Text({ children: children1, font_weight: 'bold' })
-    } else if (type == 'emphasis') {
-        const children1 = children.map(c => process_marktree(c))
-        return new Text({ children: children1, font_style: 'italic' })
-    }
-}
-
-class Markdown extends Text {
-    constructor(args = {}) {
-        const { children: children0, wrap, ...attr } = args
-        const children = ensure_array(children0)
-        const tree = children.flatMap(c => is_string(c) ? parseMarkdown(c) : c)
-        const nodes = tree.flatMap(x => process_marktree(x))
-        super({ children: nodes, wrap, ...attr })
     }
 }
 
