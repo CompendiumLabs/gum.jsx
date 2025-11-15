@@ -2235,6 +2235,10 @@ function process_marktree(tree) {
     } else if (type == 'emphasis') {
         const children1 = children.map(c => process_marktree(c))
         return new Text({ children: children1, font_style: 'italic' })
+    } else if (type == 'inlineMath') {
+        return new Latex({ children: value })
+    } else {
+        console.log(`Unsupported markdown type: ${type}`)
     }
 }
 
@@ -2251,11 +2255,12 @@ class Markdown extends Text {
 class TextStack extends VStack {
     constructor(args = {}) {
         const { children: children0, wrap = null, ...attr0 } = args
-        const [ text_attr0, attr ] = prefix_split([ 'text' ], attr0)
+        const items = ensure_array(children0)
+        const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
 
         // apply wrap to children
-        const text_attr = { ...text_attr0, wrap }
-        const rows = children0.map(c => c.clone(text_attr))
+        const rows = items.map(c => c.clone({ ...font_attr, ...text_attr, wrap }))
         const children = wrap != null ? intersperse(rows, new Spacer({ aspect: wrap })) : rows
 
         // pass to VStack
