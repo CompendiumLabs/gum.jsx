@@ -8,7 +8,7 @@ global.MathJax = {
     },
     load: [ 'adaptors/liteDOM', 'input/tex', 'output/svg' ],
     require: (file => import(file)),
-    source: source
+    source,
   },
   options: {
     enableSpeech: false,

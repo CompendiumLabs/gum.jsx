@@ -5,7 +5,7 @@ import { emoji_table } from './emoji.js'
 import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, compress_whitespace } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText, mergeStrings } from './text.js'
 import { parseMarkdown } from './mark.js'
-import './math.js'
+import { mathjax } from './math.js'
 
 //
 // array ops
@@ -2442,22 +2442,13 @@ function parse_ex(s) {
 class Latex extends Element {
     constructor(args = {}) {
         const { children, display = false, voffset = D.text.voffset, ...attr } = args
-        const text = check_string(children)
+        const tex = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
         let math = '', svg_attr = {}, vshift = 0
         if (typeof MathJax !== 'undefined') {
             // render with mathjax
-            const mml = MathJax.tex2mml(text)
-            const out = MathJax.mathml2svg(mml, { display })
-            const svg = out.children[0]
-
-            // get size and position attributes
-            const viewBox = svg.getAttribute('viewBox')
-            const style = parse_style(svg.getAttribute('style'))
-            const width = parse_ex(svg.getAttribute('width'))
-            const height = parse_ex(svg.getAttribute('height'))
-            const valign = -parse_ex(style.get('vertical-align'))
+            const { svg, viewBox, width, height, valign } = mathjax.render(tex, { display })
 
             // handle vertical offset
             const vfactor = display ? 0.5 : 0.25
@@ -2480,11 +2471,11 @@ class Latex extends Element {
                 'xmlns': 'http://www.w3.org/2000/svg',
             }
 
-            // compute aspect and vertical shift
-            math = svg.innerHTML
+            // store for rendering
+            math = svg
             vshift = vshift0
         } else {
-            math = text
+            math = tex
         }
 
         // pass to element
