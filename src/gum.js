@@ -2205,14 +2205,13 @@ class Text extends HWrap {
     constructor(args = {}) {
         const { children: children0, wrap = null, spacing = D.text.spacing, justify = 'left', debug, ...attr0 } = args
         const items = ensure_array(children0)
-        const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
-        const font_args = prefix_join('font', font_attr)
+	const [ spec, attr ] = spec_split(attr0)
 
         // split into words and elements
-        const spans = compress_spans(items, font_args)
+        const spans = compress_spans(items, attr)
 
         // pass to HWrap
-        super({ children: spans, spacing, justify, wrap, debug, ...attr })
+        super({ children: spans, spacing, justify, wrap, debug, ...spec })
         this.args = args
 
         // additional props
