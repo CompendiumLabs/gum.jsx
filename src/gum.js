@@ -284,6 +284,7 @@ const green = new NamedString('green', '#4caf50')
 const yellow = new NamedString('yellow', '#ffb300')
 const purple = new NamedString('purple', '#9c27b0')
 const gray = new NamedString('gray', '#f0f0f0')
+const darkgray = new NamedString('darkgray', '#888888')
 
 // font names
 const sans = new NamedString('sans', "IBM Plex Sans")
@@ -1327,6 +1328,7 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
 
 // expects list of Element or [Element, height]
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
+// TODO: make native way to mimic using Spacer elements for spacing
 class Stack extends Group {
     constructor(args = {}) {
         let { children, direc, spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = args
@@ -3004,7 +3006,7 @@ class HBars extends Bars {
 // plotting elements
 //
 
-function ensure_label(label, attr = {}, prec = 2) {
+function ensure_ticklabel(label, attr = {}, prec = 2) {
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
     return new TextSpan({ children: rounder(str, prec), loc, ...attr })
@@ -3053,7 +3055,7 @@ class Labels extends Group {
 
         // place tick boxes using expanded lines
         const children = items.map(c0 => {
-            const c = ensure_label(c0, attr, prec)
+            const c = ensure_ticklabel(c0, attr, prec)
             const { loc } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
             if (direc == 'v') {
@@ -3121,7 +3123,7 @@ class Axis extends Group {
 
         // extract tick information
         const ticks = is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0
-        const labels = children ?? ticks.map(t => ensure_label(t, label_attr, prec))
+        const labels = children ?? ticks.map(t => ensure_ticklabel(t, label_attr, prec))
         const locs = labels.map(c => c.attr.loc)
 
         // accumulate children
@@ -3191,38 +3193,50 @@ class VMesh extends Mesh {
     }
 }
 
-function make_legendbadge(c, attr) {
+function ensure_legendbadge(c, attr = {}) {
+    if (is_element(c)) return c
     if (is_string(c)) {
-        attr = {stroke: c, ...attr}
+        attr = { stroke: c, ...attr }
     } else if (is_object(c)) {
-        attr = {...c, ...attr}
+        attr = { ...c, ...attr }
     } else {
         throw new Error(`Unrecognized legend badge specification: ${c}`)
     }
     return new HLine({ aspect: 1, ...attr })
 }
 
-function make_legendlabel(s) {
-    return new TextSpan({ children: s })
+function ensure_legendlabel(label, attr = {}) {
+    if (is_element(label)) return label
+    if (is_string(label)) {
+        return new TextSpan({ children: label, ...attr })
+    } else {
+        throw new Error(`Unrecognized legend label specification: ${label}`)
+    }
 }
 
+// TODO: have a .badge/.label api for plottable elements
 class Legend extends Frame {
     constructor(args = {}) {
-        const { children: children0, lines, vspacing = 0.1, hspacing = 0.025, ...attr0 } = args
-        const [ badge_attr, attr ] = prefix_split([ 'badge' ], attr0)
+        const { children: children0, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, stroke = darkgray, justify = 'left', debug, ...attr0 } = args
+        const children = ensure_array(children0)
+        const [ badge_attr, text_attr, attr ] = prefix_split([ 'badge', 'text' ], attr0)
 
         // construct legend badges and labels
-        let [badges, labels] = zip(...lines)
-        badges = badges.map(b => is_element(b) ? b : make_legendbadge(b, badge_attr))
-        labels = labels.map(t => is_element(t) ? t : make_legendlabel(t))
+        const badges = children.map(b => ensure_legendbadge(b, badge_attr))
 
         // construct legend grid
-        const bs = new VStack({ children: badges, spacing: vspacing })
-        const ls = new VStack({ children: labels, expand: false, align: 'left', spacing: vspacing })
-        const vs = new HStack({ children: [bs, ls], spacing: hspacing })
+        const rows = badges.map(b => {
+            const { label } = b.attr
+            const { aspect } = b.spec
+            const b1 = b.clone({ aspect: aspect ?? 1, label: null })
+            const spacer = new Spacer({ aspect: hspacing })
+            const text = ensure_legendlabel(label, text_attr)
+            return new HStack({ children: [ b1, spacer, text ], debug })
+        })
+        const vs = new VStack({ children: rows, spacing: vspacing, justify, even: true })
 
         // pass to Frame
-        super({ children: vs, ...attr })
+        super({ children: vs, rounded, padding, fill, stroke, ...attr })
         this.args = args
     }
 }
