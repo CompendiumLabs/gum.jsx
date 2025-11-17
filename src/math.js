@@ -78,16 +78,16 @@ class MathJaxWeb extends MathJaxBase {
 
 class MathJaxNode extends MathJaxBase {
     async init() {
-        const { source } = await import(/* @vite-ignore */ '@mathjax/src/components/js/source.js')
+        const { source } = await import( /* @vite-ignore */ '@mathjax/src/components/js/source.js')
         global.MathJax = {
             loader: {
                 load: [ 'adaptors/liteDOM', ...base_load ],
-                require: (file => import(file)),
+                require: (file => import( /* @vite-ignore */ file)),
                 source,
             },
             ...base_config,
         }
-        await import(source['tex-mml-svg'])
+        await import( /* @vite-ignore */ source['tex-mml-svg'])
         await MathJax.startup.promise
     }
 
