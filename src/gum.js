@@ -523,8 +523,9 @@ function invert_direc(direc) {
 
 // reserved keys
 const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
+const HELP_KEYS = [ 'pos', 'rad', 'xlim', 'ylim', 'flex', 'spin', 'hflip', 'vflip', 'xrad', 'yrad' ]
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
-const RESERVED_KEYS = [ ...SPEC_KEYS, ...OTHER_KEYS ]
+const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 
 function prefix_split(pres, attr) {
     const attr1 = { ...attr }
@@ -643,6 +644,18 @@ function align_frac(align) {
     }
 }
 
+// embed a rect of given `aspect` into rect of given `size`
+function embed_size(size, { aspect = null, expand = false } = {}) {
+    if (aspect == null) return size
+    const [ w0, h0 ] = size
+    const [ aw, ah ] = [ abs(w0), abs(h0) ]
+    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
+    const agg = expand ? maximum : minimum
+    const h = agg(aw / aspect, ah)
+    const w = h * aspect
+    return [ sw * w, sh * h ]
+}
+
 // get the size of an `aspect` rect that will fit in `size` after `rotate`
 function rotate_rect(size, rotate, { aspect = null, expand = false, invar = false, tol = 0.001 } = {}) {
     // knock out easy case
@@ -695,18 +708,6 @@ function rotate_rect(size, rotate, { aspect = null, expand = false, invar = fals
 
     // return base and rotated rect sizes
     return [ w, h ]
-}
-
-// embed a rect of given `aspect` into rect of given `size`
-function embed_size(size, { aspect = null, expand = false } = {}) {
-    if (aspect == null) return size
-    const [ w0, h0 ] = size
-    const [ aw, ah ] = [ abs(w0), abs(h0) ]
-    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
-    const agg = expand ? maximum : minimum
-    const h = agg(aw / aspect, ah)
-    const w = h * aspect
-    return [ sw * w, sh * h ]
 }
 
 // get the aspect of a rect of given `aspect` after rotating it by `rotate` degrees
@@ -847,9 +848,10 @@ class Context {
 }
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
+// TODO: add width/height convenience (width => rad=[width, null] + expand)
 class Element {
     constructor(args = {}) {
-        const { tag, unary, children, pos, rad, xlim, ylim, flex, spin, hflip, vflip, ...attr0 } = args
+        const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, flex, spin, hflip, vflip, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
@@ -861,8 +863,15 @@ class Element {
         this.spec = spec
         this.attr = attr
 
+        // handle rect conveniences
+        if (pos != null || rad != null || xrad != null || yrad != null) {
+            const has_xy = xrad != null || yrad != null
+            const rad1 = has_xy ? [ xrad ?? null, yrad ?? null ] : null
+            this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? rad1 ?? D.spec.rad)
+            if (has_xy) this.spec.expand = true
+        }
+
         // various convenience conversions
-        if (rad != null || pos != null) this.spec.rect ??= radial_rect(pos ?? D.spec.pos, rad ?? D.spec.rad)
         if (xlim != null || ylim != null) this.spec.coord ??= join_limits({ h: xlim, v: ylim })
         if (spin != null) { this.spec.rotate = spin; this.spec.invar = true }
         if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
