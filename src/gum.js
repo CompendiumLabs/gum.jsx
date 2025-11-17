@@ -2436,19 +2436,6 @@ class Emoji extends Group {
     }
 }
 
-function parse_style(style) {
-    return new Map(style
-        .split(';')
-        .filter(s => s.includes(':'))
-        .map(s => s.split(':'))
-        .map(([k, v]) => [k.trim(), v.trim()])
-    )
-}
-
-function parse_ex(s) {
-    return parseFloat(s) / 2
-}
-
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
