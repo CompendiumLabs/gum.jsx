@@ -142,6 +142,22 @@ function div(x, y) {
 }
 
 //
+// object utils
+//
+
+function map_object(obj, fn) {
+    return Object.fromEntries(
+        Object.entries(obj).map(([ k, v ]) => [ k, fn(k, v) ])
+    )
+}
+
+function filter_object(obj, fn) {
+    return Object.fromEntries(
+        Object.entries(obj).filter(([ k, v ]) => fn(k, v))
+    )
+}
+
+//
 // string utils
 //
 
@@ -153,4 +169,4 @@ function compress_whitespace(text) {
 // export
 //
 
-export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, compress_whitespace }
+export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, map_object, filter_object, compress_whitespace }

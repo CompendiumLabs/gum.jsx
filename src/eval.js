@@ -2,7 +2,7 @@
 
 import { transform, registerPlugin } from '@babel/standalone'
 
-import { KEYS, VALS, is_scalar, is_function, is_object, Svg } from './gum.js'
+import { KEYS, VALS, is_function, is_object, Svg } from './gum.js'
 
 //
 // jsx parser
