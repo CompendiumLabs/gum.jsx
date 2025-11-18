@@ -14,7 +14,7 @@ function strip_locs(tree) {
     if (is_array(tree)) {
         return tree.map(x => strip_locs(x))
     } else if (is_object(tree)) {
-        const { loc, ...rest } = tree
+        const { loc, ...rest } = tree ?? {}
         return map_object(rest, (k, v) => strip_locs(v))
     } else {
         return tree
