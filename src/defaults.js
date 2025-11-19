@@ -36,7 +36,8 @@ const DEFAULTS = {
     // fonts
     font: {
         family: 'IBM Plex Sans',
-        weight: 100,
+        weight: 250,
+        bold: 350,
         calc_size: 16,
     },
 
@@ -87,7 +88,6 @@ const DEFAULTS = {
         rounded: 0.01,
         border_stroke: '#bbb',
         title_size: 0.05,
-        title_font_weight: 300,
     },
 }
 

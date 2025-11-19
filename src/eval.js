@@ -10,20 +10,20 @@ import { KEYS, VALS, is_function, is_object, Svg } from './gum.js'
 
 // check if a function or class
 function isClass(func) {
-  return typeof func === 'function' &&
-         func.prototype &&
-         func.prototype.constructor === func &&
-         Object.getOwnPropertyDescriptor(func, 'prototype').writable === false
+  return (typeof func === 'function') &&
+         (func.prototype != null) &&
+         (func.prototype.constructor === func) &&
+         (Object.getOwnPropertyDescriptor(func, 'prototype').writable === false)
 }
 
 function isWhitespace(s) {
-  return typeof s === 'string' && s.replace(/\s/g, '') === ''
+  return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
 }
 
 // recursively flatten all children, including nested arrays
 function filterChildren(items) {
   return items.flat(1)
-    .filter(item => item != null && item !== false && item !== true && !isWhitespace(item))
+    .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
 function convertKebab(props) {

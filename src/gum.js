@@ -274,7 +274,7 @@ const darkgray = new NamedString('darkgray', '#888888')
 // font names
 const sans = new NamedString('sans', "IBM Plex Sans")
 const mono = new NamedString('mono', "IBM Plex Mono")
-const bold = new NamedNumber('bold', 300)
+const bold = new NamedNumber('bold', D.font.bold)
 
 //
 // random number generation
@@ -2106,7 +2106,7 @@ function ensure_tail(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextSpan extends Element {
     constructor(args = {}) {
-        const { children: children0, color = 'black', font_family = D.font.family, font_weight = D.font.weight, font_size, voffset = D.text.voffset, ...attr0 } = args
+        const { children: children0, color = black, stroke = none, font_family = D.font.family, voffset = D.text.voffset, ...attr0 } = args
         const child = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -2115,16 +2115,15 @@ class TextSpan extends Element {
         const text = compress_whitespace(child)
 
         // compute text box
-        const fargs = { font_family, font_weight, ...font_attr }
+        const fargs = { font_family, ...font_attr }
         const width = textSizer(text, fargs)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect: width, stroke: color, fill: color, ...fargs, ...attr })
+        super({ tag: 'text', unary: false, aspect: width, fill: color, stroke, ...fargs, ...attr })
         this.args = args
 
         // additional props
         this.text = escape_xml(text)
-        this.size = font_size
         this.voffset = voffset
     }
 
@@ -2226,7 +2225,7 @@ function process_marktree(tree) {
         return value
     } else if (type == 'strong') {
         const children1 = children.map(c => process_marktree(c))
-        return new Text({ children: children1, font_weight: 'bold' })
+        return new Text({ children: children1, font_weight: bold })
     } else if (type == 'emphasis') {
         const children1 = children.map(c => process_marktree(c))
         return new Text({ children: children1, font_style: 'italic' })
@@ -2309,8 +2308,9 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_size is absolutely scaled
 class TextFlex extends Element {
     constructor(args = {}) {
-        const { children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, font_weight = D.font.weight, voffset = D.text.voffset, ...attr } = args
+        const { children: children0, font_scale, font_size, spacing = D.text.spacing, color = D.text.color, font_family = D.font.family, voffset = D.text.voffset, ...attr0 } = args
         const children = check_string(children0)
+        const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
 
         // pass to Element
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
@@ -2322,7 +2322,7 @@ class TextFlex extends Element {
         this.spacing = spacing
         this.font_scale = font_scale
         this.font_size = font_size
-        this.font_args = { font_family, font_weight }
+        this.font_args = { font_family, ...font_attr }
     }
 
     props(ctx) {
@@ -2359,11 +2359,12 @@ class TextFlex extends Element {
 
 class EmojiDiv extends Element {
     constructor(args = {}) {
-        const { children, font_family, font_weight, ...attr } = args
+        const { children, font_family, ...attr0 } = args
         const emoji = check_string(children)
+        const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
 
         // compute text box
-        const fargs = { font_family, font_weight }
+        const fargs = { font_family, ...font_attr }
         const aspect = textSizer(emoji, fargs)
 
         // store for rendering
@@ -2992,10 +2993,11 @@ class HBars extends Bars {
 // plotting elements
 //
 
-function ensure_ticklabel(label, attr = {}, prec = 2) {
+function ensure_ticklabel(label, args = {}) {
+    const { prec = 2, font_weight = D.font.bold, ...attr } = args
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
-    return new TextSpan({ children: rounder(str, prec), loc, ...attr })
+    return new TextSpan({ children: rounder(str, prec), loc, font_weight, ...attr })
 }
 
 class Scale extends Group {
@@ -3450,7 +3452,7 @@ class TitleFrame extends Box {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        const { children: children0, aspect, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.slide.title_font_weight, wrap = D.slide.wrap, spacing = 0, justify = 'left', ...attr0 } = args
+        const { children: children0, aspect, padding = D.bool.padding, margin = D.bool.margin, border = 1, rounded = D.slide.rounded, border_stroke = D.slide.border_stroke, title_size = D.slide.title_size, title_text_font_weight = D.font.bold, wrap = D.slide.wrap, spacing = 0, justify = 'left', ...attr0 } = args
         const children = ensure_array(children0)
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
