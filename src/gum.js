@@ -1163,7 +1163,10 @@ function computeBoxLayout(children, { padding = null, margin = null, aspect = nu
 
     // handle all null case
     if (padding == null && margin == null) {
-        return { rect_inner: D.spec.rect, rect_outer: D.spec.rect, aspect_inner: aspect_child, aspect_outer: aspect_child }
+        return {
+            rect_inner: D.spec.rect, rect_outer: D.spec.rect,
+            aspect_inner: aspect_child, aspect_outer: aspect_child
+        }
     }
 
     // apply padding to outer rect

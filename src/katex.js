@@ -46,7 +46,9 @@ function convert_tree(tree) {
             return make_symbol(mode, text, { font_family: FONTS['text'] })
         } else if (type == 'atom') {
             const { mode, text } = tree
-            return make_symbol(mode, text, { font_family: FONTS[mode] })
+            const sym = make_symbol(mode, text, { font_family: FONTS[mode] })
+            const child = sym.clone({ pos: [0.4, 0.57], rad: [0.45, 0.6], expand: true })
+            return new Box({ children: child, aspect: child.spec.aspect + 0.1 })
         } else if (type == 'ordgroup') {
             const { body } = tree
             return convert_tree(body)
@@ -64,8 +66,9 @@ function convert_tree(tree) {
             const [ base, sup, sub ] = [ base0, sup0, sub0 ].map(x => convert_tree(x))
 
             // make shifted supsub box
-            const supsub0 = new VStack({ children: [ sup ?? new Spacer(), sub ?? new Spacer() ], even: true, justify: 'left', pos: [0.5, 0.55] })
-            const supsub = new Group({ children: supsub0, aspect: supsub0.spec.aspect })
+            const children = [ sup ?? new Spacer(), sub ?? new Spacer() ]
+            const supsub0 = new VStack({ children, even: true, justify: 'left', pos: [0.5, 0.55] })
+            const supsub = new Box({ children: supsub0 }) // realize shift from above pos^
 
             // return wrapped base and supsub
             return new HStack({ children: [ base, supsub ] })
@@ -74,8 +77,10 @@ function convert_tree(tree) {
             const [ numer, denom ] = [ numer0, denom0 ].map(x => convert_tree(x))
 
             // make frac Vstack
-            const line = new Box({ children: new Rect({ fill: 'black' }), margin: [0, 10] })
-            return new VStack({ children: [ numer, line, denom ], even: true, justify: 'center' })
+            const line = new Rect({ fill: 'black', pos: [0.5, 0.62], rad: [0.5, 0.0075] })
+            const denom1 = new Box({ children: denom.clone({ pos: [0.5, 0.3] }) })
+            const stack = new VStack({ children: [ numer, denom1 ], even: true, justify: 'center', spacing: 0.2, pos: [0.5, 0.6], rad: [0.5, 0.6], expand: true })
+            return new Box({ children: [ stack, line ], aspect: stack.spec.aspect * 1.3 })
         } else {
             console.log(`Unsupported katex type: ${type}`)
         }
