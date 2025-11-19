@@ -6,8 +6,8 @@ import { Group, HStack, VStack, Box, Spacer, TextSpan, Rect, HLine } from './gum
 
 // constants
 const FONTS = {
-    'math': 'Katex_Math-Italic',
-    'text': 'Katex_Main-Regular',
+    'math': 'KaTeX_Math',
+    'text': 'KaTeX_Main',
 }
 
 // get symbol from symbols
@@ -48,7 +48,7 @@ function convert_tree(tree) {
             const { mode, text } = tree
             const sym = make_symbol(mode, text, { font_family: FONTS[mode] })
             const child = sym.clone({ pos: [0.4, 0.57], rad: [0.45, 0.6], expand: true })
-            return new Box({ children: child, aspect: child.spec.aspect + 0.1 })
+            return new Box({ children: child, aspect: child.spec.aspect * 1.2 })
         } else if (type == 'ordgroup') {
             const { body } = tree
             return convert_tree(body)
