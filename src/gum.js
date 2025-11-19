@@ -302,7 +302,7 @@ function normal(mean, stdv) {
 
 function pad_rect(p) {
     if (p == null) {
-        return D.spec.coord
+        return [ 0, 0, 0, 0 ]
     } else if (is_scalar(p)) {
         return [ p, p, p, p ]
     } else if (p.length == 2) {
@@ -1140,10 +1140,10 @@ function apply_padmar(p, m, a) {
     const [ ml, mt, mr, mb ] = m
     const [ pw, ph ] = [ pl + 1 + pr, pt + 1 + pb ]
     const [ tw, th ] = [ ml + pw + mr, mt + ph + mb ]
-    const irect = [ (ml + pl) / tw, (mt + pt) / th, 1 - (mr + pr) / tw, 1 - (mb + pb) / th ]
+    const crect = [ (ml + pl) / tw, (mt + pt) / th, 1 - (mr + pr) / tw, 1 - (mb + pb) / th ]
     const brect = [ ml / tw, mt / th, 1 - mr / tw, 1 - mb / th ]
     const aspect = (a != null) ? a * (tw / th) : null
-    return { irect, brect, aspect }
+    return { crect, brect, aspect }
 }
 
 // case with multiple children is overdetermined
@@ -1156,13 +1156,18 @@ function computeBoxAspect(children) {
     }
 }
 
-function computeBoxLayout(children, { padding = 0, margin = 0, aspect = null, adjust = true } = {}) {
+function computeBoxLayout(children, { padding = null, margin = null, aspect = null, adjust = true } = {}) {
+    // try to determine box aspect
+    const outer_aspect = aspect ?? computeBoxAspect(children)
+
+    // handle double zero case
+    if (padding == null && margin == null) {
+        return { crect: D.spec.rect, brect: D.spec.rect, aspect: outer_aspect }
+    }
+
     // expand padding/margin to 4-element array
     padding = pad_rect(padding)
     margin = pad_rect(margin)
-
-    // try to determine box aspect
-    const outer_aspect = aspect ?? computeBoxAspect(children)
 
     // adjust padding/margin for aspect
     if (adjust && outer_aspect != null) {
@@ -1171,11 +1176,11 @@ function computeBoxLayout(children, { padding = 0, margin = 0, aspect = null, ad
     }
 
     // apply padding/margin and get box sizes
-    const { irect, brect, aspect: box_aspect } = apply_padmar(padding, margin, outer_aspect)
+    const { crect, brect, aspect: box_aspect } = apply_padmar(padding, margin, outer_aspect)
     aspect ??= box_aspect
 
     // return inner/outer rects and aspect
-    return { irect, brect, aspect }
+    return { crect, brect, aspect }
 }
 
 function maybe_rounded_rect(rounded) {
@@ -1188,7 +1193,7 @@ function maybe_rounded_rect(rounded) {
 
 class Box extends Group {
     constructor(args = {}) {
-        let { children: children0, padding = 0, margin = 0, border, fill, shape, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = args
+        let { children: children0, padding, margin, border, fill, shape, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = args
         const children = ensure_array(children0)
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
 
@@ -1204,13 +1209,13 @@ class Box extends Group {
         shape ??= maybe_rounded_rect(rounded)
 
         // compute layout
-        const { irect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
+        const { crect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
         // make child elements
         const rect_cl = clip ? shape.clone({ rect: brect }) : false
         const rect_bg = fill != null ? shape.clone({ rect: brect, fill, stroke: none, ...fill_attr }) : null
         const rect_fg = border != null ? shape.clone({ rect: brect, stroke_width: border, ...border_attr }) : null
-        const inner = new Group({ children, rect: irect, debug })
+        const inner = new Group({ children, rect: crect, debug })
 
         // pass to Group
         super({ children: [ rect_bg, inner, rect_fg ], aspect: aspect_outer, clip: rect_cl, ...attr })

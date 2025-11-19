@@ -72,6 +72,8 @@ function convert_tree(tree) {
         } else if (type == 'genfrac') {
             const { numer: numer0, denom: denom0 } = tree
             const [ numer, denom ] = [ numer0, denom0 ].map(x => convert_tree(x))
+
+            // make frac Vstack
             const line = new Box({ children: new Rect({ fill: 'black' }), margin: [0, 10] })
             return new VStack({ children: [ numer, line, denom ], even: true, justify: 'center' })
         } else {
