@@ -430,9 +430,15 @@ function expand_rect(rect, expand) {
 }
 
 function flip_rect(rect, vertical) {
-    const [ x1, y1, x2, y2 ] = rect ?? D.spec.coord
+    const [ x1, y1, x2, y2 ] = rect ?? D.spec.rect
     if (vertical) return [ x1, y2, x2, y1 ]
     else return [ x2, y1, x1, y2 ]
+}
+
+function shift_rect(rect, shift) {
+    const [ x, y ] = ensure_vector(shift ?? 0, 2)
+    const [ x1, y1, x2, y2 ] = rect ?? D.spec.rect
+    return [ x1 + x, y1 + y, x2 + x, y2 + y ]
 }
 
 function upright_rect(rect) {
@@ -1134,61 +1140,47 @@ class Svg extends Group {
 // layout classes
 //
 
-// map padding/margin into internal boxes
-function apply_padmar(p, m, a) {
-    const [ pl, pt, pr, pb ] = p
-    const [ ml, mt, mr, mb ] = m
-    const [ pw, ph ] = [ pl + 1 + pr, pt + 1 + pb ]
-    const [ tw, th ] = [ ml + pw + mr, mt + ph + mb ]
-    const crect = [ (ml + pl) / tw, (mt + pt) / th, 1 - (mr + pr) / tw, 1 - (mb + pb) / th ]
-    const brect = [ ml / tw, mt / th, 1 - mr / tw, 1 - mb / th ]
-    const aspect = (a != null) ? a * (tw / th) : null
-    return { crect, brect, aspect }
-}
-
-// case with multiple children is overdetermined
-function computeBoxAspect(children) {
-    if (children.length >= 1) {
-        const { rect, aspect } = children[0].spec
-        return rect == null ? aspect : null
-    } else {
-        return null
-    }
-}
-
-function computeBoxLayout(children, { padding = null, margin = null, aspect = null, adjust = true } = {}) {
-    // try to determine box aspect
-    const outer_aspect = aspect ?? computeBoxAspect(children)
-
-    // handle double zero case
-    if (padding == null && margin == null) {
-        return { crect: D.spec.rect, brect: D.spec.rect, aspect: outer_aspect }
-    }
-
-    // expand padding/margin to 4-element array
-    padding = pad_rect(padding)
-    margin = pad_rect(margin)
-
-    // adjust padding/margin for aspect
-    if (adjust && outer_aspect != null) {
-        padding = aspect_invariant(padding, 1 / outer_aspect)
-        margin = aspect_invariant(margin, 1 / outer_aspect)
-    }
-
-    // apply padding/margin and get box sizes
-    const { crect, brect, aspect: box_aspect } = apply_padmar(padding, margin, outer_aspect)
-    aspect ??= box_aspect
-
-    // return inner/outer rects and aspect
-    return { crect, brect, aspect }
-}
-
 function maybe_rounded_rect(rounded) {
     if (rounded == null) {
         return new Rect()
     } else {
         return new RoundedRect({ rounded })
     }
+}
+
+// map padding/margin into internal boxes
+function apply_padding(padding, aspect0) {
+    const [ pl, pt, pr, pb ] = padding
+    const [ pw, ph ] = [ pl + 1 + pr, pt + 1 + pb ]
+    const rect = [ pl / pw, pt / ph, 1 - pr / pw, 1 - pb / ph ]
+    const aspect = (aspect0 != null) ? aspect0 * (pw / ph) : null
+    return { rect, aspect }
+}
+
+function computeBoxLayout(children, { padding = null, margin = null, aspect = null, adjust = true } = {}) {
+    // try to determine box aspect
+    const aspect_child = aspect ?? children[0]?.spec?.aspect
+
+    // handle all null case
+    if (padding == null && margin == null) {
+        return { rect_inner: D.spec.rect, rect_outer: D.spec.rect, aspect_inner: aspect_child, aspect_outer: aspect_child }
+    }
+
+    // apply padding to outer rect
+    padding = pad_rect(padding)
+    if (adjust && aspect_child != null) padding = aspect_invariant(padding, 1 / aspect_child)
+    const { rect: rect_inner, aspect: aspect_inner } = apply_padding(padding, aspect_child)
+
+    // apply margin to global rect
+    margin = pad_rect(margin)
+    if (adjust && aspect_inner != null) margin = aspect_invariant(margin, 1 / aspect_inner)
+    const { rect: rect_outer, aspect: aspect_outer } = apply_padding(margin, aspect_inner)
+
+    // apply padding/margin and get box sizes
+    aspect ??= aspect_outer
+
+    // return inner/outer rects and aspect
+    return { rect_inner, rect_outer, aspect_inner, aspect_outer }
 }
 
 class Box extends Group {
@@ -1209,16 +1201,19 @@ class Box extends Group {
         shape ??= maybe_rounded_rect(rounded)
 
         // compute layout
-        const { crect, brect, aspect: aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
+        const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
 
-        // make child elements
-        const rect_cl = clip ? shape.clone({ rect: brect }) : false
-        const rect_bg = fill != null ? shape.clone({ rect: brect, fill, stroke: none, ...fill_attr }) : null
-        const rect_fg = border != null ? shape.clone({ rect: brect, stroke_width: border, ...border_attr }) : null
-        const inner = new Group({ children, rect: crect, debug })
+        // make framing elements
+        const rect_cl = clip ? shape : false
+        const rect_bg = fill != null ? shape.clone({ fill, stroke: none, ...fill_attr }) : null
+        const rect_fg = border != null ? shape.clone({ stroke_width: border, ...border_attr }) : null
+
+        // make inner groups
+        const inner = new Group({ children, rect: rect_inner, debug })
+        const outer = new Group({ children: [ rect_bg, inner, rect_fg ], rect: rect_outer, clip: rect_cl })
 
         // pass to Group
-        super({ children: [ rect_bg, inner, rect_fg ], aspect: aspect_outer, clip: rect_cl, ...attr })
+        super({ children: outer, aspect: aspect_outer, ...attr })
         this.args = args
     }
 }
