@@ -222,17 +222,12 @@ function max(vals) {
 }
 
 function clamp(x, lim) {
-    const [ lo, hi ] = lim
+    const [ lo, hi ] = lim ?? D.spec.lim
     return maximum(lo, minimum(x, hi))
 }
 
-function mask(x, lim) {
-    const [ lo, hi ] = lim
-    return (x >= lo && x <= hi) ? x : null
-}
-
 function rescale(x, lim) {
-    const [ lo, hi ] = lim
+    const [ lo, hi ] = lim ?? D.spec.lim
     return (x - lo) / (hi - lo)
 }
 
@@ -745,7 +740,8 @@ class Metadata {
     }
 
     svg() {
-        return this.defs.map(def => `<defs>${def}</defs>`).join('\n')
+        if (this.defs.length == 0) return ''
+        return `<defs>\n${this.defs.join('\n')}\n</defs>`
     }
 }
 
@@ -987,7 +983,7 @@ function makeUID(prefix) {
 
 class Group extends Element {
     constructor(args = {}) {
-        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0 = false, debug = false, tag = 'g', ...attr } = args
+        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0 = false, mask: mask0 = false, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
         // handle boolean args
@@ -1005,39 +1001,37 @@ class Group extends Element {
         }
 
         // make actual clip mask
-        let clip_path = null, clip_mask = null
+        let clip_path = null
         if (clip != false) {
             const clip_id = makeUID('clip')
             clip_path = `url(#${clip_id})`
-            clip_mask = new ClipPath({ children: clip, id: clip_id })
+            const mask = new ClipPath({ children: clip, id: clip_id })
+            children.push(mask)
+        }
+
+        // handle mask
+        let mask = null
+        if (mask0 != false) {
+            const mask_id = makeUID('mask')
+            mask = `url(#${mask_id})`
+            const mask_elem = new Mask({ children: mask0, id: mask_id })
+            children.push(mask_elem)
         }
 
         // pass to Element
-        super({ tag, unary: false, aspect, coord, clip_path, ...attr })
+        super({ tag, unary: false, aspect, coord, clip_path, mask, ...attr })
         this.args = args
 
         // additional props
         this.children = children
-        this.clip_mask = clip_mask
     }
 
     inner(ctx) {
-        if (this.clip_mask != null) {
-            const def = this.clip_mask.svg(ctx.map(this.clip_mask.spec))
-            ctx.meta.addDef(def)
-        }
-
-        // empty group
-        if (this.children.length == 0) return '\n'
-
-        // map to new contexts and render
-        let inside = this.children
+        const inner = this.children
             .map(c => c.svg(ctx.map(c.spec)))
             .filter(s => s.length > 0)
             .join('\n')
-
-        // return padded
-        return `\n${inside}\n`
+        return `\n${inner}\n`
     }
 }
 
@@ -1047,6 +1041,27 @@ class ClipPath extends Group {
         const children = ensure_array(children0)
         super({ tag: 'clipPath', children, ...attr })
         this.args = args
+    }
+
+    svg(ctx) {
+        const def = super.svg(ctx)
+        ctx.meta.addDef(def)
+        return ''
+    }
+}
+
+class Mask extends Group {
+    constructor(args = {}) {
+        const { children: children0, ...attr } = args
+        const children = ensure_array(children0)
+        super({ tag: 'mask', children, ...attr })
+        this.args = args
+    }
+
+    svg(ctx) {
+        const def = super.svg(ctx)
+        ctx.meta.addDef(def)
+        return ''
     }
 }
 
@@ -1058,8 +1073,9 @@ class Style extends Element {
         this.text = text
     }
 
-    inner(ctx) {
-        return this.text
+    svg(ctx) {
+        if (this.text.length == 0) return ''
+        return `<style>\n${this.text}\n</style>`
     }
 }
 
@@ -1086,7 +1102,7 @@ class Svg extends Group {
         const viewrect = expand_rect(viewrect0, padding)
 
         // make style element
-        const style_elem = style != null ? new Style({ children: style }) : null
+        const style_elem = new Style({ children: style ?? '' })
 
         // construct svg attributes
         const svg_attr = bare ? {} : SVG_ATTR
@@ -1119,8 +1135,11 @@ class Svg extends Group {
     inner(ctx) {
         const inner = super.inner(ctx)
         const defs = ctx.meta.svg()
-        const style = this.style != null ? this.style.svg(ctx) : ''
-        return `${defs}\n${style}\n${inner}`
+        const style = this.style.svg(ctx)
+        return [ defs, style, inner ]
+            .filter(s => s.length > 0)
+            .map(s => s.trim())
+            .join('\n') + '\n'
     }
 
     svg(args) {
@@ -3491,7 +3510,7 @@ class Image extends Element {
 //
 
 const VALS = [
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, bold
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, bold
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3500,5 +3519,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, mask, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, bold, is_string, is_array, is_object, is_function, is_element, is_scalar
+    KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, min, max, abs, pow, sqrt, floor, ceil, round, atan, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, bold, is_string, is_array, is_object, is_function, is_element, is_scalar
 }
