@@ -27,7 +27,7 @@ const { host, port } = program.opts()
 
 // create express app
 const app = express()
-app.use(express.raw({ type: '*/*', limit: '50mb' }));
+app.use(express.raw({ type: '*/*', limit: '1mb' }));
 
 // convert buffer to string for text-based routes
 app.use((req, res, next) => {
@@ -46,7 +46,7 @@ app.get('/', (req, res) => {
 app.post('/eval', (req, res) => {
   // get params
   const code = req.body
-  const size0 = parseInt(req.query.size)
+  const size0 = parseInt(req.query.size ?? 500)
 
   // evaluate code and return svg
   let svg
@@ -67,7 +67,7 @@ app.post('/eval', (req, res) => {
 app.post('/render', async (req, res) => {
   // get params
   const code = req.body
-  const size0 = parseInt(req.query.size)
+  const size0 = parseInt(req.query.size ?? 500)
 
   // evaluate code and render to png
   let png
