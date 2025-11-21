@@ -24,10 +24,6 @@ const { size: size0, type, background } = program.opts()
 
 // wait for stdin
 const code = await waitForStdin()
-if (code.length == 0) {
-  console.error('No code provided')
-  process.exit(1)
-}
 
 // evaluate gum with size
 const elem = evaluateGum(code, { size: size0, dims: true })

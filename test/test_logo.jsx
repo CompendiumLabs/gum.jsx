@@ -14,7 +14,7 @@ const Star = ({ pos, rad, fill }) => (
   ]}</Polygon>
 )
 
-return <Frame fill={colors.bg} padding={0.3} margin rounded aspect={1}>
+return <Frame fill={colors.bg} padding={0.3} margin rounded>
   <Group aspect>
     {/* Decorative Atomic Star */}
     <Star pos={[0.9, 0.15]} rad={0.04} fill={colors.mustard} />
