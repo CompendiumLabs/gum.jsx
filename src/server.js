@@ -4,17 +4,39 @@ import express from 'express'
 import { program } from 'commander'
 import { evaluateGum } from './eval.js'
 import { canvas } from './canvas.js'
-import { ErrorNoCode, ErrorNoReturn, ErrorReturn } from './eval.js'
+import { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorParse } from './eval.js'
+
+class ErrorGenerate extends Error {
+  constructor(error) {
+    super(error.message)
+    this.name = 'ErrorGenerate'
+    this.error = error
+  }
+}
+
+class ErrorRender extends Error {
+  constructor(error) {
+    super(error.message)
+    this.name = 'ErrorRender'
+    this.error = error
+  }
+}
 
 function parseError(error) {
   if (error instanceof ErrorNoCode) {
     return 'ERR_NOCODE: No code provided'
   } else if (error instanceof ErrorNoReturn) {
     return 'ERR_NORETURN: No return value'
-  } else if (error instanceof ErrorReturn) {
-    return `ERR_RETURN: ${JSON.stringify(error.value)}`
+  } else if (error instanceof ErrorNoElement) {
+    return `ERR_NOELEMENT: Return value ${JSON.stringify(error.value)}`
+  } else if (error instanceof ErrorParse) {
+    return `ERR_PARSE: ${error.error.message}`
+  } else if (error instanceof ErrorGenerate) {
+    return `ERR_GENERATE: ${error.error.message}`
+  } else if (error instanceof ErrorRender) {
+    return `ERR_RENDER: ${error.error.message}`
   } else {
-    return `ERR_EXECUTION: ${error.message}`
+    return `ERR_UNKNOWN: ${error.message}`
   }
 }
 
@@ -46,13 +68,17 @@ app.get('/', (req, res) => {
 app.post('/eval', (req, res) => {
   // get params
   const code = req.body
-  const size0 = parseInt(req.query.size ?? 500)
+  const size0 = parseInt(req.query.size ?? 750)
 
   // evaluate code and return svg
   let svg
   try {
     const elem = evaluateGum(code, { size: size0, dims: true })
-    svg = elem.svg()
+    try {
+      svg = elem.svg()
+    } catch (err) {
+      throw new ErrorGenerate(err)
+    }
   } catch (error) {
     const message = parseError(error)
     return res.status(500).send(message)
@@ -67,15 +93,23 @@ app.post('/eval', (req, res) => {
 app.post('/render', async (req, res) => {
   // get params
   const code = req.body
-  const size0 = parseInt(req.query.size ?? 500)
+  const size0 = parseInt(req.query.size ?? 750)
 
   // evaluate code and render to png
-  let png
+  let png, svg
   try {
     const elem = evaluateGum(code, { size: size0, dims: true })
-    const svg = elem.svg()
-    const { size } = elem
-    png = await canvas.renderPng(svg, { size })
+    try {
+      svg = elem.svg()
+    } catch (err) {
+      throw new ErrorGenerate(err)
+    }
+    try {
+      const { size } = elem
+      png = await canvas.renderPng(svg, { size })
+    } catch (err) {
+      throw new ErrorRender(err)
+    }
   } catch (error) {
     const message = parseError(error)
     return res.status(500).send(message)

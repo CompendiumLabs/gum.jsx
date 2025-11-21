@@ -91,6 +91,14 @@ class ErrorNoCode extends Error {
   }
 }
 
+class ErrorParse extends Error {
+  constructor(error) {
+    super(error.message)
+    this.name = 'ErrorParse'
+    this.error = error
+  }
+}
+
 class ErrorNoReturn extends Error {
   constructor() {
     super('No return value')
@@ -98,34 +106,45 @@ class ErrorNoReturn extends Error {
   }
 }
 
-class ErrorReturn extends Error {
+class ErrorNoElement extends Error {
   constructor(value) {
-    super('Return value')
-    this.name = 'ErrorReturn'
+    super('No element returned')
+    this.name = 'ErrorNoElement'
     this.value = value
   }
 }
 
 function evaluateGum(code, args = {}) {
-  if (code.trim() == '') {
+  let element
+
+  // check if code is provided
+  if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
   }
 
   // parse to property tree
-  let element = parseJSX(code)
+  try {
+    element = parseJSX(code)
+  } catch (err) {
+    throw new ErrorParse(err)
+  }
 
   // check if its actually a tree
   if (!is_object(element)) {
     if (element == null) {
       throw new ErrorNoReturn()
     } else {
-      throw new ErrorReturn(element)
+      throw new ErrorNoElement(element)
     }
   }
 
   // wrap it in Svg if not already
-  if (!(element instanceof Svg)) {
-    element = new Svg({ children: element, ...args })
+  try {
+    if (!(element instanceof Svg)) {
+      element = new Svg({ children: element, ...args })
+    }
+  } catch (err) {
+    throw new ErrorParse(err)
   }
 
   // return element
@@ -150,4 +169,4 @@ function evaluateGumSafe(code, args = {}) {
 // export
 //
 
-export { evaluateGum, evaluateGumSafe, ErrorNoCode, ErrorNoReturn, ErrorReturn }
+export { evaluateGum, evaluateGumSafe, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorParse }
