@@ -3,7 +3,6 @@
 //
 
 import path from 'path'
-import { fileURLToPath } from 'url'
 
 const CANVAS_SIZE = [ 500, 500 ]
 
@@ -32,6 +31,7 @@ class BaseCanvas {
 class NodeCanvas extends BaseCanvas {
     async init() {
         // Get __dirname in ES modules
+        const { fileURLToPath } = await import('url')
         const __filename = fileURLToPath(import.meta.url)
         const __dirname = path.dirname(__filename)
         const font_dir = path.join(__dirname, 'fonts')
