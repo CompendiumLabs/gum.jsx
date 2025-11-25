@@ -1136,10 +1136,11 @@ class Svg extends Group {
         const inner = super.inner(ctx)
         const defs = ctx.meta.svg()
         const style = this.style.svg(ctx)
-        return [ defs, style, inner ]
+        const body = [ defs, style, inner ]
             .filter(s => s.length > 0)
             .map(s => s.trim())
-            .join('\n') + '\n'
+            .join('\n')
+        return `\n${body}\n`
     }
 
     svg(args) {

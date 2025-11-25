@@ -43,7 +43,7 @@ function parseError(error) {
 // get host and port args from cli
 program
   .option('-h, --host <host>', 'host to listen on', 'localhost')
-  .option('-p, --port <port>', 'port to listen on', parseInt, 3000)
+  .option('-p, --port <port>', 'port to listen on', v => parseInt(v, 10), 3000)
   .parse()
 const { host, port } = program.opts()
 
@@ -65,7 +65,7 @@ app.get('/', (req, res) => {
 })
 
 // eval gum jsx to svg
-app.post('/eval', (req, res) => {
+app.post('/evaluate', (req, res) => {
   // get params
   const code = req.body
   const size0 = parseInt(req.query.size ?? 750)
@@ -122,5 +122,5 @@ app.post('/render', async (req, res) => {
 
 // start server
 app.listen(port, host, () => {
-  console.log(`Server running on http://${host}:${port}`)
+  // console.log(`Server running on http://${host}:${port}`)
 })

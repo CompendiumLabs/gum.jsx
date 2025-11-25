@@ -2,6 +2,9 @@
 // dependencies
 //
 
+import path from 'path'
+import { fileURLToPath } from 'url'
+
 const CANVAS_SIZE = [ 500, 500 ]
 
 class BaseCanvas {
@@ -28,9 +31,15 @@ class BaseCanvas {
 
 class NodeCanvas extends BaseCanvas {
     async init() {
+        // Get __dirname in ES modules
+        const __filename = fileURLToPath(import.meta.url)
+        const __dirname = path.dirname(__filename)
+        const font_dir = path.join(__dirname, 'fonts')
+
+        // register fonts
         this.lib = await import('canvas')
-        this.lib.registerFont('./src/fonts/IBMPlexSans-Variable.ttf', { family: 'IBM Plex Sans' })
-        this.lib.registerFont('./src/fonts/IBMPlexMono-Thin.ttf', { family: 'IBM Plex Mono' })
+        this.lib.registerFont(path.join(font_dir, 'IBMPlexSans-Variable.ttf'), { family: 'IBM Plex Sans' })
+        this.lib.registerFont(path.join(font_dir, 'IBMPlexMono-Thin.ttf'), { family: 'IBM Plex Mono' })
         await super.init()
     }
 
