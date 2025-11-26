@@ -73,7 +73,7 @@ const DEFAULTS = {
         label_offset: [ 0.11, 0.18 ],
         title_size: 0.1,
         title_offset: 0.05,
-        grid_opacity: 0.2,
+        grid_stroke: '#ddd',
         margin: 0.2,
     },
 

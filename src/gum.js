@@ -3301,7 +3301,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, grid_opacity = D.plot.grid_opacity, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin: margin0 = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = D.plot.num_ticks, yticks = D.plot.num_ticks, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = D.plot.tick_size, label_size = D.plot.label_size, label_offset = D.plot.label_offset, title_size = D.plot.title_size, title_offset = D.plot.title_offset, grid_stroke = D.plot.grid_stroke, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin: margin0 = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = args
         const elems = ensure_array(children0, false)
         const margin = margin0 === true ? D.plot.margin : margin0
@@ -3342,7 +3342,7 @@ class Plot extends Box {
         ytick_label_attr = { ...ytick_label_attr, ...tick_label_attr }
         xaxis_attr = { ...axis_attr, ...xaxis_attr, ...prefix_join('tick', xtick_attr), ...prefix_join('label', xtick_label_attr) }
         yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr), ...prefix_join('label', ytick_label_attr) }
-        grid_attr = { opacity: grid_opacity, ...grid_attr }
+        grid_attr = { stroke: grid_stroke, ...grid_attr }
         xgrid_attr = { ...grid_attr, ...xgrid_attr }
         ygrid_attr = { ...grid_attr, ...ygrid_attr }
         xlabel_attr = { size: xlabel_size, offset: xlabel_offset, ...label_attr, ...xlabel_attr }

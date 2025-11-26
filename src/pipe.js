@@ -1,6 +1,7 @@
 // pipe server
 
 import readline from 'readline'
+import { stdout } from 'process'
 
 import { evaluateGum } from './eval.js'
 import { canvas } from './canvas.js'
@@ -27,10 +28,12 @@ const rl = readline.createInterface({ input: process.stdin })
 rl.on('line', async (line) => {
     const { task, code, size: size0 } = JSON.parse(line)
     const size = size0 ?? 1000
+    let message = null
     try {
         const result = await handlers[task](code, { size })
-        console.log(JSON.stringify({ ok: true, result }))
+        message = { ok: true, result }
     } catch (e) {
-        console.log(JSON.stringify({ ok: false, result: e.message }))
+        message = { ok: false, result: e.message }
     }
+    stdout.write(JSON.stringify(message) + '\n')
 })
