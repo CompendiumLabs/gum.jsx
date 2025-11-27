@@ -1082,7 +1082,7 @@ class Style extends Element {
 
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0, prec, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, ns = C.svgns, font_family = C.sans, font_weight = C.normal, size = D.size, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_array(children0)
         const size_base = ensure_vector(size0, 2)
 
@@ -1099,7 +1099,7 @@ class Svg extends Group {
         const dims_attr = dims ? { width, height } : {}
 
         // pass to Group
-        super({ tag: 'svg', children, aspect, ...dims_attr, ...attr })
+        super({ tag: 'svg', children, aspect, ns, font_family, font_weight, size, prec, ...dims_attr, ...attr })
         this.args = args
 
         // additional props
@@ -2107,7 +2107,7 @@ function ensure_tail(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextSpan extends Element {
     constructor(args = {}) {
-        const { children: children0, color, stroke, voffset = C.voffset, ...attr0 } = THEME(args, 'TextSpan')
+        const { children: children0, color, voffset = C.voffset, stroke = C.none, font_family = C.sans, ...attr0 } = THEME(args, 'TextSpan')
         const child = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -2153,7 +2153,7 @@ class TextSpan extends Element {
 
 class ElemSpan extends Group {
     constructor(args = {}) {
-        const { children: children0, spacing, ...attr } = THEME(args, 'ElemSpan')
+        const { children: children0, spacing = 0.25, ...attr } = args
         const children = check_singleton(children0)
         const aspect0 = children.spec.aspect ?? 1
         const aspect = aspect0 + spacing
@@ -2196,7 +2196,7 @@ function compress_spans(children, font_args = {}) {
 // wrap text or elements to multiple lines with fixed line height
 class Text extends HWrap {
     constructor(args = {}) {
-        const { children: children0, wrap = null, spacing, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
+        const { children: children0, wrap = null, spacing = 0.1, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
         const items = ensure_array(children0)
     	const [ spec, attr ] = spec_split(attr0)
 
@@ -2263,7 +2263,7 @@ class TextStack extends VStack {
 
 class TextBox extends Box {
     constructor(args = {}) {
-        const { children: children0, padding, justify, wrap, ...attr0 } = THEME(args, 'TextBox')
+        const { children: children0, padding = 0.1, justify, wrap, ...attr0 } = THEME(args, 'TextBox')
         const text = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -2275,7 +2275,7 @@ class TextBox extends Box {
 
 class TextFrame extends TextBox {
     constructor(args = {}) {
-        const { border = 1, rounded, ...attr } = THEME(args, 'TextFrame')
+        const { border = 1, rounded = 0.05, ...attr } = THEME(args, 'TextFrame')
         super({ border, rounded, ...attr })
     }
 }
@@ -2306,9 +2306,10 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_size is absolutely scaled
 class TextFlex extends Element {
     constructor(args = {}) {
-        const { children: children0, font_scale, font_size, spacing, color, font_family, voffset = C.voffset, ...attr0 } = THEME(args, 'TextFlex')
+        const { children: children0, font_scale, font_size, spacing = 0.1, color, font_family = C.sans, voffset = C.voffset, ...attr0 } = THEME(args, 'TextFlex')
         const children = check_string(children0)
-        const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
+        const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
 
         // pass to Element
         super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
@@ -2320,7 +2321,7 @@ class TextFlex extends Element {
         this.spacing = spacing
         this.font_scale = font_scale
         this.font_size = font_size
-        this.font_args = { font_family, ...font_attr }
+        this.font_args = font_attr
     }
 
     props(ctx) {
@@ -2357,16 +2358,16 @@ class TextFlex extends Element {
 
 class EmojiDiv extends Element {
     constructor(args = {}) {
-        const { children, font_family, ...attr0 } = THEME(args, 'EmojiDiv')
+        const { children, font_family = C.sans, ...attr0 } = args
         const emoji = check_string(children)
-        const [ font_attr, attr ] = prefix_split([ 'font' ], attr0)
+        const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
 
         // compute text box
-        const fargs = { font_family, ...font_attr }
-        const aspect = textSizer(emoji, fargs)
+        const aspect = textSizer(emoji, font_attr)
 
         // store for rendering
-        super({ tag: 'div', unary: false, aspect, ...attr })
+        super({ tag: 'div', unary: false, aspect, xmlns: C.htmlns, ...attr })
         this.args = args
 
         // additional props
@@ -2411,7 +2412,7 @@ class Emoji extends Group {
         const text = emoji_table[name] ?? name
 
         // make outer div in foreignObject
-        const div = new EmojiDiv({ children: text, xmlns: 'http://www.w3.org/1999/xhtml' })
+        const div = new EmojiDiv({ children: text })
         const foreign = new Foreign({ children: div, rect: [ 0, voffset, 1, 1 ] })
 
         // pass to Group
@@ -2809,10 +2810,10 @@ class ArrowPath extends Group {
 
 class Node extends TextFrame {
     constructor(args = {}) {
-        const { children, label, rad, ...attr } = THEME(args, 'Node')
+        const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, ...attr } = THEME(args, 'Node')
 
         // pass to TextFrame
-        super({ children, rad, flex: true, ...attr })
+        super({ children, rad, rounded, padding, flex: true, ...attr })
         this.args = args
 
         // additional props
@@ -3091,7 +3092,7 @@ function get_tick_lim(lim) {
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size, label_offset, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = 1.5, label_offset = 0.75, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
         const [ tick_lo, tick_hi ] = tick_lim
@@ -3275,7 +3276,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks, yticks, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size, label_size, label_offset, title_size, title_offset, grid_stroke, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.1, title_offset = 0.05, grid_stroke = '#ddd', xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
@@ -3425,7 +3426,7 @@ class BarPlot extends Plot {
 
 class TitleFrame extends Box {
     constructor(args = {}) {
-        const { children: children0, title, title_size, title_fill = C.white, title_offset = 0, title_rounded, margin, ...attr0 } = THEME(args, 'TitleFrame')
+        const { children: children0, title, title_size = 0.05, title_fill = C.white, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleFrame')
         const child = check_singleton(children0)
         const [ title_attr, attr ] = prefix_split(['title'], attr0)
 
@@ -3448,7 +3449,7 @@ class TitleFrame extends Box {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        const { children: children0, aspect, padding, margin, border, rounded, border_stroke, title_size, title_text_font_weight, wrap, spacing = 0, justify = 'left', ...attr0 } = THEME(args, 'Slide')
+        const { children: children0, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.05, title_text_font_weight = C.bold, wrap = 25, spacing, justify = 'left', ...attr0 } = THEME(args, 'Slide')
         const children = ensure_array(children0)
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
