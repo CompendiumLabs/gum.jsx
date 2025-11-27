@@ -14,6 +14,7 @@ Parameters:
 - `padding` = `0` ­— additional padding to add to auto-detected coordinate limits
 - `margin` = `0` — margin to add around the plot (needed to include labels and title)
 - `border` = `0` — border width to use
+- `clip` = `false` — clip graph contents to specified coordinates
 
 Subunits:
 - `axis`/`xaxis`/`yaxis` — the axes, including lines, ticks, and tick labels
