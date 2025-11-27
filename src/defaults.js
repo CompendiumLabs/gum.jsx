@@ -106,32 +106,28 @@ const THEMES = {
 }
 
 // theme state
-let theme = 'light'
-function getTheme(key) {
-    return key
+let theme = null
+function setTheme(name, args = {}) {
+    const theme_args = name ? THEMES[name] : {}
+    theme = { ...theme_args, ...args }
 }
-function setTheme(key) {
-    theme = key
-}
+setTheme('light')
 
 // theme function
 function THEME(args, elem) {
-    // get base theme defaults
+    // get element defaults
     const BOOLEANS_ELEMENT = BOOLEANS[elem] ?? {}
-
-    // get theme defaults
-    const DEFAULTS_THEME = theme ? THEMES[theme] : {}
-    const DEFAULTS_ELEMENT = DEFAULTS_THEME[elem] ?? {}
+    const DEFAULTS_ELEMENT = theme[elem] ?? {}
 
     // map in booleans from args
-    const BOOLEANS_MAPPED = map_object(args, (k, v) => (v === true) && (k in BOOLEANS_ELEMENT) ? BOOLEANS_ELEMENT[k] : v)
+    const ARGS_MAPPED = map_object(args, (k, v) => (v === true) && (k in BOOLEANS_ELEMENT) ? BOOLEANS_ELEMENT[k] : v)
 
     // return the whole shazam
-    return { ...DEFAULTS_ELEMENT, ...BOOLEANS_MAPPED }
+    return { ...DEFAULTS_ELEMENT, ...ARGS_MAPPED }
 }
 
 //
 // exports
 //
 
-export { CONSTANTS, DEFAULTS, DEBUG, THEME, getTheme, setTheme }
+export { CONSTANTS, DEFAULTS, DEBUG, setTheme, THEME }

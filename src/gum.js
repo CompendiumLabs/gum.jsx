@@ -1,6 +1,6 @@
 // gum.js
 
-import { CONSTANTS as C, DEFAULTS as D, THEME, DEBUG } from './defaults.js'
+import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME } from './defaults.js'
 import { emoji_table } from './emoji.js'
 import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, filter_object, compress_whitespace } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
