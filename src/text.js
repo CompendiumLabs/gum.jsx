@@ -2,7 +2,7 @@
 
 import LineBreaker from 'linebreak'
 
-import { DEFAULTS as D } from './defaults.js'
+import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 import { is_string, compress_whitespace } from './utils.js'
 import { canvas } from './canvas.js'
 
@@ -12,7 +12,7 @@ import { canvas } from './canvas.js'
 
 // size text with canvas available
 function textSizer(text, {
-    font_family = D.font.family_sans, font_weight = D.font.weight, calc_size = D.font.calc_size
+    font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size
 } = {}) {
     if (text == '\n') return null
     const text1 = compress_whitespace(text)
