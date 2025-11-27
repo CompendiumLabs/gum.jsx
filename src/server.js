@@ -69,7 +69,7 @@ app.post('/evaluate', (req, res) => {
   // get params
   const code = req.body
   const size0 = parseInt(req.query.size ?? 750)
-  const theme = req.query.theme ?? 'dark'
+  const theme = req.query.theme ?? 'light'
 
   // evaluate code and return svg
   let svg
@@ -95,7 +95,7 @@ app.post('/render', async (req, res) => {
   // get params
   const code = req.body
   const size0 = parseInt(req.query.size ?? 750)
-  const theme = req.query.theme ?? 'dark'
+  const theme = req.query.theme ?? 'light'
 
   // evaluate code and render to png
   let png, svg

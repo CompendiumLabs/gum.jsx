@@ -7,12 +7,12 @@ import { evaluateGum } from './eval.js'
 import { canvas } from './canvas.js'
 
 const handlers = {
-    evaluate: async (code, { size, theme = 'dark' }) => {
+    evaluate: async (code, { size, theme }) => {
         const elem = evaluateGum(code, { size: size, theme })
         const svg = elem.svg()
         return svg
     },
-    render: async (code, { size: size0, theme = 'dark' }) => {
+    render: async (code, { size: size0, theme }) => {
         const elem = evaluateGum(code, { size: size0, theme })
         const svg = elem.svg()
         const { size } = elem
@@ -26,8 +26,9 @@ const rl = readline.createInterface({ input: process.stdin })
 
 // handle lines from stdin
 rl.on('line', async (line) => {
-    const { task, code, size: size0, theme } = JSON.parse(line)
+    const { task, code, size: size0, theme: theme0 } = JSON.parse(line)
     const size = size0 ?? 1000
+    const theme = theme0 ?? 'light'
     let message = null
     try {
         const result = await handlers[task](code, { size, theme })

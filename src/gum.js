@@ -1082,7 +1082,7 @@ class Style extends Element {
 
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, ns = C.svgns, font_family = C.sans, font_weight = C.normal, size = D.size, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, xmlns = C.svgns, font_family = C.sans, font_weight = C.normal, size = D.size, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_array(children0)
         const size_base = ensure_vector(size0, 2)
 
@@ -1099,7 +1099,7 @@ class Svg extends Group {
         const dims_attr = dims ? { width, height } : {}
 
         // pass to Group
-        super({ tag: 'svg', children, aspect, ns, font_family, font_weight, size, prec, ...dims_attr, ...attr })
+        super({ tag: 'svg', children, aspect, xmlns, font_family, font_weight, ...dims_attr, ...attr })
         this.args = args
 
         // additional props
