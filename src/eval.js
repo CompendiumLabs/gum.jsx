@@ -2,7 +2,7 @@
 
 import { transform, registerPlugin } from '@babel/standalone'
 
-import { KEYS, VALS, is_function, is_object, Svg } from './gum.js'
+import { KEYS, VALS, is_function, is_object, Svg, setTheme } from './gum.js'
 
 //
 // jsx parser
@@ -114,12 +114,17 @@ class ErrorNoElement extends Error {
   }
 }
 
-function evaluateGum(code, args = {}) {
+function evaluateGum(code, { theme, ...args } = {}) {
   let element
 
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
+  }
+
+  // set theme
+  if (theme != null) {
+    setTheme(theme)
   }
 
   // parse to property tree

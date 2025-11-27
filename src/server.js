@@ -69,11 +69,12 @@ app.post('/evaluate', (req, res) => {
   // get params
   const code = req.body
   const size0 = parseInt(req.query.size ?? 750)
+  const theme = req.query.theme ?? 'dark'
 
   // evaluate code and return svg
   let svg
   try {
-    const elem = evaluateGum(code, { size: size0, dims: true })
+    const elem = evaluateGum(code, { size: size0, theme })
     try {
       svg = elem.svg()
     } catch (err) {
@@ -94,11 +95,12 @@ app.post('/render', async (req, res) => {
   // get params
   const code = req.body
   const size0 = parseInt(req.query.size ?? 750)
+  const theme = req.query.theme ?? 'dark'
 
   // evaluate code and render to png
   let png, svg
   try {
-    const elem = evaluateGum(code, { size: size0, dims: true })
+    const elem = evaluateGum(code, { size: size0, theme })
     try {
       svg = elem.svg()
     } catch (err) {

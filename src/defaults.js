@@ -99,10 +99,34 @@ const THEME_LIGHT = {
     TextSpan: {
         color: C.black,
     },
+
+    TitleFrame: {
+        title_fill: C.white,
+    }
+}
+
+const THEME_DARK = {
+    Svg: {
+        fill: C.none,
+        stroke: C.white,
+    },
+
+    TextSpan: {
+        color: C.white,
+    },
+
+    Latex: {
+        color: C.white,
+    },
+
+    TitleFrame: {
+        title_fill: C.black,
+    }
 }
 
 const THEMES = {
     light: THEME_LIGHT,
+    dark: THEME_DARK,
 }
 
 // theme state
