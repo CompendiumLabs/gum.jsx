@@ -3275,7 +3275,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.1, title_offset = 0.05, grid_stroke = '#ddd', xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.1, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
@@ -3315,7 +3315,6 @@ class Plot extends Box {
         ytick_label_attr = { ...ytick_label_attr, ...tick_label_attr }
         xaxis_attr = { ...axis_attr, ...xaxis_attr, ...prefix_join('tick', xtick_attr), ...prefix_join('label', xtick_label_attr) }
         yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr), ...prefix_join('label', ytick_label_attr) }
-        grid_attr = { stroke: grid_stroke, ...grid_attr }
         xgrid_attr = { ...grid_attr, ...xgrid_attr }
         ygrid_attr = { ...grid_attr, ...ygrid_attr }
         xlabel_attr = { size: xlabel_size, offset: xlabel_offset, ...label_attr, ...xlabel_attr }
@@ -3423,6 +3422,7 @@ class BarPlot extends Plot {
 // slides
 //
 
+// TODO: use mask to clip frame for title box (then we can make it transparent)
 class TitleFrame extends Box {
     constructor(args = {}) {
         const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleFrame')

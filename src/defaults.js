@@ -1,6 +1,6 @@
 // defaults
 
-import { map_object } from './utils.js'
+import { map_object, is_array, is_string } from './utils.js'
 
 //
 // constants
@@ -102,12 +102,21 @@ const THEME_LIGHT = {
 
     TitleFrame: {
         title_fill: C.white,
-    }
+    },
+
+    Plot: {
+        grid_stroke: '#ddd',
+    },
 }
 
 const THEME_DARK = {
     Svg: {
         fill: C.none,
+        stroke: C.white,
+    },
+
+    Dot: {
+        fill: C.white,
         stroke: C.white,
     },
 
@@ -120,8 +129,16 @@ const THEME_DARK = {
     },
 
     TitleFrame: {
-        title_fill: C.black,
-    }
+        title_fill: '#333',
+    },
+
+    Plot: {
+        grid_stroke: '#555',
+    },
+
+    Legend: {
+        fill: '#333',
+    },
 }
 
 const THEMES = {
@@ -131,9 +148,12 @@ const THEMES = {
 
 // theme state
 let theme = null
-function setTheme(name, args = {}) {
-    const theme_args = name ? THEMES[name] : {}
-    theme = { ...theme_args, ...args }
+function setTheme(names) {
+    names = is_array(names) ? names : [ names ]
+    theme = names.reduce((acc, name) => {
+        const layer = is_string(name) ? THEMES[name] : name
+        return { ...acc, ...layer }
+    }, {})
 }
 setTheme('light')
 
