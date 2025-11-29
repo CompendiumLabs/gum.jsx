@@ -191,7 +191,7 @@ const sign = Math.sign
 const floor = Math.floor
 const ceil = Math.ceil
 const round = Math.round
-const atan = Math.atan
+const atan = Math.atan2
 const isNan = Number.isNaN
 const isInf = x => !Number.isFinite(x)
 
@@ -2036,7 +2036,7 @@ class ArrowHead extends Element {
 class Arrow extends Group {
     constructor(args = {}) {
         let { children: children0, direc: direc0, tail = 0, shape = 'arrow', graph = true, ...attr0 } = THEME(args, 'Arrow')
-        const [head_attr, tail_attr, attr] = prefix_split(['head', 'tail'], attr0)
+        const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
         // baked in shapes
         if (shape == 'circle') {
@@ -2686,11 +2686,17 @@ class DataFill extends Polygon {
     }
 }
 
+function default_arrow(direc) {
+    const theta = is_scalar(direc) ? direc : vector_angle(direc)
+    const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
+    return new Box({ children: arrow, spin: theta })
+}
+
 class DataField extends DataPoints {
     constructor(args = {}) {
         const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, coord: coord0, ...attr } = THEME(args, 'DataField')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
-        const shape = ensure_singleton(children0) ?? (direc => new Arrow({ direc, tail: 1 }))
+        const shape = ensure_singleton(children0) ?? default_arrow
         const size = size0 ?? 0.25 / N
 
         // create points and shape function
