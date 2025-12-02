@@ -64,7 +64,7 @@ function parseJSX(code) {
   code = code.replace(/^\s*\/\/.*\n/gm, '').trim()
 
   // wrap code in a function if it's not an element
-  const wrappedCode = /^\s*</.test(code) ? code : `function run() { ${code} }`
+  const wrappedCode = /^\s*</.test(code) ? code : `function run() { "use strict"; ${code} }`
 
   // plugin based approach
   const react_jsx = [ 'transform-react-jsx', { pragma: 'h' } ]
