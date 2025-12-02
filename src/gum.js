@@ -872,7 +872,7 @@ class Element {
         this.spec.aspect = this.spec.invar ? this.spec.aspect0 : rotate_aspect(this.spec.aspect, this.spec.rotate)
 
         // warn if children are passed
-        if (children != null) console.warn(`Got children in ${this.tag}`)
+        if (children != null) console.error(`Got children in ${this.tag}`)
     }
 
     clone(args) {
@@ -915,11 +915,11 @@ function debug_element(element, indent = 0) {
     const args = Object.entries(element.args)
       .filter(([ k, v ]) => k != 'children' && v != null)
       .map(([ k, v ]) => `${k}=${JSON.stringify(v)}`)
-    console.log(`${spaces}${element.constructor.name.toUpperCase()}(${args.join(', ')})`)
+    console.error(`${spaces}${element.constructor.name.toUpperCase()}(${args.join(', ')})`)
 
     // special cases
     if (element instanceof TextSpan) {
-        console.log(`${spaces}  STRING(${element.text})`)
+        console.error(`${spaces}  STRING(${element.text})`)
     } else if (element instanceof Group) {
         element.children.forEach(c => debug_element(c, indent + 2))
     }
@@ -933,9 +933,9 @@ class Debug {
     }
 
     svg(ctx) {
-        console.log('======== DEBUG START ========')
+        console.error('======== DEBUG START ========')
         debug_element(this)
-        console.log('======== DEBUG END ========')
+        console.error('======== DEBUG END ========')
         return ''
     }
 }
@@ -1255,7 +1255,8 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
 
     // for computing return values
     const getSizes = cs => cs.map(c => c.size ?? 0)
-    const getAspect = direc == 'v' ? invert : (a => a)
+    const getAspect0 = direc == 'v' ? invert : (a => a)
+    const getAspect = a => (aspect0 ?? getAspect0(a))
 
     // compute ranges with spacing
     function getRanges(sizes0) {
@@ -1364,7 +1365,7 @@ function default_measure(c) {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args = {}) {
-        const { children: children0, spacing = 0, padding = 0, wrap = null, measure: measure0 = null, debug, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, spacing = 0, padding = 0, wrap = null, measure: measure0 = null, aspect: aspect0, debug, ...attr } = THEME(args, 'HWrap')
         const children = ensure_array(children0)
         const measure = measure0 ?? default_measure
 
@@ -1372,8 +1373,13 @@ class HWrap extends VStack {
         const { rows } = wrapWidths(children, measure, wrap)
         const lines = rows.map(row => new HStack({ children: row, spacing: padding, debug }))
 
+        // compute aspect width
+        const nlines = maximum(lines.length, 1)
+        const aspectw = wrap != null ? wrap / nlines : null
+        const aspect = aspect0 ?? aspectw
+
         // pass to VStack
-        super({ children: lines, spacing, even: true, debug, ...attr })
+        super({ children: lines, spacing, even: true, aspect, debug, ...attr })
         this.args = args
     }
 }
@@ -2229,7 +2235,7 @@ function process_marktree(tree) {
     } else if (type == 'inlineMath') {
         return new Latex({ children: value })
     } else {
-        console.log(`Unsupported markdown type: ${type}`)
+        console.error(`Unsupported markdown type: ${type}`)
     }
 }
 
@@ -2436,14 +2442,14 @@ class Latex extends Element {
             const vfactor = display ? 0.5 : 0.25
             const vshift0 = voffset + valign + vfactor * (1 - height)
 
-            // console.log('======== LATEX ========')
-            // console.log(text)
-            // console.log(viewBox)
-            // console.log(width)
-            // console.log(height)
-            // console.log(valign)
-            // console.log(svg.outerHTML)
-            // console.log('======== LATEX ========')
+            // console.error('======== LATEX ========')
+            // console.error(text)
+            // console.error(viewBox)
+            // console.error(width)
+            // console.error(height)
+            // console.error(valign)
+            // console.error(svg.outerHTML)
+            // console.error('======== LATEX ========')
 
             // immediate attributes
             svg_attr = {
