@@ -100,9 +100,26 @@ const handlers = {
     const { params, body } = node
     return `(${params.map(walkTree).join(', ')}) => ${walkTree(body)}`
   },
+  NewExpression(node) {
+    const { callee, arguments: args } = node
+    return `new ${walkTree(callee)}(${args.map(walkTree).join(', ')})`
+  },
+  ArrayPattern(node) {
+    const { elements } = node
+    return `[${elements.map(walkTree).join(', ')}]`
+  },
   ObjectPattern(node) {
     const { properties } = node
     return `{ ${properties.map(walkTree).join(', ')} }`
+  },
+  TemplateLiteral(node) {
+    const { quasis, expressions } = node
+    return `\`${quasis.map(walkTree).join('')}\${${expressions.map(walkTree).join(', ')}}\``
+  },
+  TemplateElement(node) {
+    const { value } = node
+    const { cooked } = value
+    return cooked
   },
   BlockStatement(node) {
     const { body } = node
@@ -184,23 +201,20 @@ function component(klass, props, ...children0) {
   return isClass(klass) ? new klass(args) : klass(args)
 }
 
-function runJSX(code0, debug = false) {
+function runJSX(text, debug = false) {
+  // strip comment lines (to allow comments before bare elements)
+  const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
+
   // parse code
   const code = /^\s*</.test(code0) ? code0 : `function run() { "use strict"; ${code0} }`
   const tree = parseJSX(code)
 
   if (debug) {
-    console.log('--------------------------------')
     console.log(JSON.stringify(tree, null, 2))
   }
 
   // convert tree
   const jsCode0 = walkTree(tree)
-
-  if (debug) {
-    console.log('--------------------------------')
-    console.log(jsCode0)
-  }
 
   // construct function
   const jsCode = `return ${jsCode0}`
@@ -210,30 +224,8 @@ function runJSX(code0, debug = false) {
   const output0 = func(component, ...VALS)
   const output = typeof(output0) == 'function' ? output0() : output0
 
-  if (debug) {
-    console.log('--------------------------------')
-    console.log(JSON.stringify(output, null, 2))
-  }
-
   // return gum object
   return output
 }
 
-//
-// testing
-//
-
-// get debug flag from command line
-const debug = process.argv.includes('--debug') ?? false
-
-// get code from stdin
-const code = await waitForStdin()
-
-// make gum object
-setTheme('dark')
-const elem0 = runJSX(code, debug)
-const elem = (elem0 instanceof Svg) ? elem0 : new Svg({ children: elem0, size: 1000 })
-
-// render svg
-const svg = elem.svg()
-console.log(svg)
+export { runJSX }
