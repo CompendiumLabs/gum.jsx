@@ -79,22 +79,8 @@ function evaluateGum(code, { theme, debug = false, ...args } = {}) {
   return element
 }
 
-function evaluateGumSafe(code, args = {}) {
-  let svg, size, error = null
-  try {
-    const elem = evaluateGum(code, args)
-    svg = elem.svg()
-    size = elem.size
-  } catch (err) {
-    error = err
-  }
-
-  // return results
-  return { svg, error, size }
-}
-
 //
 // export
 //
 
-export { evaluateGum, evaluateGumSafe, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorParse }
+export { evaluateGum, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorParse }

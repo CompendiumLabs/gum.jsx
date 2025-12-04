@@ -10,7 +10,6 @@ function parseMarkdown(markdown) {
         .use(remarkMath)
     const tree = processor.parse(markdown)
     return tree.children
-
 }
 
 export { parseMarkdown }
