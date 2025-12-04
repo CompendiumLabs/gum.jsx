@@ -3,8 +3,7 @@
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 
-import { waitForStdin } from './node.js'
-import { ELEMS, KEYS, VALS, Svg, setTheme } from './gum.js'
+import { KEYS, VALS } from './gum.js'
 
 //
 // parser utils
@@ -44,7 +43,7 @@ function filterChildren(items) {
     .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
-function collateTemplates(expressions, quasis) {
+function collateTemplate(expressions, quasis) {
   const exps = expressions.map(e => {
     const { start } = e
     const value = `\${${walkTree(e)}}`
@@ -152,7 +151,7 @@ const handlers = {
   },
   TemplateLiteral(node) {
     const { quasis, expressions } = node
-    const items = collateTemplates(expressions, quasis)
+    const items = collateTemplate(expressions, quasis)
     return `\`${items.join('')}\``
   },
   TemplateElement(node) {
@@ -260,15 +259,20 @@ function runJSX(text, debug = false) {
   const tree = parseJSX(code)
 
   if (debug) {
+    console.log('------------TREE----------------')
     console.log(JSON.stringify(tree, null, 2))
+    console.log('--------------------------------')
+    console.log()
   }
 
   // convert tree
   const jsCode0 = walkTree(tree)
 
   if (debug) {
-    console.log('--------------------------------')
+    console.log('-------------JS-----------------')
     console.log(jsCode0)
+    console.log('--------------------------------')
+    console.log()
   }
 
   // construct function
