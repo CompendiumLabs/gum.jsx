@@ -111,13 +111,13 @@ class MathJaxNode extends MathJaxBase {
     }
 }
 
+// initialize mathjax
 let mathjax = null
-
 try {
     mathjax = (typeof window == 'undefined') ? new MathJaxNode() : new MathJaxWeb()
     await mathjax.init()
 } catch (error) {
-    console.log(error)
+    // console.error(`Failed to initialize MathJax: ${error}`)
 }
 
 export { mathjax }
