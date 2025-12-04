@@ -1,12 +1,12 @@
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
+import { ELEMS, KEYS, VALS } from './gum.js'
 
 //
 // parser utils
 //
 
 const parser = acorn.Parser.extend(jsx())
-
 function parseJSX(code) {
   const tree = parser.parse(code, {
     ecmaVersion: 'latest',
@@ -18,6 +18,10 @@ function parseJSX(code) {
 function objectLiteral(obj) {
   const body = Object.entries(obj).map(([ k, v ]) => `${k}: ${v}`)
   return `{ ${body.join(', ')} }`
+}
+
+function isWhitespace(s) {
+  return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
 }
 
 //
@@ -82,8 +86,8 @@ function walkTree(node) {
       const { openingElement, children } = node
       const { name, props } = walkTree(openingElement)
       const pstring = objectLiteral(props)
-      const cstring = children.map(walkTree).join(',\n')
-      return `component(\n"${name}",\n${pstring},\n${cstring}\n)`
+      const cstrings = children.map(walkTree).filter(c => c != null)
+      return `component(\n"${name}",\n${pstring},\n${cstrings.join(',\n')}\n)`
     },
     JSXAttribute(node) {
       const { name, value } = node
@@ -100,6 +104,7 @@ function walkTree(node) {
     JSXClosingElement(node) {},
     JSXFragment(node) {},
     JSXText(node) {
+      if (isWhitespace(node.value)) return null
       return `${JSON.stringify(node.value)}`
     },
   }
@@ -126,40 +131,58 @@ function y() {
   return x + 10
 }
 
-return <Box padding>
-  <Rect rotate={y()} spin={30} />
-</Box>
+return <Svg size={100}>
+  <Box padding>
+    <Rect rounded rotate={y()} fill="#666" />
+  </Box>
+</Svg>
 `.trim()
 
 // dummy component
 function component(name, props, ...children) {
-  return { name, props, children }
+  const maker = ELEMS[name]
+  if (maker == null) throw new Error(`Unknown component: ${name}`)
+  const cargs = children.length > 0 ? { children } : {}
+  return new maker({ ...cargs, ...props })
 }
 
 //
 // run test
 //
 
-// parse code
-const wrappedCode = /^\s*</.test(code) ? code : `function run() { "use strict"; ${code} }`
-const tree = parseJSX(wrappedCode)
+function runJSX(code0) {
+  // parse code
+  const code = /^\s*</.test(code0) ? code0 : `function run() { "use strict"; ${code0} }`
+  const tree = parseJSX(code)
 
-// print tree
-console.log(JSON.stringify(tree, null, 2))
-console.log('--------------------------------')
+  // print tree
+  // console.log(JSON.stringify(tree, null, 2))
+  // console.log('--------------------------------')
 
-// convert tree to code
-const jsCode = walkTree(tree)
+  // convert tree to code
+  const jsCode0 = walkTree(tree)
 
-// print code
-console.log(jsCode)
-console.log('--------------------------------')
+  // print code
+  // console.log(jsCode)
+  // console.log('--------------------------------')
 
-// execute code
-const jsCode1 = `return ${jsCode}`
-const func = new Function('component', jsCode1)
-const output0 = func(component)
-const output = (typeof(output0) == 'function') ? output0() : output0
+  // construct function
+  const jsCode = `return ${jsCode0}`
+  const func = new Function('component', ...KEYS, jsCode)
 
-// report output
-console.log(JSON.stringify(output, null, 2))
+  // execute function
+  const output0 = func(component, ...VALS)
+  const output = (typeof(output0) == 'function') ? output0() : output0
+
+  // print output
+  // console.log(JSON.stringify(output, null, 2))
+  // console.log('--------------------------------')
+
+  // return gum object
+  return output
+}
+
+// render svg
+const obj = runJSX(code)
+const svg = obj.svg()
+console.log(svg)
