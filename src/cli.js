@@ -1,18 +1,9 @@
 // gum cli
 
 import { program } from 'commander'
+import { waitForStdin } from './node.js'
 import { evaluateGum } from './eval.js'
 import { canvas } from './canvas.js'
-
-// wait for stdin
-function waitForStdin() {
-  return new Promise((resolve) => {
-      process.stdin.setEncoding('utf8');
-      process.stdin.once('data', (data) => {
-          resolve(data.trim());
-      });
-  });
-}
 
 // get options from commander
 program

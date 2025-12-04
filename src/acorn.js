@@ -1,6 +1,10 @@
+// acorn jsx parser
+
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
-import { ELEMS, KEYS, VALS } from './gum.js'
+
+import { waitForStdin } from './node.js'
+import { ELEMS, KEYS, VALS, Svg, setTheme } from './gum.js'
 
 //
 // parser utils
@@ -24,139 +28,179 @@ function isWhitespace(s) {
   return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
 }
 
+function isClass(func) {
+  return (typeof func === 'function') &&
+         (func.prototype != null) &&
+         (func.prototype.constructor === func) &&
+         (Object.getOwnPropertyDescriptor(func, 'prototype').writable === false)
+}
+
+function snakeCase(s) {
+  return s.replace(/-/g, '_')
+}
+
+function filterChildren(items) {
+  return items.flat(1)
+    .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
+}
+
 //
 // tree walker
 //
 
+const handlers = {
+  Program(node) {
+    const { body } = node
+    return body.map(walkTree).join('\n')
+  },
+  Literal(node) {
+    return node.raw
+  },
+  Identifier(node) {
+    return node.name
+  },
+  VariableDeclarator(node) {
+    const { id, init } = node
+    return `${walkTree(id)} = ${walkTree(init)}`
+  },
+  VariableDeclaration(node) {
+    const { kind, declarations } = node
+    return `${kind} ${declarations.map(walkTree).join(', ')}`
+  },
+  UnaryExpression(node) {
+    const { operator, argument } = node
+    return `${operator}(${walkTree(argument)})`
+  },
+  BinaryExpression(node) {
+    const { left, right, operator } = node
+    return `(${walkTree(left)}) ${operator} (${walkTree(right)})`
+  },
+  ArrayExpression(node) {
+    const { elements } = node
+    return `[${elements.map(walkTree).join(', ')}]`
+  },
+  Property(node) {
+    const { key, value } = node
+    return `${walkTree(key)}: ${walkTree(value)}`
+  },
+  ObjectExpression(node) {
+    const { properties } = node
+    return `{ ${properties.map(walkTree).join(', ')} }`
+  },
+  MemberExpression(node) {
+    const { object, property } = node
+    return `${walkTree(object)}.${walkTree(property)}`
+  },
+  FunctionDeclaration(node) {
+    const { id, body } = node
+    const name = walkTree(id)
+    return `function ${name}() {\n${walkTree(body)}\n}`
+  },
+  ArrowFunctionExpression(node) {
+    const { params, body } = node
+    return `(${params.map(walkTree).join(', ')}) => ${walkTree(body)}`
+  },
+  ObjectPattern(node) {
+    const { properties } = node
+    return `{ ${properties.map(walkTree).join(', ')} }`
+  },
+  BlockStatement(node) {
+    const { body } = node
+    return body.map(walkTree).join('\n')
+  },
+  ExpressionStatement(node) {
+    const { expression } = node
+    return walkTree(expression)
+  },
+  ReturnStatement(node) {
+    const { argument } = node
+    return `return (\n${walkTree(argument)}\n)`
+  },
+  CallExpression(node) {
+    const { callee, arguments: args } = node
+    return `${walkTree(callee)}(${args.map(walkTree).join(', ')})`
+  },
+  JSXIdentifier(node) {
+    return node.name
+  },
+  JSXEmptyExpression(node) {
+    return null
+  },
+  JSXExpressionContainer(node) {
+    const { expression } = node
+    return walkTree(expression)
+  },
+  JSXElement(node) {
+    const { openingElement, children } = node
+    const { name, props } = walkTree(openingElement)
+    const pstring = objectLiteral(props)
+    const cstrings = children.map(walkTree).filter(c => c != null)
+    return `component(\n${name},\n${pstring},\n${cstrings.join(',\n')}\n)`
+  },
+  JSXAttribute(node) {
+    const { name, value } = node
+    return [ snakeCase(walkTree(name)), walkTree(value) ?? true ]
+  },
+  JSXMemberExpression(node) {},
+  JSXNamespacedName(node) {},
+  JSXOpeningElement(node) {
+    const { name: nameId, attributes } = node
+    const name = walkTree(nameId)
+    const props = Object.fromEntries(attributes.map(walkTree))
+    return { name, props }
+  },
+  JSXClosingElement(node) {},
+  JSXFragment(node) {},
+  JSXText(node) {
+    if (isWhitespace(node.value)) return null
+    return `${JSON.stringify(node.value)}`
+  },
+}
+
 function walkTree(node) {
   if (node == null) return null
 
-  const visitors = {
-    Program(node) {
-      const { body } = node
-      return body.map(walkTree).join('\n')
-    },
-    Literal(node) {
-      return node.raw
-    },
-    Identifier(node) {
-      return node.name
-    },
-    VariableDeclarator(node) {
-      const { id, init } = node
-      return `${walkTree(id)} = ${walkTree(init)}`
-    },
-    VariableDeclaration(node) {
-      const { kind, declarations } = node
-      return `${kind} ${declarations.map(walkTree).join(', ')}`
-    },
-    BinaryExpression(node) {
-      const { left, right, operator } = node
-      return `(${walkTree(left)}) ${operator} (${walkTree(right)})`
-    },
-    FunctionDeclaration(node) {
-      const { id, body } = node
-      const name = walkTree(id)
-      return `function ${name}() {\n${walkTree(body)}\n}`
-    },
-    BlockStatement(node) {
-      const { body } = node
-      return body.map(walkTree).join('\n')
-    },
-    ExpressionStatement(node) {
-      const { expression } = node
-      return walkTree(expression)
-    },
-    ReturnStatement(node) {
-      const { argument } = node
-      return `return (\n${walkTree(argument)}\n)`
-    },
-    CallExpression(node) {
-      const { callee, arguments: args } = node
-      return `${walkTree(callee)}(${args.map(walkTree).join(', ')})`
-    },
-    JSXIdentifier(node) {
-      return node.name
-    },
-    JSXExpressionContainer(node) {
-      const { expression } = node
-      return walkTree(expression)
-    },
-    JSXElement(node) {
-      const { openingElement, children } = node
-      const { name, props } = walkTree(openingElement)
-      const pstring = objectLiteral(props)
-      const cstrings = children.map(walkTree).filter(c => c != null)
-      return `component(\n"${name}",\n${pstring},\n${cstrings.join(',\n')}\n)`
-    },
-    JSXAttribute(node) {
-      const { name, value } = node
-      return [ walkTree(name), walkTree(value) ?? true ]
-    },
-    JSXMemberExpression(node) {},
-    JSXNamespacedName(node) {},
-    JSXOpeningElement(node) {
-      const { name: nameId, attributes } = node
-      const name = walkTree(nameId)
-      const props = Object.fromEntries(attributes.map(walkTree))
-      return { name, props }
-    },
-    JSXClosingElement(node) {},
-    JSXFragment(node) {},
-    JSXText(node) {
-      if (isWhitespace(node.value)) return null
-      return `${JSON.stringify(node.value)}`
-    },
-  }
-
-  // get visitor type
+  // get handler function
   const { type } = node
-  if (!(type in visitors)) {
+  const handler = handlers[type]
+
+  // check for error
+  if (handler == null) {
     console.error(`Unknown node type: ${type}`)
     return null
   }
 
-  // visit node
-  return visitors[type](node)
+  // handle node
+  return handler(node)
 }
 
 //
-// test code
+// gum runner
 //
 
-// testing
-const code = `
-const x = 10
-function y() {
-  return x + 10
+function component(klass, props, ...children0) {
+  const children = filterChildren(children0)
+  const args = children.length > 0 ? { children, ...props } : props
+  return isClass(klass) ? new klass(args) : klass(args)
 }
-
-return <Svg size={100}>
-  <Box padding>
-    <Rect rounded rotate={y()} fill="#666" />
-  </Box>
-</Svg>
-`.trim()
-
-// dummy component
-function component(name, props, ...children) {
-  const maker = ELEMS[name]
-  if (maker == null) throw new Error(`Unknown component: ${name}`)
-  const cargs = children.length > 0 ? { children } : {}
-  return new maker({ ...cargs, ...props })
-}
-
-//
-// run test
-//
 
 function runJSX(code0, debug = false) {
   // parse code
   const code = /^\s*</.test(code0) ? code0 : `function run() { "use strict"; ${code0} }`
   const tree = parseJSX(code)
 
+  if (debug) {
+    console.log('--------------------------------')
+    console.log(JSON.stringify(tree, null, 2))
+  }
+
   // convert tree
   const jsCode0 = walkTree(tree)
+
+  if (debug) {
+    console.log('--------------------------------')
+    console.log(jsCode0)
+  }
 
   // construct function
   const jsCode = `return ${jsCode0}`
@@ -168,19 +212,28 @@ function runJSX(code0, debug = false) {
 
   if (debug) {
     console.log('--------------------------------')
-    console.log(JSON.stringify(tree, null, 2))
-    console.log('--------------------------------')
-    console.log(jsCode)
-    console.log('--------------------------------')
     console.log(JSON.stringify(output, null, 2))
-    console.log('--------------------------------')
   }
 
   // return gum object
   return output
 }
 
+//
+// testing
+//
+
+// get debug flag from command line
+const debug = process.argv.includes('--debug') ?? false
+
+// get code from stdin
+const code = await waitForStdin()
+
+// make gum object
+setTheme('dark')
+const elem0 = runJSX(code, debug)
+const elem = (elem0 instanceof Svg) ? elem0 : new Svg({ children: elem0, size: 1000 })
+
 // render svg
-const obj = runJSX(code)
-const svg = obj.svg()
+const svg = elem.svg()
 console.log(svg)
