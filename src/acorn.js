@@ -150,21 +150,13 @@ function component(name, props, ...children) {
 // run test
 //
 
-function runJSX(code0) {
+function runJSX(code0, debug = false) {
   // parse code
   const code = /^\s*</.test(code0) ? code0 : `function run() { "use strict"; ${code0} }`
   const tree = parseJSX(code)
 
-  // print tree
-  // console.log(JSON.stringify(tree, null, 2))
-  // console.log('--------------------------------')
-
-  // convert tree to code
+  // convert tree
   const jsCode0 = walkTree(tree)
-
-  // print code
-  // console.log(jsCode)
-  // console.log('--------------------------------')
 
   // construct function
   const jsCode = `return ${jsCode0}`
@@ -172,11 +164,17 @@ function runJSX(code0) {
 
   // execute function
   const output0 = func(component, ...VALS)
-  const output = (typeof(output0) == 'function') ? output0() : output0
+  const output = typeof(output0) == 'function' ? output0() : output0
 
-  // print output
-  // console.log(JSON.stringify(output, null, 2))
-  // console.log('--------------------------------')
+  if (debug) {
+    console.log('--------------------------------')
+    console.log(JSON.stringify(tree, null, 2))
+    console.log('--------------------------------')
+    console.log(jsCode)
+    console.log('--------------------------------')
+    console.log(JSON.stringify(output, null, 2))
+    console.log('--------------------------------')
+  }
 
   // return gum object
   return output
