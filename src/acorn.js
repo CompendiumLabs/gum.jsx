@@ -44,6 +44,22 @@ function filterChildren(items) {
     .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
+function collateTemplates(expressions, quasis) {
+  const exps = expressions.map(e => {
+    const { start } = e
+    const value = `\${${walkTree(e)}}`
+    return { start, value }
+  })
+  const quas = quasis.map(e => {
+    const { start } = e
+    const value = walkTree(e)
+    return { start, value }
+  })
+  return [...exps, ...quas]
+    .sort((a, b) => a.start - b.start)
+    .map(item => item.value)
+}
+
 //
 // tree walker
 //
@@ -114,7 +130,8 @@ const handlers = {
   },
   TemplateLiteral(node) {
     const { quasis, expressions } = node
-    return `\`${quasis.map(walkTree).join('')}\${${expressions.map(walkTree).join(', ')}}\``
+    const items = collateTemplates(expressions, quasis)
+    return `\`${items.join('')}\``
   },
   TemplateElement(node) {
     const { value } = node
@@ -215,6 +232,11 @@ function runJSX(text, debug = false) {
 
   // convert tree
   const jsCode0 = walkTree(tree)
+
+  if (debug) {
+    console.log('--------------------------------')
+    console.log(jsCode0)
+  }
 
   // construct function
   const jsCode = `return ${jsCode0}`
