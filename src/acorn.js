@@ -99,6 +99,14 @@ const handlers = {
     const { key, value } = node
     return `${walkTree(key)}: ${walkTree(value)}`
   },
+  RestElement(node) {
+    const { argument } = node
+    return `...${walkTree(argument)}`
+  },
+  SpreadElement(node) {
+    const { argument } = node
+    return `...${walkTree(argument)}`
+  },
   ObjectExpression(node) {
     const { properties } = node
     return `{ ${properties.map(walkTree).join(', ')} }`
@@ -112,9 +120,23 @@ const handlers = {
     const name = walkTree(id)
     return `function ${name}() {\n${walkTree(body)}\n}`
   },
+  FunctionExpression(node) {
+    const { params, body } = node
+    return `(${params.map(walkTree).join(', ')}) {\n${walkTree(body)}\n}`
+  },
   ArrowFunctionExpression(node) {
     const { params, body } = node
     return `(${params.map(walkTree).join(', ')}) => ${walkTree(body)}`
+  },
+  Super(node) {
+    return 'super'
+  },
+  ThisExpression(node) {
+    return 'this'
+  },
+  AssignmentExpression(node) {
+    const { left, right } = node
+    return `${walkTree(left)} = ${walkTree(right)}`
   },
   NewExpression(node) {
     const { callee, arguments: args } = node
@@ -153,6 +175,20 @@ const handlers = {
   CallExpression(node) {
     const { callee, arguments: args } = node
     return `${walkTree(callee)}(${args.map(walkTree).join(', ')})`
+  },
+  ClassDeclaration(node) {
+    const { id, superClass, body } = node
+    const name = walkTree(id)
+    const sup = superClass != null ? ` extends ${walkTree(superClass)}` : ''
+    return `class ${name}${sup} {\n${walkTree(body)}\n}`
+  },
+  ClassBody(node) {
+    const { body } = node
+    return body.map(walkTree).join('\n')
+  },
+  MethodDefinition(node) {
+    const { key, value } = node
+    return `${walkTree(key)}${walkTree(value)}`
   },
   JSXIdentifier(node) {
     return node.name
@@ -199,10 +235,7 @@ function walkTree(node) {
   const handler = handlers[type]
 
   // check for error
-  if (handler == null) {
-    console.error(`Unknown node type: ${type}`)
-    return null
-  }
+  if (handler == null) throw new Error(`Unknown node type: ${type}`)
 
   // handle node
   return handler(node)

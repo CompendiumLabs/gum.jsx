@@ -3,6 +3,7 @@
 import { transform, registerPlugin } from '@babel/standalone'
 
 import { KEYS, VALS, is_function, is_object, Svg, setTheme } from './gum.js'
+import { runJSX } from './acorn.js'
 
 //
 // jsx parser
@@ -114,7 +115,7 @@ class ErrorNoElement extends Error {
   }
 }
 
-function evaluateGum(code, { theme, ...args } = {}) {
+function evaluateGum(code, { theme, debug = false, ...args } = {}) {
   let element
 
   // check if code is provided
@@ -129,7 +130,7 @@ function evaluateGum(code, { theme, ...args } = {}) {
 
   // parse to property tree
   try {
-    element = parseJSX(code)
+    element = runJSX(code, debug)
   } catch (err) {
     throw new ErrorParse(err)
   }
