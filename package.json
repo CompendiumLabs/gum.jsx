@@ -16,6 +16,7 @@
   "exports": {
     ".": "./src/gum.js",
     "./eval": "./src/eval.js",
+    "./render": "./src/render.js",
     "./docs/*": "./src/docs/*",
     "./fonts/*": "./src/fonts/*"
   },

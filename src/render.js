@@ -7,7 +7,7 @@ import { getFontPaths } from './text.js'
 // constants
 //
 
-const DEFAULT_SIZE = 1000
+const DEFAULT_SIZE = [500, 500]
 
 //
 // node render
