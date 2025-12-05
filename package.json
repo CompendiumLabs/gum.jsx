@@ -16,7 +16,6 @@
   "exports": {
     ".": "./src/gum.js",
     "./eval": "./src/eval.js",
-    "./canvas": "./src/canvas.js",
     "./docs/*": "./src/docs/*",
     "./fonts/*": "./src/fonts/*"
   },
@@ -24,7 +23,7 @@
     "cli": "node src/cli.js",
     "server": "node src/server.js",
     "docs": "node scripts/docs.js",
-    "bundle": "npx esbuild src/pipe.js --bundle --platform=node --format=esm --external:canvas --external:@mathjax/src --outfile=dist/gum.js && cp -r src/fonts dist/fonts"
+    "bundle": "npx esbuild src/pipe.js --bundle --platform=node --format=esm --external:@mathjax/src --outfile=dist/gum.js && cp -r src/fonts dist/fonts"
   },
   "dependencies": {
     "acorn-jsx": "^5.3.2",
