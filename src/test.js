@@ -3,8 +3,8 @@
 import { program } from 'commander'
 
 import { waitForStdin } from './node.js'
-import { setTheme } from './defaults.js'
-import { textSizer, splitWords } from './text.js'
+import { CONSTANTS as C, setTheme } from './defaults.js'
+import { textSizer, splitWords, is_emoji, FONTS } from './text.js'
 import { evaluateGum } from './eval.js'
 
 // evaluate command

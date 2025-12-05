@@ -1,7 +1,6 @@
 // gum.js
 
 import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME, setTheme } from './defaults.js'
-import { emoji_table } from './emoji.js'
 import { is_scalar, is_string, is_object, is_function, is_array, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, filter_object, compress_whitespace } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
 import { parseMarkdown } from './mark.js'
@@ -2364,72 +2363,6 @@ class TextFlex extends Element {
     }
 }
 
-class EmojiDiv extends Element {
-    constructor(args = {}) {
-        const { children, font_family = C.moji, ...attr0 } = args
-        const emoji = check_string(children)
-        const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
-        const font_attr = prefix_join('font', font_attr0)
-
-        // compute text box
-        const font_attr1 = { font_family, ...font_attr }
-        const aspect = textSizer(emoji, font_attr1)
-
-        // store for rendering
-        super({ tag: 'div', unary: false, aspect, xmlns: C.htmlns, ...attr })
-        this.args = args
-
-        // additional props
-        this.emoji = emoji
-    }
-
-    props(ctx) {
-        const attr = super.props(ctx)
-        const { prect } = ctx
-        const { aspect } = this.spec
-        const size = rect_dims(prect)
-        const [ _, h ] = embed_size(size, aspect)
-        const style = `font-size: ${h}px;`
-        return { style, ...attr }
-    }
-
-    inner(ctx) {
-        return this.emoji
-    }
-}
-
-// this can't accept debug, so mask it out of args
-class Foreign extends Group {
-    constructor(args = {}) {
-        const { children: children0, debug, ...attr } = args
-        const children = ensure_array(children0)
-        super({ tag: 'foreignObject', unary: false, children, ...attr })
-    }
-
-    props(ctx) {
-        const attr = super.props(ctx)
-        const { prect } = ctx
-        const [ x, y, w, h ] = rect_box(prect, true)
-        return { x, y, width: w, height: h, ...attr }
-    }
-}
-
-class Emoji extends Group {
-    constructor(args = {}) {
-        const { children: children0, voffset = C.voffset, aspect = 1, ...attr } = THEME(args, 'Emoji')
-        const name = check_string(children0)
-        const text = emoji_table[name] ?? name
-
-        // make outer div in foreignObject
-        const div = new EmojiDiv({ children: text })
-        const foreign = new Foreign({ children: div, rect: [ 0, voffset, 1, 1 ] })
-
-        // pass to Group
-        super({ children: foreign, aspect, ...attr })
-        this.args = args
-    }
-}
-
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
@@ -3500,7 +3433,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3513,5 +3446,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Emoji, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

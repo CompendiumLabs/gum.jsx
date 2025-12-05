@@ -4,7 +4,7 @@ import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 import opentype from 'opentype.js'
 
-import { is_browser, is_string, compress_whitespace } from './utils.js'
+import { is_browser, is_string, compress_whitespace, sum } from './utils.js'
 import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 
 //
@@ -56,20 +56,69 @@ async function loadFonts() {
 
 // load it
 const FONTS = await loadFonts()
+const SUBS = FONTS[C.moji].substitution.getFeature('ccmp')
 
 //
 // create text sizer
 //
 
+function is_emoji(text) {
+    return EMOJI_REGEX.test(text)
+}
+
+function arrayEquals(a, b) {
+    return a.length == b.length && a.every((x, i) => x == b[i])
+}
+
+function splitSegments(text) {
+    const segmenter = new Intl.Segmenter()
+    const segments = segmenter.segment(text)
+    return [...segments].map(s => s.segment)
+}
+
+function emojiSizer(text) {
+    // get emoji font
+    const font = FONTS[C.moji]
+    const { unitsPerEm } = font
+
+    // get glyphs
+    const glyphs = font.stringToGlyphs(text)
+
+    // handle simple case
+    if (glyphs.length == 1) {
+        const { advanceWidth } = glyphs[0]
+        return advanceWidth / unitsPerEm
+    }
+
+    // find substitution
+    const indices = glyphs.map(g => g.index)
+    const sub = SUBS.find(s => arrayEquals(s.sub, indices))
+
+    // if no substitution found, return sum of glyph widths
+    if (sub == null) {
+        const width = sum(glyphs.map(g => g.advanceWidth))
+        return width / unitsPerEm
+    }
+
+    // get glyph advance
+    const { advanceWidth } = font.glyphs.get(sub.by)
+    return advanceWidth / unitsPerEm
+}
+
 // TODO: handle font_weight
-function textSizer(text, { font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size } = {}) {
-    if (text == '\n') return null
-    const isEmoji = EMOJI_REGEX.test(text)
-    const font_name = isEmoji ? C.moji : font_family
-    const font = FONTS[font_name]
-    const text1 = compress_whitespace(text)
-    const width = font.getAdvanceWidth(text1, calc_size)
+function textSizer0(text, { font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size } = {}) {
+    if (is_emoji(text)) return emojiSizer(text)
+    const font = FONTS[font_family]
+    const width = font.getAdvanceWidth(text, calc_size)
     return width / calc_size
+}
+
+function textSizer(text, args = {}) {
+    if (text == '\n') return null
+    const text1 = compress_whitespace(text)
+    const segments = splitSegments(text1)
+    const widths = segments.map(s => textSizer0(s, args))
+    return sum(widths)
 }
 
 //
@@ -170,4 +219,4 @@ function mergeStrings(items) {
 // exports
 //
 
-export { getFontPaths, textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
+export { getFontPaths, is_emoji, textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings, FONTS }
