@@ -23,7 +23,7 @@
     "cli": "node src/cli.js",
     "server": "node src/server.js",
     "docs": "node scripts/docs.js",
-    "bundle": "npx esbuild src/pipe.js --bundle --platform=node --format=esm --external:@mathjax/src --outfile=dist/gum.js && cp -r src/fonts dist/fonts"
+    "bundle": "npx esbuild src/pipe.js --bundle --platform=node --format=esm --external:@mathjax/src --external:@resvg/resvg-js --outfile=dist/gum.js && cp -r src/fonts dist/fonts"
   },
   "dependencies": {
     "acorn-jsx": "^5.3.2",

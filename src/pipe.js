@@ -4,7 +4,7 @@ import readline from 'readline'
 import { stdout } from 'process'
 
 import { evaluateGum } from './eval.js'
-import { canvas } from './canvas.js'
+import { renderPng } from './render.js'
 
 const handlers = {
     evaluate: async (code, { size, theme }) => {
@@ -16,7 +16,7 @@ const handlers = {
         const elem = evaluateGum(code, { size: size0, theme })
         const svg = elem.svg()
         const { size } = elem
-        const png = await canvas.renderPng(svg, { size })
+        const png = await renderPng(svg, { size })
         return png.toString('base64')
     },
 }
