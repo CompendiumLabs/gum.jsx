@@ -10,43 +10,49 @@ import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 // load fonts as arraybuffers
 //
 
-async function getFontPaths() {
-    const path = await import('path')
-    const { fileURLToPath } = await import('url')
-    const __filename = fileURLToPath(import.meta.url)
-    const __dirname = path.dirname(__filename)
-    const sans = path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf')
-    const mono = path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf')
-    return { sans, mono }
+function isBrowser() {
+    return typeof window != 'undefined'
 }
 
-async function fetchFont(path) {
-    const response = await fetch(path)
-    const arrayBuffer = await response.arrayBuffer()
-    return opentype.parse(arrayBuffer)
+async function getFontPaths() {
+    if (isBrowser()) {
+        return {
+            [C.sans]: new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url),
+            [C.mono]: new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url),
+        }
+    } else {
+        const path = await import('path')
+        const { fileURLToPath } = await import('url')
+        const __filename = fileURLToPath(import.meta.url)
+        const __dirname = path.dirname(__filename)
+        return {
+            [C.sans]: path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf'),
+            [C.mono]: path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf'),
+        }
+    }
 }
 
 async function loadFont(path) {
-    const fs = await import('fs/promises')
-    const font = await fs.readFile(path)
-    return opentype.parse(font.buffer)
+    if (isBrowser()) {
+        const response = await fetch(path)
+        const arrayBuffer = await response.arrayBuffer()
+        return opentype.parse(arrayBuffer)
+    } else {
+        const fs = await import('fs/promises')
+        const { buffer} = await fs.readFile(path)
+        return opentype.parse(buffer)
+    }
 }
 
 async function loadFonts() {
-    if (typeof window != 'undefined') {
-        const path_sans = new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url)
-        const path_mono = new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url)
-        return {
-            [C.sans]: await fetchFont(path_sans),
-            [C.mono]: await fetchFont(path_mono),
-        }
-    } else {
-        const { sans, mono } = await getFontPaths()
-        return {
-            [C.sans]: await loadFont(sans),
-            [C.mono]: await loadFont(mono),
-        }
-    }
+    const paths = await getFontPaths()
+    return Object.fromEntries(
+        await Promise.all(
+            Object.entries(paths).map(
+                async ([ k, v ]) => [ k, await loadFont(v) ]
+            )
+        )
+    )
 }
 
 // load it
