@@ -15,9 +15,13 @@ const DEFAULT_SIZE = 1000
 
 class NodeRender {
     async init() {
-        const { Resvg } = await import('@resvg/resvg-js')
-        this.Resvg = Resvg
         this.fonts = await getFontPaths()
+        try {
+            const { Resvg } = await import('@resvg/resvg-js')
+            this.Resvg = Resvg
+        } catch {
+            this.Resvg = null
+        }
     }
 
     renderPng(svg, { size = DEFAULT_SIZE, background = 'white' }) {
