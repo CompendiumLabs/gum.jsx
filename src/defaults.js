@@ -11,6 +11,7 @@ const CONSTANTS = {
     htmlns: 'http://www.w3.org/1999/xhtml',
     sans: 'IBM Plex Sans',
     mono: 'IBM Plex Mono',
+    moji: 'Noto Color Emoji',
     normal: 250,
     bold: 350,
     black: 'black',

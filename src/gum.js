@@ -2366,13 +2366,14 @@ class TextFlex extends Element {
 
 class EmojiDiv extends Element {
     constructor(args = {}) {
-        const { children, font_family = C.sans, ...attr0 } = args
+        const { children, font_family = C.moji, ...attr0 } = args
         const emoji = check_string(children)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // compute text box
-        const aspect = textSizer(emoji, font_attr)
+        const font_attr1 = { font_family, ...font_attr }
+        const aspect = textSizer(emoji, font_attr1)
 
         // store for rendering
         super({ tag: 'div', unary: false, aspect, xmlns: C.htmlns, ...attr })

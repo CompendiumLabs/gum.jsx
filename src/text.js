@@ -1,24 +1,22 @@
 // font shaping
 
+import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 import opentype from 'opentype.js'
 
-import { is_string, compress_whitespace } from './utils.js'
+import { is_browser, is_string, compress_whitespace } from './utils.js'
 import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 
 //
 // load fonts as arraybuffers
 //
 
-function isBrowser() {
-    return typeof window != 'undefined'
-}
-
 async function getFontPaths() {
-    if (isBrowser()) {
+    if (is_browser()) {
         return {
             [C.sans]: new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url),
             [C.mono]: new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url),
+            [C.moji]: new URL('fonts/NotoColorEmoji-Regular.ttf', import.meta.url),
         }
     } else {
         const path = await import('path')
@@ -28,12 +26,13 @@ async function getFontPaths() {
         return {
             [C.sans]: path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf'),
             [C.mono]: path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf'),
+            [C.moji]: path.join(__dirname, 'fonts', 'NotoColorEmoji-Regular.ttf'),
         }
     }
 }
 
 async function loadFont(path) {
-    if (isBrowser()) {
+    if (is_browser()) {
         const response = await fetch(path)
         const arrayBuffer = await response.arrayBuffer()
         return opentype.parse(arrayBuffer)
@@ -65,7 +64,9 @@ const FONTS = await loadFonts()
 // TODO: handle font_weight
 function textSizer(text, { font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size } = {}) {
     if (text == '\n') return null
-    const font = FONTS[font_family]
+    const isEmoji = EMOJI_REGEX.test(text)
+    const font_name = isEmoji ? C.moji : font_family
+    const font = FONTS[font_name]
     const text1 = compress_whitespace(text)
     const width = font.getAdvanceWidth(text1, calc_size)
     return width / calc_size

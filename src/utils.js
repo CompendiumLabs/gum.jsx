@@ -1,6 +1,14 @@
 // core utils
 
 //
+// environment tests
+//
+
+function is_browser() {
+    return typeof window != 'undefined'
+}
+
+//
 // type tests
 //
 
@@ -169,4 +177,4 @@ function compress_whitespace(text) {
 // export
 //
 
-export { is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, map_object, filter_object, compress_whitespace }
+export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, map_object, filter_object, compress_whitespace }
