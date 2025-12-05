@@ -10,6 +10,16 @@ import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 // load fonts as arraybuffers
 //
 
+async function getFontPaths() {
+    const path = await import('path')
+    const { fileURLToPath } = await import('url')
+    const __filename = fileURLToPath(import.meta.url)
+    const __dirname = path.dirname(__filename)
+    const sans = path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf')
+    const mono = path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf')
+    return { sans, mono }
+}
+
 async function fetchFont(path) {
     const response = await fetch(path)
     const arrayBuffer = await response.arrayBuffer()
@@ -22,7 +32,7 @@ async function loadFont(path) {
     return opentype.parse(font.buffer)
 }
 
-async function getFontPaths() {
+async function loadFonts() {
     if (typeof window != 'undefined') {
         const path_sans = new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url)
         const path_mono = new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url)
@@ -31,12 +41,7 @@ async function getFontPaths() {
             [C.mono]: await fetchFont(path_mono),
         }
     } else {
-        const path = await import('path')
-        const { fileURLToPath } = await import('url')
-        const __filename = fileURLToPath(import.meta.url)
-        const __dirname = path.dirname(__filename)
-        const sans = path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf')
-        const mono = path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf')
+        const { sans, mono } = await getFontPaths()
         return {
             [C.sans]: await loadFont(sans),
             [C.mono]: await loadFont(mono),
@@ -45,7 +50,7 @@ async function getFontPaths() {
 }
 
 // load it
-const FONTS = await getFontPaths()
+const FONTS = await loadFonts()
 
 //
 // create text sizer
@@ -158,4 +163,4 @@ function mergeStrings(items) {
 // exports
 //
 
-export { textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
+export { getFontPaths, textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }

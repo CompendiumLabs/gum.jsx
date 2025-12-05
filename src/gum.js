@@ -1039,7 +1039,7 @@ class Group extends Element {
 
     svg(ctx) {
         const props = this.props(ctx)
-        if (Object.keys(props).length == 0) return this.inner(ctx)
+        if (Object.keys(props).length == 0) return this.inner(ctx).trim()
         return super.svg(ctx)
     }
 }
