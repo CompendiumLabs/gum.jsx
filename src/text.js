@@ -1,23 +1,62 @@
 // font shaping
 
 import LineBreaker from 'linebreak'
+import opentype from 'opentype.js'
 
-import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 import { is_string, compress_whitespace } from './utils.js'
-import { canvas } from './canvas.js'
+import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 
 //
-// canvas text sizer
+// load fonts as arraybuffers
 //
 
-// size text with canvas available
-function textSizer(text, {
-    font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size
-} = {}) {
+async function fetchFont(path) {
+    const response = await fetch(path)
+    const arrayBuffer = await response.arrayBuffer()
+    return opentype.parse(arrayBuffer)
+}
+
+async function loadFont(path) {
+    const fs = await import('fs/promises')
+    const font = await fs.readFile(path)
+    return opentype.parse(font.buffer)
+}
+
+async function getFontPaths() {
+    if (typeof window != 'undefined') {
+        const path_sans = new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url)
+        const path_mono = new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url)
+        return {
+            [C.sans]: await fetchFont(path_sans),
+            [C.mono]: await fetchFont(path_mono),
+        }
+    } else {
+        const path = await import('path')
+        const { fileURLToPath } = await import('url')
+        const __filename = fileURLToPath(import.meta.url)
+        const __dirname = path.dirname(__filename)
+        const sans = path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf')
+        const mono = path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf')
+        return {
+            [C.sans]: await loadFont(sans),
+            [C.mono]: await loadFont(mono),
+        }
+    }
+}
+
+// load it
+const FONTS = await getFontPaths()
+
+//
+// create text sizer
+//
+
+// TODO: handle font_weight
+function textSizer(text, { font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size } = {}) {
     if (text == '\n') return null
+    const font = FONTS[font_family]
     const text1 = compress_whitespace(text)
-    const font = `${font_weight} ${calc_size}px ${font_family}`
-    const width = canvas.textSizer(text1, font)
+    const width = font.getAdvanceWidth(text1, calc_size)
     return width / calc_size
 }
 
