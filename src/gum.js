@@ -1379,15 +1379,10 @@ class HWrap extends VStack {
 
         // make HStack rows
         const { rows } = wrapWidths(children, measure, wrap)
-        const lines = rows.map(row => new HStack({ children: row, spacing: padding, debug }))
-
-        // compute aspect width
-        const nlines = maximum(lines.length, 1)
-        const aspectw = wrap != null ? wrap / nlines : null
-        const aspect = aspect0 ?? aspectw
+        const lines = rows.map(row => new HStack({ children: row, spacing: padding, aspect: wrap, debug }))
 
         // pass to VStack
-        super({ children: lines, spacing, even: true, aspect, debug, ...attr })
+        super({ children: lines, spacing, even: true, debug, ...attr })
         this.args = args
     }
 }
