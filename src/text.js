@@ -14,9 +14,9 @@ import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 async function getFontPaths() {
     if (is_browser()) {
         return {
-            [C.sans]: new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url),
-            [C.mono]: new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url),
-            [C.moji]: new URL('fonts/NotoColorEmoji-Regular.ttf', import.meta.url),
+            sans: new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url),
+            mono: new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url),
+            moji: new URL('fonts/NotoColorEmoji-Regular.ttf', import.meta.url),
         }
     } else {
         const path = await import('path')
@@ -24,9 +24,9 @@ async function getFontPaths() {
         const __filename = fileURLToPath(import.meta.url)
         const __dirname = path.dirname(__filename)
         return {
-            [C.sans]: path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf'),
-            [C.mono]: path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf'),
-            [C.moji]: path.join(__dirname, 'fonts', 'NotoColorEmoji-Regular.ttf'),
+            sans: path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf'),
+            mono: path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf'),
+            moji: path.join(__dirname, 'fonts', 'NotoColorEmoji-Regular.ttf'),
         }
     }
 }
@@ -44,7 +44,8 @@ async function loadFont(path) {
 }
 
 async function loadFonts() {
-    const paths = await getFontPaths()
+    const { sans, mono, moji } = await getFontPaths()
+    const paths = { [C.sans]: sans, [C.mono]: mono, [C.moji]: moji }
     return Object.fromEntries(
         await Promise.all(
             Object.entries(paths).map(

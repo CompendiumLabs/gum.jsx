@@ -12,13 +12,13 @@ const CONSTANTS = {
     sans: 'IBM Plex Sans',
     mono: 'IBM Plex Mono',
     moji: 'Noto Color Emoji',
-    normal: 250,
+    normal: 200,
     bold: 350,
     black: 'black',
     white: 'white',
     gray: '#f0f0f0',
     none: 'none',
-    voffset: -0.12,
+    voffset: -0.15,
 }
 
 const C = CONSTANTS

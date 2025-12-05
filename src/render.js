@@ -15,7 +15,8 @@ const DEFAULT_SIZE = [500, 500]
 
 class NodeRender {
     async init() {
-        this.fonts = await getFontPaths()
+        const { sans, mono, moji } = await getFontPaths()
+        this.fonts = [ sans, mono, moji ]
         try {
             const { Resvg } = await import('@resvg/resvg-js')
             this.Resvg = Resvg
@@ -25,10 +26,9 @@ class NodeRender {
     }
 
     renderPng(svg, { size = DEFAULT_SIZE, background = 'white' }) {
-        const { sans, mono } = this.fonts
         const fontsArgs = {
+            fontFiles: this.fonts,
             loadSystemFonts: false,
-            fontFiles: [ sans, mono ],
             defaultFontFamily: C.sans,
             sansFamily: C.sans,
             monoFamily: C.mono,
