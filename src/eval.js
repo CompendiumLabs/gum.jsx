@@ -1,41 +1,12 @@
 // code evaluation
 
 import { is_object, setTheme, Svg } from './gum.js'
+import { ErrorNoCode, ErrorParse, ErrorNoReturn, ErrorNoElement } from './types.js'
 import { runJSX } from './acorn.js'
 
 //
 // gum evaluator
 //
-
-class ErrorNoCode extends Error {
-  constructor() {
-    super('No code provided')
-    this.name = 'ErrorNoCode'
-  }
-}
-
-class ErrorParse extends Error {
-  constructor(error) {
-    super(error.message)
-    this.name = 'ErrorParse'
-    this.error = error
-  }
-}
-
-class ErrorNoReturn extends Error {
-  constructor() {
-    super('No return value')
-    this.name = 'ErrorNoReturn'
-  }
-}
-
-class ErrorNoElement extends Error {
-  constructor(value) {
-    super('No element returned')
-    this.name = 'ErrorNoElement'
-    this.value = value
-  }
-}
 
 function evaluateGum(code, { theme, debug = false, ...args } = {}) {
   let element
@@ -83,4 +54,4 @@ function evaluateGum(code, { theme, debug = false, ...args } = {}) {
 // export
 //
 
-export { evaluateGum, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorParse }
+export { evaluateGum }
