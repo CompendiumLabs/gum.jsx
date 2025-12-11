@@ -22,7 +22,7 @@ const handlers = {
         }
         return svg
     },
-    render: async (code, { size: size0, theme }) => {
+    render: async (code, { size: size0, theme, background }) => {
         let elem, svg, png
         try {
             elem = evaluateGum(code, { size: size0, theme })
@@ -36,7 +36,7 @@ const handlers = {
         }
         try {
             const { size } = elem
-            const png0 = await renderPng(svg, { size })
+            const png0 = await renderPng(svg, { size, background })
             png = png0.toString('base64')
         } catch (e) {
             throw new ErrorRender(e.message)
@@ -68,12 +68,11 @@ const rl = readline.createInterface({ input: process.stdin })
 
 // handle lines from stdin
 rl.on('line', async (line) => {
-    const { task, code, size: size0, theme: theme0 } = JSON.parse(line)
-    const size = size0 ?? 500
-    const theme = theme0 ?? 'light'
+    const { task, code, size = 500, theme = 'light', background = 'white' } = JSON.parse(line)
+    console.error('line', task, code, size, theme, background)
     let message = null
     try {
-        const result = await handlers[task](code, { size, theme })
+        const result = await handlers[task](code, { size, theme, background })
         message = { ok: true, result }
     } catch (e) {
         const result = parseError(e)
