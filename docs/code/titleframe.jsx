@@ -3,7 +3,7 @@ const emoji = [ '🍇', '🥦', '🍔', '🍉', '🍍', '🌽', '🍩', '🥝', 
 return <TitleFrame title="Fruits & Veggies" margin padding rounded>
   <Grid rows={3} spacing={0.05}>
     {emoji.map(e =>
-      <Frame rounded fill padding><Emoji>{e}</Emoji></Frame>
+      <Frame aspect rounded fill padding><Text>{e}</Text></Frame>
     )}
   </Grid>
 </TitleFrame>

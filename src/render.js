@@ -2,6 +2,7 @@
 
 import { CONSTANTS as C } from './defaults.js'
 import { getFontPaths } from './text.js'
+import { ensure_vector } from './utils.js'
 
 //
 // constants
@@ -18,7 +19,7 @@ class NodeRender {
         const { sans, mono, moji } = await getFontPaths()
         this.fonts = [ sans, mono, moji ]
         try {
-            const { Resvg } = await import('@resvg/resvg-js')
+            const { Resvg } = await import(/* @vite-ignore */ '@resvg/resvg-js')
             this.Resvg = Resvg
         } catch {
             this.Resvg = null
@@ -26,24 +27,25 @@ class NodeRender {
     }
 
     renderPng(svg, { size = DEFAULT_SIZE, background = 'white' }) {
+        const [ width, height ] = ensure_vector(size, 2)
+
         const fontsArgs = {
             fontFiles: this.fonts,
             loadSystemFonts: false,
             defaultFontFamily: C.sans,
-            sansFamily: C.sans,
-            monoFamily: C.mono,
         }
 
-        const resvgjs = new this.Resvg(svg, {
+        const opts = {
             background,
             fitTo: {
                 mode: 'width',
-                width: size,
+                value: width,
             },
             font: fontsArgs,
-        })
+        }
 
-        const data = resvgjs.render()
+        const resvg = new this.Resvg(svg, opts)
+        const data = resvg.render()
         return data.asPng()
     }
 }
@@ -141,4 +143,4 @@ function renderPng(svg, args) {
     return render.renderPng(svg, args)
 }
 
-export { renderPng }
+export { renderPng, NodeRender, BrowserRender }

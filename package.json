@@ -15,6 +15,7 @@
   ],
   "exports": {
     ".": "./src/gum.js",
+    "./types": "./src/types.js",
     "./eval": "./src/eval.js",
     "./render": "./src/render.js",
     "./docs/*": "./src/docs/*",
@@ -36,7 +37,7 @@
   },
   "optionalDependencies": {
     "@mathjax/src": "^4.0.0",
-    "@resvg/resvg-js": "^2.6.2",
+    "@resvg/resvg-js": "file:/home/doug/src/resvg-js",
     "commander": "^14.0.0",
     "express": "^5.1.0",
     "katex": "^0.16.25",
