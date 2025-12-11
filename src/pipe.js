@@ -69,7 +69,6 @@ const rl = readline.createInterface({ input: process.stdin })
 // handle lines from stdin
 rl.on('line', async (line) => {
     const { task, code, size = 500, theme = 'light', background = 'white' } = JSON.parse(line)
-    console.error('line', task, code, size, theme, background)
     let message = null
     try {
         const result = await handlers[task](code, { size, theme, background })
