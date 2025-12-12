@@ -16,7 +16,7 @@ async function getFontPaths() {
         return {
             sans: new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url),
             mono: new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url),
-            moji: new URL('fonts/NotoColorEmoji-Regular.ttf', import.meta.url),
+            moji: new URL(/* @vite-ignore */ 'fonts/NotoColorEmoji-Regular.ttf', import.meta.url),
         }
     } else {
         const path = await import('path')
@@ -32,14 +32,19 @@ async function getFontPaths() {
 }
 
 async function loadFont(path) {
-    if (is_browser()) {
-        const response = await fetch(path)
-        const arrayBuffer = await response.arrayBuffer()
-        return opentype.parse(arrayBuffer)
-    } else {
-        const fs = await import('fs/promises')
-        const { buffer} = await fs.readFile(path)
-        return opentype.parse(buffer)
+    try {
+        if (is_browser()) {
+            const response = await fetch(path)
+            const arrayBuffer = await response.arrayBuffer()
+            return opentype.parse(arrayBuffer)
+        } else {
+            const fs = await import('fs/promises')
+            const { buffer} = await fs.readFile(path)
+            return opentype.parse(buffer)
+        }
+    } catch (e) {
+        console.error(`Failed to load font: ${path}`)
+        return null
     }
 }
 
@@ -57,7 +62,7 @@ async function loadFonts() {
 
 // load it
 const FONTS = await loadFonts()
-const SUBS = FONTS[C.moji].substitution.getFeature('ccmp')
+const SUBS = FONTS[C.moji]?.substitution.getFeature('ccmp')
 
 //
 // create text sizer
@@ -80,9 +85,10 @@ function splitSegments(text) {
 function emojiSizer(text) {
     // get emoji font
     const font = FONTS[C.moji]
-    const { unitsPerEm } = font
+    if (font == null) return 1.25
 
     // get glyphs
+    const { unitsPerEm } = font
     const glyphs = font.stringToGlyphs(text)
 
     // handle simple case
