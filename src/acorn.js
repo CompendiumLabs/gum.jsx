@@ -19,7 +19,9 @@ function parseJSX(code) {
 }
 
 function objectLiteral(obj) {
-  const body = Object.entries(obj).map(([ k, v ]) => `${k}: ${v}`)
+  const body = obj.map(({ key, value, spread }) =>
+    spread? `...${spread}` : `${key}: ${value}`
+  )
   return `{ ${body.join(', ')} }`
 }
 
@@ -149,6 +151,10 @@ const handlers = {
     const { properties } = node
     return `{ ${properties.map(walkTree).join(', ')} }`
   },
+  AssignmentPattern(node) {
+    const { left, right } = node
+    return `${walkTree(left)} = ${walkTree(right)}`
+  },
   TemplateLiteral(node) {
     const { quasis, expressions } = node
     const items = collateTemplate(expressions, quasis)
@@ -161,7 +167,7 @@ const handlers = {
   },
   BlockStatement(node) {
     const { body } = node
-    return body.map(walkTree).join('\n')
+    return `{\n${body.map(walkTree).join('\n')}\n}`
   },
   ExpressionStatement(node) {
     const { expression } = node
@@ -208,14 +214,17 @@ const handlers = {
   },
   JSXAttribute(node) {
     const { name, value } = node
-    return [ snakeCase(walkTree(name)), walkTree(value) ?? true ]
+    return {
+      key: snakeCase(walkTree(name)),
+      value: walkTree(value) ?? true
+    }
   },
   JSXMemberExpression(node) {},
   JSXNamespacedName(node) {},
   JSXOpeningElement(node) {
     const { name: nameId, attributes } = node
     const name = walkTree(nameId)
-    const props = Object.fromEntries(attributes.map(walkTree))
+    const props = attributes.map(walkTree)
     return { name, props }
   },
   JSXClosingElement(node) {},
@@ -223,6 +232,12 @@ const handlers = {
   JSXText(node) {
     if (isWhitespace(node.value)) return null
     return `${JSON.stringify(node.value)}`
+  },
+  JSXSpreadAttribute(node) {
+    const { argument } = node
+    return {
+      spread: walkTree(argument)
+    }
   },
 }
 
