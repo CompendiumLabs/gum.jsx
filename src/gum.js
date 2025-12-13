@@ -89,6 +89,7 @@ const green = new NamedString('green', '#4caf50')
 const yellow = new NamedString('yellow', '#ffb300')
 const purple = new NamedString('purple', '#9c27b0')
 const gray = new NamedString('gray', '#f0f0f0')
+const lightgray = new NamedString('lightgray', '#f6f6f6')
 const darkgray = new NamedString('darkgray', '#888888')
 
 // font names
@@ -2741,7 +2742,7 @@ class Bars extends Group {
         })
 
         // pass to Group
-        super({ children, ...spec })
+        super({ children, coord: 'auto', ...spec })
         this.args = args
     }
 }
@@ -3263,7 +3264,7 @@ const ELEMS = {
 }
 
 const VALS = [
-    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, moji, bold
+    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3272,5 +3273,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
