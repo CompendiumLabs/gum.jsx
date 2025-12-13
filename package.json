@@ -24,8 +24,7 @@
   "scripts": {
     "cli": "node src/cli.js",
     "server": "node src/server.js",
-    "docs": "node scripts/docs.js",
-    "bundle": "npx esbuild src/pipe.js --bundle --platform=node --format=esm --external:@mathjax/src --external:@resvg/resvg-js --outfile=dist/gum.js && cp -r src/fonts dist/"
+    "docs": "node scripts/docs.js"
   },
   "dependencies": {
     "acorn-jsx": "^5.3.2",
@@ -42,8 +41,5 @@
     "express": "^5.1.0",
     "katex": "^0.16.25",
     "mathjax": "^4.0.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.27.1"
   }
 }

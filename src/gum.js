@@ -3173,7 +3173,7 @@ class Plot extends Box {
 
 class BarPlot extends Plot {
     constructor(args = {}) {
-        const { children: children0, direc = 'v', aspect = 2, ...attr0 } = THEME(args, 'BarPlot')
+        const { children: children0, direc = 'v', aspect = 2, xtick_pos = 'outer', ...attr0 } = THEME(args, 'BarPlot')
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
         const children = ensure_array(children0)
 
@@ -3189,7 +3189,7 @@ class BarPlot extends Plot {
         const [ gname, grid ] = [ `${itickdir}grid`, true ]
 
         // pass on to Plot
-        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, [gname]: grid, ...attr })
+        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, [gname]: grid, xtick_pos, ...attr })
         this.args = args
     }
 }
