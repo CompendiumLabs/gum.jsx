@@ -2348,9 +2348,9 @@ function ensure_shapefunc(f) {
 
 class DataPoints extends Group {
     constructor(args = {}) {
-        const { children: children0, fx, fy, size = D.point, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'DataPoints')
+        const { children: children0, fx, fy, size = D.point, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, shape: shape0, ...attr0 } = THEME(args, 'DataPoints')
         const [ spec, attr ] = spec_split(attr0)
-        const shape = ensure_singleton(children0)
+        const shape = ensure_singleton(shape0 ?? children0)
         const fshap = ensure_shapefunc(shape ?? new Dot())
         const fsize = ensure_function(size)
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
