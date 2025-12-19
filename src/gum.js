@@ -666,7 +666,7 @@ class Context {
 // TODO: add width/height convenience (width => rad=[width, null] + expand)
 class Element {
     constructor(args = {}) {
-        const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, flex, spin, hflip, vflip, ...attr0 } = args
+        const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, xrect, yrect, flex, spin, hflip, vflip, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
@@ -678,7 +678,11 @@ class Element {
         this.spec = spec
         this.attr = attr
 
-        // handle rect conveniences
+        // handle coord and rect convenience
+        if (xlim != null || ylim != null) this.spec.coord ??= join_limits({ h: xlim, v: ylim })
+        if (xrect != null || yrect != null) this.spec.rect ??= join_limits({ h: xrect, v: yrect })
+
+        // handle pos/rad conveniences
         if (pos != null || rad != null || xrad != null || yrad != null) {
             const has_xy = xrad != null || yrad != null
             const rad1 = has_xy ? [ xrad ?? null, yrad ?? null ] : null
@@ -687,7 +691,6 @@ class Element {
         }
 
         // various convenience conversions
-        if (xlim != null || ylim != null) this.spec.coord ??= join_limits({ h: xlim, v: ylim })
         if (spin != null) { this.spec.rotate = spin; this.spec.invar = true }
         if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
         if (vflip === true) this.spec.coord = flip_rect(this.spec.coord, true)
@@ -1298,15 +1301,16 @@ const anchor_rect = {
     'top' : [ 0, 0, 1, 0 ], 'bottom': [ 0, 1, 1, 1 ],
 }
 
+// TODO: make this more flexible
 class Anchor extends Group {
     constructor(args = {}) {
-        const { children: children0, side, align, ...attr } = args
+        const { children: children0, side = 'center', ...attr } = args
         const child = check_singleton(children0)
 
         // assign spec to child
         const children = child.clone({
             rect: anchor_rect[side],
-            align: align ?? align_frac(side),
+            align: align_frac(side),
             expand: true,
         })
 
@@ -2691,39 +2695,6 @@ class HBar extends Bar {
     }
 }
 
-class MultiBar extends Stack {
-    constructor(args = {}) {
-        const { children: children0, direc = 'v', lengths: lengths0 = [ 1 ], ...attr0 } = THEME(args, 'MultiBar')
-        const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
-        const lengths = ensure_array(lengths0)
-
-        // make stacked bars
-        const boxes = lengths.map(lc => is_scalar(lc) ? [lc, null] : lc)
-        const total = sum(boxes.map(([l, c]) => l))
-        const children = boxes.map(([l, c]) => new Rect({ size: l / total, fill: c, ...bar_attr }))
-
-        // pass to Bar
-        super({ children, direc, ...attr })
-        this.args = args
-    }
-}
-
-class VMultiBar extends MultiBar {
-    constructor(args = {}) {
-        const { ...attr } = THEME(args, 'VMultiBar')
-        super({ direc: 'v', ...attr })
-        this.args = args
-    }
-}
-
-class HMultiBar extends MultiBar {
-    constructor(args = {}) {
-        const { ...attr } = THEME(args, 'HMultiBar')
-        super({ direc: 'h', ...attr })
-        this.args = args
-    }
-}
-
 class Bars extends Group {
     constructor(args = {}) {
         const { children: children0, direc = 'v', width = 0.75, zero = 0, ...attr0 } = THEME(args, 'Bars')
@@ -2733,6 +2704,7 @@ class Bars extends Group {
 
         // make rects from sizes
         const children = bars.map((child, i) => {
+            if (is_scalar(child)) child = new Bar({ direc, size: child })
             const { loc = i, size } = child.attr
             const rect = join_limits({
                 [direc]: [ zero, size ],
@@ -2768,10 +2740,10 @@ class HBars extends Bars {
 //
 
 function ensure_ticklabel(label, args = {}) {
-    const { prec = D.prec, font_weight = C.bold, ...attr } = args
+    const { prec = D.prec, ...attr } = args
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
-    return new TextSpan({ children: rounder(str, prec), loc, font_weight, ...attr })
+    return new TextSpan({ children: rounder(str, prec), loc, ...attr })
 }
 
 class Scale extends Group {
@@ -2811,7 +2783,7 @@ class HScale extends Scale {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args = {}) {
-        const { children: children0, direc = 'h', align = 'center', prec = D.prec, ...attr0 } = THEME(args, 'Labels')
+        const { children: children0, direc = 'h', justify = 'center', prec = D.prec, ...attr0 } = THEME(args, 'Labels')
         const items = ensure_array(children0)
         const [ spec, attr ] = spec_split(attr0)
 
@@ -2820,11 +2792,7 @@ class Labels extends Group {
             const c = ensure_ticklabel(c0, attr, prec)
             const { loc } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
-            if (direc == 'v') {
-                return new Anchor({ children: c, rect, expand: true, aspect: 1, side: align })
-            } else {
-                return c.clone({ rect, expand: true })
-            }
+            return new Anchor({ children: c, rect, expand: true, aspect: 1, side: justify })
         })
 
         // pass to Group
@@ -2865,15 +2833,16 @@ function get_tick_lim(lim) {
 
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
+// TODO: add a `discrete` option that auto-places at integer locations
 class Axis extends Group {
     constructor(args = {}) {
-        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = 1.5, label_offset = 0.75, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
         const [ tick_lo, tick_hi ] = tick_lim
 
         // get tick and label limits
-        const label_align = (direc == 'v') ? (label_pos == 'outer' ? 'right' : 'left') : 'center'
+        const label_justify = label_justify0 ?? ((direc == 'v') ? (label_pos == 'outer' ? 'right' : 'left') : 'center')
         const label_base = (label_pos == 'inner') ? (tick_hi + label_offset) : (tick_lo - label_offset - label_size)
         const label_lim = [ label_base, label_base + label_size ]
 
@@ -2891,7 +2860,7 @@ class Axis extends Group {
         // accumulate children
         const cline = new UnitLine({ direc, ...line_attr })
         const scale = new Scale({ locs, direc, rect: scale_rect, coord, debug, ...tick_attr })
-        const label = new Labels({ children: labels, direc, align: label_align, rect: label_rect, coord, debug })
+        const label = new Labels({ children: labels, direc, justify: label_justify, rect: label_rect, coord, debug })
 
         // pass to Group
         super({ children: [ cline, scale, label ], debug, ...attr })
@@ -3004,9 +2973,8 @@ class Legend extends Frame {
 }
 
 // find minimal containing limits
-function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
+function outer_limits(children, { xlim, ylim, xpad = 0, ypad = 0 } = {}) {
     if (children.length == 0) return null
-    const [ xpad, ypad ] = ensure_vector(padding, 2)
 
     // pull in child coordinate system
     const coord0 = merge_rects(children.map(c => c.spec.coord))
@@ -3023,11 +2991,11 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args = {}) {
-        let { children: children0, xlim, ylim, coord = 'auto', aspect = 'auto', padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
+        let { children: children0, xlim, ylim, coord = 'auto', aspect = 'auto', xpad = 0, ypad = 0, flip = true, ...attr } = THEME(args, 'Graph')
         const elems = ensure_array(children0)
 
         // get default outer limits
-        coord = coord == 'auto' ? outer_limits(elems, { xlim, ylim, padding }) : coord
+        coord = coord == 'auto' ? outer_limits(elems, { xlim, ylim, xpad, ypad }) : coord
         aspect = aspect == 'auto' ? rect_aspect(coord) : aspect
 
         // flip coordinate system if requested
@@ -3051,12 +3019,12 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.1, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.1, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, xpad = 0, ypad = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
         // determine coordinate system and aspect
-        const coord = outer_limits(elems, { xlim, ylim, padding })
+        const coord = outer_limits(elems, { xlim, ylim, xpad, ypad })
         const [ xmin, ymin, xmax, ymax ] = coord
         xlim = [ xmin, xmax ]
         ylim = [ ymin, ymax ]
@@ -3104,8 +3072,8 @@ class Plot extends Box {
         // default xaxis generation
         if (xaxis === true) {
             const xtick_size1 = xtick_size * (ymax - ymin)
-            const xaxis_rect = join_limits({ h: xlim, v: [ xanchor - xtick_size1, xanchor + xtick_size1 ] })
-            xaxis = new HAxis({ ticks: xticks, lim: xlim, rect: xaxis_rect, ...xaxis_attr })
+            const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
+            xaxis = new HAxis({ ticks: xticks, lim: xlim, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
@@ -3114,8 +3082,8 @@ class Plot extends Box {
         // default yaxis generation
         if (yaxis === true) {
             const ytick_size1 = ytick_size * (xmax - xmin)
-            const yaxis_rect = join_limits({ h: [ yanchor - ytick_size1, yanchor + ytick_size1 ], v: ylim })
-            yaxis = new VAxis({ ticks: yticks, lim: ylim, rect: yaxis_rect, ...yaxis_attr })
+            const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
+            yaxis = new VAxis({ ticks: yticks, lim: ylim, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
@@ -3260,7 +3228,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3273,5 +3241,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, MultiBar, VMultiBar, HMultiBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
