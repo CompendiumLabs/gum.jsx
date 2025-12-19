@@ -331,6 +331,15 @@ function invert_direc(direc) {
            direc
 }
 
+function invert_align(align) {
+    if (is_scalar(align)) return 1 - align
+    return align == 'left' ? 'right' :
+           align == 'right' ? 'left' :
+           align == 'top' ? 'bottom' :
+           align == 'bottom' ? 'top' :
+           align
+}
+
 //
 // attributes
 //
@@ -1296,21 +1305,21 @@ class Grid extends Group {
     }
 }
 
-const anchor_rect = {
-    'left': [ 0, 0, 0, 1 ], 'right' : [ 1, 0, 1, 1 ],
-    'top' : [ 0, 0, 1, 0 ], 'bottom': [ 0, 1, 1, 1 ],
-}
+//
+// placement elements
+//
 
-// TODO: make this more flexible
+// TODO: decide what this actually is supposed to do
 class Anchor extends Group {
     constructor(args = {}) {
-        const { children: children0, side = 'center', ...attr } = args
+        const { children: children0, direc = 'h', loc: loc0 = null, justify = 'center', ...attr } = args
         const child = check_singleton(children0)
 
         // assign spec to child
+        const frac = align_frac(loc0 ?? justify)
         const children = child.clone({
-            rect: anchor_rect[side],
-            align: align_frac(side),
+            rect: join_limits({ [direc]: [ frac, frac ] }),
+            align: justify,
             expand: true,
         })
 
@@ -1945,7 +1954,7 @@ function ensure_tail(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class TextSpan extends Element {
     constructor(args = {}) {
-        const { children: children0, color, voffset = C.voffset, stroke = C.none, font_family = C.sans, ...attr0 } = THEME(args, 'TextSpan')
+        const { children: children0, color, voffset = C.voffset, stroke = C.none, ...attr0 } = THEME(args, 'TextSpan')
         const child = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -2144,7 +2153,7 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_size is absolutely scaled
 class TextFlex extends Element {
     constructor(args = {}) {
-        const { children: children0, font_scale, font_size, spacing = 0.1, color, font_family = C.sans, voffset = C.voffset, ...attr0 } = THEME(args, 'TextFlex')
+        const { children: children0, font_scale, font_size, spacing = 0.1, color, voffset = C.voffset, ...attr0 } = THEME(args, 'TextFlex')
         const children = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -2783,16 +2792,17 @@ class HScale extends Scale {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args = {}) {
-        const { children: children0, direc = 'h', justify = 'center', prec = D.prec, ...attr0 } = THEME(args, 'Labels')
+        const { children: children0, direc = 'h', justify: justify0 = null, loc: subloc = null, prec = D.prec, ...attr0 } = THEME(args, 'Labels')
         const items = ensure_array(children0)
         const [ spec, attr ] = spec_split(attr0)
+        const justify = justify0 ?? (direc == 'h' ? 'center' : 'right')
 
         // place tick boxes using expanded lines
         const children = items.map(c0 => {
             const c = ensure_ticklabel(c0, attr, prec)
             const { loc } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
-            return new Anchor({ children: c, rect, expand: true, aspect: 1, side: justify })
+            return new Anchor({ children: c, rect, expand: true, aspect: 1, justify, loc: subloc })
         })
 
         // pass to Group
@@ -2833,10 +2843,9 @@ function get_tick_lim(lim) {
 
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
-// TODO: add a `discrete` option that auto-places at integer locations
 class Axis extends Group {
     constructor(args = {}) {
-        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, label_loc = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_pos)
         const [ tick_lo, tick_hi ] = tick_lim
@@ -2858,9 +2867,9 @@ class Axis extends Group {
         const locs = labels.map(c => c.attr.loc)
 
         // accumulate children
-        const cline = new UnitLine({ direc, ...line_attr })
+        const cline = new UnitLine({ direc, lim, coord, ...line_attr })
         const scale = new Scale({ locs, direc, rect: scale_rect, coord, debug, ...tick_attr })
-        const label = new Labels({ children: labels, direc, justify: label_justify, rect: label_rect, coord, debug })
+        const label = new Labels({ children: labels, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
 
         // pass to Group
         super({ children: [ cline, scale, label ], debug, ...attr })
@@ -3019,7 +3028,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.1, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, xpad = 0, ypad = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, xpad = 0, ypad = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 

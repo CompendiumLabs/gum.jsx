@@ -1,6 +1,6 @@
 // a horizontal axis with 5 ticks labeled with emojis for: mount fuji, a rocket, a whale, a watermellon, and a donut
-const emoji = ['A', 'B', 'C', 'D', 'E']
+const emoji = ['🗻', '🚀', '🐳', '🍉', '🍩']
 const ticks = zip(linspace(0, 1, emoji.length), emoji)
-return <Box margin={0.6}>
-  <HAxis ticks={ticks} aspect={15} tick-pos="outer" />
+return <Box padding>
+  <HAxis yrect={[0.45, 0.55]} ticks={ticks} tick-pos="outer" label-size={1} />
 </Box>
