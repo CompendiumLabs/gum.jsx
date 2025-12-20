@@ -2845,14 +2845,14 @@ function get_tick_lim(lim) {
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
     constructor(args = {}) {
-        const { children, lim = D.lim, direc, ticks: ticks0, tick_pos = 'inner', label_pos = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, label_loc = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc, ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, label_loc = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
-        const tick_lim = get_tick_lim(tick_pos)
+        const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim
 
         // get tick and label limits
-        const label_justify = label_justify0 ?? ((direc == 'v') ? (label_pos == 'outer' ? 'right' : 'left') : 'center')
-        const label_base = (label_pos == 'inner') ? (tick_hi + label_offset) : (tick_lo - label_offset - label_size)
+        const label_justify = label_justify0 ?? ((direc == 'v') ? (label_side == 'outer' ? 'right' : 'left') : 'center')
+        const label_base = (label_side == 'inner') ? (tick_hi + label_offset) : (tick_lo - label_offset - label_size)
         const label_lim = [ label_base, label_base + label_size ]
 
         // set up one-sides coordinate system
@@ -3151,7 +3151,7 @@ class Plot extends Box {
 
 class BarPlot extends Plot {
     constructor(args = {}) {
-        const { children: children0, direc = 'v', aspect = 2, xtick_pos = 'outer', ...attr0 } = THEME(args, 'BarPlot')
+        const { children: children0, direc = 'v', aspect = 2, xtick_side = 'outer', ...attr0 } = THEME(args, 'BarPlot')
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
         const children = ensure_array(children0)
 
@@ -3167,7 +3167,7 @@ class BarPlot extends Plot {
         const [ gname, grid ] = [ `${itickdir}grid`, true ]
 
         // pass on to Plot
-        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, [gname]: grid, xtick_pos, ...attr })
+        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, [gname]: grid, xtick_side, ...attr })
         this.args = args
     }
 }

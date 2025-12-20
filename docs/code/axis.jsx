@@ -2,5 +2,5 @@
 const emoji = ['🗻', '🚀', '🐳', '🍉', '🍩']
 const ticks = zip(linspace(0, 1, emoji.length), emoji)
 return <Box padding>
-  <HAxis yrect={[0.45, 0.55]} ticks={ticks} tick-pos="outer" label-size={1} />
+  <HAxis yrect={[0.45, 0.55]} ticks={ticks} tick-side="outer" label-size={1} />
 </Box>
