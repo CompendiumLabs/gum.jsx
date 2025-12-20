@@ -672,7 +672,6 @@ class Context {
 }
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
-// TODO: add width/height convenience (width => rad=[width, null] + expand)
 class Element {
     constructor(args = {}) {
         const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, xrect, yrect, flex, spin, hflip, vflip, ...attr0 } = args
@@ -1309,7 +1308,6 @@ class Grid extends Group {
 // placement elements
 //
 
-// TODO: decide what this actually is supposed to do
 class Anchor extends Group {
     constructor(args = {}) {
         const { children: children0, direc = 'h', loc: loc0 = null, justify = 'center', ...attr } = args
