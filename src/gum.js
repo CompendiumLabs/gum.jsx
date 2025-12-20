@@ -1,7 +1,7 @@
 // gum.js
 
 import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME, setTheme } from './defaults.js'
-import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, invert } from './utils.js'
+import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, invert } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
 import { parseMarkdown } from './mark.js'
 import { mathjax } from './math.js'
@@ -2682,7 +2682,7 @@ class Network extends Group {
 class Bar extends RoundedRect {
     constructor(args = {}) {
         let { fill = 'lightgray', border = 1, rounded, ...attr } = THEME(args, 'Bar')
-        rounded = rounded === true ? [ 0.05, 0.05, 0, 0 ] : rounded
+        rounded = rounded === true ? [ 0.1, 0.1, 0, 0 ] : rounded
         super({ fill, rounded, border, ...attr })
         this.args = args
     }
@@ -2982,7 +2982,7 @@ class Legend extends Frame {
 }
 
 // find minimal containing limits
-function outer_limits(children, { xlim, ylim, xpad = 0, ypad = 0 } = {}) {
+function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
     if (children.length == 0) return null
 
     // pull in child coordinate system
@@ -2990,6 +2990,7 @@ function outer_limits(children, { xlim, ylim, xpad = 0, ypad = 0 } = {}) {
     const { xlim: xlim0, ylim: ylim0 } = resolve_limits(xlim, ylim, coord0)
 
     // expand with padding
+    const [ xpad, ypad ] = ensure_vector(padding, 2)
     xlim = expand_limits(xlim0 ?? D.lim, xpad)
     ylim = expand_limits(ylim0 ?? D.lim, ypad)
 
@@ -3028,12 +3029,12 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, xpad = 0, ypad = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
         // determine coordinate system and aspect
-        const coord = outer_limits(elems, { xlim, ylim, xpad, ypad })
+        const coord = outer_limits(elems, { xlim, ylim, padding })
         const [ xmin, ymin, xmax, ymax ] = coord
         xlim = [ xmin, xmax ]
         ylim = [ ymin, ymax ]
@@ -3241,7 +3242,7 @@ const ELEMS = {
 }
 
 const VALS = [
-    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
+    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
