@@ -1,7 +1,7 @@
 // gum.js
 
 import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME, setTheme } from './defaults.js'
-import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, invert } from './utils.js'
+import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
 import { parseMarkdown } from './mark.js'
 import { mathjax } from './math.js'
@@ -1100,7 +1100,7 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
 
     // for computing return values
     const getSizes = cs => cs.map(c => c.size ?? 0)
-    const getAspect0 = direc == 'v' ? invert : (a => a)
+    const getAspect0 = (direc == 'v') ? invert : identity
     const getAspect = a => (aspect0 ?? getAspect0(a))
 
     // compute ranges with spacing
@@ -1210,16 +1210,17 @@ function default_measure(c) {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args = {}) {
-        const { children: children0, spacing = 0, padding = 0, wrap = null, measure: measure0 = null, aspect: aspect0, debug, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, spacing = 0, padding = 0, wrap = null, justify = 'left', measure: measure0 = null, debug, ...attr } = THEME(args, 'HWrap')
         const children = ensure_array(children0)
         const measure = measure0 ?? default_measure
 
         // make HStack rows
         const { rows } = wrapWidths(children, measure, wrap)
-        const lines = rows.map(row => new HStack({ children: row, spacing: padding, aspect: wrap, debug }))
+        const lines = rows.map(row => new HStack({ children: row, spacing: padding, align: justify, debug }))
+        const boxes = lines.map(line => new Group({ children: line, aspect: wrap ?? line.spec.aspect }))
 
         // pass to VStack
-        super({ children: lines, spacing, even: true, debug, ...attr })
+        super({ children: boxes, spacing, even: true, debug, ...attr })
         this.args = args
     }
 }
@@ -2108,12 +2109,12 @@ class TextStack extends VStack {
 
 class TextBox extends Box {
     constructor(args = {}) {
-        const { children: children0, padding = 0.1, justify, wrap, ...attr0 } = THEME(args, 'TextBox')
+        const { children: children0, padding = 0.1, justify, wrap, debug, ...attr0 } = THEME(args, 'TextBox')
         const text = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
-        const children = new Text({ children: text, align: justify, wrap, ...text_attr, ...font_attr })
-        super({ children, padding, ...attr })
+        const children = new Text({ children: text, justify, wrap, debug, ...text_attr, ...font_attr })
+        super({ children, padding, debug, ...attr })
         this.args = args
     }
 }
@@ -2596,10 +2597,10 @@ class ArrowPath extends Group {
 
 class Node extends TextFrame {
     constructor(args = {}) {
-        const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, ...attr } = THEME(args, 'Node')
+        const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, justify = 'center', ...attr } = THEME(args, 'Node')
 
         // pass to TextFrame
-        super({ children, rad, rounded, padding, flex: true, ...attr })
+        super({ children, rad, rounded, padding, justify, flex: true, ...attr })
         this.args = args
 
         // additional props
@@ -2999,11 +3000,11 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args = {}) {
-        let { children: children0, xlim, ylim, coord = 'auto', aspect = 'auto', xpad = 0, ypad = 0, flip = true, ...attr } = THEME(args, 'Graph')
+        let { children: children0, xlim, ylim, coord = 'auto', aspect = 'auto', padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
         const elems = ensure_array(children0)
 
         // get default outer limits
-        coord = coord == 'auto' ? outer_limits(elems, { xlim, ylim, xpad, ypad }) : coord
+        coord = coord == 'auto' ? outer_limits(elems, { xlim, ylim, padding }) : coord
         aspect = aspect == 'auto' ? rect_aspect(coord) : aspect
 
         // flip coordinate system if requested
@@ -3153,9 +3154,16 @@ class BarPlot extends Plot {
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
         const children = ensure_array(children0)
 
+        // handle data array case
+        const sibs = children.map(child => {
+            if (is_element(child)) return child
+            const [ label, size ] = is_scalar(child) ? [ child, child ] : child
+            return new Bar({ label, size, ...bar_attr })
+        })
+
         // extract labels and create bars
-        const labs = children.map(child => child.attr.label)
-        const bars = new Bars({ children, direc, ...bar_attr })
+        const labs = sibs.map(child => child.attr.label)
+        const bars = new Bars({ children: sibs, direc, ...bar_attr })
 
         // determine axis ticks
         const tickdir = direc === 'v' ? 'x' : 'y'

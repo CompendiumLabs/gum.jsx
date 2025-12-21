@@ -4,6 +4,8 @@
 
 Makes a plot featuring a bar graph. This largely wraps the functionality of [Plot](/docs/plot) but takes care of labelling and arranging the `xaxis` information. You can provide `label` and `size` attributes to the child elements. The **Bar**/**VBar**/**HBar** elements are just very thin wrappers around **Rect** elements, and you can use other elements in their place if you wish.
 
+To layout just the bars without axes, use the **Bars** element directly, which this wraps using **Plot**. This way, you can plot other elements alongside the bars, such as labels or error bars. By default, the bars will be placed at `[0, ..., N-1]` along the x-axis.
+
 Child parameters:
 - `label` — the label for the bar
 - `size` — the height of the bar

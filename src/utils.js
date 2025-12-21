@@ -344,6 +344,10 @@ function smoothstep(x, lim) {
     return t * t * (3 - 2 * t)
 }
 
+function identity(x) {
+    return x
+}
+
 function invert(x) {
     return x != null ? 1 / x : null
 }
@@ -352,4 +356,4 @@ function invert(x) {
 // export
 //
 
-export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, invert }
+export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert}
