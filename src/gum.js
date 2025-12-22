@@ -341,6 +341,37 @@ function invert_align(align) {
 }
 
 //
+// angle and direction utils
+//
+
+function norm_angle(deg) {
+    if (deg == 360) return 359.99
+    deg = deg % 360
+    return deg < 0 ? deg + 360 : deg
+}
+
+function vector_angle(vector) {
+    const [ x, y ] = vector
+    return r2d * Math.atan2(y, x)
+}
+
+function cardinal_direc(direc) {
+    return (direc == 'n') ? [ 0, -1] :
+           (direc == 'e') ? [ 1, 0 ] :
+           (direc == 'w') ? [-1, 0 ] :
+           (direc == 's') ? [ 0, 1 ] :
+           null
+}
+
+function unit_direc(direc) {
+    if (direc == null) return null
+    if (is_string(direc)) return cardinal_direc(direc)
+    if (is_scalar(direc)) return [ cos(d2r * direc), sin(d2r * direc) ]
+    if (is_array(direc) && direc.length == 2) return normalize(direc, 2)
+    throw new Error(`Invalid direction: ${direc}`)
+}
+
+//
 // attributes
 //
 
@@ -1730,15 +1761,54 @@ class CornerCmd {
     }
 }
 
+function cubic_spline_args(pos1, pos2, dir1, dir2, curve=0.75) {
+    // compute scaled tangents
+    const dist = norm(sub(pos2, pos1), 2)
+    const unit1 = normalize(dir1, 2)
+    const unit2 = normalize(dir2, 2)
+    const tan1 = mul(unit1, curve * dist)
+    const tan2 = mul(unit2, curve * dist)
+
+    // convert to Bernstein form
+    const con1 = add(pos1, div(tan1, 3))
+    const con2 = sub(pos2, div(tan2, 3))
+
+    // make a path command
+    const [ con1x, con1y ] = con1
+    const [ con2x, con2y ] = con2
+    const [ pos2x, pos2y ] = pos2
+    return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
+}
+
+class CubicSplineCmd extends Command{
+    constructor(pos1, pos2, dir1, dir2, curve=0.75) {
+        super('C')
+        this.pos1 = pos1
+        this.pos2 = pos2
+        this.dir1 = unit_direc(dir1)
+        this.dir2 = unit_direc(dir2)
+        this.curve = curve
+    }
+
+    args(ctx) {
+        const pos1 = ctx.mapPoint(this.pos1)
+        const pos2 = ctx.mapPoint(this.pos2)
+        return cubic_spline_args(pos1, pos2, this.dir1, this.dir2, this.curve)
+    }
+}
+
+class CubicSpline extends Path {
+    constructor(args = {}) {
+        const { pos1, pos2, dir1, dir2, curve=0.75, ...attr } = THEME(args, 'CubicSpline')
+        const cmds = [ new MoveCmd(pos1), new CubicSplineCmd(pos1, pos2, dir1, dir2, curve) ]
+        super({ children: cmds, ...attr })
+        this.args = args
+    }
+}
+
 //
 // path elements
 //
-
-function norm_angle(deg) {
-    if (deg == 360) return 359.99
-    deg = deg % 360
-    return deg < 0 ? deg + 360 : deg
-}
 
 class Arc extends Path {
     constructor(args = {}) {
@@ -1821,17 +1891,6 @@ class RoundedRect extends Path {
 //
 // arrows and fields
 //
-
-function vector_angle(vector) {
-    const [ x, y ] = vector
-    return r2d * Math.atan2(y, x)
-}
-
-function unit_direc(direc) {
-    const theta = is_scalar(direc) ? direc : vector_angle(direc)
-    const rad = d2r * theta
-    return [ cos(rad), sin(rad) ]
-}
 
 // the definition of an direc in non-square aspects is weird?
 class ArrowHead extends Element {
@@ -2513,47 +2572,9 @@ function get_direction(p1, p2) {
            null
 }
 
-function anchor_direc(direc) {
-    return (direc == 'w') ? [-1, 0 ] :
-           (direc == 'e') ? [ 1, 0 ] :
-           (direc == 'n') ? [ 0, -1] :
-           (direc == 's') ? [ 0, 1 ] :
-           unit_direc(direc)
-}
-
-function cubic_spline_func(x0, x1, d0, d1) {
-    const [ a, b, c, d ] = [
-        x0,
-        d0,
-        3 * (x1 - x0) - (2 * d0 + d1),
-        -2 * (x1 - x0) + (d0 + d1),
-    ]
-    return t => a + b * t + c * t**2 + d * t**3
-}
-
-class CubicSpline extends DataPath {
-    constructor(args = {}) {
-        const { pos1, pos2, dir1, dir2, ...attr } = args
-
-        // create points and direcs
-        const [ x0, y0 ] = pos1
-        const [ x1, y1 ] = pos2
-        const [ dx0, dy0 ] = dir1
-        const [ dx1, dy1 ] = dir2
-
-        // create cubic spline
-        const fx = cubic_spline_func(x0, x1, dx0, dx1)
-        const fy = cubic_spline_func(y0, y1, dy0, dy1)
-
-        // pass to DataPath
-        super({ fx, fy, ...attr })
-        this.args = args
-    }
-}
-
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_none = false, arrow_size = 0.03, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_none = false, arrow_size = 0.03, curve = 0.75, coord, ...attr0 } = THEME(args, 'ArrowPath')
         let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
         )
@@ -2566,26 +2587,22 @@ class ArrowPath extends Group {
 
         // set default directions (gets normalized later)
         const direc = sub(pos2, pos1)
-        dir1 = anchor_direc(dir1 ?? direc)
-        dir2 = anchor_direc(dir2 ?? direc)
-
-        // get unit vectors
-        const [ vec_beg, vec_end ] = [ dir1, dir2 ].map(unit_direc)
-        const [ ang_beg, ang_end ] = [ vec_beg, vec_end ].map(vector_angle)
+        dir1 = unit_direc(dir1 ?? direc)
+        dir2 = unit_direc(dir2 ?? direc)
 
         // create cubic spline path
-        const path = new CubicSpline({ pos1, pos2, dir1, dir2, coord, ...path_attr })
-        const children = [ path ]
+        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, curve, coord, ...path_attr })
+        const children = [ spline ]
 
         // make arrowheads
         if (arrow_beg) {
-            const head_rect = radial_rect(pos1, arrow_size)
-            const head_beg = new ArrowHead({ direc: 180 - ang_beg, rect: head_rect, ...arrow_beg_attr })
+            const ang1 = vector_angle(dir1)
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_beg_attr })
             children.push(head_beg)
         }
         if (arrow_end) {
-            const head_rect = radial_rect(pos2, arrow_size)
-            const head_end = new ArrowHead({ direc: -ang_end, rect: head_rect, ...arrow_end_attr })
+            const ang2 = vector_angle(dir2)
+            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_end_attr })
             children.push(head_end)
         }
 
@@ -2618,24 +2635,18 @@ function anchor_point(rect, direc) {
            null
 }
 
-function cubic_spline_path(pos1, pos2, vec1, vec2, curve=0.75) {
-    // compute scaled tangents
-    const dist = norm(sub(pos2, pos1), 2)
-    const unit1 = normalize(vec1, 2)
-    const unit2 = normalize(vec2, 2)
-    const tan1 = mul(unit1, curve * dist)
-    const tan2 = mul(unit2, curve * dist)
+function mapRect(rect, coord) {
+    const [ x0, y0, x1, y1 ] = rect
+    const [ cx0, cy0, cx1, cy1 ] = coord
+    const [ cw, ch ] = [ cx1 - cx0, cy1 - cy0 ]
+    return [ cx0 + cw * x0, cy0 + ch * y0, cx0 + cw * x1, cy0 + ch * y1 ]
+}
 
-    // convert to Bernstein form
-    const con1 = add(pos1, div(tan1, 3))
-    const con2 = sub(pos2, div(tan2, 3))
-
-    // make a path command
-    const [ pos1x, pos1y ] = pos1
-    const [ con1x, con1y ] = con1
-    const [ con2x, con2y ] = con2
-    const [ pos2x, pos2y ] = pos2
-    return `M ${pos1x},${pos1y} C ${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
+function unmapRect(rect, coord) {
+    const [ x0, y0, x1, y1 ] = rect
+    const [ cx0, cy0, cx1, cy1 ] = coord
+    const [ cw, ch ] = [ cx1 - cx0, cy1 - cy0 ]
+    return [ (x0 - cx0) / cw, (y0 - cy0) / ch, (x1 - cx0) / cw, (y1 - cy0) / ch ]
 }
 
 class Edge extends Element {
@@ -2643,7 +2654,7 @@ class Edge extends Element {
         const { node1, node2, dir1, dir2, curve = 0.75, ...attr } = THEME(args, 'EdgePath')
 
         // pass to Element
-        super({ tag: 'path', unary: true, ...attr })
+        super({ tag: 'g', unary: false, ...attr })
         this.args = args
 
         // additional props
@@ -2654,11 +2665,17 @@ class Edge extends Element {
         this.curve = curve
     }
 
-    props(ctx) {
-        // get mapped node rects
+    inner(ctx) {
+        // get core attributes
         const attr = super.props(ctx)
-        const { prect: rect1 } = ctx.map(this.node1.spec)
-        const { prect: rect2 } = ctx.map(this.node2.spec)
+
+        // get mapped node rects (this is the network context)
+        const { prect: prect1 } = ctx.map(this.node1.spec)
+        const { prect: prect2 } = ctx.map(this.node2.spec)
+
+        // unmap the rects
+        const rect1 = mapRect(unmapRect(prect1, ctx.prect), ctx.coord)
+        const rect2 = mapRect(unmapRect(prect2, ctx.prect), ctx.coord)
 
         // get emanation directions
         const center1 = rect_center(rect1)
@@ -2669,12 +2686,12 @@ class Edge extends Element {
         // get anchor points and tangent vectors
         const pos1 = anchor_point(rect1, direc1)
         const pos2 = anchor_point(rect2, direc2)
-        const vec1 = anchor_direc(direc1)
-        const vec2 = mul(anchor_direc(direc2), -1)
+        const dir1 = cardinal_direc(direc1)
+        const dir2 = mul(cardinal_direc(direc2), -1)
 
-        // return path
-        const d = cubic_spline_path(pos1, pos2, vec1, vec2, this.curve)
-        return { d, ...attr }
+        const arrowpath = new ArrowPath({ pos1, pos2, dir1, dir2, curve: this.curve, coord: ctx.coord, ...attr })
+        const svg = arrowpath.svg(ctx)
+        return svg
     }
 }
 
