@@ -2521,7 +2521,7 @@ function anchor_direc(direc) {
            unit_direc(direc)
 }
 
-function cubic_spline(x0, x1, d0, d1) {
+function cubic_spline_func(x0, x1, d0, d1) {
     const [ a, b, c, d ] = [
         x0,
         d0,
@@ -2542,8 +2542,8 @@ class CubicSpline extends DataPath {
         const [ dx1, dy1 ] = dir2
 
         // create cubic spline
-        const fx = cubic_spline(x0, x1, dx0, dx1)
-        const fy = cubic_spline(y0, y1, dy0, dy1)
+        const fx = cubic_spline_func(x0, x1, dx0, dx1)
+        const fy = cubic_spline_func(y0, y1, dy0, dy1)
 
         // pass to DataPath
         super({ fx, fy, ...attr })
@@ -2600,36 +2600,50 @@ class Node extends TextFrame {
         const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, justify = 'center', ...attr } = THEME(args, 'Node')
 
         // pass to TextFrame
-        super({ children, rad, rounded, padding, justify, flex: true, ...attr })
+        super({ children, rad, rounded, padding, justify, ...attr })
         this.args = args
 
         // additional props
         this.label = label
     }
+}
 
-    get_center() {
-        const { rect } = this.spec
-        return rect_center(rect)
-    }
+function anchor_point(rect, direc) {
+    const [ xmin, ymin, xmax, ymax] = rect
+    const [ xmid, ymid ] = rect_center(rect)
+    return (direc == 'n') ? [ xmid, ymin ] :
+           (direc == 's') ? [ xmid, ymax ] :
+           (direc == 'e') ? [ xmax, ymid ] :
+           (direc == 'w') ? [ xmin, ymid ] :
+           null
+}
 
-    get_anchor(direc) {
-        const { rect } = this.spec
-        const [ xmin, ymin, xmax, ymax] = rect
-        const [ xmid, ymid ] = rect_center(rect)
-        return (direc == 'n') ? [ xmid, ymin ] :
-               (direc == 's') ? [ xmid, ymax ] :
-               (direc == 'e') ? [ xmax, ymid ] :
-               (direc == 'w') ? [ xmin, ymid ] :
-               null
-    }
+function cubic_spline_path(pos1, pos2, vec1, vec2, curve=0.75) {
+    // compute scaled tangents
+    const dist = norm(sub(pos2, pos1), 2)
+    const unit1 = normalize(vec1, 2)
+    const unit2 = normalize(vec2, 2)
+    const tan1 = mul(unit1, curve * dist)
+    const tan2 = mul(unit2, curve * dist)
+
+    // convert to Bernstein form
+    const con1 = add(pos1, div(tan1, 3))
+    const con2 = sub(pos2, div(tan2, 3))
+
+    // make a path command
+    const [ pos1x, pos1y ] = pos1
+    const [ con1x, con1y ] = con1
+    const [ con2x, con2y ] = con2
+    const [ pos2x, pos2y ] = pos2
+    return `M ${pos1x},${pos1y} C ${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
 }
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { node1, node2, dir1, dir2, ...attr } = THEME(args, 'Edge')
+        const { node1, node2, dir1, dir2, curve = 0.75, ...attr } = THEME(args, 'EdgePath')
 
         // pass to Element
-        super(attr)
+        super({ tag: 'path', unary: true, ...attr })
         this.args = args
 
         // additional props
@@ -2637,6 +2651,30 @@ class Edge extends Element {
         this.node2 = node2
         this.dir1 = dir1
         this.dir2 = dir2
+        this.curve = curve
+    }
+
+    props(ctx) {
+        // get mapped node rects
+        const attr = super.props(ctx)
+        const { prect: rect1 } = ctx.map(this.node1)
+        const { prect: rect2 } = ctx.map(this.node2)
+
+        // get emanation directions
+        const center1 = rect_center(rect1)
+        const center2 = rect_center(rect2)
+        const direc1 = this.dir1 ?? get_direction(center1, center2)
+        const direc2 = this.dir2 ?? get_direction(center2, center1)
+
+        // get anchor points and tangent vectors
+        const pos1 = anchor_point(rect1, direc1)
+        const pos2 = anchor_point(rect2, direc2)
+        const vec1 = anchor_direc(direc1)
+        const vec2 = mul(anchor_direc(direc2), -1)
+
+        // return path
+        const d = cubic_spline_path(pos1, pos2, vec1, vec2, this.curve)
+        return { d, ...attr }
     }
 }
 
@@ -2653,18 +2691,10 @@ class Network extends Group {
 
         // create arrow paths from edges
         const nmap = new Map(nodes.map(n => [ n.label, n ]))
-        const paths = edges.map(e => {
-            const node1 = nmap.get(e.node1)
-            const node2 = nmap.get(e.node2)
-            const center1 = node1.get_center()
-            const center2 = node2.get_center()
-            const dir1 = e.dir1 ?? get_direction(center1, center2)
-            const dir2 = e.dir2 ?? get_direction(center2, center1)
-            const pos1 = node1.get_anchor(dir1)
-            const pos2 = node2.get_anchor(dir2)
-            const vec1 = anchor_direc(dir1)
-            const vec2 = mul(anchor_direc(dir2), -1)
-            return new ArrowPath({ pos1, pos2, dir1: vec1, dir2: vec2, coord, ...e.attr })
+        const paths = edges.map(({ node1, node2, dir1, dir2, attr }) => {
+            const { spec: spec1 } = nmap.get(node1)
+            const { spec: spec2 } = nmap.get(node2)
+            return new Edge({ node1: spec1, node2: spec2, dir1, dir2, coord, ...attr })
         })
 
         // pass to Graph

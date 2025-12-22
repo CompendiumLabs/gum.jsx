@@ -193,7 +193,7 @@ function cumsum(arr, first=true) {
     return first ? [ 0, ...ret ] : ret
 }
 
-function norm(vals, degree=1) {
+function norm(vals, degree=2) {
     return sum(vals.map(v => v**degree))**(1 / degree)
 }
 
