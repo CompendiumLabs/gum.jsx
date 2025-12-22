@@ -2657,8 +2657,8 @@ class Edge extends Element {
     props(ctx) {
         // get mapped node rects
         const attr = super.props(ctx)
-        const { prect: rect1 } = ctx.map(this.node1)
-        const { prect: rect2 } = ctx.map(this.node2)
+        const { prect: rect1 } = ctx.map(this.node1.spec)
+        const { prect: rect2 } = ctx.map(this.node2.spec)
 
         // get emanation directions
         const center1 = rect_center(rect1)
@@ -2691,10 +2691,10 @@ class Network extends Group {
 
         // create arrow paths from edges
         const nmap = new Map(nodes.map(n => [ n.label, n ]))
-        const paths = edges.map(({ node1, node2, dir1, dir2, attr }) => {
-            const { spec: spec1 } = nmap.get(node1)
-            const { spec: spec2 } = nmap.get(node2)
-            return new Edge({ node1: spec1, node2: spec2, dir1, dir2, coord, ...attr })
+        const paths = edges.map(e => {
+            const n1 = nmap.get(e.args.node1)
+            const n2 = nmap.get(e.args.node2)
+            return e.clone({ node1: n1, node2: n2, coord })
         })
 
         // pass to Graph
