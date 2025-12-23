@@ -1893,6 +1893,7 @@ class RoundedRect extends Path {
 //
 
 // the definition of an direc in non-square aspects is weird?
+// TODO: adjust tip position for stroke-width
 class ArrowHead extends Element {
     constructor(args = {}) {
         const { direc, arc = 60, base = false, fill, ...attr } = THEME(args, 'ArrowHead')
@@ -2612,16 +2613,26 @@ class ArrowPath extends Group {
     }
 }
 
-class Node extends TextFrame {
+class Node extends Frame {
     constructor(args = {}) {
-        const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, justify = 'center', ...attr } = THEME(args, 'Node')
+        const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, ...attr } = THEME(args, 'Node')
 
-        // pass to TextFrame
-        super({ children, rad, rounded, padding, justify, ...attr })
+        // pass to Frame
+        super({ children, rad, rounded, padding, ...attr })
         this.args = args
 
         // additional props
         this.label = label
+    }
+}
+
+class TextNode extends Node {
+    constructor(args = {}) {
+        const { children, wrap = null, justify = 'center', ...attr } = THEME(args, 'TextNode')
+        const [ text_attr, node_attr ] = prefix_split([ 'text' ], attr)
+        const text = new Text({ children, wrap, justify, ...text_attr })
+        super({ children: text, ...node_attr })
+        this.args = args
     }
 }
 
@@ -2715,7 +2726,7 @@ class Network extends Group {
         })
 
         // pass to Graph
-        const children = [ ...nodes, ...paths, ...other ]
+        const children = [ ...paths, ...nodes, ...other ]
         super({ children, coord, ...attr })
         this.args = args
     }
@@ -2908,7 +2919,7 @@ class Axis extends Group {
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        const ticks = is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0
+        const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0) : []
         const labels = children ?? ticks.map(t => ensure_ticklabel(t, label_attr, prec))
         const locs = labels.map(c => c.attr.loc)
 
@@ -3095,6 +3106,10 @@ class Plot extends Box {
         xanchor ??= ymin
         yanchor ??= xmin
 
+        // default grid values
+        xgrid ??= grid
+        ygrid ??= grid
+
         // set aspect aware default values
         xtick_size ??= xtick_size0
         ytick_size ??= ytick_size0
@@ -3146,7 +3161,7 @@ class Plot extends Box {
         }
 
         // automatic xgrid generation
-        if (grid === true || xgrid === true) {
+        if (xgrid != null) {
             const locs = is_array(xgrid) ? xgrid : (xaxis != null) ? xaxis.locs : null
             xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
             bg_elems.push(xgrid)
@@ -3155,7 +3170,7 @@ class Plot extends Box {
         }
 
         // automatic ygrid generation
-        if (grid === true || ygrid === true) {
+        if (ygrid != null) {
             const locs = is_array(ygrid) ? ygrid : (yaxis != null) ? yaxis.locs : null
             ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
             bg_elems.push(ygrid)
@@ -3291,7 +3306,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3304,5 +3319,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
