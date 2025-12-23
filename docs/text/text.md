@@ -15,5 +15,5 @@ Parameters:
 - `spacing` = `0.2` — the spacing between lines of text
 - `justify` = `'left'` — the horizontal justification of the text
 - `color` = `black` — sets the text color using both stroke and fill (this is the usual way)
-- `font_family` = `'IBMPlexSans'` — the font family (for display and size calculations)
-- `font_weight` = `100` — the font weight (for display and size calculations)
+- `font-family` = `'IBMPlexSans'` — the font family (for display and size calculations)
+- `font-weight` = `100` — the font weight (for display and size calculations)

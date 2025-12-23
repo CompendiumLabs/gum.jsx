@@ -264,6 +264,7 @@ function shift_rect(rect, shift) {
 }
 
 function upright_rect(rect) {
+    if (rect == null) return null
     const [ x1, y1, x2, y2 ] = rect
     return [
         minimum(x1, x2), minimum(y1, y2),
@@ -467,6 +468,14 @@ function hexToRgba(hex) {
     return [ r, g, b, a / 255 ]
 }
 
+function interp(start0, stop0, x) {
+    const start = hexToRgba(start0)
+    const stop = hexToRgba(stop0)
+    const slope = sub(stop, start)
+    const [ r, g, b, a ] = add(start, mul(slope, x))
+    return `rgba(${r}, ${g}, ${b}, ${a})`
+}
+
 function palette(start0, stop0, clim = D.lim) {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
@@ -589,7 +598,8 @@ function resizer(lim_in, lim_out) {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
-    return x => x * abs(out_len) / abs(in_len)
+    const ratio = out_len / in_len
+    return x => x * ratio
 }
 
 class Metadata {
@@ -1761,13 +1771,13 @@ class CornerCmd {
     }
 }
 
-function cubic_spline_args(pos1, pos2, dir1, dir2, curve=0.75) {
+function cubic_spline_args(pos1, pos2, dir1, dir2, curve=1) {
     // compute scaled tangents
-    const dist = norm(sub(pos2, pos1), 2)
+    const dist = sub(pos2, pos1).map(abs)
     const unit1 = normalize(dir1, 2)
     const unit2 = normalize(dir2, 2)
-    const tan1 = mul(unit1, curve * dist)
-    const tan2 = mul(unit2, curve * dist)
+    const tan1 = mul(mul(unit1, dist), curve)
+    const tan2 = mul(mul(unit2, dist), curve)
 
     // convert to Bernstein form
     const con1 = add(pos1, div(tan1, 3))
@@ -1799,7 +1809,7 @@ class CubicSplineCmd extends Command {
 
 class CubicSpline extends Path {
     constructor(args = {}) {
-        const { pos1, pos2, dir1, dir2, curve=0.75, ...attr } = THEME(args, 'CubicSpline')
+        const { pos1, pos2, dir1, dir2, curve = 1, ...attr } = THEME(args, 'CubicSpline')
         const cmds = [ new MoveCmd(pos1), new CubicSplineCmd(pos1, pos2, dir1, dir2, curve) ]
         super({ children: cmds, ...attr })
         this.args = args
@@ -2575,7 +2585,7 @@ function get_direction(p1, p2) {
 
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, curve = 0.75, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, coord, ...attr0 } = THEME(args, 'ArrowPath')
         let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
         )
@@ -2592,7 +2602,7 @@ class ArrowPath extends Group {
         dir2 = unit_direc(dir2 ?? direc)
 
         // create cubic spline path
-        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, curve, coord, ...path_attr })
+        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, coord, ...path_attr })
         const children = [ spline ]
 
         // make arrowheads
@@ -2662,7 +2672,7 @@ function unmapRect(rect, coord) {
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { node1, node2, dir1, dir2, curve = 0.75, ...attr } = THEME(args, 'EdgePath')
+        const { node1, node2, dir1, dir2, curve = 2, ...attr } = THEME(args, 'EdgePath')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
@@ -2700,7 +2710,7 @@ class Edge extends Element {
         const dir1 = cardinal_direc(direc1)
         const dir2 = mul(cardinal_direc(direc2), -1)
 
-        const arrowpath = new ArrowPath({ pos1, pos2, dir1, dir2, curve: this.curve, coord: ctx.coord, ...attr })
+        const arrowpath = new ArrowPath({ pos1, pos2, dir1, dir2, path_curve: this.curve, coord: ctx.coord, ...attr })
         const svg = arrowpath.svg(ctx)
         return svg
     }
@@ -3310,7 +3320,7 @@ const ELEMS = {
 }
 
 const VALS = [
-    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
+    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3319,5 +3329,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, Katex, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

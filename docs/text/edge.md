@@ -7,10 +7,10 @@ This creates a cubic spline path from one point to another with optional arrowhe
 Parameters:
 - `node1`/`node2` — the beginning and ending [Node](/docs/Node) for the path and where the optional arrowheads are placed, or a `[node, direc]` pair where `direc` specifies the emanation direction
 - `dir1`/`dir2` — the emanation directions of the arrowheads, either `'n'`/`'s'`/`'e'`/`'w'` or a `[dx, dy]` pair
-- `arrow`/`arrow_beg`/`arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_beg`, meaning a directed graph edge
-- `arrow_size` = `0.03` — the arrowhead size to use for both arrows
-- `arrow_base` — toggles whether the arrowhead base is included
+- `arrow`/`arrow-beg`/`arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-beg`, meaning a directed graph edge
+- `arrow-size` = `0.03` — the arrowhead size to use for both arrows
+- `arrow-base` = `false` — toggles whether the arrowhead base is included
 
 Subunits:
-- `arrow`/`arrow_beg`/`arrow_end` — the respective arrowheads, with `arrow` being applied to both
+- `arrow`/`arrow-beg`/`arrow-end` — the respective arrowheads, with `arrow` being applied to both
 - `path` — the connecting line element
