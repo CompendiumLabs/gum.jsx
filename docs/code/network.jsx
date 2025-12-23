@@ -1,8 +1,10 @@
 // A network with a node on the left saying "hello world" and two nodes on the right saying "hello" and "world". There are arrows going from the left node to each of the right nodes. The nodes have gray backgrounds and rounded corners.
-<Network coord={[0, 0, 2, 1]} node-fill={gray} edge-arrow-size={0.07} aspect={phi} node-padding={0.2}>
-  <Node label="hello world" pos={[0.4, 0.5]} rad={0.2} wrap={3}>Hello world!</Node>
-  <Node label="hello" pos={[1.4, 0.25]}>Hello</Node>
-  <Node label="world" pos={[1.6, 0.75]}>World!</Node>
-  <Edge node1="hello world" node2="hello" dir1="n" dir2="n" />
-  <Edge node1="hello world" node2="world" dir1="s" />
+<Network node-fill={gray} edge-arrow-size={0.025} aspect={1.5}>
+  <TextNode label="hello" pos={[0.2, 0.5]} wrap={3}>Hello world!</TextNode>
+  <TextNode label="basic" pos={[0.7, 0.25]} rad={0.1}>Basic</TextNode>
+  <Node label="blue" pos={[0.8, 0.75]}>
+    <Ellipse fill={blue}/>
+  </Node>
+  <Edge node1="hello" node2="basic" dir1="n" dir2="n" curve={1} />
+  <Edge node1="hello" node2="blue" />
 </Network>

@@ -679,7 +679,7 @@ class Context {
     // NOTE: this is the main mapping function! be very careful when changing it!
     map({ rect, aspect0: aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.coord } = {}) {
         // use parent coord as default rect
-        rect ??= upright_rect(this.coord)
+        rect ??= this.coord
 
         // get true pixel rect
         const prect0 = this.mapRect(rect)
@@ -1780,7 +1780,7 @@ function cubic_spline_args(pos1, pos2, dir1, dir2, curve=0.75) {
     return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
 }
 
-class CubicSplineCmd extends Command{
+class CubicSplineCmd extends Command {
     constructor(pos1, pos2, dir1, dir2, curve=0.75) {
         super('C')
         this.pos1 = pos1
@@ -2575,12 +2575,12 @@ function get_direction(p1, p2) {
 
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_none = false, arrow_size = 0.03, curve = 0.75, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, curve = 0.75, coord, ...attr0 } = THEME(args, 'ArrowPath')
         let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
         )
-        arrow_beg = arrow_none ? false : (arrow ?? arrow_beg ?? false)
-        arrow_end = arrow_none ? false : (arrow ?? arrow_end ?? true )
+        arrow_beg = arrow ?? arrow_beg ?? false
+        arrow_end = arrow ?? arrow_end ?? true
 
         // accumulate arguments
         arrow_beg_attr = { ...arrow_attr, ...arrow_beg_attr }
@@ -3086,7 +3086,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = false, xgrid = false, ygrid = false, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
