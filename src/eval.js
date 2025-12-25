@@ -1,6 +1,6 @@
 // code evaluation
 
-import { is_object, setTheme, Svg } from './gum.js'
+import { is_object, is_element, setTheme, Svg } from './gum.js'
 import { ErrorNoCode, ErrorParse, ErrorNoReturn, ErrorNoElement } from './types.js'
 import { runJSX } from './acorn.js'
 
@@ -29,7 +29,7 @@ function evaluateGum(code, { theme, debug = false, ...args } = {}) {
   }
 
   // check if its actually a tree
-  if (!is_object(element)) {
+  if (!is_element(element)) {
     if (element == null) {
       throw new ErrorNoReturn()
     } else {

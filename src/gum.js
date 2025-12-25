@@ -584,6 +584,22 @@ function rotate_aspect(aspect, rotate) {
     return DW / DH
 }
 
+function remap_rect(rect, coord_in, coord_out) {
+    const [ x0, y0, x1, y1 ] = rect
+    const [ c0x0, c0y0, c0x1, c0y1 ] = coord_in
+    const [ c1x0, c1y0, c1x1, c1y1 ] = coord_out
+    const [ cw0, ch0 ] = [ c0x1 - c0x0, c0y1 - c0y0 ]
+    const [ cw1, ch1 ] = [ c1x1 - c1x0, c1y1 - c1y0 ]
+    const [ fx0, fy0, fx1, fy1 ] = [
+        (x0 - c0x0) / cw0, (y0 - c0y0) / ch0,
+        (x1 - c0x0) / cw0, (y1 - c0y0) / ch0,
+    ]
+    return [
+        c1x0 + cw1 * fx0, c1y0 + ch1 * fy0,
+        c1x0 + cw1 * fx1, c1y0 + ch1 * fy1,
+    ]
+}
+
 function rescaler(lim_in, lim_out) {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
@@ -649,6 +665,7 @@ class Context {
         return new Context({ ...this.args, meta: this.meta, ...args })
     }
 
+    // there are heavily used, so precompute what we can (haven't profiled yet)
     init_scalers() {
         const [ cx1, cy1, cx2, cy2 ] = this.coord
         const [ px1, py1, px2, py2 ] = this.prect
@@ -756,6 +773,13 @@ class Element {
 
     clone(args) {
         return new this.constructor({ ...this.args, ...args })
+    }
+
+    // why not just compute with ctx.prect=ctx.coord? then it won't get the true aspect right
+    // there might be a better way to do this, but this works for now
+    rect(ctx) {
+        const { prect } = ctx.map(this.spec)
+        return remap_rect(prect, ctx.prect, ctx.coord)
     }
 
     // all this does is pass the transform to children (so they also rotate)
@@ -1906,7 +1930,7 @@ class RoundedRect extends Path {
 // TODO: adjust tip position for stroke-width
 class ArrowHead extends Element {
     constructor(args = {}) {
-        const { direc, arc = 60, base = false, fill, ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 60, base = false, fill, ...attr } = THEME(args, 'ArrowHead')
         const tag = base ? 'polygon' : 'polyline'
 
         // pass to element
@@ -1920,12 +1944,17 @@ class ArrowHead extends Element {
 
     props(ctx) {
         const attr = super.props(ctx)
-        const [ cx, cy, rx, ry ] = rect_radial(ctx.prect)
+        const [ cx0, cy0, rx, ry ] = rect_radial(ctx.prect)
 
         // get true angle in aspect
         const unit = unit_direc(this.direc)
         const direc = ctx.mapSize(unit)
         const angle = vector_angle(direc)
+
+        // offset center by half the stroke width
+        const stroke_width = attr.stroke_width ?? 1
+        const [ offx, offy ] = mul(unit, stroke_width)
+        const [ cx, cy ] = [ cx0 - offx, cy0 + offy ]
 
         // get arc angles
         const [ arcx, arcy ] = [ -angle - this.arc / 2, -angle + this.arc / 2 ]
@@ -2656,20 +2685,6 @@ function anchor_point(rect, direc) {
            null
 }
 
-function mapRect(rect, coord) {
-    const [ x0, y0, x1, y1 ] = rect
-    const [ cx0, cy0, cx1, cy1 ] = coord
-    const [ cw, ch ] = [ cx1 - cx0, cy1 - cy0 ]
-    return [ cx0 + cw * x0, cy0 + ch * y0, cx0 + cw * x1, cy0 + ch * y1 ]
-}
-
-function unmapRect(rect, coord) {
-    const [ x0, y0, x1, y1 ] = rect
-    const [ cx0, cy0, cx1, cy1 ] = coord
-    const [ cw, ch ] = [ cx1 - cx0, cy1 - cy0 ]
-    return [ (x0 - cx0) / cw, (y0 - cy0) / ch, (x1 - cx0) / cw, (y1 - cy0) / ch ]
-}
-
 class Edge extends Element {
     constructor(args = {}) {
         const { node1, node2, dir1, dir2, curve = 2, ...attr } = THEME(args, 'EdgePath')
@@ -2690,13 +2705,9 @@ class Edge extends Element {
         // get core attributes
         const attr = super.props(ctx)
 
-        // get mapped node rects (this is the network context)
-        const { prect: prect1 } = ctx.map(this.node1.spec)
-        const { prect: prect2 } = ctx.map(this.node2.spec)
-
-        // unmap the rects
-        const rect1 = mapRect(unmapRect(prect1, ctx.prect), ctx.coord)
-        const rect2 = mapRect(unmapRect(prect2, ctx.prect), ctx.coord)
+        // get mapped node rects
+        const rect1 = this.node1.rect(ctx)
+        const rect2 = this.node2.rect(ctx)
 
         // get emanation directions
         const center1 = rect_center(rect1)
@@ -2711,8 +2722,7 @@ class Edge extends Element {
         const dir2 = mul(cardinal_direc(direc2), -1)
 
         const arrowpath = new ArrowPath({ pos1, pos2, dir1, dir2, path_curve: this.curve, coord: ctx.coord, ...attr })
-        const svg = arrowpath.svg(ctx)
-        return svg
+        return arrowpath.svg(ctx)
     }
 }
 
