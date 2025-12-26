@@ -1930,65 +1930,69 @@ class RoundedRect extends Path {
 // TODO: adjust tip position for stroke-width
 class ArrowHead extends Element {
     constructor(args = {}) {
-        const { direc = 0, arc = 60, base = false, fill, ...attr } = THEME(args, 'ArrowHead')
-        const tag = base ? 'polygon' : 'polyline'
+        const { direc = 0, arc = 90, tail = 1, base = false, exact = true, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
 
         // pass to element
-        super({ tag, unary: true, fill, ...attr })
+        super({ tag: 'path', unary: true, stroke_linecap, ...attr })
         this.args = args
 
         // additional props
-        this.direc = direc
         this.arc = arc
+        this.tail = tail
+        this.base = base
+        this.exact = exact
+        this.direc = direc
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const [ cx0, cy0, rx, ry ] = rect_radial(ctx.prect)
 
-        // get true angle in aspect
-        const unit = unit_direc(this.direc)
-        const direc = ctx.mapSize(unit)
-        const angle = vector_angle(direc)
+        // get absolute sizes
+        const unit0 = unit_direc(this.direc)
+        const direc = ctx.mapSize(unit0)
+        const angle = -vector_angle(direc)
+        const unit = unit_direc(angle)
 
         // offset center by half the stroke width
         const stroke_width = attr.stroke_width ?? 1
-        const [ offx, offy ] = mul(unit, stroke_width)
-        const [ cx, cy ] = [ cx0 - offx, cy0 + offy ]
+        const off = mul(unit, 0.5 * stroke_width)
 
         // get arc angles
-        const [ arcx, arcy ] = [ -angle - this.arc / 2, -angle + this.arc / 2 ]
-        const [ delx, dely ] = [ unit_direc(arcx), unit_direc(arcy) ]
+        const [ arc1, arc2 ] = [ angle - this.arc / 2, angle + this.arc / 2 ]
+        const [ del1, del2, delt ] = [ unit_direc(arc1), unit_direc(arc2), unit_direc(angle) ]
+
+        // get center and radius
+        const [ cx0, cy0, rx, ry ] = rect_radial(ctx.prect)
+        const cen0 = [ cx0, cy0 ]
+        const rad = [ rx, ry ]
+        const cen = this.exact ? sub(cen0, off) : cen0
 
         // get arc points
-        const size = 0.5 * (abs(rx) + abs(ry))
-        const rad = [ sign(rx) * size, sign(ry) * size ]
-        const [ dx1, dy1 ] = mul(delx, rad)
-        const [ dx2, dy2 ] = mul(dely, rad)
+        const [ cx, cy ] = cen
+        const [ px1, py1 ] = sub(cen, mul(del1, rad))
+        const [ px2, py2 ] = sub(cen, mul(del2, rad))
+        const [ pxt, pyt] = sub(cen, mul(delt, rad))
 
-        // construct triangle points
-        const pixels = [
-            [ cx - dx1, cy - dy1 ],
-            [ cx, cy ],
-            [ cx - dx2, cy - dy2 ],
-        ]
+        // construct full path
+        let d = `M ${px1},${py1} L ${cx},${cy} M ${px2},${py2} L ${cx},${cy}`
+        if (this.tail > 0) d += ` M ${pxt},${pyt} L ${cx},${cy}`
+        if (this.base) d += ` M ${px1},${py1} L ${px2},${py2}`
 
-        // map into pointstring
-        const points = pointstring(pixels, ctx.prec)
-        return { points, ...attr }
+        // return path
+        return { d, ...attr }
     }
 }
 
 class Arrow extends Group {
     constructor(args = {}) {
-        let { children: children0, direc: direc0, tail = 0, shape = 'arrow', graph = true, ...attr0 } = THEME(args, 'Arrow')
+        let { children: children0, direc: direc0 = 0, tail = 0, shape = 'arrow', graph = true, stroke_width = 1, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
         // baked in shapes
         if (shape == 'circle') {
             shape = (_, a) => new Dot(a)
         } else if (shape == 'arrow') {
-            shape = (t, a) => new ArrowHead({ direc: t, ...a })
+            shape = (t, a) => new ArrowHead({ direc: t, stroke_width, ...a })
         } else {
             throw new Error(`Unrecognized arrow shape: ${shape}`)
         }
@@ -2007,7 +2011,7 @@ class Arrow extends Group {
         // create tail
         const tail_direc = direc.map(z => -tail * z)
         const tail_pos = add([0.5, 0.5], tail_direc)
-        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, ...tail_attr })
+        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, stroke_width, ...tail_attr })
 
         super({ children: [ tail_elem, head_elem ], ...attr })
         this.args = args
@@ -2630,19 +2634,26 @@ class ArrowPath extends Group {
         dir1 = unit_direc(dir1 ?? direc)
         dir2 = unit_direc(dir2 ?? direc)
 
-        // create cubic spline path
-        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, coord, ...path_attr })
-        const children = [ spline ]
+        // get offset positions
+        const asz = ensure_vector(arrow_size, 2)
+        const pos1o = sub(pos1, arrow_beg ? mul(dir1, asz) : [0, 0])
+        const pos2o = sub(pos2, arrow_end ? mul(dir2, asz) : [0, 0])
 
-        // make arrowheads
+        // make cubic spline shaft
+        const shaft = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
+        const children = [ shaft ]
+
+        // make start arrowhead
         if (arrow_beg) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_beg_attr })
+            const head_beg = new Arrow({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_beg_attr })
             children.push(head_beg)
         }
+
+        // make end arrowhead
         if (arrow_end) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_end_attr })
+            const head_end = new Arrow({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_end_attr })
             children.push(head_end)
         }
 
