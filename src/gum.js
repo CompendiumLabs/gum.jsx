@@ -1974,9 +1974,9 @@ class ArrowHead extends Element {
         const [ pxt, pyt] = sub(cen, mul(delt, rad))
 
         // construct full path
-        let d = `M ${px1},${py1} L ${cx},${cy} M ${px2},${py2} L ${cx},${cy}`
-        if (this.tail > 0) d += ` M ${pxt},${pyt} L ${cx},${cy}`
+        let d = `M ${px1},${py1} L ${cx},${cy} L ${px2},${py2}`
         if (this.base) d += ` M ${px1},${py1} L ${px2},${py2}`
+        if (this.tail > 0) d += ` M ${pxt},${pyt} L ${cx},${cy}`
 
         // return path
         return { d, ...attr }
