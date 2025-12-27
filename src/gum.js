@@ -1937,15 +1937,15 @@ class RoundedRect extends Path {
 
 class ArrowHead extends Element {
     constructor(args = {}) {
-        const { direc = 0, arc = 90, base = false, exact = true, aspect = 1, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 90, base = null, exact = true, aspect = 1, fill = null, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
 
         // pass to element
-        super({ tag: 'path', unary: true, aspect, stroke_linecap, ...attr })
+        super({ tag: 'path', unary: true, aspect, fill, stroke_linecap, ...attr })
         this.args = args
 
         // additional props
         this.arc = arc
-        this.base = base
+        this.base = base ?? (fill != null)
         this.exact = exact
         this.direc = direc
     }
@@ -1960,7 +1960,7 @@ class ArrowHead extends Element {
         const unit = unit_direc(angle)
 
         // offset center by half the stroke width
-        const { stroke_width = 1 } = attr
+        const { stroke_width = 1, fill = null } = attr
         const off = mul(unit, 0.5 * stroke_width)
 
         // get arc angles
@@ -1979,7 +1979,9 @@ class ArrowHead extends Element {
         const [ px2, py2 ] = sub(cen, mul(del2, rad))
 
         // construct full path
-        let d = `M ${cx},${cy} L ${px1},${py1} M ${cx},${cy} L ${px2},${py2}`
+        let d = (fill == null) ?
+            `M ${cx},${cy} L ${px1},${py1} M ${cx},${cy} L ${px2},${py2}` :
+            `M ${px1},${py1} L ${cx},${cy} L ${px2},${py2}`
         if (this.base) d += ` M ${px1},${py1} L ${px2},${py2}`
 
         // return path
@@ -2622,7 +2624,7 @@ function get_direction(p1, p2) {
 
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, stroke_width, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, stroke_width, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
         let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
         )
@@ -2631,8 +2633,8 @@ class ArrowPath extends Group {
 
         // accumulate arguments
         path_attr = { stroke_width, ...path_attr }
-        arrow_beg_attr = { stroke_width, ...arrow_attr, ...arrow_beg_attr }
-        arrow_end_attr = { stroke_width, ...arrow_attr, ...arrow_end_attr }
+        arrow_beg_attr = { stroke_width, fill, ...arrow_attr, ...arrow_beg_attr }
+        arrow_end_attr = { stroke_width, fill, ...arrow_attr, ...arrow_end_attr }
 
         // set default directions (gets normalized later)
         const direc = sub(pos2, pos1)
@@ -2715,7 +2717,7 @@ class Edge extends Element {
         this.curve = curve
     }
 
-    inner(ctx) {
+    svg(ctx) {
         // get core attributes
         const attr = super.props(ctx)
 
