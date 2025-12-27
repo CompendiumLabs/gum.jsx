@@ -1483,19 +1483,30 @@ class Spacer extends Element {
 
 class Line extends Element {
     constructor(args = {}) {
-        const { pos1, pos2, ...attr } = THEME(args, 'Line')
+        let { pos1, pos2, exact1 = false, exact2 = false, off1 = [ 0, 0 ], off2 = [ 0, 0 ], ...attr } = THEME(args, 'Line')
         super({ tag: 'line', unary: true, ...attr })
         this.args = args
+
+        // handle exact positioning
+        // TODO: this can't handle flipped coordinates (move to props)
+        const sw = attr.stroke_width ?? 1
+        const dir = normalize(sub(pos2, pos1), 2)
+        if (exact1) off1 = mul(dir,  0.5 * sw)
+        if (exact2) off2 = mul(dir, -0.5 * sw)
 
         // additional props
         this.pos1 = pos1
         this.pos2 = pos2
+        this.off1 = off1
+        this.off2 = off2
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const [ x1, y1 ] = ctx.mapPoint(this.pos1)
-        const [ x2, y2 ] = ctx.mapPoint(this.pos2)
+        const pos1 = ctx.mapPoint(this.pos1)
+        const pos2 = ctx.mapPoint(this.pos2)
+        const [ x1, y1 ] = add(pos1, this.off1)
+        const [ x2, y2 ] = add(pos2, this.off2)
         return { x1, y1, x2, y2, ...attr }
     }
 }
@@ -1841,9 +1852,18 @@ class CubicSplineCmd extends Command {
 
 class CubicSpline extends Path {
     constructor(args = {}) {
-        const { pos1, pos2, dir1, dir2, off1, off2, curve = 1, ...attr } = THEME(args, 'CubicSpline')
+        let { pos1, pos2, dir1, dir2, curve = 1, exact1 = false, exact2 = false, off1 = [ 0, 0 ], off2 = [ 0, 0 ], ...attr } = THEME(args, 'CubicSpline')
+
+        // handle exact positioning
+        const sw = attr.stroke_width ?? 1
+        if (exact1) off1 = mul(dir1,  0.5 * sw)
+        if (exact2) off2 = mul(dir2, -0.5 * sw)
+
+        // make commands
         const move = new MoveCmd(pos1, { off: off1 })
         const spline = new CubicSplineCmd(pos1, pos2, dir1, dir2, { off1, off2, curve })
+
+        // pass to Path
         super({ children: [ move, spline ], ...attr })
         this.args = args
     }
@@ -1937,7 +1957,7 @@ class RoundedRect extends Path {
 
 class ArrowHead extends Element {
     constructor(args = {}) {
-        const { direc = 0, arc = 90, base = null, exact = true, aspect = 1, fill = null, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 75, base = null, exact = true, aspect = 1, fill = null, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
 
         // pass to element
         super({ tag: 'path', unary: true, aspect, fill, stroke_linecap, ...attr })
@@ -1991,14 +2011,14 @@ class ArrowHead extends Element {
 
 class Arrow extends Group {
     constructor(args = {}) {
-        let { children: children0, direc: direc0 = 0, tail = 0, shape = 'arrow', graph = true, stroke_width = 1, ...attr0 } = THEME(args, 'Arrow')
+        let { children: children0, direc: direc0 = 0, tail = 0, shape = 'arrow', graph = true, stroke_linecap = 'round', stroke_width = 1, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
         // baked in shapes
         if (shape == 'circle') {
             shape = (_, a) => new Dot(a)
         } else if (shape == 'arrow') {
-            shape = (t, a) => new ArrowHead({ direc: t, stroke_width, ...a })
+            shape = (t, a) => new ArrowHead({ direc: t, stroke_linecap, stroke_width, ...a })
         } else {
             throw new Error(`Unrecognized arrow shape: ${shape}`)
         }
@@ -2017,7 +2037,7 @@ class Arrow extends Group {
         // create tail
         const tail_direc = direc.map(z => -tail * z)
         const tail_pos = add([0.5, 0.5], tail_direc)
-        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, stroke_width, ...tail_attr })
+        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, exact1: true, stroke_width, ...tail_attr })
 
         super({ children: [ tail_elem, head_elem ], ...attr })
         this.args = args
@@ -2624,17 +2644,18 @@ function get_direction(p1, p2) {
 
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, stroke_width, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
-        let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
-            [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow1, arrow2, arrow_size = 0.03, stroke_linecap, stroke_width, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let [ path_attr, arrow1_attr, arrow2_attr, arrow_attr, attr ] = prefix_split(
+            [ 'path', 'arrow1', 'arrow2', 'arrow' ], attr0
         )
-        arrow_beg = arrow ?? arrow_beg ?? false
-        arrow_end = arrow ?? arrow_end ?? true
+        arrow1 = arrow ?? arrow1 ?? false
+        arrow2 = arrow ?? arrow2 ?? true
 
         // accumulate arguments
-        path_attr = { stroke_width, ...path_attr }
-        arrow_beg_attr = { stroke_width, fill, ...arrow_attr, ...arrow_beg_attr }
-        arrow_end_attr = { stroke_width, fill, ...arrow_attr, ...arrow_end_attr }
+        const stroke_attr = { stroke_linecap, stroke_width }
+        path_attr = { ...stroke_attr, ...path_attr }
+        arrow1_attr = { fill, ...stroke_attr, ...arrow_attr, ...arrow1_attr }
+        arrow2_attr = { fill, ...stroke_attr, ...arrow_attr, ...arrow2_attr }
 
         // set default directions (gets normalized later)
         const direc = sub(pos2, pos1)
@@ -2642,23 +2663,20 @@ class ArrowPath extends Group {
         dir2 = unit_direc(dir2 ?? direc)
 
         // make cubic spline shaft
-        const sw = stroke_width ?? 1
-        const off1 = arrow_beg ? mul(dir1, 0.5 * sw) : [ 0, 0 ]
-        const off2 = arrow_end ? mul(dir2, -0.5 * sw) : [ 0, 0 ]
-        const shaft = new CubicSpline({ pos1, pos2, dir1, dir2, off1, off2, coord, ...path_attr })
+        const shaft = new CubicSpline({ pos1, pos2, dir1, dir2, exact1: arrow1, exact2: arrow2, coord, ...path_attr })
         const children = [ shaft ]
 
         // make start arrowhead
-        if (arrow_beg) {
+        if (arrow1) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_beg_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow1_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
-        if (arrow_end) {
+        if (arrow2) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_end_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow2_attr })
             children.push(head_end)
         }
 
@@ -3281,6 +3299,7 @@ class BarPlot extends Plot {
 //
 
 // TODO: use mask to clip frame for title box (then we can make it transparent)
+// TODO: title doesn't get rotated on spin
 class TitleFrame extends Box {
     constructor(args = {}) {
         const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleFrame')
