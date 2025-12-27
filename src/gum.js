@@ -1716,14 +1716,17 @@ class Command {
 }
 
 class MoveCmd extends Command {
-    constructor(pos) {
+    constructor(pos, args = {}) {
+        const { off = [ 0, 0 ] } = args
         super('M')
         this.pos = pos
+        this.off = off
     }
 
     args(ctx) {
-        const [ x, y ] = ctx.mapPoint(this.pos)
-        return `${rounder(x, ctx.prec)} ${rounder(y, ctx.prec)}`
+        const pos = ctx.mapPoint(this.pos)
+        const [ xo, yo ] = add(pos, this.off)
+        return `${rounder(xo, ctx.prec)} ${rounder(yo, ctx.prec)}`
     }
 }
 
@@ -1815,27 +1818,33 @@ function cubic_spline_args(pos1, pos2, dir1, dir2, curve=1) {
 }
 
 class CubicSplineCmd extends Command {
-    constructor(pos1, pos2, dir1, dir2, curve=0.75) {
+    constructor(pos1, pos2, dir1, dir2, args) {
+        const { off1 = [ 0, 0 ], off2 = [ 0, 0 ], curve = 0.75 } = args
         super('C')
         this.pos1 = pos1
         this.pos2 = pos2
         this.dir1 = unit_direc(dir1)
         this.dir2 = unit_direc(dir2)
+        this.off1 = off1
+        this.off2 = off2
         this.curve = curve
     }
 
     args(ctx) {
         const pos1 = ctx.mapPoint(this.pos1)
         const pos2 = ctx.mapPoint(this.pos2)
-        return cubic_spline_args(pos1, pos2, this.dir1, this.dir2, this.curve)
+        const pos1o = add(pos1, this.off1)
+        const pos2o = add(pos2, this.off2)
+        return cubic_spline_args(pos1o, pos2o, this.dir1, this.dir2, this.curve)
     }
 }
 
 class CubicSpline extends Path {
     constructor(args = {}) {
-        const { pos1, pos2, dir1, dir2, curve = 1, ...attr } = THEME(args, 'CubicSpline')
-        const cmds = [ new MoveCmd(pos1), new CubicSplineCmd(pos1, pos2, dir1, dir2, curve) ]
-        super({ children: cmds, ...attr })
+        const { pos1, pos2, dir1, dir2, off1, off2, curve = 1, ...attr } = THEME(args, 'CubicSpline')
+        const move = new MoveCmd(pos1, { off: off1 })
+        const spline = new CubicSplineCmd(pos1, pos2, dir1, dir2, { off1, off2, curve })
+        super({ children: [ move, spline ], ...attr })
         this.args = args
     }
 }
@@ -1926,19 +1935,16 @@ class RoundedRect extends Path {
 // arrows and fields
 //
 
-// the definition of an direc in non-square aspects is weird?
-// TODO: adjust tip position for stroke-width
 class ArrowHead extends Element {
     constructor(args = {}) {
-        const { direc = 0, arc = 90, tail = 1, base = false, exact = true, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 90, base = false, exact = true, aspect = 1, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
 
         // pass to element
-        super({ tag: 'path', unary: true, stroke_linecap, ...attr })
+        super({ tag: 'path', unary: true, aspect, stroke_linecap, ...attr })
         this.args = args
 
         // additional props
         this.arc = arc
-        this.tail = tail
         this.base = base
         this.exact = exact
         this.direc = direc
@@ -1954,12 +1960,12 @@ class ArrowHead extends Element {
         const unit = unit_direc(angle)
 
         // offset center by half the stroke width
-        const stroke_width = attr.stroke_width ?? 1
+        const { stroke_width = 1 } = attr
         const off = mul(unit, 0.5 * stroke_width)
 
         // get arc angles
         const [ arc1, arc2 ] = [ angle - this.arc / 2, angle + this.arc / 2 ]
-        const [ del1, del2, delt ] = [ unit_direc(arc1), unit_direc(arc2), unit_direc(angle) ]
+        const [ del1, del2 ] = [ unit_direc(arc1), unit_direc(arc2) ]
 
         // get center and radius
         const [ cx0, cy0, rx, ry ] = rect_radial(ctx.prect)
@@ -1971,12 +1977,10 @@ class ArrowHead extends Element {
         const [ cx, cy ] = cen
         const [ px1, py1 ] = sub(cen, mul(del1, rad))
         const [ px2, py2 ] = sub(cen, mul(del2, rad))
-        const [ pxt, pyt] = sub(cen, mul(delt, rad))
 
         // construct full path
-        let d = `M ${px1},${py1} L ${cx},${cy} L ${px2},${py2}`
+        let d = `M ${cx},${cy} L ${px1},${py1} M ${cx},${cy} L ${px2},${py2}`
         if (this.base) d += ` M ${px1},${py1} L ${px2},${py2}`
-        if (this.tail > 0) d += ` M ${pxt},${pyt} L ${cx},${cy}`
 
         // return path
         return { d, ...attr }
@@ -2618,7 +2622,7 @@ function get_direction(p1, p2) {
 
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow_beg, arrow_end, arrow_size = 0.03, stroke_width, coord, ...attr0 } = THEME(args, 'ArrowPath')
         let [ path_attr, arrow_beg_attr, arrow_end_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow_beg', 'arrow_end', 'arrow' ], attr0
         )
@@ -2626,34 +2630,33 @@ class ArrowPath extends Group {
         arrow_end = arrow ?? arrow_end ?? true
 
         // accumulate arguments
-        arrow_beg_attr = { ...arrow_attr, ...arrow_beg_attr }
-        arrow_end_attr = { ...arrow_attr, ...arrow_end_attr }
+        path_attr = { stroke_width, ...path_attr }
+        arrow_beg_attr = { stroke_width, ...arrow_attr, ...arrow_beg_attr }
+        arrow_end_attr = { stroke_width, ...arrow_attr, ...arrow_end_attr }
 
         // set default directions (gets normalized later)
         const direc = sub(pos2, pos1)
         dir1 = unit_direc(dir1 ?? direc)
         dir2 = unit_direc(dir2 ?? direc)
 
-        // get offset positions
-        const asz = ensure_vector(arrow_size, 2)
-        const pos1o = sub(pos1, arrow_beg ? mul(dir1, asz) : [0, 0])
-        const pos2o = sub(pos2, arrow_end ? mul(dir2, asz) : [0, 0])
-
         // make cubic spline shaft
-        const shaft = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
+        const sw = stroke_width ?? 1
+        const off1 = arrow_beg ? mul(dir1, 0.5 * sw) : [ 0, 0 ]
+        const off2 = arrow_end ? mul(dir2, -0.5 * sw) : [ 0, 0 ]
+        const shaft = new CubicSpline({ pos1, pos2, dir1, dir2, off1, off2, coord, ...path_attr })
         const children = [ shaft ]
 
         // make start arrowhead
         if (arrow_beg) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new Arrow({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_beg_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_beg_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
         if (arrow_end) {
             const ang2 = vector_angle(dir2)
-            const head_end = new Arrow({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_end_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_end_attr })
             children.push(head_end)
         }
 
