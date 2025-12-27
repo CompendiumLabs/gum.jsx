@@ -2767,20 +2767,26 @@ class Network extends Group {
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
 
         // collect nodes and edges
-        const edges = children0.filter(c => c instanceof Edge).map(e => e.clone({ ...edge_attr, ...e.args }))
         const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ ...node_attr, ...n.args }))
-        const other = children0.filter(c => !(c instanceof Node || c instanceof Edge))
-
-        // create arrow paths from edges
         const nmap = new Map(nodes.map(n => [ n.label, n ]))
-        const paths = edges.map(e => {
-            const n1 = nmap.get(e.args.node1)
-            const n2 = nmap.get(e.args.node2)
-            return e.clone({ node1: n1, node2: n2, coord })
+
+        // process children in original order
+        const children = children0.map(c => {
+            if (c instanceof Edge) {
+                // create arrow path from edge
+                const n1 = nmap.get(c.args.node1)
+                const n2 = nmap.get(c.args.node2)
+                return c.clone({ ...edge_attr, ...c.args, node1: n1, node2: n2, coord })
+            } else if (c instanceof Node) {
+                // return the already processed node from the map
+                return nmap.get(c.label)
+            } else {
+                // other elements pass through unchanged
+                return c
+            }
         })
 
-        // pass to Graph
-        const children = [ ...paths, ...nodes, ...other ]
+        // pass to Group
         super({ children, coord, ...attr })
         this.args = args
     }
