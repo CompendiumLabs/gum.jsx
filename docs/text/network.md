@@ -10,4 +10,5 @@ Parameters:
 - `coord` — the internal coordinate system to use, a 4-element array specifying the position of the bottom left corner and the width and height of the coordinate system
 
 Subunits:
-- `node`/`edge` — the nodes and edges, respectively
+- `node` — arguments applied to all nodes
+- `edge` — arguments applied to all edges
