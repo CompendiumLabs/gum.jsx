@@ -8,7 +8,9 @@ Parameters:
 - `aspect` = `null` — the width to height ratio for this element
 - `pos` — the desired position of the center of the child's rectangle
 - `rad` ­— the desired radius of the child's rectangle (can be single number or pair)
+- `xrad`/`yrad` ­— specify the radius for a specific dimension (and expand the other)
 - `rect` — a fully specified rectangle to place the child in (this will override `pos`/`rad`)
+- `xrect`/`yrect` ­— specify the rectangle for a specific dimension
 - `aspect` — the aspect ratio of the child's rectangle
 - `expand` — when `true`, instead of embedding the child within `rect`, it will make the child just large enough to fully contain `rect`
 - `align` — how to align the child when it doesn't fit exactly within `rect`, options are `left`, `right`, `center`, or a fractional position (can set vertical and horizontal separately with a pair)

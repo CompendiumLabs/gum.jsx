@@ -1,8 +1,8 @@
 // A network with a node on the left saying "Hello world" and two nodes on the right, one saying "This is a test of wrapping capabilities" and the other containing a blue ellipse. There are arrows going from the left node to each of the right nodes. The nodes have gray backgrounds and rounded corners. The edges have white arrowheads.
-<Network aspect={1.5} node-rad={0.15} node-rounded node-fill={gray} edge-arrow-fill={white}>
-  <TextNode label="hello" pos={[0.25, 0.5]} rad={0.13} wrap={3}>Hello world</TextNode>
+<Network aspect={1.5} node-yrad={0.15} node-rounded node-fill={gray} edge-arrow-fill={white}>
+  <TextNode label="hello" pos={[0.25, 0.5]} wrap={3}>Hello world</TextNode>
   <TextNode label="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</TextNode>
-  <Node label="ball" pos={[0.75, 0.75]}><Ellipse fill={blue}/></Node>
+  <Node label="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>
   <Edge node1="hello" node2="test" />
   <Edge node1="hello" node2="ball" dir1="s" curve={3} />
 </Network>

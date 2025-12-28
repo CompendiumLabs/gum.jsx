@@ -2688,10 +2688,10 @@ class ArrowPath extends Group {
 
 class Node extends Frame {
     constructor(args = {}) {
-        const { children, label, rad = 0.15, rounded = 0.05, padding = 0.1, ...attr } = THEME(args, 'Node')
+        const { children, label, yrad = 0.1, rounded = 0.05, padding = 0.1, ...attr } = THEME(args, 'Node')
 
         // pass to Frame
-        super({ children, rad, rounded, padding, ...attr })
+        super({ children, yrad, rounded, padding, ...attr })
         this.args = args
 
         // additional props

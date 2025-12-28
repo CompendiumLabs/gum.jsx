@@ -6,7 +6,7 @@ This is a container class that encloses text in a **Frame** at a particular posi
 
 Parameters:
 - `label` — a string or **Element** to be used as the label
-- `rad` = `0.15` — the radius of the node box (will adjust to aspect)
+- `yrad` = `0.1` — the radius of the node box (will adjust to aspect)
 - `padding` = `0.1` — the padding of the node box
 - `border` = `1` — the border width of the node box
 - `rounded` = `0.05` — the radius of the corners of the node box
