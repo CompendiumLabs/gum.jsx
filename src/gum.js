@@ -14,25 +14,6 @@ function is_element(x) {
     return x instanceof Element
 }
 
-function is_element_class(x) {
-    return Element.prototype.isPrototypeOf(x.prototype)
-}
-
-function is_prototype(x) {
-    return is_object(x) ? is_element_class(x.tag) : false
-}
-
-function ensure_element(x) {
-    if (is_prototype(x)) {
-        const { tag, props, children } = x
-        return new tag({ ...props, children })
-    } else if (is_element(x)) {
-        return x
-    } else {
-        throw new Error(`Element required: ${x}`)
-    }
-}
-
 //
 // type checks
 //
@@ -224,13 +205,6 @@ function merge_points(points) {
     return [ min(xs), min(ys), max(xs), max(ys) ]
 }
 
-function merge_limits(lims) {
-    if (lims == null || lims.length == 0) return null
-    const [ za, zb ] = zip(...lims)
-    const zs = [ ...za, ...zb ]
-    return [ min(zs), max(zs) ]
-}
-
 function merge_values(vals) {
     if (vals == null || vals.length == 0) return null
     return [ min(vals), max(vals) ]
@@ -254,12 +228,6 @@ function flip_rect(rect, vertical) {
     const [ x1, y1, x2, y2 ] = rect ?? D.rect
     if (vertical) return [ x1, y2, x2, y1 ]
     else return [ x2, y1, x1, y2 ]
-}
-
-function shift_rect(rect, shift) {
-    const [ x, y ] = ensure_vector(shift ?? 0, 2)
-    const [ x1, y1, x2, y2 ] = rect ?? D.rect
-    return [ x1 + x, y1 + y, x2 + x, y2 + y ]
 }
 
 function upright_rect(rect) {
@@ -305,13 +273,11 @@ function join_limits({ v, h } = {}) {
     return [ hlo, vlo, hhi, vhi ]
 }
 
-
 function split_limits(coord) {
     if (coord == null) return {}
     const [ xlo, ylo, xhi, yhi ] = coord
     return { xlim: [ xlo, xhi ], ylim: [ ylo, yhi ] }
 }
-
 
 function resolve_limits(xlim, ylim, coord) {
     const { xlim: xlim0, ylim: ylim0 } = split_limits(coord)
@@ -329,15 +295,6 @@ function invert_direc(direc) {
     return direc == 'v' ? 'h' :
            direc == 'h' ? 'v' :
            direc
-}
-
-function invert_align(align) {
-    if (is_scalar(align)) return 1 - align
-    return align == 'left' ? 'right' :
-           align == 'right' ? 'left' :
-           align == 'top' ? 'bottom' :
-           align == 'bottom' ? 'top' :
-           align
 }
 
 //
