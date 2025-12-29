@@ -1,7 +1,7 @@
 // gum.js
 
 import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME, setTheme } from './defaults.js'
-import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert } from './utils.js'
+import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
 import { parseMarkdown } from './mark.js'
 import { mathjax } from './math.js'
@@ -79,47 +79,9 @@ const moji = new NamedString('moji', C.moji)
 const bold = new NamedNumber('bold', C.bold)
 
 //
-// random number generation
-//
-
-const random = Math.random
-
-function uniform(lo, hi) {
-    return lo + (hi - lo)*random()
-}
-
-// standard normal using Box-Muller transform
-function normal(mean, stdv) {
-    mean = mean ?? 0
-    stdv = stdv ?? 1
-    const [ u, v ] = [ 1 - random(), random() ]
-    const [ r, t ] = [ sqrt(-2 * log(u)), 2 * pi * v ]
-    const [ a, b ] = [ r * cos(t), r * sin(t) ]
-    return [ a, b ].map(x => mean + stdv * x)
-}
-
-//
-// padding utils
-//
-
-function pad_rect(p) {
-    if (p == null) {
-        return [ 0, 0, 0, 0 ]
-    } else if (is_scalar(p)) {
-        return [ p, p, p, p ]
-    } else if (p.length == 2) {
-        const [ px, py ] = p
-        return [ px, py, px, py ]
-    } else {
-        return p
-    }
-}
-
-//
-// rect utils
-//
-
 // rect stats
+//
+
 function rect_size(rect) {
     const [ x1, y1, x2, y2 ] = rect
     return [ x2 - x1, y2 - y1 ]
@@ -145,6 +107,10 @@ function rect_aspect(rect) {
     const [ w, h ] = rect_dims(rect)
     return w / h
 }
+
+//
+// rect formats
+//
 
 // radial rect: center, radius
 function rect_radial(rect, absolute = false) {
@@ -189,7 +155,10 @@ function cbox_rect(cbox) {
     return [ cx - rx, cy - ry, cx + rx, cy + ry ]
 }
 
+//
 // rect aggregators
+//
+
 function merge_rects(rects) {
     if (rects == null || rects.length == 0) return null
     const rects1 = rects.filter(r => r != null)
@@ -209,6 +178,10 @@ function merge_values(vals) {
     if (vals == null || vals.length == 0) return null
     return [ min(vals), max(vals) ]
 }
+
+//
+// rect transformers
+//
 
 function expand_limits(lim, fact) {
     if (lim == null) return null
@@ -237,30 +210,6 @@ function upright_rect(rect) {
         minimum(x1, x2), minimum(y1, y2),
         maximum(x1, x2), maximum(y1, y2),
     ]
-}
-
-function upright_limit(limit) {
-    const [ lo, hi ] = limit
-    return [ minimum(lo, hi), maximum(lo, hi) ]
-}
-
-function aspect_invariant(value, aspect, alpha = 0.5) {
-    aspect = aspect ?? 1
-
-    const wfact = aspect**alpha
-    const hfact = aspect**(1 - alpha)
-
-    if (is_scalar(value)) {
-        value = [ value, value ]
-    }
-
-    if (value.length == 2) {
-        const [ vw, vh ] = value
-        return [ vw * wfact, vh / hfact ]
-    } else if (value.length == 4) {
-        const [ vl, vt, vr, vb ] = value
-        return [ vl * wfact, vt / hfact, vr * wfact, vb / hfact ]
-    }
 }
 
 //
@@ -295,6 +244,29 @@ function invert_direc(direc) {
     return direc == 'v' ? 'h' :
            direc == 'h' ? 'v' :
            direc
+}
+
+//
+// aspect utils
+//
+
+function aspect_invariant(value, aspect, alpha = 0.5) {
+    aspect = aspect ?? 1
+
+    const wfact = aspect**alpha
+    const hfact = aspect**(1 - alpha)
+
+    if (is_scalar(value)) {
+        value = [ value, value ]
+    }
+
+    if (value.length == 2) {
+        const [ vw, vh ] = value
+        return [ vw * wfact, vh / hfact ]
+    } else if (value.length == 4) {
+        const [ vl, vt, vr, vb ] = value
+        return [ vl * wfact, vt / hfact, vr * wfact, vb / hfact ]
+    }
 }
 
 //
@@ -1021,6 +993,19 @@ function maybe_rounded_rect(rounded) {
         return new Rect()
     } else {
         return new RoundedRect({ rounded })
+    }
+}
+
+function pad_rect(p) {
+    if (p == null) {
+        return [ 0, 0, 0, 0 ]
+    } else if (is_scalar(p)) {
+        return [ p, p, p, p ]
+    } else if (p.length == 2) {
+        const [ px, py ] = p
+        return [ px, py, px, py ]
+    } else {
+        return p
     }
 }
 
@@ -3313,7 +3298,7 @@ const ELEMS = {
 }
 
 const VALS = [
-    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
+    ...Object.values(ELEMS), range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold
 ]
 const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 
@@ -3322,5 +3307,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Anchor, Attach, Points, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

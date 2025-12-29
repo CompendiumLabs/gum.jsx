@@ -353,7 +353,27 @@ function invert(x) {
 }
 
 //
+// random number generation
+//
+
+const random = Math.random
+
+function uniform(lo, hi) {
+    return lo + (hi - lo)*random()
+}
+
+// standard normal using Box-Muller transform
+function normal(mean, stdv) {
+    mean = mean ?? 0
+    stdv = stdv ?? 1
+    const [ u, v ] = [ 1 - random(), random() ]
+    const [ r, t ] = [ sqrt(-2 * log(u)), 2 * pi * v ]
+    const [ a, b ] = [ r * cos(t), r * sin(t) ]
+    return [ a, b ].map(x => mean + stdv * x)
+}
+
+//
 // export
 //
 
-export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert}
+export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal }
