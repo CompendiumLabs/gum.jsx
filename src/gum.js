@@ -112,6 +112,15 @@ function rect_aspect(rect) {
 // rect formats
 //
 
+function add_frac(x0, f) {
+    if (is_scalar(x0)) {
+        return x0 + f
+    } else {
+        const [ x, c ] = x0
+        return [ x + f, c ]
+    }
+}
+
 // radial rect: center, radius
 function rect_radial(rect, absolute = false) {
     const [ cx, cy ] = rect_center(rect)
@@ -122,8 +131,11 @@ function rect_radial(rect, absolute = false) {
 
 function radial_rect(p, r) {
     const [ x, y ] = p
-    const [ rx, ry ] = is_scalar(r) ? [ r, r ] : r
-    return [ x - rx, y - ry, x + rx, y + ry ]
+    const [ rx, ry ] = ensure_vector(r, 2)
+    return [
+        add_frac(x, -rx), add_frac(y, -ry),
+        add_frac(x,  rx), add_frac(y,  ry),
+    ]
 }
 
 // box rect: min, size
@@ -418,7 +430,7 @@ function palette(start0, stop0, clim = D.lim) {
 }
 
 //
-// core classes
+// context mapping
 //
 
 function align_frac(align) {
@@ -532,9 +544,11 @@ function rescaler(lim_in, lim_out) {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
-    return x => {
+    return (x0, offset = true) => {
+        const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
         const f = (x - in_lo) / in_len
-        return out_lo + f * out_len
+        const x1 = out_lo + f * out_len
+        return offset ? x1 + c : x1
     }
 }
 
@@ -543,26 +557,10 @@ function resizer(lim_in, lim_out) {
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
     const ratio = out_len / in_len
-    return x => x * ratio
-}
-
-class Metadata {
-    constructor() {
-        this.uuid = 0 // next uuid
-        this.defs = [] // defs list
-    }
-
-    getUid() {
-        return `uid-${this.uuid++}`
-    }
-
-    addDef(def) {
-        this.defs.push(def)
-    }
-
-    svg() {
-        if (this.defs.length == 0) return ''
-        return `<defs>\n${this.defs.join('\n')}\n</defs>`
+    return (x0, offset = true) => {
+        const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
+        const x1 = x * ratio
+        return offset ? x1 + c : x1
     }
 }
 
@@ -604,40 +602,33 @@ class Context {
     }
 
     // map point from coord to pixel
-    mapPoint(cpoint) {
+    mapPoint(cpoint, offset = true) {
         const [ cx, cy ] = cpoint
-        return [ this.rescalex(cx), this.rescaley(cy) ]
+        return [ this.rescalex(cx, offset), this.rescaley(cy, offset) ]
     }
 
     // map rect from coord to pixel
-    mapRect(crect) {
+    mapRect(crect, offset = true) {
         const [ x1, y1, x2, y2 ] = crect
         return [
-            this.rescalex(x1), this.rescaley(y1),
-            this.rescalex(x2), this.rescaley(y2),
+            this.rescalex(x1, offset), this.rescaley(y1, offset),
+            this.rescalex(x2, offset), this.rescaley(y2, offset),
         ]
     }
 
-    // map from range to pixel
-    mapRange(direc, climit) {
-        const [ clo, chi ] = climit
-        const rescale = direc == 'v' ? this.rescaley : this.rescalex
-        return [ rescale(clo), rescale(chi) ]
-    }
-
     // map size from coord to pixel
-    mapSize(csize) {
+    mapSize(csize, offset = true) {
         const [ sw, sh ] = csize
-        return [ this.resizex(sw), this.resizey(sh) ]
+        return [ this.resizex(sw, offset), this.resizey(sh, offset) ]
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect0: aspect = null, expand = false, align = 'center', rotate = 0, invar = false, coord = D.coord } = {}) {
+    map({ rect, aspect0: aspect = null, expand = false, align = 'center', rotate = 0, invar = false, offset = true, coord = D.coord } = {}) {
         // use parent coord as default rect
         rect ??= this.coord
 
         // get true pixel rect
-        const prect0 = this.mapRect(rect)
+        const prect0 = this.mapRect(rect, offset)
         const [ x0, y0, w0, h0 ] = rect_cbox(prect0)
 
         // rotate rect inside
@@ -656,6 +647,10 @@ class Context {
         return new Context({ prect, coord, transform, prec: this.prec, meta: this.meta })
     }
 }
+
+//
+// element class
+//
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
@@ -739,6 +734,10 @@ class Element {
     }
 }
 
+//
+// debug class
+//
+
 function debug_element(element, indent = 0) {
     // indent with spaces
     const spaces = ' '.repeat(indent)
@@ -772,9 +771,13 @@ class Debug {
     }
 }
 
+//
+// group class
+//
+
 function rotated_vertices(rect, rotate) {
     // handle zero case first
-    if (rotate == 0) {
+    if (rotate == null || rotate == 0) {
         const [ x1, y1, x2, y2 ] = rect
         return [ [ x1, y1], [ x2, y2 ] ]
     }
@@ -795,15 +798,16 @@ function rotated_vertices(rect, rotate) {
     ])
 }
 
-function children_rect(children) {
+// NOTE: we disable absolute offsets to compute auto aspect
+function children_rect(children, offset = false) {
     if (children.length == 0) return null
 
     // get post-rotated vertices of children
     const ctx = new Context()
     const verts = children.flatMap(c => {
-        const { prect } = ctx.map(c.spec)
+        const { prect } = ctx.map({ ...c.spec, offset })
         const rot = c.spec.invar ? 0 : c.spec.rotate
-        return rotated_vertices(prect, rot ?? 0)
+        return rotated_vertices(prect, rot)
     })
 
     // find enclosing rect for vertices
@@ -874,6 +878,10 @@ class Group extends Element {
     }
 }
 
+//
+// metadata classes
+//
+
 class ClipPath extends Group {
     constructor(args = {}) {
         const { children: children0, ...attr } = args
@@ -917,6 +925,30 @@ class Style extends Element {
         return `<style>\n${this.text}\n</style>`
     }
 }
+
+class Metadata {
+    constructor() {
+        this.uuid = 0 // next uuid
+        this.defs = [] // defs list
+    }
+
+    getUid() {
+        return `uid-${this.uuid++}`
+    }
+
+    addDef(def) {
+        this.defs.push(def)
+    }
+
+    svg() {
+        if (this.defs.length == 0) return ''
+        return `<defs>\n${this.defs.join('\n')}\n</defs>`
+    }
+}
+
+//
+// svg class
+//
 
 class Svg extends Group {
     constructor(args = {}) {
@@ -1423,30 +1455,19 @@ class Spacer extends Element {
 
 class Line extends Element {
     constructor(args = {}) {
-        let { pos1, pos2, exact1 = false, exact2 = false, off1 = [ 0, 0 ], off2 = [ 0, 0 ], ...attr } = THEME(args, 'Line')
+        let { pos1, pos2, ...attr } = THEME(args, 'Line')
         super({ tag: 'line', unary: true, ...attr })
         this.args = args
-
-        // handle exact positioning
-        // TODO: this can't handle flipped coordinates (move to props)
-        const sw = attr.stroke_width ?? 1
-        const dir = normalize(sub(pos2, pos1), 2)
-        if (exact1) off1 = mul(dir,  0.5 * sw)
-        if (exact2) off2 = mul(dir, -0.5 * sw)
 
         // additional props
         this.pos1 = pos1
         this.pos2 = pos2
-        this.off1 = off1
-        this.off2 = off2
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const pos1 = ctx.mapPoint(this.pos1)
-        const pos2 = ctx.mapPoint(this.pos2)
-        const [ x1, y1 ] = add(pos1, this.off1)
-        const [ x2, y2 ] = add(pos2, this.off2)
+        const [ x1, y1 ] = ctx.mapPoint(this.pos1)
+        const [ x2, y2 ] = ctx.mapPoint(this.pos2)
         return { x1, y1, x2, y2, ...attr }
     }
 }
@@ -1667,17 +1688,14 @@ class Command {
 }
 
 class MoveCmd extends Command {
-    constructor(pos, args = {}) {
-        const { off = [ 0, 0 ] } = args
+    constructor(pos) {
         super('M')
         this.pos = pos
-        this.off = off
     }
 
     args(ctx) {
-        const pos = ctx.mapPoint(this.pos)
-        const [ xo, yo ] = add(pos, this.off)
-        return `${rounder(xo, ctx.prec)} ${rounder(yo, ctx.prec)}`
+        const [ x, y ] = ctx.mapPoint(this.pos)
+        return `${rounder(x, ctx.prec)} ${rounder(y, ctx.prec)}`
     }
 }
 
@@ -1769,39 +1787,29 @@ function cubic_spline_args(pos1, pos2, dir1, dir2, curve=1) {
 }
 
 class CubicSplineCmd extends Command {
-    constructor(pos1, pos2, dir1, dir2, args) {
-        const { off1 = [ 0, 0 ], off2 = [ 0, 0 ], curve = 0.75 } = args
+    constructor(pos1, pos2, dir1, dir2, curve = 1) {
         super('C')
         this.pos1 = pos1
         this.pos2 = pos2
         this.dir1 = unit_direc(dir1)
         this.dir2 = unit_direc(dir2)
-        this.off1 = off1
-        this.off2 = off2
         this.curve = curve
     }
 
     args(ctx) {
         const pos1 = ctx.mapPoint(this.pos1)
         const pos2 = ctx.mapPoint(this.pos2)
-        const pos1o = add(pos1, this.off1)
-        const pos2o = add(pos2, this.off2)
-        return cubic_spline_args(pos1o, pos2o, this.dir1, this.dir2, this.curve)
+        return cubic_spline_args(pos1, pos2, this.dir1, this.dir2, this.curve)
     }
 }
 
 class CubicSpline extends Path {
     constructor(args = {}) {
-        let { pos1, pos2, dir1, dir2, curve = 1, exact1 = false, exact2 = false, off1 = [ 0, 0 ], off2 = [ 0, 0 ], ...attr } = THEME(args, 'CubicSpline')
-
-        // handle exact positioning
-        const sw = attr.stroke_width ?? 1
-        if (exact1) off1 = mul(dir1,  0.5 * sw)
-        if (exact2) off2 = mul(dir2, -0.5 * sw)
+        let { pos1, pos2, dir1, dir2, curve = 1, ...attr } = THEME(args, 'CubicSpline')
 
         // make commands
-        const move = new MoveCmd(pos1, { off: off1 })
-        const spline = new CubicSplineCmd(pos1, pos2, dir1, dir2, { off1, off2, curve })
+        const move = new MoveCmd(pos1)
+        const spline = new CubicSplineCmd(pos1, pos2, dir1, dir2, curve)
 
         // pass to Path
         super({ children: [ move, spline ], ...attr })
@@ -1895,89 +1903,49 @@ class RoundedRect extends Path {
 // arrows and fields
 //
 
-class ArrowHead extends Element {
+class ArrowHead extends Path {
     constructor(args = {}) {
-        const { direc = 0, arc = 75, base = null, exact = true, aspect = 1, fill = null, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 75, base = false, exact = true, aspect = 1, fill = null, stroke_width = 1, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
+
+        // get arc positions
+        const [ arc0, arc1, arc2 ] = [ -direc, -direc - arc / 2, -direc + arc / 2 ]
+        const [ dir0, dir1, dir2 ] = [ arc0, arc1, arc2 ].map(unit_direc)
+
+        // get vertex positions
+        const off = exact ? mul(dir0, -0.5 * stroke_width) : [ 0, 0 ]
+        const [ fra0, fra1, fra2 ] = [ [0, 0], dir1, dir2 ].map(d => add(mul(d, -0.5), D.pos))
+        const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => zip(f, off))
+
+        // make command path
+        const commands = fill == null ?
+            [ new MoveCmd(pos0), new LineCmd(pos1), new MoveCmd(pos0), new LineCmd(pos2) ] :
+            [ new MoveCmd(pos1), new LineCmd(pos0), new LineCmd(pos2) ]
+        if (base) commands.push(new MoveCmd(pos1), new LineCmd(pos2))
 
         // pass to element
-        super({ tag: 'path', unary: true, aspect, fill, stroke_linecap, ...attr })
+        super({ children: commands, aspect, fill, stroke_width, stroke_linecap, ...attr })
         this.args = args
-
-        // additional props
-        this.arc = arc
-        this.base = base ?? (fill != null)
-        this.exact = exact
-        this.direc = direc
-    }
-
-    props(ctx) {
-        const attr = super.props(ctx)
-
-        // get absolute sizes
-        const unit0 = unit_direc(this.direc)
-        const direc = ctx.mapSize(unit0)
-        const angle = -vector_angle(direc)
-        const unit = unit_direc(angle)
-
-        // offset center by half the stroke width
-        const { stroke_width = 1, fill = null } = attr
-        const off = mul(unit, 0.5 * stroke_width)
-
-        // get arc angles
-        const [ arc1, arc2 ] = [ angle - this.arc / 2, angle + this.arc / 2 ]
-        const [ del1, del2 ] = [ unit_direc(arc1), unit_direc(arc2) ]
-
-        // get center and radius
-        const [ cx0, cy0, rx, ry ] = rect_radial(ctx.prect)
-        const cen0 = [ cx0, cy0 ]
-        const rad = [ rx, ry ]
-        const cen = this.exact ? sub(cen0, off) : cen0
-
-        // get arc points
-        const [ cx, cy ] = cen
-        const [ px1, py1 ] = sub(cen, mul(del1, rad))
-        const [ px2, py2 ] = sub(cen, mul(del2, rad))
-
-        // construct full path
-        let d = (fill == null) ?
-            `M ${cx},${cy} L ${px1},${py1} M ${cx},${cy} L ${px2},${py2}` :
-            `M ${px1},${py1} L ${cx},${cy} L ${px2},${py2}`
-        if (this.base) d += ` M ${px1},${py1} L ${px2},${py2}`
-
-        // return path
-        return { d, ...attr }
     }
 }
 
 class Arrow extends Group {
     constructor(args = {}) {
-        let { children: children0, direc: direc0 = 0, tail = 0, shape = 'arrow', graph = true, stroke_linecap = 'round', stroke_width = 1, ...attr0 } = THEME(args, 'Arrow')
+        let { children: children0, direc: direc0 = 0, tail = 0, stroke_width = null, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
-        // baked in shapes
-        if (shape == 'circle') {
-            shape = (_, a) => new Dot(a)
-        } else if (shape == 'arrow') {
-            shape = (t, a) => new ArrowHead({ direc: t, stroke_linecap, stroke_width, ...a })
-        } else {
-            throw new Error(`Unrecognized arrow shape: ${shape}`)
-        }
+        // sort out direction
+        const soff = 0.5 * (stroke_width ?? 1)
+        const unit_vec = unit_direc(-direc0)
+        const tail_vec = unit_vec.map(z => -tail * z)
+        const tail_off = mul(unit_vec, -soff)
 
-        // ensure vector direction
-        const theta = is_scalar(direc0) ? direc0 : vector_angle(direc0)
-        let direc = unit_direc(theta)
+        // create head element
+        const head_elem = new ArrowHead({ direc: direc0, stroke_width, ...head_attr })
 
-        // sort out graph direction
-        direc = graph ? mul(direc, [ 1, -1 ]) : direc
-
-        // create head (override with null direction)
-        const arrow = shape(theta, head_attr)
-        const head_elem = norm(direc, 2) == 0 ? new Dot(head_attr) : arrow
-
-        // create tail
-        const tail_direc = direc.map(z => -tail * z)
-        const tail_pos = add([0.5, 0.5], tail_direc)
-        const tail_elem = new Line({ pos1: [ 0.5, 0.5 ], pos2: tail_pos, exact1: true, stroke_width, ...tail_attr })
+        // create tail element
+        const tail_pos1 = zip(D.pos, tail_off)
+        const tail_pos2 = add(D.pos, tail_vec)
+        const tail_elem = new Line({ pos1: tail_pos1, pos2: tail_pos2, stroke_width, ...tail_attr })
 
         super({ children: [ tail_elem, head_elem ], ...attr })
         this.args = args
@@ -2570,7 +2538,7 @@ function get_direction(p1, p2) {
 
 class ArrowPath extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow1, arrow2, arrow_size = 0.03, stroke_linecap, stroke_width, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow1, arrow2, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
         let [ path_attr, arrow1_attr, arrow2_attr, arrow_attr, attr ] = prefix_split(
             [ 'path', 'arrow1', 'arrow2', 'arrow' ], attr0
         )
@@ -2588,8 +2556,14 @@ class ArrowPath extends Group {
         dir1 = unit_direc(dir1 ?? direc)
         dir2 = unit_direc(dir2 ?? direc)
 
+        // get arrow offsets
+        const soff = 0.5 * (stroke_width ?? 1)
+        const off1 = arrow1 ? mul(dir1,  soff) : [ 0, 0 ]
+        const off2 = arrow2 ? mul(dir2, -soff) : [ 0, 0 ]
+        const [ pos1o, pos2o ] = [ zip(pos1, off1), zip(pos2, off2) ]
+
         // make cubic spline shaft
-        const shaft = new CubicSpline({ pos1, pos2, dir1, dir2, exact1: arrow1, exact2: arrow2, coord, ...path_attr })
+        const shaft = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
         const children = [ shaft ]
 
         // make start arrowhead
