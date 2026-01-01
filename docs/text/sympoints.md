@@ -1,4 +1,4 @@
-# DataPoints
+# SymPoints
 
 *Inherits*: [Group](/docs/Group) > [Element](/docs/Element)
 

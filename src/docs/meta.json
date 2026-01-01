@@ -24,9 +24,9 @@
     "Slide"
   ],
   "data": [
-    "DataPoints",
-    "DataPath",
-    "DataFill"
+    "SymPoints",
+    "SymLine",
+    "SymFill"
   ],
   "plotting": [
     "Graph",

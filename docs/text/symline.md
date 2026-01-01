@@ -1,8 +1,8 @@
-# DataPath
+# SymLine
 
 *Inherits*: [Polyline](/docs/Polyline) > **Pointstring** > [Element](/docs/Element)
 
-Flexible interface to generate two-dimensional paths symbolically or in combination with fixed inputs. There are variety of acceptable input combinations, but the most common usage is to specify the range to use for x-values with `xlim` and a function to plot with `fy`. To plot a polygon instead of a line, use [DataPoly](/docs/DataPoly).
+Flexible interface to generate two-dimensional paths symbolically or in combination with fixed inputs. There are variety of acceptable input combinations, but the most common usage is to specify the range to use for x-values with `xlim` and a function to plot with `fy`. To plot a polygon instead of a line, use [SymPoly](/docs/SymPoly).
 
 Alternatively, you can specify the transpose with `ylim`/`fx`, or even do a fully parametric path using `tlim`/`fx`/`fy`. In any of these cases, one can either specify limits with `xlim`/`ylim`/`tlim` or specific values with `xvals`/`yvals`/`tvals`.
 

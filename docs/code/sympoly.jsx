@@ -5,6 +5,6 @@ const fx = t => famp(t) * cos(t)
 const fy = t => famp(t) * sin(t)
 return <Frame rounded fill>
   <Graph xlim={[-1.5, 1.5]} ylim={[-1.5, 1.5]}>
-    <DataPoly fx={fx} fy={fy} tlim={[0, 2*pi]} N={500} fill={blue} opacity={0.75} />
+    <SymPoly fx={fx} fy={fy} tlim={[0, 2*pi]} N={500} fill={blue} opacity={0.75} />
   </Graph>
 </Frame>

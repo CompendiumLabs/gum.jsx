@@ -79,6 +79,28 @@ const moji = new NamedString('moji', C.moji)
 const bold = new NamedNumber('bold', C.bold)
 
 //
+// metaposition arithmetic
+//
+
+function ensure_mpos(p) {
+    return is_scalar(p) ? [ p, 0 ] : p
+}
+
+function add_mpos(p0, p1) {
+    const [ x0, c0 ] = ensure_mpos(p0)
+    const [ x1, c1 ] = ensure_mpos(p1)
+    const [ x, c ] = [ x0 + x1, c0 + c1 ]
+    return c == 0 ? x : [ x, c ]
+}
+
+function sub_mpos(p0, p1) {
+    const [ x0, c0 ] = ensure_mpos(p0)
+    const [ x1, c1 ] = ensure_mpos(p1)
+    const [ x, c ] = [ x0 - x1, c0 - c1 ]
+    return c == 0 ? x : [ x, c ]
+}
+
+//
 // rect stats
 //
 
@@ -112,15 +134,6 @@ function rect_aspect(rect) {
 // rect formats
 //
 
-function add_frac(x0, f) {
-    if (is_scalar(x0)) {
-        return x0 + f
-    } else {
-        const [ x, c ] = x0
-        return [ x + f, c ]
-    }
-}
-
 // radial rect: center, radius
 function rect_radial(rect, absolute = false) {
     const [ cx, cy ] = rect_center(rect)
@@ -133,8 +146,8 @@ function radial_rect(p, r) {
     const [ x, y ] = p
     const [ rx, ry ] = ensure_vector(r, 2)
     return [
-        add_frac(x, -rx), add_frac(y, -ry),
-        add_frac(x,  rx), add_frac(y,  ry),
+        sub_mpos(x, rx), sub_mpos(y, ry),
+        add_mpos(x, rx), add_mpos(y, ry),
     ]
 }
 
@@ -1349,12 +1362,12 @@ class Grid extends Group {
 
 class Points extends Group {
     constructor(args = {}) {
-        const { children: children0, locs, size = D.point, ...attr0 } = THEME(args, 'Arrange')
-        const shape = ensure_singleton(children0) ?? new Dot()
+        const { children: children0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const shape = shape0 ?? new Dot()
         const [ spec, attr ] = spec_split(attr0)
 
         // construct children
-        const children = locs.map(pos =>
+        const children = ensure_array(children0).map(pos =>
             shape.clone({ ...attr, pos, rad: size })
         )
 
@@ -1905,7 +1918,8 @@ class RoundedRect extends Path {
 
 class ArrowHead extends Path {
     constructor(args = {}) {
-        const { direc = 0, arc = 75, base = false, exact = true, aspect = 1, fill = null, stroke_width = 1, stroke_linecap = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 75, base: base0, exact = true, aspect = 1, fill = null, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const base = base0 ?? (fill != null)
 
         // get arc positions
         const [ arc0, arc1, arc2 ] = [ -direc, -direc - arc / 2, -direc + arc / 2 ]
@@ -1923,31 +1937,36 @@ class ArrowHead extends Path {
         if (base) commands.push(new MoveCmd(pos1), new LineCmd(pos2))
 
         // pass to element
-        super({ children: commands, aspect, fill, stroke_width, stroke_linecap, ...attr })
+        super({ children: commands, aspect, fill, stroke_width, stroke_linecap, stroke_linejoin, ...attr })
         this.args = args
     }
 }
 
 class Arrow extends Group {
     constructor(args = {}) {
-        let { children: children0, direc: direc0 = 0, tail = 0, stroke_width = null, ...attr0 } = THEME(args, 'Arrow')
+        let { children: children0, direc: direc0 = 0, tail, stroke_width, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
         // sort out direction
         const soff = 0.5 * (stroke_width ?? 1)
         const unit_vec = unit_direc(-direc0)
-        const tail_vec = unit_vec.map(z => -tail * z)
-        const tail_off = mul(unit_vec, -soff)
 
         // create head element
         const head_elem = new ArrowHead({ direc: direc0, stroke_width, ...head_attr })
+        const children = [ head_elem ]
 
         // create tail element
-        const tail_pos1 = zip(D.pos, tail_off)
-        const tail_pos2 = add(D.pos, tail_vec)
-        const tail_elem = new Line({ pos1: tail_pos1, pos2: tail_pos2, stroke_width, ...tail_attr })
+        if (tail != null) {
+            const tail_vec = unit_vec.map(z => -tail * z)
+            const tail_off = mul(unit_vec, -soff)
+            const tail_pos1 = zip(D.pos, tail_off)
+            const tail_pos2 = add(D.pos, tail_vec)
+            const tail_elem = new Line({ pos1: tail_pos1, pos2: tail_pos2, stroke_width, ...tail_attr })
+            children.push(tail_elem)
+        }
 
-        super({ children: [ tail_elem, head_elem ], ...attr })
+        // pass to Group
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -2309,15 +2328,15 @@ class Equation extends Latex {
 }
 
 //
-// data plotters
+// symbolic plotters
 //
 
-// GRAPHABLE ELEMENTS: DataPoints, DataPath, DataPoly, DataFill, DataField
+// GRAPHABLE ELEMENTS: SymPoints, SymLine, SymPoly, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
 // they should compute their coordinate limits and report them in coord (for Graph)
 
 // determines actual values given combinations of limits, values, and functions
-function datapath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
+function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
     fx = ensure_function(fx)
     fy = ensure_function(fy)
 
@@ -2381,9 +2400,9 @@ function ensure_shapefunc(f) {
     return (...a) => f1(...a)
 }
 
-class DataPoints extends Group {
+class SymPoints extends Group {
     constructor(args = {}) {
-        const { children: children0, fx, fy, size = D.point, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, shape: shape0, ...attr0 } = THEME(args, 'DataPoints')
+        const { children: children0, fx, fy, size = D.point, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, shape: shape0, ...attr0 } = THEME(args, 'SymPoints')
         const [ spec, attr ] = spec_split(attr0)
         const shape = ensure_singleton(shape0 ?? children0)
         const fshap = ensure_shapefunc(shape ?? new Dot())
@@ -2391,7 +2410,7 @@ class DataPoints extends Group {
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = datapath({
+        const [tvals1, xvals1, yvals1] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -2416,13 +2435,13 @@ class DataPoints extends Group {
     }
 }
 
-class DataPath extends Polyline {
+class SymLine extends Polyline {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'DataPath')
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
-        const [ tvals1, xvals1, yvals1 ] = datapath({
+        const [ tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -2440,13 +2459,13 @@ class DataPath extends Polyline {
     }
 }
 
-class DataPoly extends Polygon {
+class SymPoly extends Polygon {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'DataPoly')
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymPoly')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = datapath({
+        const [tvals1, xvals1, yvals1] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -2464,16 +2483,16 @@ class DataPoly extends Polygon {
     }
 }
 
-class DataFill extends Polygon {
+class SymFill extends Polygon {
     constructor(args = {}) {
-        const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = THEME(args, 'DataFill')
+        const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = THEME(args, 'SymFill')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = datapath({
+        const [tvals1, xvals1, yvals1] = sympath({
             fx: fx1, fy: fy1, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
-        const [tvals2, xvals2, yvals2] = datapath({
+        const [tvals2, xvals2, yvals2] = sympath({
             fx: fx2, fy: fy2, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -2497,9 +2516,9 @@ function default_arrow(direc) {
     return new Box({ children: arrow, spin: theta })
 }
 
-class DataField extends DataPoints {
+class SymField extends SymPoints {
     constructor(args = {}) {
-        const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, coord: coord0, ...attr } = THEME(args, 'DataField')
+        const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, coord: coord0, ...attr } = THEME(args, 'SymField')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
         const shape = ensure_singleton(children0) ?? default_arrow
         const size = size0 ?? 0.25 / N
@@ -2512,7 +2531,7 @@ class DataField extends DataPoints {
         const [ xvals, yvals ] = points.length > 0 ? zip(...points) : [ [], [] ]
         const coord = coord0 ?? detect_coords(xvals, yvals, xlim, ylim)
 
-        // pass to DataPoints
+        // pass to SymPoints
         super({ children: fshap, xvals, yvals, size, coord, ...attr })
         this.args = args
     }
@@ -2558,9 +2577,8 @@ class ArrowPath extends Group {
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const off1 = arrow1 ? mul(dir1,  soff) : [ 0, 0 ]
-        const off2 = arrow2 ? mul(dir2, -soff) : [ 0, 0 ]
-        const [ pos1o, pos2o ] = [ zip(pos1, off1), zip(pos2, off2) ]
+        const pos1o = arrow1 ? zip(pos1, mul(dir1,  soff)) : pos1
+        const pos2o = arrow2 ? zip(pos2, mul(dir2, -soff)) : pos2
 
         // make cubic spline shaft
         const shaft = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
@@ -2666,7 +2684,7 @@ class Network extends Group {
         const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
 
-        // collect nodes and edges
+        // process nodes and make label map
         const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ ...node_attr, ...n.args }))
         const nmap = new Map(nodes.map(n => [ n.label, n ]))
 
@@ -3267,7 +3285,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3280,5 +3298,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, DataPoints, DataPath, DataPoly, DataFill, DataField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

@@ -14,6 +14,7 @@ function is_browser() {
 
 function is_scalar(x) {
     return (
+        (x == null) ||
         (typeof(x) == 'number') ||
         (typeof(x) == 'object' && (
             (x.constructor.name == 'Number') ||
