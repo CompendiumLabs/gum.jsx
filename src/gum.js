@@ -1950,10 +1950,7 @@ class Arrow extends Group {
         // sort out direction
         const soff = 0.5 * (stroke_width ?? 1)
         const unit_vec = unit_direc(-direc0)
-
-        // create head element
-        const head_elem = new ArrowHead({ direc: direc0, stroke_width, ...head_attr })
-        const children = [ head_elem ]
+        const children = []
 
         // create tail element
         if (tail != null) {
@@ -1964,6 +1961,10 @@ class Arrow extends Group {
             const tail_elem = new Line({ pos1: tail_pos1, pos2: tail_pos2, stroke_width, ...tail_attr })
             children.push(tail_elem)
         }
+
+        // create head element
+        const head_elem = new ArrowHead({ direc: direc0, stroke_width, ...head_attr })
+        children.push(head_elem)
 
         // pass to Group
         super({ children, ...attr })
@@ -2555,11 +2556,11 @@ function get_direction(p1, p2) {
            null
 }
 
-class ArrowPath extends Group {
+class ArrowSpline extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow1, arrow2, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow1, arrow2, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
         let [ path_attr, arrow1_attr, arrow2_attr, arrow_attr, attr ] = prefix_split(
-            [ 'path', 'arrow1', 'arrow2', 'arrow' ], attr0
+            [ 'spline', 'arrow1', 'arrow2', 'arrow' ], attr0
         )
         arrow1 = arrow ?? arrow1 ?? false
         arrow2 = arrow ?? arrow2 ?? true
@@ -2581,8 +2582,8 @@ class ArrowPath extends Group {
         const pos2o = arrow2 ? zip(pos2, mul(dir2, -soff)) : pos2
 
         // make cubic spline shaft
-        const shaft = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
-        const children = [ shaft ]
+        const spline = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
+        const children = [ spline ]
 
         // make start arrowhead
         if (arrow1) {
@@ -2639,7 +2640,7 @@ function anchor_point(rect, direc) {
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { node1, node2, dir1, dir2, curve = 2, ...attr } = THEME(args, 'EdgePath')
+        const { node1, node2, dir1, dir2, curve = 2, ...attr } = THEME(args, 'Edge')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
@@ -2673,7 +2674,7 @@ class Edge extends Element {
         const dir1 = cardinal_direc(direc1)
         const dir2 = mul(cardinal_direc(direc2), -1)
 
-        const arrowpath = new ArrowPath({ pos1, pos2, dir1, dir2, path_curve: this.curve, coord: ctx.coord, ...attr })
+        const arrowpath = new ArrowSpline({ pos1, pos2, dir1, dir2, spline_curve: this.curve, coord: ctx.coord, ...attr })
         return arrowpath.svg(ctx)
     }
 }
@@ -3285,7 +3286,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3298,5 +3299,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowPath, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
