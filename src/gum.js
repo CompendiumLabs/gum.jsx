@@ -2559,44 +2559,44 @@ function get_direction(p1, p2) {
 
 class ArrowSpline extends Group {
     constructor(args = {}) {
-        let { children: children0, pos1, pos2, dir1, dir2, arrow, arrow1, arrow2, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
-        let [ path_attr, arrow1_attr, arrow2_attr, arrow_attr, attr ] = prefix_split(
-            [ 'spline', 'arrow1', 'arrow2', 'arrow' ], attr0
+        let { children: children0, from, to, dir_from, dir_to, arrow, arrow_from, arrow_to, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
+        let [ path_attr, arrow_from_attr, arrow_to_attr, arrow_attr, attr ] = prefix_split(
+            [ 'spline', 'arrow_from', 'arrow_to', 'arrow' ], attr0
         )
-        arrow1 = arrow ?? arrow1 ?? false
-        arrow2 = arrow ?? arrow2 ?? true
+        arrow_from = arrow ?? arrow_from ?? false
+        arrow_to   = arrow ?? arrow_to   ?? true
 
         // accumulate arguments
         const stroke_attr = { stroke_linecap, stroke_width }
         path_attr = { ...stroke_attr, ...path_attr }
-        arrow1_attr = { fill, ...stroke_attr, ...arrow_attr, ...arrow1_attr }
-        arrow2_attr = { fill, ...stroke_attr, ...arrow_attr, ...arrow2_attr }
+        arrow_from_attr = { fill, ...stroke_attr, ...arrow_attr, ...arrow_from_attr }
+        arrow_to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...arrow_to_attr   }
 
         // set default directions (gets normalized later)
-        const direc = sub(pos2, pos1)
-        dir1 = unit_direc(dir1 ?? direc)
-        dir2 = unit_direc(dir2 ?? direc)
+        const direc = sub(to, from)
+        const dir1 = unit_direc(dir_from ?? direc)
+        const dir2 = unit_direc(dir_to   ?? direc)
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const pos1o = arrow1 ? zip(pos1, mul(dir1,  soff)) : pos1
-        const pos2o = arrow2 ? zip(pos2, mul(dir2, -soff)) : pos2
+        const pos1 = arrow_from ? zip(from, mul(dir1,  soff)) : from
+        const pos2 = arrow_to   ? zip(to  , mul(dir2, -soff)) : to
 
         // make cubic spline shaft
-        const spline = new CubicSpline({ pos1: pos1o, pos2: pos2o, dir1, dir2, coord, ...path_attr })
+        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, coord, ...path_attr })
         const children = [ spline ]
 
         // make start arrowhead
-        if (arrow1) {
+        if (arrow_from) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow1_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_from_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
-        if (arrow2) {
+        if (arrow_to) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow2_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_to_attr })
             children.push(head_end)
         }
 
@@ -2608,24 +2608,19 @@ class ArrowSpline extends Group {
 
 class Node extends Frame {
     constructor(args = {}) {
-        const { children, label, yrad = 0.1, rounded = 0.05, padding = 0.1, ...attr } = THEME(args, 'Node')
+        const { children: children0, id, yrad = 0.1, rounded = 0.05, padding = 0.1, wrap, justify = 'center', ...attr } = THEME(args, 'Node')
+        const [ text_attr, frame_attr ] = prefix_split([ 'text' ], attr)
+        const child = check_singleton(children0)
+
+        // check for single string child and make text element
+        const children = is_string(child) ? new Text({ children: child, wrap, justify, ...text_attr }) : child
 
         // pass to Frame
-        super({ children, yrad, rounded, padding, ...attr })
+        super({ children, yrad, rounded, padding, ...frame_attr })
         this.args = args
 
         // additional props
-        this.label = label
-    }
-}
-
-class TextNode extends Node {
-    constructor(args = {}) {
-        const { children, wrap = null, justify = 'center', ...attr } = THEME(args, 'TextNode')
-        const [ text_attr, node_attr ] = prefix_split([ 'text' ], attr)
-        const text = new Text({ children, wrap, justify, ...text_attr })
-        super({ children: text, ...node_attr })
-        this.args = args
+        this.id = id
     }
 }
 
@@ -2641,17 +2636,17 @@ function anchor_point(rect, direc) {
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { node1, node2, dir1, dir2, curve = 2, ...attr } = THEME(args, 'Edge')
+        const { from, to, dir_from, dir_to, curve = 2, ...attr } = THEME(args, 'Edge')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
         this.args = args
 
         // additional props
-        this.node1 = node1
-        this.node2 = node2
-        this.dir1 = dir1
-        this.dir2 = dir2
+        this.from = from
+        this.to = to
+        this.dir_from = dir_from
+        this.dir_to = dir_to
         this.curve = curve
     }
 
@@ -2660,22 +2655,22 @@ class Edge extends Element {
         const attr = super.props(ctx)
 
         // get mapped node rects
-        const rect1 = this.node1.rect(ctx)
-        const rect2 = this.node2.rect(ctx)
+        const rect_from = this.from.rect(ctx)
+        const rect_to = this.to.rect(ctx)
 
         // get emanation directions
-        const center1 = rect_center(rect1)
-        const center2 = rect_center(rect2)
-        const direc1 = this.dir1 ?? get_direction(center1, center2)
-        const direc2 = this.dir2 ?? get_direction(center2, center1)
+        const center_from = rect_center(rect_from)
+        const center_to = rect_center(rect_to)
+        const direc_from = this.dir_from ?? get_direction(center_from, center_to)
+        const direc_to = this.dir_to ?? get_direction(center_to, center_from)
 
         // get anchor points and tangent vectors
-        const pos1 = anchor_point(rect1, direc1)
-        const pos2 = anchor_point(rect2, direc2)
-        const dir1 = cardinal_direc(direc1)
-        const dir2 = mul(cardinal_direc(direc2), -1)
+        const from = anchor_point(rect_from, direc_from)
+        const to = anchor_point(rect_to, direc_to)
+        const dir_from = cardinal_direc(direc_from)
+        const dir_to = mul(cardinal_direc(direc_to), -1)
 
-        const arrowpath = new ArrowSpline({ pos1, pos2, dir1, dir2, spline_curve: this.curve, coord: ctx.coord, ...attr })
+        const arrowpath = new ArrowSpline({ from, to, dir_from, dir_to, spline_curve: this.curve, coord: ctx.coord, ...attr })
         return arrowpath.svg(ctx)
     }
 }
@@ -2688,18 +2683,18 @@ class Network extends Group {
 
         // process nodes and make label map
         const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ ...node_attr, ...n.args }))
-        const nmap = new Map(nodes.map(n => [ n.label, n ]))
+        const nmap = new Map(nodes.map(n => [ n.id, n ]))
 
         // process children in original order
         const children = children0.map(c => {
             if (c instanceof Edge) {
                 // create arrow path from edge
-                const n1 = nmap.get(c.args.node1)
-                const n2 = nmap.get(c.args.node2)
-                return c.clone({ ...edge_attr, ...c.args, node1: n1, node2: n2, coord })
+                const n1 = nmap.get(c.args.from)
+                const n2 = nmap.get(c.args.to)
+                return c.clone({ ...edge_attr, ...c.args, from: n1, to: n2, coord })
             } else if (c instanceof Node) {
                 // return the already processed node from the map
-                return nmap.get(c.label)
+                return nmap.get(c.id)
             } else {
                 // other elements pass through unchanged
                 return c
@@ -3287,7 +3282,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3300,5 +3295,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, TextNode, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

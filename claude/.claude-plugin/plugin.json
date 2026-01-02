@@ -1,0 +1,8 @@
+{
+    "name": "gum-visuals",
+    "description": "Create plots, diagrams, and other visualizations with the 'gum' language.",
+    "version": "1.0.0",
+    "author": {
+        "name": "Douglas Hanley"
+    }
+}

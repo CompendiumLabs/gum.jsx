@@ -53,10 +53,11 @@ ${code}
     return { tag, info }
 })
 
-// create src/docs
-mkdirSync('skill/references', { recursive: true })
+// create claude/gum-visuals/skills/references
+const refs_dir = 'claude/skills/gum-visuals/references'
+mkdirSync(refs_dir, { recursive: true })
 
-// write to skill/references
+// write files to references directory
 refs.forEach(({ tag, info }) => {
-    writeFileSync(`skill/references/${tag}.md`, info + '\n')
+    writeFileSync(`${refs_dir}/${tag}.md`, info + '\n')
 })

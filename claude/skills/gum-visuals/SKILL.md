@@ -5,7 +5,7 @@ description: Create plots, diagrams, and other visualizations with the "gum" lan
 
 # Introduction
 
-The `gum` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax, but it does not actually use React internally. When interpreted, it produces pure SVG of a specified size. Your task is to generate the appropriate `gum` JSX code to satisfy the user's request. Rendering of the SVG will be done on the client side.
+The `gum` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax, but it does not actually use React internally. When interpreted, it produces pure SVG of a specified size. Your task is to generate the appropriate `gum` JSX code to satisfy the user's request. Be sure to place the actual code inside ```jsx``` tags. Rendering of the SVG will be done on the client side.
 
 You will typically construct your figure with a combination of `Element` derived components such as `Circle`, `Stack`, `Plot`, `Network`, and many more. Some of these map closely to standard SVG objects, while others are higher level abstractions and layout containers. You can add standard SVG attributes (like `fill`, `stroke`, `stroke-width`, `opacity`, etc.) to any `Element` component and they will be applied to the resulting SVG.
 

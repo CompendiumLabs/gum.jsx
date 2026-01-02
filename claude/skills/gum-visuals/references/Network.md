@@ -20,10 +20,10 @@ Prompt: A network with a node on the left saying "Hello world" and two nodes on 
 Generated code:
 ```jsx
 <Network aspect={1.5} node-yrad={0.15} node-rounded node-fill={gray} edge-arrow-fill={white}>
-  <TextNode label="hello" pos={[0.25, 0.5]} wrap={3}>Hello world</TextNode>
-  <TextNode label="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</TextNode>
-  <Node label="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>
-  <Edge node1="hello" node2="test" />
-  <Edge node1="hello" node2="ball" dir1="s" curve={3} />
+  <Node id="hello" pos={[0.25, 0.5]} wrap={3}>Hello world</Node>
+  <Node id="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</Node>
+  <Node id="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>
+  <Edge from="hello" to="test" />
+  <Edge from="hello" to="ball" dir-from="s" curve={3} />
 </Network>
 ```
