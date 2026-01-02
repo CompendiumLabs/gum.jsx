@@ -2,7 +2,7 @@
 
 *Inherits*: [Group](/docs/Group) > [Element](/docs/Element)
 
-This element creates a container that arranges its children in a grid. The grid is specified by the number of rows and columns, and the gap between the cells. In the case where `widths` and `heights` are not specified, a reasonable effort is made to best accomodate the grid elements based on their aspects (if specified).
+This element arranges its children in a grid. The grid is specified by the number of rows and columns, and the gap between the cells. In the case where `widths` and `heights` are not specified, a reasonable effort is made to best accomodate the grid elements based on their aspects (if specified).
 
 Parameters:
 - `rows` = `N` — the number of rows in the grid (autodetected)

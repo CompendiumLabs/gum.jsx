@@ -23,7 +23,7 @@
     "TitleFrame",
     "Slide"
   ],
-  "data": [
+  "symbolic": [
     "SymPoints",
     "SymLine",
     "SymFill"

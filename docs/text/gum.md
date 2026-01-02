@@ -10,6 +10,6 @@ The syntax is an XML component style one familiar to React developers. The outpu
 
 *Parameter specification*: You can specify boolean parameters like `border` just by writing their name. Some parameters, such as `margin` or `padding` default to `0` when not specified but have a default true value as well (in both cases `0.1`). You can also pass SVG properties such as `stroke-width` directly.
 
-*Subunit arguments*: for compound elements that inherit [Container](/docs/Container), some keyword arguments are passed down to the constituent parts. For instance, in [Plot](/docs/Plot), one can specify arguments intended for the `XAxis` unit by prefixing them with `xaxis-`. For example, setting the `stroke-width` for this subunit can be achieved with `xaxis-stroke-width`.
+*Subunit arguments*: for compound elements that inherit [Group](/docs/Group), some keyword arguments are passed down to the constituent parts. For instance, in [Plot](/docs/Plot), one can specify arguments intended for the `XAxis` unit by prefixing them with `xaxis-`. For example, setting the `stroke-width` for this subunit can be achieved with `xaxis-stroke-width`.
 
 *Constructive layout*: we try to avoid hard-coding absolute values as much as possible. Instead, we use proportions relative to the parent element's size. For instance, `margin = 0.1` means "10% of the parent's width/height". Similarly, instead of manually positioning elements in a row, we use [HStack](/docs/HStack) or [VStack](/docs/VStack) to automatically arrange them.
