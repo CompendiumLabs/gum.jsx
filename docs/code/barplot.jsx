@@ -1,5 +1,5 @@
 // A plot with three bars with black borders at "A", "B", and "C". The first bar is red and is the shortest, the second bar is blue and is the tallest, while the third bar is green and its height is in between.
-<BarPlot ylim={[0, 10]} yticks={6} title="Example BarPlot" xlabel="Category" ylabel="Value" bar-rounded bar-border={0} margin={0.25}>
+<BarPlot ylim={[0, 10]} yticks={6} ygrid title="Example BarPlot" xlabel="Category" ylabel="Value" margin={0.25}>
   <Bar label="A" size={3} fill={red} />
   <Bar label="B" size={8.5} fill={blue} />
   <Bar label="C" size={6.5} fill={green} />

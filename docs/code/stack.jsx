@@ -1,9 +1,8 @@
-// one large donut in a frame stacked on top of two smaller side-by-side framed donuts
-const Donut = () => <Frame><Text>🍩</Text></Frame>
-return <VStack>
-  <Donut/>
-  <HStack>
-    <Donut/>
-    <Donut/>
+// a wide blue rectangle on top, with red and green squares side by side on the bottom. each one has rounded corners.
+<VStack spacing>
+  <Rect rounded fill={blue} />
+  <HStack stack-size={0.5} spacing>
+    <Square rounded fill={red} />
+    <Square rounded fill={green} />
   </HStack>
 </VStack>

@@ -1862,6 +1862,7 @@ class Arc extends Path {
 }
 
 function parse_rounded(rounded) {
+    if (rounded === false) rounded = 0
     if (is_scalar(rounded)) {
         rounded = [rounded, rounded, rounded, rounded]
     } else if (is_array(rounded) && rounded.length == 2) {
@@ -2717,9 +2718,10 @@ class Network extends Group {
 
 class Bar extends RoundedRect {
     constructor(args = {}) {
-        let { fill = 'lightgray', border = 1, rounded, ...attr } = THEME(args, 'Bar')
-        rounded = rounded === true ? [ 0.1, 0.1, 0, 0 ] : rounded
-        super({ fill, rounded, border, ...attr })
+        const { direc = 'v', fill = blue, stroke = none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
+        const rounded = rounded0 == true ? (direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]) : rounded0
+        console.log(direc, rounded0, rounded)
+        super({ fill, stroke, rounded, ...attr })
         this.args = args
     }
 }
@@ -2749,13 +2751,13 @@ class Bars extends Group {
 
         // make rects from sizes
         const children = bars.map((child, i) => {
-            if (is_scalar(child)) child = new Bar({ direc, size: child })
+            if (is_scalar(child)) child = new Bar({ direc, size: child, ...attr })
             const { loc = i, size } = child.attr
             const rect = join_limits({
                 [direc]: [ zero, size ],
                 [idirec]: [ loc - width / 2, loc + width / 2 ],
             })
-            return child.clone({ rect, ...attr })
+            return child.clone({ direc, rect, ...attr })
         })
 
         // pass to Group
@@ -3211,10 +3213,9 @@ class BarPlot extends Plot {
         const itickdir = tickdir === 'x' ? 'y' : 'x'
         const [ tname, ticks ] = [ `${tickdir}ticks`, enumerate(labs) ]
         const [ lname, limit ] = [ `${tickdir}lim`, [ -0.75, children.length - 0.25 ] ]
-        const [ gname, grid ] = [ `${itickdir}grid`, true ]
 
         // pass on to Plot
-        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, [gname]: grid, xtick_side, ...attr })
+        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, xtick_side, ...attr })
         this.args = args
     }
 }

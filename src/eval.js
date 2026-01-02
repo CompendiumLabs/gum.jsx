@@ -8,7 +8,7 @@ import { runJSX } from './acorn.js'
 // gum evaluator
 //
 
-function evaluateGum(code, { theme, debug = false, ...args } = {}) {
+function evaluateGum(code, { theme = null, debug = false, ...args } = {}) {
   let element
 
   // check if code is provided
