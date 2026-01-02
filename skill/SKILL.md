@@ -62,13 +62,104 @@ return <Frame padding margin rounded>
 
 *Notes*: The user didn't specify the aspect ratio, so we use `2` as a default. The `grid` attribute is a boolean, so we can omit the `true` part. To specify only one grid direction, we could instead use `xgrid` and `ygrid`. For sub-components like `grid` we can pass attributes using the `grid-` prefix. In general, `Plot` will auto-detect the y-axis limits, but I wanted to add a bit of padding to the top and bottom. We also need to be careful to add enough `margin` on the outside to avoid clipping the axis labels.
 
-# Core Classes
+# Element Class
 
-{{{Element}}}
+The base class for all `gum.js` objects. You will usually not be working with this object directly unless you are implementing your own custom elements. An **Element** has a few methods that can be overriden, each of which takes a **Context** object as an argument. The vast majority of implementations will override only `props` and `inner` (for non-unary elements).
 
-{{{Group}}}
+Parameters:
+- `tag` = `g` — the SVG tag associated with this element
+- `unary` = `false` — whether there is inner text for this element
+- `aspect` = `null` — the width to height ratio for this element
+- `pos` — the desired position of the center of the child's rectangle
+- `rad` ­— the desired radius of the child's rectangle (can be single number or pair)
+- `xrad`/`yrad` ­— specify the radius for a specific dimension (and expand the other)
+- `rect` — a fully specified rectangle to place the child in (this will override `pos`/`rad`)
+- `xrect`/`yrect` ­— specify the rectangle for a specific dimension
+- `aspect` — the aspect ratio of the child's rectangle
+- `expand` — when `true`, instead of embedding the child within `rect`, it will make the child just large enough to fully contain `rect`
+- `align` — how to align the child when it doesn't fit exactly within `rect`, options are `left`, `right`, `center`, or a fractional position (can set vertical and horizontal separately with a pair)
+- `rotate` — how much to rotate the child by (degrees counterclockwise)
+- `spin` — like rotate but will maintain the same size
+- `vflip/hflip` — flip the child horizontally or vertically
+- `flex` ­— override to set `aspect = null`
+- `...` = `{}` — additional attributes that are included in `props`
 
-{{{Box}}}
+Methods:
+- `props(ctx)` — returns a dictionary of attributes for the SVG element. The default implementation returns the non-null `attr` passed to the constructor
+- `inner(ctx)` — returns the inner text of the SVG element (for non-unary). Defaults to returing empty string
+- `svg(ctx)` — returns the rendered SVG of the element as a `String`. Default implementation constructs SVG from `tag`, `unary`, `props`, and `inner`
+
+## Example
+
+Prompt: create a custom triangle element called `Tri` and use it to create a triangle with a gray fill
+
+Generated code:
+```jsx
+const Tri = ({ pos0, pos1, pos2, ...attr }) => <Polygon {...attr}>{[pos0, pos1, pos2]}</Polygon>
+return <Tri pos0={[0.5, 0.1]} pos1={[0.9, 0.9]} pos2={[0.1, 0.9]} fill={gray} />
+```
+
+# Group Class
+
+*Inherits*: **Element**
+
+This is the main container class that all compound elements are derived from. It accepts a list of child elements and attempts to place them according to their declared properties.
+
+Placement positions are specified in the group's internal coordinate space, which defaults to the unit square. The child's `aspect` is an important determinant of its placement. When it has a `null` aspect, it will fit exactly in the given `rect`. However, when it does have an aspect, it needs to be adjusted in the case that the given `rect` does not have the same aspect. The `expand` and `align` specification arguments govern how this adjustment is made.
+
+Parameters:
+- `children` = `[]` — a list of child elements
+- `aspect` = `null` — the aspect ratio of the group's rectangle (can pass `'auto'` to infer from the children)
+- `coord` = `[0, 0, 1, 1]` — the internal coordinate space to use for child elements (can pass `'auto'` to contain children's rects)
+- `xlim`/`ylim` = `null` — specify the `coord` limits for a specific dimension
+- `clip` = `false` — clip children to the group's rectangle if `true` (or a custom shape if specified)
+
+## Example
+
+Prompt: a square in the top left and a circle in the bottom right
+
+Generated code:
+```jsx
+<Group>
+  <Rect pos={[0.3, 0.3]} rad={0.1} spin={15} />
+  <Ellipse pos={[0.7, 0.7]} rad={0.1} />
+</Group>
+```
+
+# Box Class
+
+*Inherits*: **Group** > **Element**
+
+This is a simple container class allowing you to add padding, margins, and a border to a single **Element**. It's pretty versatile and is often used to set up the outermost positioning of a figure. Mirroring the standard CSS definitions, padding is space inside the border and margin is space outside the border. There is a specialized subclass of this called **Frame** that defaults to `border = 1`.
+
+**Box** can be pretty handly in various situations. It is differentiated from **Group** in that it will adopt the `aspect` of the child element. This is useful if you want to do something like shift an element up or down by a certain amount while maintaining its aspect ratio. Simply wrap it in a **Box** and set child's `pos` to the desired offset.
+
+There are multiple ways to specify padding and margins. If given as a scalar, it is constant across all sides. If two values are given, they correspond to the horizontal and vertical sides. If four values are given, they correspond to `[left, top, right, bottom]`.
+
+The `adjust` flag controls whether padding/margins are adjusted for the aspect ratio. If `true`, horizontal and vertical components are scaled so that their ratio is equal to the `child` element's aspect ratio. This yields padding/margins of constant apparent size regardless of aspect ratio. If `false`, the inputs are used as-is.
+
+Parameters:
+- `padding` = `0` / `0.1` — the padding to be added (inside border)
+- `margin` = `0` / `0.1` — the margin to be added (outside border)
+- `border` = `0` / `1` — the border width to use (stroke in pixels)
+- `rounded` = `0` / `0.1` — the border rounding to use (proportional to the box size)
+- `adjust` = `true` — whether to adjust values for aspect ratio
+- `shape` = `Rect` — the shape class to use for the border
+- `clip` = `false` — whether to clip the contents to the border shape
+
+Subunit names:
+- `border` — keywords to pass to border, such as `stroke` or `stroke-dasharray`
+
+## Example
+
+Prompt: the text "hello!" in a frame with a dashed border and rounded corners
+
+Generated code:
+```jsx
+<Frame padding rounded border-stroke-dasharray={5}>
+  <Text>hello!</Text>
+</Frame>
+```
 
 # Documentation
 
