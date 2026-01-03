@@ -2559,44 +2559,44 @@ function get_direction(p1, p2) {
 
 class ArrowSpline extends Group {
     constructor(args = {}) {
-        let { children: children0, from, to, dir_from, dir_to, arrow, arrow_from, arrow_to, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
-        let [ path_attr, arrow_from_attr, arrow_to_attr, arrow_attr, attr ] = prefix_split(
-            [ 'spline', 'arrow_from', 'arrow_to', 'arrow' ], attr0
+        let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
+        let [ spline_attr, arrow_attr, from_attr, to_attr, attr ] = prefix_split(
+            [ 'spline', 'arrow', 'from', 'to' ], attr0
         )
-        arrow_from = arrow ?? arrow_from ?? false
-        arrow_to   = arrow ?? arrow_to   ?? true
+        from_arrow = arrow ?? from_arrow ?? false
+        to_arrow   = arrow ?? to_arrow   ?? true
 
         // accumulate arguments
         const stroke_attr = { stroke_linecap, stroke_width }
-        path_attr = { ...stroke_attr, ...path_attr }
-        arrow_from_attr = { fill, ...stroke_attr, ...arrow_attr, ...arrow_from_attr }
-        arrow_to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...arrow_to_attr   }
+        spline_attr = { ...stroke_attr, ...spline_attr }
+        from_attr = { fill, ...stroke_attr, ...arrow_attr, ...from_attr }
+        to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...to_attr   }
 
         // set default directions (gets normalized later)
         const direc = sub(to, from)
-        const dir1 = unit_direc(dir_from ?? direc)
-        const dir2 = unit_direc(dir_to   ?? direc)
+        const dir1 = unit_direc(from_dir ?? direc)
+        const dir2 = unit_direc(to_dir   ?? direc)
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const pos1 = arrow_from ? zip(from, mul(dir1,  soff)) : from
-        const pos2 = arrow_to   ? zip(to  , mul(dir2, -soff)) : to
+        const pos1 = from_arrow ? zip(from, mul(dir1,  soff)) : from
+        const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) : to
 
         // make cubic spline shaft
-        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, coord, ...path_attr })
+        const spline = new CubicSpline({ pos1, pos2, dir1, dir2, coord, ...spline_attr })
         const children = [ spline ]
 
         // make start arrowhead
-        if (arrow_from) {
+        if (from_arrow) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...arrow_from_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...from_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
-        if (arrow_to) {
+        if (to_arrow) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...arrow_to_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...to_attr })
             children.push(head_end)
         }
 
@@ -2636,7 +2636,7 @@ function anchor_point(rect, direc) {
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { from, to, dir_from, dir_to, curve = 2, ...attr } = THEME(args, 'Edge')
+        const { from, to, from_dir, to_dir, curve = 2, ...attr } = THEME(args, 'Edge')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
@@ -2645,8 +2645,8 @@ class Edge extends Element {
         // additional props
         this.from = from
         this.to = to
-        this.dir_from = dir_from
-        this.dir_to = dir_to
+        this.from_dir = from_dir
+        this.to_dir = to_dir
         this.curve = curve
     }
 
@@ -2661,16 +2661,16 @@ class Edge extends Element {
         // get emanation directions
         const center_from = rect_center(rect_from)
         const center_to = rect_center(rect_to)
-        const direc_from = this.dir_from ?? get_direction(center_from, center_to)
-        const direc_to = this.dir_to ?? get_direction(center_to, center_from)
+        const direc_from = this.from_dir ?? get_direction(center_from, center_to)
+        const direc_to = this.to_dir ?? get_direction(center_to, center_from)
 
         // get anchor points and tangent vectors
         const from = anchor_point(rect_from, direc_from)
         const to = anchor_point(rect_to, direc_to)
-        const dir_from = cardinal_direc(direc_from)
-        const dir_to = mul(cardinal_direc(direc_to), -1)
+        const from_dir = cardinal_direc(direc_from)
+        const to_dir = mul(cardinal_direc(direc_to), -1)
 
-        const arrowpath = new ArrowSpline({ from, to, dir_from, dir_to, spline_curve: this.curve, coord: ctx.coord, ...attr })
+        const arrowpath = new ArrowSpline({ from, to, from_dir, to_dir, spline_curve: this.curve, coord: ctx.coord, ...attr })
         return arrowpath.svg(ctx)
     }
 }

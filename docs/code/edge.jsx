@@ -2,5 +2,5 @@
 <Network node-fill={gray} edge-arrow>
   <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
   <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge from="hello" to="world" arrow-from-fill={red} arrow-to-fill={blue} />
+  <Edge from="hello" to="world" from-fill={red} to-fill={blue} />
 </Network>
