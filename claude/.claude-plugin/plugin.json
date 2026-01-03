@@ -4,5 +4,11 @@
     "version": "1.0.0",
     "author": {
         "name": "Douglas Hanley"
+    },
+    "mcpServers": {
+        "gum-tools": {
+            "command": "node",
+            "args": [ "${CLAUDE_PLUGIN_ROOT}/scripts/mcp-server.js" ]
+        }
     }
 }

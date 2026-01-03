@@ -37,10 +37,12 @@
   },
   "optionalDependencies": {
     "@mathjax/src": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.25.1",
     "@resvg/resvg-js": "file:/home/doug/src/resvg-js",
     "commander": "^14.0.0",
     "express": "^5.1.0",
     "katex": "^0.16.25",
-    "mathjax": "^4.0.0"
+    "mathjax": "^4.0.0",
+    "zod": "^4.3.4"
   }
 }
