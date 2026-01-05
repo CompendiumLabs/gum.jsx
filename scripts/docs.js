@@ -28,3 +28,14 @@ mkdirSync('src/docs', { recursive: true })
 writeFileSync('src/docs/meta.json', JSON.stringify(meta, null, 2))
 writeFileSync('src/docs/text.json', JSON.stringify(text, null, 2))
 writeFileSync('src/docs/code.json', JSON.stringify(code, null, 2))
+
+// list docs/gallery files
+const gallery_files = readdirSync('docs/gallery')
+
+// read every file in docs/gallery
+const gallery = Object.fromEntries(gallery_files.map(
+    file => [ getTag(file), readFileSync(`docs/gallery/${file}`, 'utf8') ]
+))
+
+// write to src/docs
+writeFileSync('src/docs/gallery.json', JSON.stringify(gallery, null, 2))
