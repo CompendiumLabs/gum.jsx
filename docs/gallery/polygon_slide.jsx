@@ -1,11 +1,11 @@
 const pal = palette(blue, purple, [3, 8])
 const shapes = [ [3, 'Triangle'], [4, 'Square'], [5, 'Pentagon'], [6, 'Hexagon'], [7, 'Heptagon'], [8, 'Octagon'] ]
 
-function RegularPolygon({ n, color }) {
+const RegularPolygon = ({ n, color }) => {
   const tvals = linspace(0, 2*pi, n+1)
   const fx = t => cos(t - pi/2)
   const fy = t => sin(t - pi/2)
-  return <DataPoly aspect fx={fx} fy={fy} tvals={tvals} xlim={[-1, 1]} ylim={[-1, 1]} fill={color} />
+  return <SymPoly aspect fx={fx} fy={fy} tvals={tvals} xlim={[-1, 1]} ylim={[-1, 1]} fill={color} />
 }
 
 return <Slide title="Simple Regular Polygons" wrap={25}>
