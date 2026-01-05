@@ -2589,14 +2589,14 @@ class ArrowSpline extends Group {
         // make start arrowhead
         if (from_arrow) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: pos1, rad: arrow_size, ...from_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: from, rad: arrow_size, ...from_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
         if (to_arrow) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: pos2, rad: arrow_size, ...to_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: to, rad: arrow_size, ...to_attr })
             children.push(head_end)
         }
 
