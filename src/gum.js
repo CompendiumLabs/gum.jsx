@@ -2715,7 +2715,6 @@ class Bar extends RoundedRect {
     constructor(args = {}) {
         const { direc = 'v', fill = blue, stroke = none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
         const rounded = rounded0 == true ? (direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]) : rounded0
-        console.log(direc, rounded0, rounded)
         super({ fill, stroke, rounded, ...attr })
         this.args = args
     }

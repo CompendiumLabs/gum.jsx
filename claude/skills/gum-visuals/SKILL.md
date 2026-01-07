@@ -5,15 +5,19 @@ description: Create plots, diagrams, and other visualizations with the "gum" lan
 
 # Introduction
 
-The `gum` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax, but it does not actually use React internally. When interpreted, it produces pure SVG of a specified size. Your task is to generate the appropriate `gum` JSX code to satisfy the user's request. Be sure to place the actual code inside ```jsx``` tags. Rendering of the SVG will be done on the client side.
-
-You will typically construct your figure with a combination of `Element` derived components such as `Circle`, `Stack`, `Plot`, `Network`, and many more. Some of these map closely to standard SVG objects, while others are higher level abstractions and layout containers. You can add standard SVG attributes (like `fill`, `stroke`, `stroke-width`, `opacity`, etc.) to any `Element` component and they will be applied to the resulting SVG.
+The `gum` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax, but it does not actually use React internally. When interpreted, it produces pure SVG of a specified size. It is a library of `Element` derived components such as `Circle`, `Stack`, `Plot`, `Network`, and many more. Some of these map closely to standard SVG objects, while others are higher level abstractions and layout containers. You can add standard SVG attributes (like `fill`, `stroke`, `stroke-width`, `opacity`, etc.) to any `Element` component and they will be applied to the resulting SVG.
 
 *Proportional values*: In most cases, values are passed in proportional floating point terms. So to place an object in the center of its parent, you would specify a position of `[0.5, 0.5]`. When dealing with inherently absolute concepts like `stroke-width`, standard SVG units are used, and numerical values assumed to be specified in pixels. Most `Element` objects fill the standard coordinate space `[0, 0, 1, 1]` by default. To reposition them, either pass the appropriate internal arguments (such as `pos` or `rad`) or use a layout component such as `Box` or `Stack` to arrange them.
 
 *Aspect ratio*: Any `Element` object can have an aspect ratio `aspect`. If `aspect` is not defined, it will stretch to fit any box, while if `aspect` is defined it will be sized so as to fit within the specified rectangle while maintaining its aspect ratio. However, when `expand` is set to `true`, the element will be resized so as to instead cover the specified rectangle, while maintaining its aspect ratio.
 
 *Subunit arguments*: For compound elements that inherit `Group`, some keyword arguments are passed down to the constituent parts. For instance, in [Plot](/docs/Plot), one can specify arguments intended for the `XAxis` unit by prefixing them with `xaxis-`. For example, setting the `stroke-width` for this subunit can be achieved with `xaxis-stroke-width`.
+
+# Generation
+
+Your task is to generate the appropriate `gum` JSX code to satisfy the user's request. Ideally, this can be done in an elegant and concise manner. There are `numpy`-like functions such as `range` and `linspace` for generating arrays, `zip` for combining arrays, and `palette` for interpolating colors. Additionally, you can use `map` to generate a list of elements (such as bars for a bar plot).
+
+Feel free to discuss your approach with the user before generating the code. If given no other instructions, relay the code inside ```jsx``` tags. However, you may be given tools designed specifically for code editing (such as `replace` or `patch`). In that case, there is no need to relay the code inside ```jsx``` tags. In any case, rendering of the SVG will be done on the client side.
 
 # Examples
 
@@ -40,7 +44,7 @@ Generated code:
 ```jsx
 <Frame margin={0.2}>
   <Plot aspect={2} ylim={[-1.5, 1.5]} title="Sine Wave" grid grid-stroke-dasharray={4}>
-    <DataPath fy={sin} xlim={[0, 2*pi]} />
+    <SymLine fy={sin} xlim={[0, 2*pi]} />
   </Plot>
 </Frame>
 ```

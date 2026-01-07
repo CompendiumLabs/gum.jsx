@@ -12,7 +12,7 @@ Parameters:
 - `arrow-base` = `false` — toggles whether the arrowhead base is included
 
 Subunits:
-- `arrow`/`from-arrow`/`to-arrow` — the respective arrowheads, with `arrow` being applied to both
+- `arrow`/`from`/`to` — the respective arrowheads, with `arrow` being applied to both
 - `spline` — the cubic spline path element
 
 ## Example
@@ -24,6 +24,6 @@ Generated code:
 <Network node-fill={gray} edge-arrow>
   <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
   <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge from="hello" to="world" from-arrow-fill={red} to-arrow-fill={blue} />
+  <Edge from="hello" to="world" from-fill={red} to-fill={blue} />
 </Network>
 ```

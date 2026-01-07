@@ -19,7 +19,7 @@ Prompt: A network with a node on the left saying "Hello world" and two nodes on 
 
 Generated code:
 ```jsx
-<Network aspect={1.5} node-yrad={0.15} node-rounded node-fill={gray} edge-arrow-fill={white}>
+<Network aspect={1.5} node-yrad={0.15} node-rounded node-fill={gray} edge-fill={white}>
   <Node id="hello" pos={[0.25, 0.5]} wrap={3}>Hello world</Node>
   <Node id="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</Node>
   <Node id="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>
