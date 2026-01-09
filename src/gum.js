@@ -2673,7 +2673,7 @@ function anchor_point(rect, direc) {
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { from, to, from_dir, to_dir, curve = 1, ...attr } = THEME(args, 'Edge')
+        const { from, to, from_dir, to_dir, curve = 0.6, ...attr } = THEME(args, 'Edge')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
