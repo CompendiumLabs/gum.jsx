@@ -4,7 +4,7 @@ const pal = palette(blue, red, [-1, 1])
 const size = (x, y) => 0.1 * (1+abs(y))/2
 const xticks = linspace(0, 2, 6).slice(1).map(x => [x*pi, `${rounder(x, 1)} π`])
 return <Plot xlim={[0, 2*pi]} ylim={[-1, 1]} aspect={1.5} xanchor={0} xaxis-tick-side="both" xticks={xticks} grid xlabel="phase" ylabel="amplitude" title="Inverted Sine Wave" margin={0.25}>
-  <SymLine fy={func} />
+  <SymCurve fy={func} />
   <SymPoints fy={func} size={size} N={21}>
     { (x, y) => <Circle fill={pal(y)} /> }
   </SymPoints>

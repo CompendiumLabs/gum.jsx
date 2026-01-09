@@ -1637,23 +1637,23 @@ class Pointstring extends Element {
     }
 }
 
-class Polyline extends Pointstring {
+class Curve extends Pointstring {
     constructor(args = {}) {
-        const { children, ...attr } = THEME(args, 'Polyline')
+        const { children, ...attr } = THEME(args, 'Curve')
         super({ tag: 'polyline', children, fill: none, ...attr })
         this.args = args
     }
 }
 
-class Polygon extends Pointstring {
+class Shape extends Pointstring {
     constructor(args = {}) {
-        const { children, ...attr } = THEME(args, 'Polygon')
+        const { children, ...attr } = THEME(args, 'Shape')
         super({ tag: 'polygon', children, ...attr })
         this.args = args
     }
 }
 
-class Triangle extends Polygon {
+class Triangle extends Shape {
     constructor(args = {}) {
         const { children: children0, ...attr } = THEME(args, 'Triangle')
         const children = [[0.5, 0], [1, 1], [0, 1]]
@@ -2437,9 +2437,9 @@ class SymPoints extends Group {
     }
 }
 
-class SymLine extends Polyline {
+class SymCurve extends Curve {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymCurve')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
@@ -2455,15 +2455,15 @@ class SymLine extends Polyline {
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to Polyline
+        // pass to Curve
         super({ children, coord, ...attr })
         this.args = args
     }
 }
 
-class SymPoly extends Polygon {
+class SymShape extends Shape {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymPoly')
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymShape')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
@@ -2479,13 +2479,13 @@ class SymPoly extends Polygon {
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to Polygon
+        // pass to Shape
         super({ children, coord, ...attr })
         this.args = args
     }
 }
 
-class SymFill extends Polygon {
+class SymFill extends Shape {
     constructor(args = {}) {
         const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = THEME(args, 'SymFill')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
@@ -2506,7 +2506,7 @@ class SymFill extends Polygon {
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to Polygon
+        // pass to Shape
         super({ children, stroke, fill, coord, ...attr })
         this.args = args
     }
@@ -3281,7 +3281,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3294,5 +3294,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Polyline, Polygon, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

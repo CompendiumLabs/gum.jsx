@@ -7,6 +7,6 @@
   <Rect pos={[0.5, 0.5]} rad={0.1} />
   <Circle pos={[-0.5, -0.5]} rad={0.1} />
   {[0.5, 0.9, 1.5].map(a =>
-    <SymLine fy={x => sin(a*x)} />
+    <SymCurve fy={x => sin(a*x)} />
   )}
 </Plot>
