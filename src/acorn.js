@@ -113,8 +113,10 @@ const handlers = {
     return `{ ${properties.map(walkTree).join(', ')} }`
   },
   MemberExpression(node) {
-    const { object, property } = node
-    return `${walkTree(object)}.${walkTree(property)}`
+    const { object, property, computed } = node
+    const obj = walkTree(object)
+    const prop = walkTree(property)
+    return computed ? `${obj}[${prop}]` : `${obj}.${prop}`
   },
   FunctionDeclaration(node) {
     const { id, body } = node
