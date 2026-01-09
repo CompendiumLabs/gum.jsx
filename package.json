@@ -23,9 +23,7 @@
   },
   "scripts": {
     "cli": "node src/cli.js",
-    "server": "node src/server.js",
-    "docs": "node scripts/docs.js",
-    "skill": "node scripts/skill.js"
+    "server": "node src/server.js"
   },
   "dependencies": {
     "acorn-jsx": "^5.3.2",
