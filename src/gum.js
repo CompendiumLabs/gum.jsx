@@ -1799,6 +1799,22 @@ function cubic_spline_args(pos1, pos2, dir1, dir2, curve=1) {
     return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
 }
 
+function cardinal_spline_args(pos1, pos2, tan1, tan2, curve=1) {
+    // scale tangents by curve parameter
+    const scaled_tan1 = mul(tan1, curve)
+    const scaled_tan2 = mul(tan2, curve)
+
+    // convert to Bernstein form (cubic Hermite to Bezier)
+    const con1 = add(pos1, div(scaled_tan1, 3))
+    const con2 = sub(pos2, div(scaled_tan2, 3))
+
+    // make a path command
+    const [ con1x, con1y ] = con1
+    const [ con2x, con2y ] = con2
+    const [ pos2x, pos2y ] = pos2
+    return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
+}
+
 class CubicSplineCmd extends Command {
     constructor(pos1, pos2, dir1, dir2, curve = 1) {
         super('C')
@@ -1816,6 +1832,25 @@ class CubicSplineCmd extends Command {
     }
 }
 
+class CardinalSplineCmd extends Command {
+    constructor(pos1, pos2, tan1, tan2, curve = 1) {
+        super('C')
+        this.pos1 = pos1
+        this.pos2 = pos2
+        this.tan1 = tan1
+        this.tan2 = tan2
+        this.curve = curve
+    }
+
+    args(ctx) {
+        const pos1 = ctx.mapPoint(this.pos1)
+        const pos2 = ctx.mapPoint(this.pos2)
+        const tan1 = ctx.mapSize(this.tan1)
+        const tan2 = ctx.mapSize(this.tan2)
+        return cardinal_spline_args(pos1, pos2, tan1, tan2, this.curve)
+    }
+}
+
 class CubicSpline extends Path {
     constructor(args = {}) {
         let { pos1, pos2, dir1, dir2, curve = 1, ...attr } = THEME(args, 'CubicSpline')
@@ -1826,6 +1861,40 @@ class CubicSpline extends Path {
 
         // pass to Path
         super({ children: [ move, spline ], ...attr })
+        this.args = args
+    }
+}
+
+class Spline extends Path {
+    constructor(args = {}) {
+        const { children: children0, dir0, dir1, curve = 1, ...attr } = THEME(args, 'Spline')
+        const points = ensure_array(children0)
+
+        // ensure we have at least 2 points
+        if (points == null || points.length < 2) {
+            throw new Error('Spline requires at least 2 points')
+        }
+
+        // compute tangent directions at each point (cardinal spline)
+        const n = points.length
+        const dirs = range(n).map(i => {
+            const i0 = maximum(0, i - 1)
+            const i1 = minimum(n - 1, i + 1)
+            const dir = sub(points[i1], points[i0])
+            return (i == 0)     ? (dir0 ?? dir) :
+                   (i == n - 1) ? (dir1 ?? dir) : dir
+        })
+        console.log(dirs[0], dirs[1])
+
+        // create path commands
+        const move = new MoveCmd(points[0])
+        const splines = range(n-1).map(i =>
+            new CardinalSplineCmd(points[i], points[i+1], dirs[i], dirs[i+1], curve)
+        )
+        console.log(splines[0])
+
+        // pass to Path
+        super({ children: [ move, ...splines ], ...attr })
         this.args = args
     }
 }
@@ -3281,7 +3350,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, CubicSpline, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3294,5 +3363,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, CubicSpline, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
