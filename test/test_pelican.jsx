@@ -34,11 +34,11 @@ return <TitleFrame aspect={1.5} margin={0.1} rounded clip title="Pelican Dude">
     {/* Bike Frame Structure (Red) */}
     <Group stroke={red} stroke-width={3.5} stroke-linecap="round" stroke-linejoin="round">
       <Polyline>{[ rear_axle, seat_pos, crank, rear_axle ]}</Polyline>
-      <Line pos1={seat_pos} pos2={[0.25, 0.1]} />
-      <Line pos1={[0.25, 0.1]} pos2={crank} />
-      <Line pos1={[0.25, 0.1]} pos2={front_axle} /> {/* Fork */}
-      <Line pos1={[0.25, 0.1]} pos2={handle_pos} stroke={dark_gray} /> {/* Stem */}
-      <Line pos1={[0.25, 0.25]} pos2={[0.35, 0.25]} stroke={dark_gray} /> {/* Handlebar */}
+      <Line>{[seat_pos, [0.25, 0.1]]}</Line>
+      <Line>{[[0.25, 0.1], crank]}</Line>
+      <Line>{[[0.25, 0.1], front_axle]}</Line> {/* Fork */}
+      <Line stroke={dark_gray}>{[[0.25, 0.1], handle_pos]}</Line> {/* Stem */}
+      <Line stroke={dark_gray}>{[[0.25, 0.25], [0.35, 0.25]]}</Line> {/* Handlebar */}
     </Group>
 
     {/* Seat */}
@@ -47,8 +47,8 @@ return <TitleFrame aspect={1.5} margin={0.1} rounded clip title="Pelican Dude">
     {/* --- PELICAN --- */}
 
     {/* Legs */}
-    <Line pos1={[-0.1, 0.1]} pos2={crank} stroke={orange} stroke-width={4} />
-    <Line pos1={[-0.05, 0.1]} pos2={[-0.1, -0.3]} stroke={orange} stroke-width={4} />
+    <Line stroke={orange} stroke-width={4}>{[[-0.1, 0.1], crank]}</Line>
+    <Line stroke={orange} stroke-width={4}>{[[-0.05, 0.1], [-0.1, -0.3]]}</Line>
 
     {/* Tail Feathers */}
     <Polygon fill={white} stroke={black} stroke-width={1.5}>
@@ -63,8 +63,8 @@ return <TitleFrame aspect={1.5} margin={0.1} rounded clip title="Pelican Dude">
       {[ [-0.05, 0.2], [0.12, 0.35], [0.18, 0.3], [0, 0.1] ]}
     </Polygon>
     {/* Neck Outlines */}
-    <Line pos1={[-0.05, 0.22]} pos2={[0.13, 0.37]} stroke={black} stroke-width={1.5} />
-    <Line pos1={[0.02, 0.1]} pos2={[0.18, 0.3]} stroke={black} stroke-width={1.5} />
+    <Line stroke={black} stroke-width={1.5}>{[[-0.05, 0.22], [0.13, 0.37]]}</Line>
+    <Line stroke={black} stroke-width={1.5}>{[[0.02, 0.1], [0.18, 0.3]]}</Line>
 
     {/* Head Area */}
     <Group>

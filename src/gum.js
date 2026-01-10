@@ -1471,20 +1471,32 @@ class Spacer extends Element {
 
 class Line extends Element {
     constructor(args = {}) {
-        let { pos1, pos2, ...attr } = THEME(args, 'Line')
-        super({ tag: 'line', unary: true, ...attr })
+        const { children, ...attr } = THEME(args, 'Line')
+        const points = ensure_array(children)
+
+        // use line tag for 2 points, polyline for more
+        const poly = points.length > 2
+        const tag = poly ? 'polyline' : 'line'
+
+        super({ tag, unary: true, ...attr })
         this.args = args
 
         // additional props
-        this.pos1 = pos1
-        this.pos2 = pos2
+        this.points = points
+        this.poly = poly
     }
 
     props(ctx) {
         const attr = super.props(ctx)
-        const [ x1, y1 ] = ctx.mapPoint(this.pos1)
-        const [ x2, y2 ] = ctx.mapPoint(this.pos2)
-        return { x1, y1, x2, y2, ...attr }
+        if (this.poly) {
+            const pixels = this.points.map(p => ctx.mapPoint(p))
+            const points = pointstring(pixels, ctx.prec)
+            return { points, ...attr }
+        } else {
+            const [ x1, y1 ] = ctx.mapPoint(this.points[0])
+            const [ x2, y2 ] = ctx.mapPoint(this.points[1])
+            return { x1, y1, x2, y2, ...attr }
+        }
     }
 }
 
@@ -1495,12 +1507,12 @@ class UnitLine extends Line {
 
         // construct line positions
         const [ lo, hi ] = lim
-        const [ pos1, pos2 ] = (direc == 'v') ?
+        const children = (direc == 'v') ?
             [ [ loc, lo ], [ loc, hi ] ] :
             [ [ lo, loc ], [ hi, loc ] ]
 
         // pass to Line
-        super({ pos1, pos2, ...attr })
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -1602,9 +1614,11 @@ class Ray extends Line {
         const theta = angle * d2r
         const [ x, y ] = loc
         const [ rx, ry ] = ensure_vector(size, 2)
-        const pos1 = [ x, y ]
-        const pos2 = [ x + rx * cos(theta), y + ry * sin(theta) ]
-        super({ pos1, pos2, ...attr })
+        const children = [
+            [ x, y ],
+            [ x + rx * cos(theta), y + ry * sin(theta) ]
+        ]
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -1637,14 +1651,6 @@ class Pointstring extends Element {
         const pixels = this.points.map(p => ctx.mapPoint(p))
         const points = pointstring(pixels, ctx.prec)
         return { points, ...attr }
-    }
-}
-
-class Curve extends Pointstring {
-    constructor(args = {}) {
-        const { children, ...attr } = THEME(args, 'Curve')
-        super({ tag: 'polyline', children, fill: none, ...attr })
-        this.args = args
     }
 }
 
@@ -1994,9 +2000,11 @@ class Arrow extends Group {
         if (tail != null) {
             const tail_vec = unit_vec.map(z => -tail * z)
             const tail_off = mul(unit_vec, -soff)
-            const tail_pos1 = zip(D.pos, tail_off)
-            const tail_pos2 = add(D.pos, tail_vec)
-            const tail_elem = new Line({ pos1: tail_pos1, pos2: tail_pos2, stroke_width, ...tail_attr })
+            const tail_children = [
+                zip(D.pos, tail_off),
+                add(D.pos, tail_vec)
+            ]
+            const tail_elem = new Line({ children: tail_children, stroke_width, ...tail_attr })
             children.push(tail_elem)
         }
 
@@ -2474,9 +2482,9 @@ class SymPoints extends Group {
     }
 }
 
-class SymCurve extends Curve {
+class SymLine extends Line {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymCurve')
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
@@ -2492,7 +2500,7 @@ class SymCurve extends Curve {
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to Curve
+        // pass to Line
         super({ children, coord, ...attr })
         this.args = args
     }
@@ -3318,7 +3326,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3331,5 +3339,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Curve, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymCurve, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
