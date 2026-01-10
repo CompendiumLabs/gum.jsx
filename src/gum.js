@@ -1471,12 +1471,12 @@ class Spacer extends Element {
 
 class Line extends Element {
     constructor(args = {}) {
-        const { children, ...attr } = THEME(args, 'Line')
+        const { children, closed = false, ...attr } = THEME(args, 'Line')
         const points = ensure_array(children)
 
         // use line tag for 2 points, polyline for more
-        const poly = points.length > 2
-        const tag = poly ? 'polyline' : 'line'
+        const poly = closed || points.length > 2
+        const tag = closed ? 'polygon' : (poly ? 'polyline' : 'line')
 
         super({ tag, unary: true, ...attr })
         this.args = args
@@ -1493,8 +1493,9 @@ class Line extends Element {
             const points = pointstring(pixels, ctx.prec)
             return { points, ...attr }
         } else {
-            const [ x1, y1 ] = ctx.mapPoint(this.points[0])
-            const [ x2, y2 ] = ctx.mapPoint(this.points[1])
+            const [ p1, p2 ] = this.points
+            const [ x1, y1 ] = ctx.mapPoint(p1)
+            const [ x2, y2 ] = ctx.mapPoint(p2)
             return { x1, y1, x2, y2, ...attr }
         }
     }

@@ -9,6 +9,7 @@ class ErrorNoCode extends Error {
 class ErrorParse extends Error {
     constructor(message) {
         super(`Parse error: ${message}`)
+        this.stack = message.stack
     }
 }
 
