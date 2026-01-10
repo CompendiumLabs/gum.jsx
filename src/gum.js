@@ -1834,32 +1834,32 @@ class CubicSplineCmd extends Command {
 
 class Spline extends Path {
     constructor(args = {}) {
-        const { children: children0, tan1, tan2, curve = 1, ...attr } = THEME(args, 'Spline')
+        const { children: children0, tan1, tan2, curve = 1, closed = false, ...attr } = THEME(args, 'Spline')
         const points = ensure_array(children0)
 
         // ensure we have at least 2 points
-        if (points == null || points.length < 2) {
-            throw new Error('Spline requires at least 2 points')
-        }
+        if (points == null || points.length < 2) throw new Error('Spline requires at least 2 points')
 
         // compute tangent directions at each point (cardinal spline)
         const n = points.length
         const tans = range(n).map(i => {
-            const i1 = maximum(0, i - 1)
-            const i2 = minimum(n - 1, i + 1)
+            const i1 = (closed && i == 0    ) ? n - 1 : maximum(0    , i - 1)
+            const i2 = (closed && i == n - 1) ? 0     : minimum(n - 1, i + 1)
             const tan = sub(points[i2], points[i1])
-            return (i == 0)     ? (tan1 ?? tan) :
+            return (i == 0    ) ? (tan1 ?? tan) :
                    (i == n - 1) ? (tan2 ?? tan) : tan
         })
 
         // create path commands
         const move = new MoveCmd(points[0])
-        const splines = range(n-1).map(i =>
-            new CubicSplineCmd({
-                pos1: points[i], pos2: points[i+1],
-                tan1: tans[i], tan2: tans[i+1], curve
+        const num = closed ? n : n - 1
+        const splines = range(num).map(i => {
+            const ip = (closed && i == num - 1) ? 0 : i + 1
+            return new CubicSplineCmd({
+                pos1: points[i], pos2: points[ip],
+                tan1: tans[i], tan2: tans[ip], curve
             })
-        )
+        })
 
         // pass to Path
         super({ children: [ move, ...splines ], ...attr })
