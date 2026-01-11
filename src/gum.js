@@ -86,18 +86,30 @@ function ensure_mpos(p) {
     return is_scalar(p) ? [ p, 0 ] : p
 }
 
-function add_mpos(p0, p1) {
+function add_mloc(p0, p1) {
     const [ x0, c0 ] = ensure_mpos(p0)
     const [ x1, c1 ] = ensure_mpos(p1)
     const [ x, c ] = [ x0 + x1, c0 + c1 ]
     return c == 0 ? x : [ x, c ]
 }
 
-function sub_mpos(p0, p1) {
+function sub_mloc(p0, p1) {
     const [ x0, c0 ] = ensure_mpos(p0)
     const [ x1, c1 ] = ensure_mpos(p1)
     const [ x, c ] = [ x0 - x1, c0 - c1 ]
     return c == 0 ? x : [ x, c ]
+}
+
+function add_mpos(p0, p1) {
+    const [ x0, y0 ] = p0
+    const [ x1, y1 ] = p1
+    return [ add_mloc(x0, x1), add_mloc(y0, y1) ]
+}
+
+function sub_mpos(p0, p1) {
+    const [ x0, y0 ] = p0
+    const [ x1, y1 ] = p1
+    return [ sub_mloc(x0, x1), sub_mloc(y0, y1) ]
 }
 
 //
@@ -142,13 +154,11 @@ function rect_radial(rect, absolute = false) {
     return [ cx, cy, rx, ry ]
 }
 
-function radial_rect(p, r) {
-    const [ x, y ] = p
-    const [ rx, ry ] = ensure_vector(r, 2)
-    return [
-        sub_mpos(x, rx), sub_mpos(y, ry),
-        add_mpos(x, rx), add_mpos(y, ry),
-    ]
+function radial_rect(p, r0) {
+    const r = ensure_vector(r0, 2)
+    const p0 = sub_mpos(p, r)
+    const p1 = add_mpos(p, r)
+    return [ ...p0, ...p1 ]
 }
 
 // box rect: min, size
@@ -1790,27 +1800,6 @@ class CornerCmd {
     }
 }
 
-function cubic_spline_args({ pos1, pos2, dir1, dir2, tan1, tan2, curve = 1 }) {
-    // compute scaled tangents
-    const dist = sub(pos2, pos1).map(abs)
-    tan1 ??= mul(normalize(dir1, 2), dist)
-    tan2 ??= mul(normalize(dir2, 2), dist)
-
-    // compute scaled tangents
-    const stan1 = mul(tan1, curve)
-    const stan2 = mul(tan2, curve)
-
-    // convert to Bernstein form
-    const con1 = add(pos1, div(stan1, 3))
-    const con2 = sub(pos2, div(stan2, 3))
-
-    // make a path command
-    const [ con1x, con1y ] = con1
-    const [ con2x, con2y ] = con2
-    const [ pos2x, pos2y ] = pos2
-    return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
-}
-
 class CubicSplineCmd extends Command {
     constructor(args) {
         const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 1 } = args ?? {}
@@ -1829,19 +1818,36 @@ class CubicSplineCmd extends Command {
     }
 
     args(ctx) {
+        // get mapped points and tangents
         const pos1 = ctx.mapPoint(this.pos1)
         const pos2 = ctx.mapPoint(this.pos2)
         const tan1 = ctx.mapSize(this.tan1)
         const tan2 = ctx.mapSize(this.tan2)
-        return cubic_spline_args({
-            pos1, pos2, tan1, tan2, dir1: this.dir1, dir2: this.dir2, curve: this.curve
-        })
+
+        // compute scaled tangents
+        const dist = sub(pos2, pos1).map(abs)
+        const ptan1 = this.dir1 != null ? mul(normalize(this.dir1, 2), dist) : tan1
+        const ptan2 = this.dir2 != null ? mul(normalize(this.dir2, 2), dist) : tan2
+
+        // compute scaled tangents
+        const stan1 = mul(ptan1, this.curve)
+        const stan2 = mul(ptan2, this.curve)
+
+        // convert to Bernstein form
+        const con1 = add(pos1, div(stan1, 3))
+        const con2 = sub(pos2, div(stan2, 3))
+
+        // make a path command
+        const [ con1x, con1y ] = con1
+        const [ con2x, con2y ] = con2
+        const [ pos2x, pos2y ] = pos2
+        return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
     }
 }
 
 class Spline extends Path {
     constructor(args = {}) {
-        const { children: children0, tan1, tan2, curve = 1, closed = false, ...attr } = THEME(args, 'Spline')
+        const { children: children0, dir1, dir2, curve = 1, closed = false, ...attr } = THEME(args, 'Spline')
         const points = ensure_array(children0)
 
         // ensure we have at least 2 points
@@ -1852,9 +1858,7 @@ class Spline extends Path {
         const tans = range(n).map(i => {
             const i1 = (closed && i == 0    ) ? n - 1 : maximum(0    , i - 1)
             const i2 = (closed && i == n - 1) ? 0     : minimum(n - 1, i + 1)
-            const tan = sub(points[i2], points[i1])
-            return (i == 0    ) ? (tan1 ?? tan) :
-                   (i == n - 1) ? (tan2 ?? tan) : tan
+            return sub_mpos(points[i2], points[i1])
         })
 
         // create path commands
@@ -1862,9 +1866,12 @@ class Spline extends Path {
         const num = closed ? n : n - 1
         const splines = range(num).map(i => {
             const ip = (closed && i == num - 1) ? 0 : i + 1
+            const d1 = (!closed && i == 0) ? dir1 : null
+            const d2 = (!closed && i == num - 1) ? dir2 : null
             return new CubicSplineCmd({
                 pos1: points[i], pos2: points[ip],
-                tan1: tans[i], tan2: tans[ip], curve
+                tan1: tans[i], tan2: tans[ip],
+                dir1: d1, dir2: d2, curve
             })
         })
 
@@ -2590,11 +2597,10 @@ class SymField extends SymPoints {
 //
 
 function get_direction(p1, p2) {
-    const [ x1, y1 ] = p1
-    const [ x2, y2 ] = p2
-
-    const [ dx, dy ] = [ x2 - x1, y2 - y1 ]
+    const [ dx, dy ] = sub(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
+
+    console.log(dx, dy, ax, ay)
 
     return (dy <= -ax) ? 'n' :
            (dy >=  ax) ? 's' :
@@ -2605,7 +2611,7 @@ function get_direction(p1, p2) {
 
 class ArrowSpline extends Group {
     constructor(args = {}) {
-        let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
+        let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
         let [ spline_attr, arrow_attr, from_attr, to_attr, attr ] = prefix_split(
             [ 'spline', 'arrow', 'from', 'to' ], attr0
         )
@@ -2629,7 +2635,7 @@ class ArrowSpline extends Group {
         const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) : to
 
         // make cubic spline shaft
-        const spline = new Spline({ children: [ pos1, pos2 ], tan1: dir1, tan2: dir2, coord, ...spline_attr })
+        const spline = new Spline({ children: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
         const children = [ spline ]
 
         // make start arrowhead
@@ -2682,7 +2688,7 @@ function anchor_point(rect, direc) {
 
 class Edge extends Element {
     constructor(args = {}) {
-        const { from, to, from_dir, to_dir, curve = 0.6, ...attr } = THEME(args, 'Edge')
+        const { from, to, from_dir, to_dir, ...attr } = THEME(args, 'Edge')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
@@ -2693,7 +2699,6 @@ class Edge extends Element {
         this.to = to
         this.from_dir = from_dir
         this.to_dir = to_dir
-        this.curve = curve
     }
 
     svg(ctx) {
@@ -2707,8 +2712,10 @@ class Edge extends Element {
         // get emanation directions
         const center_from = rect_center(rect_from)
         const center_to = rect_center(rect_to)
-        const direc_from = this.from_dir ?? get_direction(center_from, center_to)
-        const direc_to = this.to_dir ?? get_direction(center_to, center_from)
+        const pcenter_from = ctx.mapPoint(center_from)
+        const pcenter_to = ctx.mapPoint(center_to)
+        const direc_from = this.from_dir ?? get_direction(pcenter_from, pcenter_to)
+        const direc_to = this.to_dir ?? get_direction(pcenter_to, pcenter_from)
 
         // get anchor points and tangent vectors
         const from = anchor_point(rect_from, direc_from)
@@ -2716,7 +2723,7 @@ class Edge extends Element {
         const from_dir = cardinal_direc(direc_from)
         const to_dir = mul(cardinal_direc(direc_to), -1)
 
-        const arrowpath = new ArrowSpline({ from, to, from_dir, to_dir, spline_curve: this.curve, coord: ctx.coord, ...attr })
+        const arrowpath = new ArrowSpline({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
         return arrowpath.svg(ctx)
     }
 }
