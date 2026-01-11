@@ -2600,8 +2600,6 @@ function get_direction(p1, p2) {
     const [ dx, dy ] = sub(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
 
-    console.log(dx, dy, ax, ay)
-
     return (dy <= -ax) ? 'n' :
            (dy >=  ax) ? 's' :
            (dx >=  ay) ? 'e' :
