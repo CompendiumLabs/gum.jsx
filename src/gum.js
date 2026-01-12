@@ -82,34 +82,44 @@ const bold = new NamedNumber('bold', C.bold)
 // metaposition arithmetic
 //
 
-function ensure_mpos(p) {
+function ensure_mloc(p) {
     return is_scalar(p) ? [ p, 0 ] : p
 }
 
-function add_mloc(p0, p1) {
-    const [ x0, c0 ] = ensure_mpos(p0)
-    const [ x1, c1 ] = ensure_mpos(p1)
+function add_mloc(p0, p1, trim = false) {
+    const [ x0, c0 ] = ensure_mloc(p0)
+    const [ x1, c1 ] = ensure_mloc(p1)
     const [ x, c ] = [ x0 + x1, c0 + c1 ]
-    return c == 0 ? x : [ x, c ]
+    return (c == 0 || trim) ? x : [ x, c ]
 }
 
-function sub_mloc(p0, p1) {
-    const [ x0, c0 ] = ensure_mpos(p0)
-    const [ x1, c1 ] = ensure_mpos(p1)
+function sub_mloc(p0, p1, trim = false) {
+    const [ x0, c0 ] = ensure_mloc(p0)
+    const [ x1, c1 ] = ensure_mloc(p1)
     const [ x, c ] = [ x0 - x1, c0 - c1 ]
-    return c == 0 ? x : [ x, c ]
+    return (c == 0 || trim) ? x : [ x, c ]
 }
 
-function add_mpos(p0, p1) {
-    const [ x0, y0 ] = p0
-    const [ x1, y1 ] = p1
-    return [ add_mloc(x0, x1), add_mloc(y0, y1) ]
+function ensure_mpos(p) {
+    return p.map(ensure_mloc)
 }
 
-function sub_mpos(p0, p1) {
+function add_mpos(p0, p1, trim = false) {
     const [ x0, y0 ] = p0
     const [ x1, y1 ] = p1
-    return [ sub_mloc(x0, x1), sub_mloc(y0, y1) ]
+    return [
+        add_mloc(x0, x1, trim),
+        add_mloc(y0, y1, trim),
+    ]
+}
+
+function sub_mpos(p0, p1, trim = false) {
+    const [ x0, y0 ] = p0
+    const [ x1, y1 ] = p1
+    return [
+        sub_mloc(x0, x1, trim),
+        sub_mloc(y0, y1, trim),
+    ]
 }
 
 //
@@ -1818,16 +1828,18 @@ class CubicSplineCmd extends Command {
     }
 
     args(ctx) {
-        // get mapped points and tangents
+        // get mapped points
         const pos1 = ctx.mapPoint(this.pos1)
         const pos2 = ctx.mapPoint(this.pos2)
-        const tan1 = ctx.mapSize(this.tan1)
-        const tan2 = ctx.mapSize(this.tan2)
 
-        // compute scaled tangents
-        const dist = sub(pos2, pos1).map(abs)
-        const ptan1 = this.dir1 != null ? mul(normalize(this.dir1, 2), dist) : tan1
-        const ptan2 = this.dir2 != null ? mul(normalize(this.dir2, 2), dist) : tan2
+        // use dir if provided, otherwise use tan
+        const dist = sub_mpos(this.pos2, this.pos1, true).map(abs)
+        const tan1 = this.dir1 != null ? mul(this.dir1, dist) : this.tan1
+        const tan2 = this.dir2 != null ? mul(this.dir2, dist) : this.tan2
+
+        // get mapped tangents
+        const ptan1 = ctx.mapSize(tan1)
+        const ptan2 = ctx.mapSize(tan2)
 
         // compute scaled tangents
         const stan1 = mul(ptan1, this.curve)
