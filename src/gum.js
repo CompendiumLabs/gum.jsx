@@ -3201,15 +3201,14 @@ class Plot extends Box {
         title_attr = { size: title_size, offset: title_offset, ...title_attr }
 
         // collect axis elements
-        const bg_elems = []
-        const fg_elems = []
+        const decor = []
 
         // default xaxis generation
         if (xaxis === true) {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
             xaxis = new HAxis({ ticks: xticks, lim: xlim, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
-            fg_elems.push(xaxis)
+            decor.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
         }
@@ -3219,7 +3218,7 @@ class Plot extends Box {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
             yaxis = new VAxis({ ticks: yticks, lim: ylim, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
-            fg_elems.push(yaxis)
+            decor.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
         }
@@ -3228,7 +3227,7 @@ class Plot extends Box {
         if (xgrid != null) {
             const locs = is_array(xgrid) ? xgrid : (xaxis != null) ? xaxis.locs : null
             xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
-            bg_elems.push(xgrid)
+            decor.unshift(xgrid)
         } else {
             xgrid = null
         }
@@ -3237,16 +3236,15 @@ class Plot extends Box {
         if (ygrid != null) {
             const locs = is_array(ygrid) ? ygrid : (yaxis != null) ? yaxis.locs : null
             ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
-            bg_elems.push(ygrid)
+            decor.unshift(ygrid)
         } else {
             ygrid = null
         }
 
         // create graph from core elements
-        const elems1 = [ ...bg_elems, ...elems ].filter(z => z != null)
-        const graph = new Graph({ children: elems1, coord, aspect: null, clip })
-        const fg_graph = new Graph({ children: fg_elems, coord, aspect: null })
-        const children = [ graph, fg_graph ]
+        const de_graph = new Graph({ children: decor, coord, aspect: null })
+        const el_graph = new Graph({ children: elems, coord, aspect: null, clip })
+        const children = [ de_graph, el_graph ]
 
         // optional xaxis label
         if (xlabel != null) {
