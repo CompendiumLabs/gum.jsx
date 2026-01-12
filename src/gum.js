@@ -2401,7 +2401,7 @@ class Equation extends Latex {
 // symbolic plotters
 //
 
-// GRAPHABLE ELEMENTS: SymPoints, SymLine, SymPoly, SymFill, SymField
+// GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
 // they should compute their coordinate limits and report them in coord (for Graph)
 
