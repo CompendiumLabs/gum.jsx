@@ -850,6 +850,14 @@ function children_rect(children, offset = false) {
     return merge_points(verts)
 }
 
+function children_aspect(children) {
+    if (children.length == 1) {
+        const { aspect } = children[0].spec
+        return aspect
+    }
+    return null
+}
+
 function makeUID(prefix) {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -863,7 +871,7 @@ class Group extends Element {
         const clip = clip0 === true ? new Rect() : clip0
 
         // automatic aspect and coord detection
-        const aspect = aspect0 == 'auto' ? rect_aspect(children_rect(children)) : aspect0
+        const aspect = aspect0 == 'auto' ? children_aspect(children) : aspect0
         const coord = coord0 == 'auto' ? children_rect(children) : coord0
 
         // create debug boxes
@@ -993,7 +1001,7 @@ class Svg extends Group {
         const size_base = ensure_vector(size0, 2)
 
         // precompute aspect info
-        const aspect = aspect0 == 'auto' ? rect_aspect(children_rect(children)) : aspect0
+        const aspect = aspect0 == 'auto' ? children_aspect(children) : aspect0
         const [ width, height ] = embed_size(size_base, { aspect })
 
         // compute outer viewBox
@@ -1812,7 +1820,7 @@ class CornerCmd {
 
 class CubicSplineCmd extends Command {
     constructor(args) {
-        const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 1 } = args ?? {}
+        const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 } = args ?? {}
 
         // pass to Command
         super('C')
@@ -1828,38 +1836,36 @@ class CubicSplineCmd extends Command {
     }
 
     args(ctx) {
-        // get mapped points
-        const pos1 = ctx.mapPoint(this.pos1)
-        const pos2 = ctx.mapPoint(this.pos2)
-
         // use dir if provided, otherwise use tan
         const dist = sub_mpos(this.pos2, this.pos1, true).map(abs)
         const tan1 = this.dir1 != null ? mul(this.dir1, dist) : this.tan1
         const tan2 = this.dir2 != null ? mul(this.dir2, dist) : this.tan2
 
-        // get mapped tangents
-        const ptan1 = ctx.mapSize(tan1)
-        const ptan2 = ctx.mapSize(tan2)
-
         // compute scaled tangents
-        const stan1 = mul(ptan1, this.curve)
-        const stan2 = mul(ptan2, this.curve)
+        const stan1 = mul(tan1, this.curve)
+        const stan2 = mul(tan2, this.curve)
+
+        // get mapped points and tangents
+        const ppos1 = ctx.mapPoint(this.pos1)
+        const ppos2 = ctx.mapPoint(this.pos2)
+        const ptan1 = ctx.mapSize(stan1)
+        const ptan2 = ctx.mapSize(stan2)
 
         // convert to Bernstein form
-        const con1 = add(pos1, div(stan1, 3))
-        const con2 = sub(pos2, div(stan2, 3))
+        const pcon1 = add(ppos1, div(ptan1, 3))
+        const pcon2 = sub(ppos2, div(ptan2, 3))
 
         // make a path command
-        const [ con1x, con1y ] = con1
-        const [ con2x, con2y ] = con2
-        const [ pos2x, pos2y ] = pos2
+        const [ con1x, con1y ] = pcon1
+        const [ con2x, con2y ] = pcon2
+        const [ pos2x, pos2y ] = ppos2
         return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
     }
 }
 
 class Spline extends Path {
     constructor(args = {}) {
-        const { children: children0, dir1, dir2, curve = 0.5, closed = false, ...attr } = THEME(args, 'Spline')
+        const { children: children0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
         const points = ensure_array(children0)
 
         // compute tangent directions at each point (cardinal spline)
@@ -2525,7 +2531,7 @@ class SymLine extends Line {
 
 class SymSpline extends Spline {
     constructor(args = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, curve = 1, ...attr } = THEME(args, 'SymSpline')
+        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, curve, ...attr } = THEME(args, 'SymSpline')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute path values
