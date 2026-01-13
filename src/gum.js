@@ -441,12 +441,17 @@ function hexToRgba(hex) {
     return [ r, g, b, a / 255 ]
 }
 
+function rgba_repr(rgba, prec = D.prec) {
+    const [ r, g, b, a ] = rgba
+    return `rgba(${rounder(r, prec)}, ${rounder(g, prec)}, ${rounder(b, prec)}, ${rounder(a, prec)})`
+}
+
 function interp(start0, stop0, x) {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
     const slope = sub(stop, start)
-    const [ r, g, b, a ] = add(start, mul(slope, x))
-    return `rgba(${r}, ${g}, ${b}, ${a})`
+    const color = add(start, mul(slope, x))
+    return rgba_repr(color)
 }
 
 function palette(start0, stop0, clim = D.lim) {
@@ -456,8 +461,8 @@ function palette(start0, stop0, clim = D.lim) {
     const scale = rescaler(clim, D.lim)
     function gradient(x) {
         const x1 = scale(x)
-        const [ r, g, b, a ] = add(start, mul(slope, x1))
-        return `rgba(${r}, ${g}, ${b}, ${a})`
+        const c = add(start, mul(slope, x1))
+        return rgba_repr(c)
     }
     return gradient
 }
@@ -1656,7 +1661,7 @@ class Ray extends Line {
 // point strings
 //
 
-function pointstring(pixels, prec = 2) {
+function pointstring(pixels, prec = D.prec) {
     return pixels.map(([ x, y ]) =>
         `${rounder(x, prec)},${rounder(y, prec)}`
     ).join(' ')
@@ -1856,10 +1861,7 @@ class CubicSplineCmd extends Command {
         const pcon2 = sub(ppos2, div(ptan2, 3))
 
         // make a path command
-        const [ con1x, con1y ] = pcon1
-        const [ con2x, con2y ] = pcon2
-        const [ pos2x, pos2y ] = ppos2
-        return `${con1x},${con1y} ${con2x},${con2y} ${pos2x},${pos2y}`
+        return pointstring([pcon1, pcon2, ppos2], ctx.prec)
     }
 }
 
