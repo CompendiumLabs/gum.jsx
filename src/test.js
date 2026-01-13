@@ -26,11 +26,11 @@ async function cmdSizing(text, { chunks, family, weight, size }) {
 }
 
 // get options from commander
-program.command('evaluate', )
+program.command('eval', )
   .option('-d, --debug', 'debug mode', false)
   .action(cmdEvaluate)
 
-program.command('sizing')
+program.command('size')
   .argument('<text>', 'text to size')
   .option('-f, --family <family>', 'font family', 'IBM Plex Sans')
   .option('-w, --weight <weight>', 'font weight', 'normal')

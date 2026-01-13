@@ -8,7 +8,7 @@ class ErrorNoCode extends Error {
 
 class ErrorParse extends Error {
     constructor(message) {
-        super(`Parse error: ${message}`)
+        super(message)
         this.stack = message.stack
     }
 }

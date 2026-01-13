@@ -1521,6 +1521,7 @@ class Line extends Element {
 
     props(ctx) {
         const attr = super.props(ctx)
+        if (this.points.length < 2) return attr
         if (this.poly) {
             const pixels = this.points.map(p => ctx.mapPoint(p))
             const points = pointstring(pixels, ctx.prec)
