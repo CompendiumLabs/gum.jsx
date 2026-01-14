@@ -3125,7 +3125,7 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args = {}) {
-        let { children: children0, xlim, ylim, coord = 'auto', aspect = 'auto', padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
+        let { children: children0, xlim, ylim, coord = 'auto', aspect = null, padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
         const elems = ensure_array(children0)
 
         // get default outer limits
@@ -3153,7 +3153,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, axis = true, xaxis = null, yaxis = null, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis = null, yaxis = null, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0, clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
