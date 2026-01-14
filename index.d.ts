@@ -1195,11 +1195,13 @@ declare module 'gum' {
 
   /** Array of all exported keys */
   export const KEYS: string[];
+}
 
-  // =============================================================================
-  // Evaluation (from eval.js)
-  // =============================================================================
+// =============================================================================
+// Evaluation (from eval.js)
+// =============================================================================
 
+declare module 'gum/eval' {
   export interface EvaluateOptions {
     theme?: ThemeName | null;
     debug?: boolean;
@@ -1208,11 +1210,13 @@ declare module 'gum' {
 
   /** Evaluate gum JSX code and return an Svg element */
   export function evaluateGum(code: string, options?: EvaluateOptions): Svg;
+}
 
-  // =============================================================================
-  // Rendering (from render.js)
-  // =============================================================================
+// =============================================================================
+// Rendering (from render.js)
+// =============================================================================
 
+declare module 'gum/render' {
   export interface RenderOptions {
     size?: number | Point;
     background?: string;
@@ -1239,11 +1243,13 @@ declare module 'gum' {
     makeCanvas(size?: Point, options?: { dpr?: number | null }): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D };
     renderPng(svg: string, options?: RenderOptions): Promise<Blob>;
   }
+}
 
-  // =============================================================================
-  // Error Types (from types.js)
-  // =============================================================================
+// =============================================================================
+// Error Types (from types.js)
+// =============================================================================
 
+declare module 'gum/types' {
   /** Error when no code is provided */
   export class ErrorNoCode extends Error {
     constructor();

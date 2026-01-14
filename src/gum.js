@@ -3230,7 +3230,7 @@ class Plot extends Box {
 
         // automatic xgrid generation
         if (xgrid != null) {
-            const locs = (grid === true && xaxis != null) ? xaxis.locs : xgrid
+            const locs = (xgrid === true && xaxis != null) ? xaxis.locs : xgrid
             xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
             decor.unshift(xgrid)
         } else {
@@ -3239,7 +3239,7 @@ class Plot extends Box {
 
         // automatic ygrid generation
         if (ygrid != null) {
-            const locs = (grid === true && yaxis != null) ? yaxis.locs : ygrid
+            const locs = (ygrid === true && yaxis != null) ? yaxis.locs : ygrid
             ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
             decor.unshift(ygrid)
         } else {
