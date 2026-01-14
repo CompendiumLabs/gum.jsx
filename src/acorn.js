@@ -131,6 +131,10 @@ const handlers = {
     const { params, body } = node
     return `(${params.map(walkTree).join(', ')}) => ${walkTree(body)}`
   },
+  ConditionalExpression(node) {
+    const { test, consequent, alternate } = node
+    return `(${walkTree(test)}) ? ${walkTree(consequent)} : ${walkTree(alternate)}`
+  },
   Super(node) {
     return 'super'
   },
