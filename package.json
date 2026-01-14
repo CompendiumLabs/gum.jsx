@@ -11,10 +11,14 @@
   },
   "license": "MIT",
   "files": [
-    "src"
+    "src",
+    "index.d.ts"
   ],
   "exports": {
-    ".": "./src/gum.js",
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/gum.js"
+    },
     "./types": "./src/types.js",
     "./eval": "./src/eval.js",
     "./render": "./src/render.js",
