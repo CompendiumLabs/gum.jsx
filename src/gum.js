@@ -1752,7 +1752,7 @@ class MoveCmd extends Command {
 
     args(ctx) {
         const [ x, y ] = ctx.mapPoint(this.pos)
-        return `${rounder(x, ctx.prec)} ${rounder(y, ctx.prec)}`
+        return `${rounder(x, ctx.prec)},${rounder(y, ctx.prec)}`
     }
 }
 
@@ -1764,7 +1764,7 @@ class LineCmd extends Command {
 
     args(ctx) {
         const [ x, y ] = ctx.mapPoint(this.pos)
-        return `${rounder(x, ctx.prec)} ${rounder(y, ctx.prec)}`
+        return `${rounder(x, ctx.prec)},${rounder(y, ctx.prec)}`
     }
 }
 
@@ -1780,7 +1780,7 @@ class ArcCmd extends Command {
     args(ctx) {
         const [ x1, y1 ] = ctx.mapPoint(this.pos)
         const [ rx, ry ] = ctx.mapSize(this.rad)
-        return `${rounder(rx, ctx.prec)} ${rounder(ry, ctx.prec)} 0 ${this.large} ${this.sweep} ${rounder(x1, ctx.prec)} ${rounder(y1, ctx.prec)}`
+        return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large} ${this.sweep} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
     }
 }
 
@@ -1817,9 +1817,9 @@ class CornerCmd {
 
         // full command
         return (
-            ((diag != wide) ? `L ${rounder(x0p, ctx.prec)} ${rounder(y0p, ctx.prec)} ` : '')
-            + `A ${rounder(rad, ctx.prec)} ${rounder(rad, ctx.prec)} 0 0 0 ${rounder(x1p, ctx.prec)} ${rounder(y1p, ctx.prec)} `
-            + ((diag == wide) ? `L ${rounder(x1, ctx.prec)} ${rounder(y1, ctx.prec)} ` : '')
+            ((diag != wide) ? `L ${rounder(x0p, ctx.prec)},${rounder(y0p, ctx.prec)} ` : '')
+            + `A ${rounder(rad, ctx.prec)},${rounder(rad, ctx.prec)} 0 0 0 ${rounder(x1p, ctx.prec)},${rounder(y1p, ctx.prec)} `
+            + ((diag == wide) ? `L ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)} ` : '')
         )
     }
 }
@@ -3153,7 +3153,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args = {}) {
         let {
-            children: children0, xlim, ylim, xaxis = true, yaxis = true, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis = null, yaxis = null, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
@@ -3173,7 +3173,9 @@ class Plot extends Box {
         xanchor ??= ymin
         yanchor ??= xmin
 
-        // default grid values
+        // default boolean values
+        xaxis ??= axis
+        yaxis ??= axis
         xgrid ??= grid
         ygrid ??= grid
 
@@ -3228,7 +3230,7 @@ class Plot extends Box {
 
         // automatic xgrid generation
         if (xgrid != null) {
-            const locs = is_array(xgrid) ? xgrid : (xaxis != null) ? xaxis.locs : null
+            const locs = (grid === true && xaxis != null) ? xaxis.locs : xgrid
             xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
             decor.unshift(xgrid)
         } else {
@@ -3237,7 +3239,7 @@ class Plot extends Box {
 
         // automatic ygrid generation
         if (ygrid != null) {
-            const locs = is_array(ygrid) ? ygrid : (yaxis != null) ? yaxis.locs : null
+            const locs = (grid === true && yaxis != null) ? yaxis.locs : ygrid
             ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
             decor.unshift(ygrid)
         } else {
