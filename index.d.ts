@@ -1255,11 +1255,6 @@ declare module 'gum/types' {
     constructor();
   }
 
-  /** Error during parsing */
-  export class ErrorParse extends Error {
-    constructor(message: Error | string);
-  }
-
   /** Error when code returns nothing */
   export class ErrorNoReturn extends Error {
     constructor();
@@ -1269,15 +1264,5 @@ declare module 'gum/types' {
   export class ErrorNoElement extends Error {
     value: any;
     constructor(value: any);
-  }
-
-  /** Error during generation */
-  export class ErrorGenerate extends Error {
-    constructor(message: string);
-  }
-
-  /** Error during rendering */
-  export class ErrorRender extends Error {
-    constructor(message: string);
   }
 }

@@ -6,13 +6,6 @@ class ErrorNoCode extends Error {
     }
 }
 
-class ErrorParse extends Error {
-    constructor(message) {
-        super(message)
-        this.stack = message.stack
-    }
-}
-
 class ErrorNoReturn extends Error {
     constructor() {
         super()
@@ -38,4 +31,4 @@ class ErrorRender extends Error {
     }
 }
 
-export { ErrorNoCode, ErrorParse, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender }
+export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender }

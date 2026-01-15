@@ -1,7 +1,7 @@
 // code evaluation
 
 import { is_element, setTheme, Svg } from './gum.js'
-import { ErrorNoCode, ErrorParse, ErrorNoReturn, ErrorNoElement } from './types.js'
+import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from './types.js'
 import { runJSX } from './acorn.js'
 
 //
@@ -9,8 +9,6 @@ import { runJSX } from './acorn.js'
 //
 
 function evaluateGum(code, { theme = null, debug = false, ...args } = {}) {
-  let element
-
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
@@ -22,32 +20,24 @@ function evaluateGum(code, { theme = null, debug = false, ...args } = {}) {
   }
 
   // parse to property tree
-  try {
-    element = runJSX(code, debug)
-  } catch (err) {
-    throw new ErrorParse(err)
-  }
+  const result = runJSX(code, debug)
 
   // check if its actually a tree
-  if (!is_element(element)) {
-    if (element == null) {
+  if (!is_element(result)) {
+    if (result == null) {
       throw new ErrorNoReturn()
     } else {
-      throw new ErrorNoElement(element)
+      throw new ErrorNoElement(result)
     }
   }
 
   // wrap it in Svg if not already
-  try {
-    if (!(element instanceof Svg)) {
-      element = new Svg({ children: element, ...args })
-    }
-  } catch (err) {
-    throw new ErrorParse(err)
+  if (!(result instanceof Svg)) {
+    return new Svg({ children: result, ...args })
   }
 
-  // return element
-  return element
+  // return result
+  return result
 }
 
 //

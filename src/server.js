@@ -4,7 +4,7 @@ import express from 'express'
 import { program } from 'commander'
 import { evaluateGum } from './eval.js'
 import { canvas } from './canvas.js'
-import { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorParse } from './eval.js'
+import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from './eval.js'
 
 class ErrorGenerate extends Error {
   constructor(error) {
@@ -29,14 +29,8 @@ function parseError(error) {
     return 'ERR_NORETURN: No return value'
   } else if (error instanceof ErrorNoElement) {
     return `ERR_NOELEMENT: Return value ${JSON.stringify(error.value)}`
-  } else if (error instanceof ErrorParse) {
-    return `ERR_PARSE: ${error.error.message}`
-  } else if (error instanceof ErrorGenerate) {
-    return `ERR_GENERATE: ${error.error.message}`
-  } else if (error instanceof ErrorRender) {
-    return `ERR_RENDER: ${error.error.message}`
   } else {
-    return `ERR_UNKNOWN: ${error.message}`
+    return `ERR_EVALUATE: ${error.message}`
   }
 }
 

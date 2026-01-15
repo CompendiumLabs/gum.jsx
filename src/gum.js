@@ -1636,7 +1636,9 @@ class Circle extends Ellipse {
 
 class Dot extends Circle {
     constructor(args = {}) {
-        const { stroke = 'black', fill = 'black', ...attr } = THEME(args, 'Dot')
+        const { color = 'black', stroke: stroke0 = null, fill: fill0 = null, ...attr } = THEME(args, 'Dot')
+        const stroke = stroke0 ?? color
+        const fill = fill0 ?? color
         super({ stroke, fill, ...attr })
         this.args = args
     }
@@ -3030,7 +3032,8 @@ class BoxLabel extends Attach {
         const { children: children0, size, offset, side, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
-        const label = is_element(text) ? text : new TextSpan({ children: text, ...attr })
+        const label0 = is_element(text) ? text : new TextSpan({ children: text, ...attr })
+        const label = (side == 'left' || side == 'right') ? label0.clone({ rotate: -90 }) : label0
         super({ children: label, side, size, offset, ...spec })
         this.args = args
     }
@@ -3058,6 +3061,30 @@ class VMesh extends Mesh {
     constructor(args = {}) {
         const { ...attr } = THEME(args, 'VMesh')
         super({ direc: 'v', ...attr })
+        this.args = args
+    }
+}
+
+class Mesh2D extends Group {
+    constructor(args = {}) {
+        let { children: children0, locs = 10, xlocs = null, ylocs = null, direc = 'h', xlim = D.lim, ylim = D.lim, xspan = null, yspan = null, ...attr } = THEME(args, 'Mesh2D')
+
+        // set default values
+        xlocs ??= locs
+        ylocs ??= locs
+        xspan ??= xlim
+        yspan ??= ylim
+
+        // convert locs to arrays
+        xlocs = is_scalar(xlocs) ? linspace(...xlim, xlocs) : xlocs
+        ylocs = is_scalar(ylocs) ? linspace(...ylim, ylocs) : ylocs
+
+        // create meshes
+        const hmesh = new HMesh({ locs: xlocs, span: yspan, lim: xlim, ...attr })
+        const vmesh = new VMesh({ locs: ylocs, span: xspan, lim: ylim, ...attr })
+
+        // pass to Group
+        super({ children: [ hmesh, vmesh ], ...attr })
         this.args = args
     }
 }
@@ -3264,7 +3291,7 @@ class Plot extends Box {
 
         // optional yaxis label
         if (ylabel != null) {
-            const ylabel_text = new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
+            const ylabel_text = is_element(ylabel) ? ylabel : new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
             ylabel = new BoxLabel({ children: ylabel_text, side: 'left', debug, ...ylabel_attr })
             children.push(ylabel)
         }
@@ -3389,7 +3416,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3402,5 +3429,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }
