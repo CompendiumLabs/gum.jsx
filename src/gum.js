@@ -29,9 +29,8 @@ function check_singleton(children) {
 function check_string(children) {
     const child = check_singleton(children)
     if (child == null) return ''
-    if (!is_string(child)) {
-        throw new Error('Child must be a string')
-    }
+    if (is_scalar(child)) return child.toString()
+    if (!is_string(child)) throw new Error('Child must be a string')
     return child
 }
 
@@ -2141,6 +2140,12 @@ function compress_spans(children, font_args = {}) {
     return children.flatMap((child, i) => {
         const first_child = i == 0
         const last_child = i == children.length - 1
+
+        // convert scalars to strings
+        if (is_scalar(child)) child = child.toString()
+
+        // process strings into TextSpan
+        // process Text into TextSpan's
         if (is_string(child)) {
             if (first_child) child = child.trimStart()
             if (!last_child) child = ensure_tail(child)
@@ -3290,18 +3295,21 @@ class BarPlot extends Plot {
             return new Bar({ label, size, ...bar_attr })
         })
 
+        // separate out bars and not-bars
+        const yes_bars = sibs.filter(child => child instanceof Bar)
+        const not_bars = sibs.filter(child => !(child instanceof Bar))
+
         // extract labels and create bars
-        const labs = sibs.map(child => child.attr.label)
-        const bars = new Bars({ children: sibs, direc, ...bar_attr })
+        const labs = yes_bars.map(child => child.attr.label)
+        const bars = new Bars({ children: yes_bars, direc, ...bar_attr })
 
         // determine axis ticks
         const tickdir = direc === 'v' ? 'x' : 'y'
-        const itickdir = tickdir === 'x' ? 'y' : 'x'
         const [ tname, ticks ] = [ `${tickdir}ticks`, enumerate(labs) ]
-        const [ lname, limit ] = [ `${tickdir}lim`, [ -0.75, children.length - 0.25 ] ]
+        const [ lname, limit ] = [ `${tickdir}lim`, [ -0.75, yes_bars.length - 0.25 ] ]
 
         // pass on to Plot
-        super({ children: bars, [tname]: ticks, [lname]: limit, aspect, xtick_side, ...attr })
+        super({ children: [ bars, ...not_bars ], [tname]: ticks, [lname]: limit, aspect, xtick_side, ...attr })
         this.args = args
     }
 }
@@ -3312,14 +3320,14 @@ class BarPlot extends Plot {
 
 // TODO: use mask to clip frame for title box (then we can make it transparent)
 // TODO: title doesn't get rotated on spin
-class TitleFrame extends Box {
+class TitleBox extends Box {
     constructor(args = {}) {
-        const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleFrame')
-        const child = check_singleton(children0)
+        const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleBox')
+        const children = ensure_array(children0)
         const [ title_attr, attr ] = prefix_split(['title'], attr0)
 
-        // make outer box
-        const box = new Frame({ children: child, ...attr })
+        // make inner box
+        const box = new Box({ children, ...attr })
 
         // make optional title box
         let title_box = null
@@ -3331,6 +3339,14 @@ class TitleFrame extends Box {
 
         // pass to Box for margin
         super({ children: [ box, title_box ], margin })
+        this.args = args
+    }
+}
+
+class TitleFrame extends TitleBox {
+    constructor(args = {}) {
+        const { border = 1, ...attr } = THEME(args, 'TitleFrame')
+        super({ border, ...attr })
         this.args = args
     }
 }
@@ -3373,7 +3389,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3386,5 +3402,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, sum, prod, exp, log, sin, cos, tan, min, max, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

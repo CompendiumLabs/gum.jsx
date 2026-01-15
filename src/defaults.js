@@ -101,7 +101,7 @@ const THEME_LIGHT = {
         color: C.black,
     },
 
-    TitleFrame: {
+    TitleBox: {
         title_fill: C.white,
     },
 
@@ -129,7 +129,7 @@ const THEME_DARK = {
         color: C.white,
     },
 
-    TitleFrame: {
+    TitleBox: {
         title_fill: '#333',
     },
 
