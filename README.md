@@ -2,7 +2,7 @@
 <img src="src/image/logo.svg" alt="logo" width="500" />
 </div>
 
-<div align="center">
+<div align="center" style="margin-top: 10px; margin-bottom: 30px;">
 <img src="src/image/nexus.svg" alt="nexus" width="250" />
 </div>
 
