@@ -1,4 +1,4 @@
-// gum express server
+#! /usr/bin/env node
 
 import express from 'express'
 import { program } from 'commander'

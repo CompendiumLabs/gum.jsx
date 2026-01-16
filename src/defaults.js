@@ -117,8 +117,7 @@ const THEME_DARK = {
     },
 
     Dot: {
-        fill: C.white,
-        stroke: C.white,
+        color: C.white,
     },
 
     TextSpan: {

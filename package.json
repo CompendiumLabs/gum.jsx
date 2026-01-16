@@ -29,6 +29,10 @@
     "cli": "node src/cli.js",
     "server": "node src/server.js"
   },
+  "bin": {
+    "gum": "./src/cli.js",
+    "gum-server": "./src/server.js"
+  },
   "dependencies": {
     "acorn-jsx": "^5.3.2",
     "emojibase-regex": "^17.0.0",

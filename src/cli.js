@@ -1,4 +1,4 @@
-// gum cli
+#! /usr/bin/env node
 
 import { program } from 'commander'
 import { waitForStdin } from './node.js'

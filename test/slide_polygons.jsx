@@ -5,7 +5,7 @@ function RegularPolygon({ n, color }) {
   const tvals = linspace(0, 2*pi, n+1)
   const fx = t => cos(t - pi/2)
   const fy = t => sin(t - pi/2)
-  return <DataPoly aspect fx={fx} fy={fy} tvals={tvals} xlim={[-1, 1]} ylim={[-1, 1]} fill={color} />
+  return <SymShape aspect fx={fx} fy={fy} tvals={tvals} xlim={[-1, 1]} ylim={[-1, 1]} fill={color} />
 }
 
 return <Slide title="Simple Regular Polygons" wrap={23}>

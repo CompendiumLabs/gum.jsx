@@ -2178,7 +2178,7 @@ function compress_spans(children, font_args = {}) {
 // wrap text or elements to multiple lines with fixed line height
 class Text extends HWrap {
     constructor(args = {}) {
-        const { children: children0, wrap = null, spacing = 0.1, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
+        const { children: children0, wrap = null, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
         const items = ensure_array(children0)
     	const [ spec, attr ] = spec_split(attr0)
 
@@ -2186,7 +2186,7 @@ class Text extends HWrap {
         const spans = compress_spans(items, attr)
 
         // pass to HWrap
-        super({ children: spans, spacing, justify, wrap, debug, ...spec })
+        super({ children: spans, spacing, padding, justify, wrap, debug, ...spec })
         this.args = args
 
         // additional props
