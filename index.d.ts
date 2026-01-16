@@ -7,28 +7,28 @@ declare module 'gum' {
   // =============================================================================
 
   /** A point in 2D space [x, y] */
-  export type Point = [number, number];
+  export type point = [number, number];
 
   /** A rectangle [x1, y1, x2, y2] */
-  export type Rect = [number, number, number, number];
+  export type rect = [number, number, number, number];
 
   /** A limit range [min, max] */
-  export type Limit = [number, number];
+  export type limit = [number, number];
 
   /** Alignment options */
-  export type Alignment = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | number;
+  export type alignment = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | number;
 
   /** Direction */
-  export type Direction = 'h' | 'v' | 'n' | 'e' | 's' | 'w' | number;
+  export type direction = 'h' | 'v' | 'n' | 'e' | 's' | 'w' | number;
 
   /** Theme name */
-  export type ThemeName = 'light' | 'dark';
+  export type themeName = 'light' | 'dark';
 
   /** Meta-location: either a number or [value, offset] */
-  export type MetaLoc = number | [number, number];
+  export type metaLoc = number | [number, number];
 
-  /** Meta-position: [MetaLoc, MetaLoc] */
-  export type MetaPos = [MetaLoc, MetaLoc];
+  /** Meta-position: [metaLoc, metaLoc] */
+  export type metaPos = [metaLoc, metaLoc];
 
   // =============================================================================
   // Spec and Attributes
@@ -36,23 +36,23 @@ declare module 'gum' {
 
   /** Layout specification parameters */
   export interface Spec {
-    rect?: Rect;
+    rect?: rect;
     aspect?: number | 'auto' | null;
     expand?: boolean;
-    align?: Alignment | [Alignment, Alignment];
+    align?: alignment | [alignment, alignment];
     rotate?: number;
     invar?: boolean;
-    coord?: Rect | 'auto';
+    coord?: rect | 'auto';
   }
 
   /** Convenience spec parameters */
   export interface SpecConvenience {
-    pos?: Point;
-    rad?: number | Point;
+    pos?: point;
+    rad?: number | point;
     xrad?: number;
     yrad?: number;
-    xlim?: Limit;
-    ylim?: Limit;
+    xlim?: limit;
+    ylim?: limit;
     flex?: boolean;
     spin?: number;
     hflip?: boolean;
@@ -86,16 +86,16 @@ declare module 'gum' {
   // =============================================================================
 
   export interface ContextArgs {
-    prect?: Rect;
-    coord?: Rect;
+    prect?: rect;
+    coord?: rect;
     transform?: string | null;
     prec?: number;
     meta?: Metadata | null;
   }
 
   export class Context {
-    prect: Rect;
-    coord: Rect;
+    prect: rect;
+    coord: rect;
     transform: string | null;
     prec: number;
     meta: Metadata;
@@ -103,9 +103,9 @@ declare module 'gum' {
 
     constructor(args?: ContextArgs);
     clone(args?: Partial<ContextArgs>): Context;
-    mapPoint(cpoint: Point | null, offset?: boolean): Point | null;
-    mapRect(crect: Rect | null, offset?: boolean): Rect | null;
-    mapSize(csize: Point | null, offset?: boolean): Point | null;
+    mapPoint(cpoint: point | null, offset?: boolean): point | null;
+    mapRect(crect: rect | null, offset?: boolean): rect | null;
+    mapSize(csize: point | null, offset?: boolean): point | null;
     map(spec?: Spec & { offset?: boolean }): Context;
   }
 
@@ -132,7 +132,7 @@ declare module 'gum' {
 
     constructor(args?: ElementArgs);
     clone(args?: Partial<ElementArgs>): this;
-    rect(ctx: Context): Rect;
+    rect(ctx: Context): rect;
     props(ctx: Context): SvgAttributes;
     inner(ctx: Context): string;
     svg(ctx?: Context): string;
@@ -161,12 +161,12 @@ declare module 'gum' {
   // =============================================================================
 
   export interface SvgArgs extends GroupArgs {
-    size?: number | Point;
+    size?: number | point;
     padding?: number;
     bare?: boolean;
     dims?: boolean;
     filters?: any;
-    view?: Rect;
+    view?: rect;
     style?: string | null;
     xmlns?: string;
     font_family?: string;
@@ -175,8 +175,8 @@ declare module 'gum' {
   }
 
   export class Svg extends Group {
-    size: Point;
-    viewrect: Rect;
+    size: point;
+    viewrect: rect;
     style: Element;
     prec: number;
 
@@ -188,12 +188,12 @@ declare module 'gum' {
   // =============================================================================
 
   export interface BoxArgs extends GroupArgs {
-    padding?: number | Point | Rect;
-    margin?: number | Point | Rect;
+    padding?: number | point | rect;
+    margin?: number | point | rect;
     border?: number;
     fill?: string;
     shape?: Element;
-    rounded?: number | Point | Rect;
+    rounded?: number | point | rect;
     adjust?: boolean;
   }
 
@@ -210,7 +210,7 @@ declare module 'gum' {
   export interface StackArgs extends GroupArgs {
     direc?: 'h' | 'v';
     spacing?: number;
-    justify?: Alignment;
+    justify?: alignment;
     even?: boolean;
   }
 
@@ -241,7 +241,7 @@ declare module 'gum' {
     cols?: number;
     widths?: number[];
     heights?: number[];
-    spacing?: number | Point;
+    spacing?: number | point;
   }
 
   export class Grid extends Group {
@@ -258,13 +258,13 @@ declare module 'gum' {
   }
 
   export class Points extends Group {
-    constructor(args?: PointsArgs);
+    constructor(args?: pointsArgs);
   }
 
   export interface AnchorArgs extends GroupArgs {
     direc?: 'h' | 'v';
     loc?: number | null;
-    justify?: Alignment;
+    justify?: alignment;
   }
 
   export class Anchor extends Group {
@@ -282,12 +282,12 @@ declare module 'gum' {
   }
 
   export interface AbsoluteArgs extends ElementArgs {
-    size?: number | Point;
+    size?: number | point;
   }
 
   export class Absolute extends Element {
     child: Element;
-    size: number | Point;
+    size: number | point;
 
     constructor(args?: AbsoluteArgs);
   }
@@ -305,7 +305,7 @@ declare module 'gum' {
   }
 
   export class Line extends Element {
-    points: Point[];
+    points: point[];
     poly: boolean;
 
     constructor(args?: LineArgs);
@@ -314,7 +314,7 @@ declare module 'gum' {
   export interface UnitLineArgs extends LineArgs {
     direc?: 'h' | 'v';
     loc?: number;
-    lim?: Limit;
+    lim?: limit;
   }
 
   export class UnitLine extends Line {
@@ -330,17 +330,17 @@ declare module 'gum' {
   }
 
   export interface RectArgs extends ElementArgs {
-    rounded?: number | Point;
+    rounded?: number | point;
   }
 
   export class Rect extends Element {
-    rounded: number | Point | undefined;
+    rounded: number | point | undefined;
 
-    constructor(args?: RectArgs);
+    constructor(args?: rectArgs);
   }
 
   export class Square extends Rect {
-    constructor(args?: RectArgs);
+    constructor(args?: rectArgs);
   }
 
   export class Ellipse extends Element {
@@ -357,8 +357,8 @@ declare module 'gum' {
 
   export interface RayArgs extends LineArgs {
     angle: number;
-    loc?: Point;
-    size?: number | Point;
+    loc?: point;
+    size?: number | point;
   }
 
   export class Ray extends Line {
@@ -385,41 +385,41 @@ declare module 'gum' {
   }
 
   export class MoveCmd extends Command {
-    pos: Point;
+    pos: point;
 
-    constructor(pos: Point);
+    constructor(pos: point);
   }
 
   export class LineCmd extends Command {
-    pos: Point;
+    pos: point;
 
-    constructor(pos: Point);
+    constructor(pos: point);
   }
 
   export class ArcCmd extends Command {
-    pos: Point;
-    rad: Point;
+    pos: point;
+    rad: point;
     large: number;
     sweep: number;
 
-    constructor(pos: Point, rad: Point, large: number, sweep: number);
+    constructor(pos: point, rad: point, large: number, sweep: number);
   }
 
   export class CornerCmd {
-    pos0: Point;
-    pos1: Point;
+    pos0: point;
+    pos1: point;
 
-    constructor(pos0: Point, pos1: Point);
+    constructor(pos0: point, pos1: point);
     data(ctx: Context): string;
   }
 
   export interface CubicSplineCmdArgs {
-    pos1?: Point;
-    pos2?: Point;
-    dir1?: Point | null;
-    dir2?: Point | null;
-    tan1?: Point;
-    tan2?: Point;
+    pos1?: point;
+    pos2?: point;
+    dir1?: point | null;
+    dir2?: point | null;
+    tan1?: point;
+    tan2?: point;
     curve?: number;
   }
 
@@ -428,8 +428,8 @@ declare module 'gum' {
   }
 
   export interface SplineArgs extends ElementArgs {
-    dir1?: Point;
-    dir2?: Point;
+    dir1?: point;
+    dir2?: point;
     curve?: number;
     closed?: boolean;
   }
@@ -452,7 +452,7 @@ declare module 'gum' {
   }
 
   export interface RoundedRectArgs extends ElementArgs {
-    rounded?: number | Point | Rect;
+    rounded?: number | point | rect;
     border?: number;
   }
 
@@ -461,7 +461,7 @@ declare module 'gum' {
   }
 
   export class Shape extends Element {
-    points: Point[];
+    points: point[];
 
     constructor(args?: ElementArgs);
   }
@@ -521,7 +521,7 @@ declare module 'gum' {
   }
 
   export interface TextArgs extends HWrapArgs {
-    justify?: Alignment;
+    justify?: alignment;
   }
 
   export class Text extends HWrap {
@@ -543,7 +543,7 @@ declare module 'gum' {
   }
 
   export interface TextBoxArgs extends BoxArgs {
-    justify?: Alignment;
+    justify?: alignment;
     wrap?: number;
   }
 
@@ -592,9 +592,9 @@ declare module 'gum' {
   export interface SymPathArgs {
     fx?: ((t: number) => number) | null;
     fy?: ((t: number) => number) | null;
-    xlim?: Limit;
-    ylim?: Limit;
-    tlim?: Limit;
+    xlim?: limit;
+    ylim?: limit;
+    tlim?: limit;
     xvals?: number[];
     yvals?: number[];
     tvals?: number[];
@@ -633,9 +633,9 @@ declare module 'gum' {
     fy1?: ((t: number) => number) | null;
     fx2?: ((t: number) => number) | null;
     fy2?: ((t: number) => number) | null;
-    xlim?: Limit;
-    ylim?: Limit;
-    tlim?: Limit;
+    xlim?: limit;
+    ylim?: limit;
+    tlim?: limit;
     xvals?: number[];
     yvals?: number[];
     tvals?: number[];
@@ -647,7 +647,7 @@ declare module 'gum' {
   }
 
   export interface SymFieldArgs extends SymPointsArgs {
-    func: (x: number, y: number) => number | Point;
+    func: (x: number, y: number) => number | point;
   }
 
   export class SymField extends SymPoints {
@@ -659,10 +659,10 @@ declare module 'gum' {
   // =============================================================================
 
   export interface ArrowSplineArgs extends GroupArgs {
-    from: Point;
-    to: Point;
-    from_dir?: Direction;
-    to_dir?: Direction;
+    from: point;
+    to: point;
+    from_dir?: direction;
+    to_dir?: direction;
     arrow?: boolean;
     from_arrow?: boolean;
     to_arrow?: boolean;
@@ -688,8 +688,8 @@ declare module 'gum' {
   export interface EdgeArgs extends ElementArgs {
     from: string | Node;
     to: string | Node;
-    from_dir?: Direction;
-    to_dir?: Direction;
+    from_dir?: direction;
+    to_dir?: direction;
   }
 
   export class Edge extends Element {
@@ -700,8 +700,8 @@ declare module 'gum' {
   }
 
   export interface NetworkArgs extends GroupArgs {
-    xlim?: Limit;
-    ylim?: Limit;
+    xlim?: limit;
+    ylim?: limit;
   }
 
   export class Network extends Group {
@@ -756,7 +756,7 @@ declare module 'gum' {
   export interface ScaleArgs extends GroupArgs {
     locs: number[];
     direc?: 'h' | 'v';
-    span?: Limit;
+    span?: limit;
   }
 
   export class Scale extends Group {
@@ -773,7 +773,7 @@ declare module 'gum' {
 
   export interface LabelsArgs extends GroupArgs {
     direc?: 'h' | 'v';
-    justify?: Alignment;
+    justify?: alignment;
     loc?: number | null;
     prec?: number;
   }
@@ -791,14 +791,14 @@ declare module 'gum' {
   }
 
   export interface AxisArgs extends GroupArgs {
-    lim?: Limit;
+    lim?: limit;
     direc: 'h' | 'v';
     ticks?: number | number[];
-    tick_side?: 'inner' | 'outer' | 'both' | 'none' | Limit;
+    tick_side?: 'inner' | 'outer' | 'both' | 'none' | limit;
     label_side?: 'inner' | 'outer';
     label_size?: number;
     label_offset?: number;
-    label_justify?: Alignment;
+    label_justify?: alignment;
     label_loc?: number | null;
     discrete?: boolean;
     prec?: number;
@@ -826,7 +826,7 @@ declare module 'gum' {
 
   export interface MeshArgs extends ScaleArgs {
     locs?: number | number[];
-    lim?: Limit;
+    lim?: limit;
   }
 
   export class Mesh extends Scale {
@@ -852,9 +852,9 @@ declare module 'gum' {
   }
 
   export interface GraphArgs extends GroupArgs {
-    xlim?: Limit;
-    ylim?: Limit;
-    padding?: number | Point;
+    xlim?: limit;
+    ylim?: limit;
+    padding?: number | point;
     flip?: boolean;
   }
 
@@ -863,8 +863,8 @@ declare module 'gum' {
   }
 
   export interface PlotArgs extends BoxArgs {
-    xlim?: Limit;
-    ylim?: Limit;
+    xlim?: limit;
+    ylim?: limit;
     axis?: boolean;
     xaxis?: boolean | Element | null;
     yaxis?: boolean | Element | null;
@@ -880,7 +880,7 @@ declare module 'gum' {
     title?: string | null;
     tick_size?: number;
     label_size?: number;
-    label_offset?: number | Point;
+    label_offset?: number | point;
     title_size?: number;
     title_offset?: number;
     clip?: boolean;
@@ -918,7 +918,7 @@ declare module 'gum' {
   export interface SlideArgs extends TitleFrameArgs {
     wrap?: number;
     spacing?: number;
-    justify?: Alignment;
+    justify?: alignment;
   }
 
   export class Slide extends TitleFrame {
@@ -974,7 +974,7 @@ declare module 'gum' {
   export function meshgrid<T, U>(a: T[], b: U[]): [T, U][];
 
   /** Creates a linear grid */
-  export function lingrid(xlim: Limit, ylim: Limit, n: number): Point[];
+  export function lingrid(xlim: limit, ylim: limit, n: number): point[];
 
   // =============================================================================
   // Helper Functions - Math Operations
@@ -1050,7 +1050,7 @@ declare module 'gum' {
   export function clamp(x: number, lo: number, hi: number): number;
 
   /** Rescale value from one range to another */
-  export function rescale(x: number, inRange: Limit, outRange: Limit): number;
+  export function rescale(x: number, inRange: limit, outRange: limit): number;
 
   /** Sigmoid function */
   export function sigmoid(x: number): number;
@@ -1081,7 +1081,7 @@ declare module 'gum' {
   export function interp(start: string, stop: string, x: number): string;
 
   /** Create a color palette function */
-  export function palette(start: string, stop: string, clim?: Limit): (x: number) => string;
+  export function palette(start: string, stop: string, clim?: limit): (x: number) => string;
 
   // =============================================================================
   // Helper Functions - Formatting
@@ -1117,7 +1117,7 @@ declare module 'gum' {
   // =============================================================================
 
   /** Set the current theme */
-  export function setTheme(theme: ThemeName | ThemeName[] | Record<string, any>): void;
+  export function setTheme(theme: themeName | themeName[] | Record<string, any>): void;
 
   // =============================================================================
   // Constants
@@ -1203,7 +1203,7 @@ declare module 'gum' {
 
 declare module 'gum/eval' {
   export interface EvaluateOptions {
-    theme?: ThemeName | null;
+    theme?: themeName | null;
     debug?: boolean;
     [key: string]: any;
   }
@@ -1218,7 +1218,7 @@ declare module 'gum/eval' {
 
 declare module 'gum/render' {
   export interface RenderOptions {
-    size?: number | Point;
+    size?: number | point;
     background?: string;
   }
 
@@ -1240,7 +1240,7 @@ declare module 'gum/render' {
     ctx: CanvasRenderingContext2D;
 
     init(): Promise<void>;
-    makeCanvas(size?: Point, options?: { dpr?: number | null }): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D };
+    makeCanvas(size?: point, options?: { dpr?: number | null }): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D };
     renderPng(svg: string, options?: RenderOptions): Promise<Blob>;
   }
 }

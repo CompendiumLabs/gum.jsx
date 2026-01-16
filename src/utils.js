@@ -122,6 +122,11 @@ function squeeze(x) {
     return is_array(x) && x.length == 1 ? x[0] : x
 }
 
+function slice(arr, i0, i1, step=1) {
+    const idx = range(i0, i1, step)
+    return arr.filter((_, i) => idx.includes(i))
+}
+
 function intersperse(items, spacer) {
     return items.flatMap((item, i) => i > 0 ? [ spacer, item ] : [ item ])
 }
@@ -207,8 +212,7 @@ function normalize(vals, degree=1) {
 // array generators
 //
 
-function range(ia, ib, step) {
-    step = step ?? 1
+function range(ia, ib, step=1) {
     const [ i0, i1 ] = (ib == null) ? [ 0, ia ] : [ ia, ib ]
     const n = floor((i1 - i0) / step)
     return [...Array(n).keys()].map(i => i0 + step * i)
@@ -377,4 +381,4 @@ function normal(mean, stdv) {
 // export
 //
 
-export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, squeeze, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal }
+export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal }
