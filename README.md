@@ -1,11 +1,9 @@
-# gum.js
-
-<div style="width: 500px; margin: 0 auto;">
-<img src="src/image/logo.svg" alt="logo" />
+<div align="center">
+<img src="src/image/logo.svg" alt="logo" width="500" />
 </div>
 
-<div style="width: 250px; margin: 30px auto;">
-<img src="src/image/nexus.svg" alt="nexus" />
+<div align="center">
+<img src="src/image/nexus.svg" alt="nexus" width="250" />
 </div>
 
 A language for creating visualizations using a React-like JSX dialect that evaluates to SVG. Designed for general graphics, plots, graphs, and network diagrams.
