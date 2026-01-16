@@ -1,7 +1,7 @@
 // Type definitions for gum.js
 // Visualization library using JSX-like syntax for SVG generation
 
-declare module 'gum' {
+declare module 'gum-jsx' {
   // =============================================================================
   // Core Types
   // =============================================================================
@@ -69,8 +69,6 @@ declare module 'gum' {
     fill?: string;
     opacity?: number;
     transform?: string;
-    clip_path?: string;
-    mask?: string;
     [key: string]: any;
   }
 
@@ -258,7 +256,7 @@ declare module 'gum' {
   }
 
   export class Points extends Group {
-    constructor(args?: pointsArgs);
+    constructor(args?: PointsArgs);
   }
 
   export interface AnchorArgs extends GroupArgs {
@@ -336,11 +334,11 @@ declare module 'gum' {
   export class Rect extends Element {
     rounded: number | point | undefined;
 
-    constructor(args?: rectArgs);
+    constructor(args?: RectArgs);
   }
 
   export class Square extends Rect {
-    constructor(args?: rectArgs);
+    constructor(args?: RectArgs);
   }
 
   export class Ellipse extends Element {
@@ -824,7 +822,7 @@ declare module 'gum' {
     constructor(args?: BoxLabelArgs);
   }
 
-  export interface MeshArgs extends ScaleArgs {
+  export interface MeshArgs {
     locs?: number | number[];
     lim?: limit;
   }
@@ -1202,6 +1200,14 @@ declare module 'gum' {
 // =============================================================================
 
 declare module 'gum/eval' {
+  /** The name of a theme */
+  export type themeName = 'light' | 'dark';
+
+  /** The arguments for the evaluate function */
+  export type Svg = Element & {
+    svg(): string;
+  };
+
   export interface EvaluateOptions {
     theme?: themeName | null;
     debug?: boolean;
@@ -1216,7 +1222,10 @@ declare module 'gum/eval' {
 // Rendering (from render.js)
 // =============================================================================
 
-declare module 'gum/render' {
+declare module 'gum-jsx/render' {
+  /** A point in 2D space [x, y] */
+  export type point = [number, number];
+
   export interface RenderOptions {
     size?: number | point;
     background?: string;
@@ -1249,7 +1258,7 @@ declare module 'gum/render' {
 // Error Types (from error.js)
 // =============================================================================
 
-declare module 'gum/error' {
+declare module 'gum-jsx/error' {
   /** Error when no code is provided */
   export class ErrorNoCode extends Error {
     constructor();
