@@ -1199,7 +1199,7 @@ declare module 'gum-jsx' {
 // Evaluation (from eval.js)
 // =============================================================================
 
-declare module 'gum/eval' {
+declare module 'gum-jsx/eval' {
   /** The name of a theme */
   export type themeName = 'light' | 'dark';
 
