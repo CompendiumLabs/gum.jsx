@@ -47,9 +47,9 @@ const elem = new Plot({
 const svg = elem.svg()
 ```
 
-# Command Line
+# CLI
 
-You can use the `gum` command to generate SVGs, PNGs. You can even display them in the terminal using `chafa`!
+You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. At that point you can either pipe them to a file or even display them directly in the terminal using `chafa`! For the latter you need a terminal that supports images, such as `ghostty`.
 
 Generate an SVG from a `gum.jsx` file:
 
