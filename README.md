@@ -1,9 +1,11 @@
 <div align="center">
 <img src="src/image/logo.svg" alt="logo" width="500" />
+<br/><br/>
 </div>
 
-<div align="center" style="margin-top: 10px; margin-bottom: 30px;">
+<div align="center">
 <img src="src/image/nexus.svg" alt="nexus" width="250" />
+<br/><br/>
 </div>
 
 A language for creating visualizations using a React-like JSX dialect that evaluates to SVG. Designed for general graphics, plots, graphs, and network diagrams.
