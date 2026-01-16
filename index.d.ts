@@ -1246,10 +1246,10 @@ declare module 'gum/render' {
 }
 
 // =============================================================================
-// Error Types (from types.js)
+// Error Types (from error.js)
 // =============================================================================
 
-declare module 'gum/types' {
+declare module 'gum/error' {
   /** Error when no code is provided */
   export class ErrorNoCode extends Error {
     constructor();

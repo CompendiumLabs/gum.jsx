@@ -19,7 +19,7 @@
       "types": "./index.d.ts",
       "import": "./src/gum.js"
     },
-    "./types": "./src/types.js",
+    "./error": "./src/error.js",
     "./eval": "./src/eval.js",
     "./render": "./src/render.js",
     "./docs/*": "./src/docs/*",

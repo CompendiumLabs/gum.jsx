@@ -123,7 +123,7 @@ Key functions for rect manipulation:
 - `src/math.js` - LaTeX rendering via MathJax
 - `src/katex.js` - Alternative LaTeX rendering via KaTeX
 - `src/mark.js` - Markdown parsing
-- `src/types.js` - Error types
+- `src/error.js` - Error types
 - `docs/code/` - Component examples
 - `docs/text/` - Text documentation
 - `docs/gallery/` - Gallery examples

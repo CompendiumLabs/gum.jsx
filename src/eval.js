@@ -1,7 +1,7 @@
 // code evaluation
 
 import { is_element, setTheme, Svg } from './gum.js'
-import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from './types.js'
+import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from './error.js'
 import { runJSX } from './acorn.js'
 
 //
