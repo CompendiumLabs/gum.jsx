@@ -1,16 +1,16 @@
 <div align="center">
-<img src="src/image/logo.svg" alt="logo" width="500" />
+<img src="image/logo.svg" alt="logo" width="500" />
 <br/>
 </div>
 
 <div align="center">
-<img src="src/image/nexus.svg" alt="nexus" width="250" />
+<img src="image/nexus.svg" alt="nexus" width="250" />
 <br/><br/>
 </div>
 
 A language for creating visualizations using a React-like JSX dialect that evaluates to SVG. Designed for general graphics, plots, graphs, and network diagrams.
 
-Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation.
+Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For Python bindings, see **[gum.py](https://github.com/CompendiumLabs/gum.py)**.
 
 # Installation
 
@@ -49,7 +49,7 @@ const svg = elem.svg()
 
 # CLI
 
-You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. At that point you can either pipe them to a file or even display them directly in the terminal using `chafa`! For the latter you need a terminal that supports images, such as `ghostty`.
+You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. At that point you can either pipe them to a file or even display them directly in the terminal using `chafa`! For the latter you need a terminal that supports images, such as `ghostty`. There are a bunch of code examples in `docs/code/` and `docs/gallery/` to try out.
 
 Generate an SVG from a `gum.jsx` file:
 
@@ -67,8 +67,6 @@ Display a `gum.jsx` file with `chafa`:
 ```bash
 cat input.jsx | npx gum | chafa -s 75 -
 ```
-
-There are a bunch of code examples in `docs/code/` and `docs/gallery/` to try out.
 
 CLI options:
 

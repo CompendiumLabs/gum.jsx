@@ -1,6 +1,6 @@
 {
-  "name": "gum",
-  "version": "1.0.0",
+  "name": "gum-jsx",
+  "version": "1.1.0",
   "description": "Language for vector graphics generation.",
   "type": "module",
   "author": "Douglas Hanley",
@@ -34,6 +34,7 @@
     "gum-server": "./src/server.js"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "acorn-jsx": "^5.3.2",
     "emojibase-regex": "^17.0.0",
     "linebreak": "^1.1.0",
@@ -42,13 +43,12 @@
     "remark-parse": "^11.0.0"
   },
   "optionalDependencies": {
-    "@mathjax/src": "^4.0.0",
-    "@modelcontextprotocol/sdk": "^1.25.1",
-    "@resvg/resvg-js": "file:/home/doug/src/resvg-js",
-    "commander": "^14.0.0",
-    "express": "^5.1.0",
-    "katex": "^0.16.25",
-    "mathjax": "^4.0.0",
-    "zod": "^4.3.4"
+    "@mathjax/src": "^4.1.0",
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "commander": "^14.0.2",
+    "express": "^5.2.1",
+    "katex": "^0.16.27",
+    "mathjax": "^4.1.0",
+    "zod": "^4.3.5"
   }
 }
