@@ -1205,6 +1205,7 @@ declare module 'gum-jsx/eval' {
 
   /** The arguments for the evaluate function */
   export type Svg = Element & {
+    size: point;
     svg(): string;
   };
 
@@ -1216,42 +1217,6 @@ declare module 'gum-jsx/eval' {
 
   /** Evaluate gum JSX code and return an Svg element */
   export function evaluateGum(code: string, options?: EvaluateOptions): Svg;
-}
-
-// =============================================================================
-// Rendering (from render.js)
-// =============================================================================
-
-declare module 'gum-jsx/render' {
-  /** A point in 2D space [x, y] */
-  export type point = [number, number];
-
-  export interface RenderOptions {
-    size?: number | point;
-    background?: string;
-  }
-
-  /** Render SVG to PNG (returns Buffer in Node, Blob in browser) */
-  export function renderPng(svg: string, options?: RenderOptions): Promise<Buffer | Blob>;
-
-  /** Node.js renderer class */
-  export class NodeRender {
-    fonts: string[];
-    Resvg: any;
-
-    init(): Promise<void>;
-    renderPng(svg: string, options?: RenderOptions): Buffer;
-  }
-
-  /** Browser renderer class */
-  export class BrowserRender {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-
-    init(): Promise<void>;
-    makeCanvas(size?: point, options?: { dpr?: number | null }): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D };
-    renderPng(svg: string, options?: RenderOptions): Promise<Blob>;
-  }
 }
 
 // =============================================================================

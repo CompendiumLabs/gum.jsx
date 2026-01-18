@@ -105,10 +105,6 @@ Key functions for rect manipulation:
    - Context propagates coordinate transformations down the tree
    - Groups recursively render their children
 
-4. **PNG Export** (`src/render.js`): SVG → PNG
-   - Node: uses `@resvg/resvg-js` with custom fonts
-   - Browser: uses Canvas API
-
 ### File Organization
 
 - `src/gum.js` - Main library (Element classes, utilities, constants)
@@ -117,7 +113,6 @@ Key functions for rect manipulation:
 - `src/text.js` - Text measurement and wrapping using opentype.js
 - `src/acorn.js` - JSX parser and AST walker
 - `src/eval.js` - Code evaluation and element validation
-- `src/render.js` - PNG rendering (Node and Browser implementations)
 - `src/cli.js` - Command-line interface
 - `src/server.js` - Development server
 - `src/math.js` - LaTeX rendering via MathJax

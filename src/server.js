@@ -3,24 +3,7 @@
 import express from 'express'
 import { program } from 'commander'
 import { evaluateGum } from './eval.js'
-import { canvas } from './canvas.js'
 import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from './eval.js'
-
-class ErrorGenerate extends Error {
-  constructor(error) {
-    super(error.message)
-    this.name = 'ErrorGenerate'
-    this.error = error
-  }
-}
-
-class ErrorRender extends Error {
-  constructor(error) {
-    super(error.message)
-    this.name = 'ErrorRender'
-    this.error = error
-  }
-}
 
 function parseError(error) {
   if (error instanceof ErrorNoCode) {
@@ -59,21 +42,17 @@ app.get('/', (req, res) => {
 })
 
 // eval gum jsx to svg
-app.post('/evaluate', (req, res) => {
+app.post('/', (req, res) => {
   // get params
   const code = req.body
-  const size0 = parseInt(req.query.size ?? 750)
+  const size0 = parseInt(req.query.size ?? 500)
   const theme = req.query.theme ?? 'light'
 
   // evaluate code and return svg
   let svg
   try {
     const elem = evaluateGum(code, { size: size0, theme })
-    try {
-      svg = elem.svg()
-    } catch (err) {
-      throw new ErrorGenerate(err)
-    }
+    svg = elem.svg()
   } catch (error) {
     const message = parseError(error)
     return res.status(500).send(message)
@@ -82,38 +61,6 @@ app.post('/evaluate', (req, res) => {
   // send svg
   res.setHeader('Content-Type', 'image/svg+xml')
   res.send(svg)
-})
-
-// render gum jsx to png
-app.post('/render', async (req, res) => {
-  // get params
-  const code = req.body
-  const size0 = parseInt(req.query.size ?? 750)
-  const theme = req.query.theme ?? 'light'
-
-  // evaluate code and render to png
-  let png, svg
-  try {
-    const elem = evaluateGum(code, { size: size0, theme })
-    try {
-      svg = elem.svg()
-    } catch (err) {
-      throw new ErrorGenerate(err)
-    }
-    try {
-      const { size } = elem
-      png = await canvas.renderPng(svg, { size })
-    } catch (err) {
-      throw new ErrorRender(err)
-    }
-  } catch (error) {
-    const message = parseError(error)
-    return res.status(500).send(message)
-  }
-
-  // send png
-  res.setHeader('Content-Type', 'image/png')
-  res.send(png)
 })
 
 // start server

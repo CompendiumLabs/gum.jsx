@@ -3,15 +3,14 @@
 import { program } from 'commander'
 
 import { waitForStdin } from './node.js'
-import { CONSTANTS as C, setTheme } from './defaults.js'
-import { textSizer, splitWords, is_emoji, FONTS } from './text.js'
+import { setTheme } from './defaults.js'
+import { textSizer, splitWords } from './text.js'
 import { evaluateGum } from './eval.js'
 
 // evaluate command
 async function cmdEvaluate({ debug }) {
   const code = await waitForStdin()
-  setTheme('dark')
-  const elem = evaluateGum(code, { debug, size: 1000 })
+  const elem = evaluateGum(code, { debug, theme: 'dark', size: 1000 })
   const svg = elem.svg()
   console.log(svg)
 }
