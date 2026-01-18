@@ -1205,7 +1205,7 @@ declare module 'gum-jsx/eval' {
 
   /** The arguments for the evaluate function */
   export type Svg = Element & {
-    size: point;
+    size: [number, number];
     svg(): string;
   };
 

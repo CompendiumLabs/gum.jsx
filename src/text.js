@@ -13,20 +13,15 @@ import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 
 async function getFontPaths() {
     if (is_browser()) {
-        return {
-            sans: new URL('fonts/IBMPlexSans-Variable.ttf', import.meta.url),
-            mono: new URL('fonts/IBMPlexMono-Regular.ttf', import.meta.url),
-            moji: new URL(/* @vite-ignore */ 'fonts/NotoColorEmoji-Regular.ttf', import.meta.url),
-        }
+        const { default: sans } = await import('./fonts/IBMPlexSans-Variable.ttf')
+        const { default: mono } = await import('./fonts/IBMPlexMono-Regular.ttf')
+        const { default: moji } = await import(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf')
+        return { sans, mono, moji }
     } else {
-        const path = await import('path')
-        const { fileURLToPath } = await import('url')
-        const __filename = fileURLToPath(import.meta.url)
-        const __dirname = path.dirname(__filename)
         return {
-            sans: path.join(__dirname, 'fonts', 'IBMPlexSans-Variable.ttf'),
-            mono: path.join(__dirname, 'fonts', 'IBMPlexMono-Regular.ttf'),
-            moji: path.join(__dirname, 'fonts', 'NotoColorEmoji-Regular.ttf'),
+            sans: new URL('./fonts/IBMPlexSans-Variable.ttf', import.meta.url).pathname,
+            mono: new URL('./fonts/IBMPlexMono-Regular.ttf', import.meta.url).pathname,
+            moji: new URL(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf', import.meta.url).pathname,
         }
     }
 }
@@ -43,7 +38,7 @@ async function loadFont(path) {
             return opentype.parse(buffer)
         }
     } catch (e) {
-        console.error(`Failed to load font: ${path}`)
+        console.error(`Failed to load font: ${path}\n\n${e.message}`)
         return null
     }
 }
