@@ -10,7 +10,7 @@
 
 A language for creating visualizations using a React-like JSX dialect that evaluates to SVG. Designed for general graphics, plots, graphs, and network diagrams.
 
-Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For Python bindings, see **[gum.py](https://github.com/CompendiumLabs/gum.py)**.
+Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For Python bindings, see [gum.py](https://github.com/CompendiumLabs/gum.py).
 
 # Installation
 
