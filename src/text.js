@@ -13,14 +13,14 @@ import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
 
 async function getFontPaths() {
     if (is_browser()) {
-        const { default: sans } = await import('./fonts/IBMPlexSans-Variable.ttf')
-        const { default: mono } = await import('./fonts/IBMPlexMono-Regular.ttf')
-        const { default: moji } = await import(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf')
+        const { default: sans } = await import('./fonts/IBMPlexSans-Variable.ttf?url')
+        const { default: mono } = await import('./fonts/IBMPlexMono-Regular.ttf?url')
+        const { default: moji } = await import(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf?url')
         return { sans, mono, moji }
     } else {
         return {
-            sans: new URL('./fonts/IBMPlexSans-Variable.ttf', import.meta.url).pathname,
-            mono: new URL('./fonts/IBMPlexMono-Regular.ttf', import.meta.url).pathname,
+            sans: new URL(/* @vite-ignore */ './fonts/IBMPlexSans-Variable.ttf', import.meta.url).pathname,
+            mono: new URL(/* @vite-ignore */ './fonts/IBMPlexMono-Regular.ttf', import.meta.url).pathname,
             moji: new URL(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf', import.meta.url).pathname,
         }
     }
@@ -33,7 +33,7 @@ async function loadFont(path) {
             const arrayBuffer = await response.arrayBuffer()
             return opentype.parse(arrayBuffer)
         } else {
-            const fs = await import('fs/promises')
+            const fs = await import(/* @vite-ignore */ 'fs/promises')
             const { buffer} = await fs.readFile(path)
             return opentype.parse(buffer)
         }
