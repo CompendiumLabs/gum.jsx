@@ -15,7 +15,7 @@ Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live de
 # Installation
 
 ```bash
-npm install gum
+npm install gum-jsx
 ```
 
 # Usage
@@ -73,6 +73,4 @@ CLI options:
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-s, --size <size>` | Image size in pixels | 500 |
-| `-f, --format <format>` | Output format: `svg` or `png` | svg |
 | `-t, --theme <theme>` | Theme: `light` or `dark` | light |
-| `-b, --background <color>` | Background color | null |
