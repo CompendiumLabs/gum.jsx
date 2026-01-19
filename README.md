@@ -23,7 +23,7 @@ npm install gum-jsx
 Write some `gum.jsx` code:
 
 ```jsx
-<Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} grid margin={0.2} aspect={2}>
+<Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} grid margin={[0.2, 0.1]} aspect={2}>
   <SymLine fy={sin} stroke={blue} stroke-width={2} />
 </Plot>
 ```
@@ -46,7 +46,7 @@ You can also use JavaScript directly:
 import { Svg, Box, Text, Circle, Plot, SymLine, pi, sin } from 'gum'
 const elem = new Plot({
   children: new SymLine({ fy: sin, stroke: blue, stroke_width: 2 }),
-  xlim: [0, 2*pi], ylim: [-1.5, 1.5], grid: true, margin: 0.2, aspect: 2,
+  xlim: [0, 2*pi], ylim: [-1.5, 1.5], grid: true, margin: [0.2, 0.1], aspect: 2,
 })
 const svg = elem.svg()
 ```
