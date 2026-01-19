@@ -601,6 +601,10 @@ function resizer(lim_in, lim_out) {
     }
 }
 
+function rotate_repr(rotate, x, y, prec = D.prec) {
+    return `rotate(${rounder(rotate, prec)}, ${rounder(x, prec)}, ${rounder(y, prec)})`
+}
+
 // context holds the current pixel rect and other global settings
 // map() will create a new sub-context using rect in coord space
 // map*() functions map from coord to pixel space (in prect)
@@ -673,7 +677,7 @@ class Context {
 
         // rotate rect inside
         const [ w, h ] = rotate_rect([ w0, h0 ], rotate, { aspect, expand, invar })
-        const transform = (rotate != null && rotate != 0) ? `rotate(${rotate}, ${x0}, ${y0})` : null
+        const transform = (rotate != null && rotate != 0) ? rotate_repr(rotate, x0, y0, this.prec) : null
 
         // broadcast align into [ halign, valign ] components
         const [ hafrac, vafrac ] = ensure_vector(align, 2).map(align_frac)
