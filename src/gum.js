@@ -1401,17 +1401,11 @@ class Grid extends Group {
 
 class Points extends Group {
     constructor(args = {}) {
-        const { children: children0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const { children: children0, shape: shape0, size = D.point, ...attr } = THEME(args, 'Points')
         const shape = shape0 ?? new Dot()
-        const [ spec, attr ] = spec_split(attr0)
-
-        // construct children
-        const children = ensure_array(children0).map(pos =>
-            shape.clone({ ...attr, pos, rad: size })
-        )
-
-        // pass to Group
-        super({ children, ...spec })
+        const points = ensure_array(children0)
+        const children = points.map(pos => shape.clone({ pos, rad: size }))
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -2486,8 +2480,7 @@ function ensure_shapefunc(f) {
 
 class SymPoints extends Group {
     constructor(args = {}) {
-        const { children: children0, fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
-        const [ spec, attr ] = spec_split(attr0)
+        const { children: children0, fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymPoints')
         const fsize = ensure_function(size)
         const fshap = ensure_shapefunc(shape0 ?? new Dot())
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
@@ -2506,14 +2499,14 @@ class SymPoints extends Group {
         const children = enumerate(points).map(([i, [t, x, y]]) => {
             const sh = fshap(x, y, t, i)
             const sz = sh.args.rad ?? fsize(x, y, t, i)
-            return sh.clone({ pos: [x, y], rad: sz, ...attr })
+            return sh.clone({ pos: [x, y], rad: sz })
         })
 
         // compute coords
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to element
-        super({ children, coord, ...spec })
+        super({ children, coord, ...attr })
         this.args = args
     }
 }

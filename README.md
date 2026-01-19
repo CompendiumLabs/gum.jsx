@@ -36,6 +36,10 @@ const elem = evaluateGum(jsx)
 const svg = elem.svg()
 ```
 
+Which will produce the following:
+
+<img src="image/plot.svg" alt="sine wave plot" width="500" />
+
 You can also use JavaScript directly:
 
 ```javascript
