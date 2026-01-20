@@ -2,7 +2,7 @@
 
 There are a few functions designed to manipulate colors in HEX, RGB, and HSL formats.
 
-## Constants
+**Constants**
 
 - `none` = `'none'` — a transparent color
 - `white` = `'#ffffff'` — a white color
@@ -14,7 +14,7 @@ There are a few functions designed to manipulate colors in HEX, RGB, and HSL for
 - `purple`= `'#9c27b0'` — a neon purple color
 - `gray`= `'#f0f0f0'` — a light gray color
 
-## Functions
+**Functions**
 
 - `hex2rgb(hex)` — convert a HEX color string to an RGB array
 - `rgb2hex(rgb)` — convert an RGB array to a HEX color string

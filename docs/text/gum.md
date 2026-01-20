@@ -1,6 +1,6 @@
 # Gum
 
-Welcome to the `gum.js` docs! Click on an item in the list on the left to get more info about a particular class (usually an [Element](/docs/Element), function, or constant).
+Welcome to the `gum.jsx` docs! Click on an item in the list on the left to get more info about a particular class (usually an [Element](/docs/Element), function, or constant).
 
 Each entry has a description of the operation and arguments of the item and an associated example code snippet. You can edit the code snippet, but note that these will get clobbered if you navigate to another entry! Go to the [main editor](/) for non-ephemeral work.
 
