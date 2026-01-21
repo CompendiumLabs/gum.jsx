@@ -1401,11 +1401,12 @@ class Grid extends Group {
 
 class Points extends Group {
     constructor(args = {}) {
-        const { children: children0, shape: shape0, size = D.point, ...attr } = THEME(args, 'Points')
-        const shape = shape0 ?? new Dot()
+        const { children: children0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const [ spec, attr ] = spec_split(attr0)
+        const shape = shape0 ?? new Dot(attr)
         const points = ensure_array(children0)
         const children = points.map(pos => shape.clone({ pos, rad: size }))
-        super({ children, ...attr })
+        super({ children, ...spec })
         this.args = args
     }
 }
@@ -2480,9 +2481,10 @@ function ensure_shapefunc(f) {
 
 class SymPoints extends Group {
     constructor(args = {}) {
-        const { children: children0, fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymPoints')
+        const { children: children0, fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
+        const [ spec, attr ] = spec_split(attr0)
         const fsize = ensure_function(size)
-        const fshap = ensure_shapefunc(shape0 ?? new Dot())
+        const fshap = ensure_shapefunc(shape0 ?? new Dot(attr))
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values
@@ -2506,7 +2508,7 @@ class SymPoints extends Group {
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to element
-        super({ children, coord, ...attr })
+        super({ children, coord, ...spec })
         this.args = args
     }
 }
@@ -3235,14 +3237,15 @@ class Plot extends Box {
         title_attr = { size: title_size, offset: title_offset, ...title_attr }
 
         // collect axis elements
-        const decor = []
+        const bg_elems = []
+        const fg_elems = []
 
         // default xaxis generation
         if (xaxis === true) {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
             xaxis = new HAxis({ ticks: xticks, lim: xlim, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
-            decor.push(xaxis)
+            fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
         }
@@ -3252,33 +3255,34 @@ class Plot extends Box {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
             yaxis = new VAxis({ ticks: yticks, lim: ylim, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
-            decor.push(yaxis)
+            fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
         }
 
         // automatic xgrid generation
-        if (xgrid != null) {
+        if (xgrid != null && xgrid !== false) {
             const locs = (xgrid === true && xaxis != null) ? xaxis.locs : xgrid
             xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
-            decor.unshift(xgrid)
+            bg_elems.unshift(xgrid)
         } else {
             xgrid = null
         }
 
         // automatic ygrid generation
-        if (ygrid != null) {
+        if (ygrid != null && ygrid !== false) {
             const locs = (ygrid === true && yaxis != null) ? yaxis.locs : ygrid
             ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
-            decor.unshift(ygrid)
+            bg_elems.unshift(ygrid)
         } else {
             ygrid = null
         }
 
         // create graph from core elements
-        const de_graph = new Graph({ children: decor, coord, aspect: null })
+        const bg_graph = new Graph({ children: bg_elems, coord, aspect: null })
+        const fg_graph = new Graph({ children: fg_elems, coord, aspect: null })
         const el_graph = new Graph({ children: elems, coord, aspect: null, clip })
-        const children = [ de_graph, el_graph ]
+        const children = [ bg_graph, el_graph, fg_graph ]
 
         // optional xaxis label
         if (xlabel != null) {
