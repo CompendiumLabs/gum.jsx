@@ -2227,14 +2227,13 @@ class Markdown extends Text {
 
 class TextStack extends VStack {
     constructor(args = {}) {
-        const { children: children0, wrap = null, ...attr0 } = THEME(args, 'TextStack')
+        const { children: children0, wrap = null, justify = 'left', ...attr0 } = THEME(args, 'TextStack')
         const items = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // apply wrap to children
-        const rows = items.map(c => c.clone({ ...font_attr, ...text_attr, wrap }))
-        const children = wrap != null ? intersperse(rows, new Spacer({ aspect: wrap })) : rows
+        const children = items.map(c => c.clone({ ...font_attr, ...text_attr, wrap, justify }))
 
         // pass to VStack
         super({ children, ...attr })
@@ -3352,7 +3351,8 @@ class TitleBox extends Box {
     constructor(args = {}) {
         const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleBox')
         const children = ensure_array(children0)
-        const [ title_attr, attr ] = prefix_split(['title'], attr0)
+        const [ title_attr, attr1 ] = prefix_split(['title'], attr0)
+        const [ spec, attr ] = spec_split(attr1)
 
         // make inner box
         const box = new Box({ children, ...attr })
@@ -3366,7 +3366,7 @@ class TitleBox extends Box {
         }
 
         // pass to Box for margin
-        super({ children: [ box, title_box ], margin })
+        super({ children: [ box, title_box ], margin, ...spec })
         this.args = args
     }
 }

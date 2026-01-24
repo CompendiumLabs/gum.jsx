@@ -44,4 +44,4 @@ function evaluateGum(code, { theme = null, debug = false, ...args } = {}) {
 // export
 //
 
-export { evaluateGum }
+export { runJSX, evaluateGum }
