@@ -1200,6 +1200,32 @@ declare module 'gum-jsx' {
 // =============================================================================
 
 declare module 'gum-jsx/eval' {
+  /** Error when no code is provided */
+  export class ErrorNoCode extends Error {
+    constructor();
+  }
+
+  /** Error when code returns nothing */
+  export class ErrorNoReturn extends Error {
+    constructor();
+  }
+
+  /** Error when code returns a non-element */
+  export class ErrorNoElement extends Error {
+    value: any;
+    constructor(value: any);
+  }
+
+  /** Error when code generation fails */
+  export class ErrorGenerate extends Error {
+    constructor(message: string);
+  }
+
+  /** Error when code rendering fails */
+  export class ErrorRender extends Error {
+    constructor(message: string);
+  }
+
   /** The name of a theme */
   export type themeName = 'light' | 'dark';
 
@@ -1217,26 +1243,4 @@ declare module 'gum-jsx/eval' {
 
   /** Evaluate gum JSX code and return an Svg element */
   export function evaluateGum(code: string, options?: EvaluateOptions): Svg;
-}
-
-// =============================================================================
-// Error Types (from error.js)
-// =============================================================================
-
-declare module 'gum-jsx/error' {
-  /** Error when no code is provided */
-  export class ErrorNoCode extends Error {
-    constructor();
-  }
-
-  /** Error when code returns nothing */
-  export class ErrorNoReturn extends Error {
-    constructor();
-  }
-
-  /** Error when code returns a non-element */
-  export class ErrorNoElement extends Error {
-    value: any;
-    constructor(value: any);
-  }
 }

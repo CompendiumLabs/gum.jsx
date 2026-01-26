@@ -24,8 +24,10 @@
       "types": "./index.d.ts",
       "import": "./src/gum.js"
     },
-    "./error": "./src/error.js",
-    "./eval": "./src/eval.js",
+    "./eval": {
+      "types": "./index.d.ts",
+      "import": "./src/eval.js"
+    },
     "./docs/*": "./src/docs/*",
     "./fonts/*": "./src/fonts/*"
   },
