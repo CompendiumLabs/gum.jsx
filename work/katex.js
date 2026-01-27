@@ -1,8 +1,7 @@
 import { __parse as parse_tex } from 'katex'
 import symbols from './symbols.js'
-
-import { is_array, is_object } from './utils.js'
-import { Group, HStack, VStack, Box, Spacer, TextSpan, Rect, HLine } from './gum.js'
+import { is_array, is_object } from '../src/utils.js'
+import { HStack, VStack, Box, Spacer, TextSpan, Rect } from '../src/gum.js'
 
 // constants
 const FONTS = {

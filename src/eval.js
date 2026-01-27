@@ -1,7 +1,7 @@
 // code evaluation
 
 import { is_element, setTheme, Svg } from './gum.js'
-import { runJSX } from './acorn.js'
+import { runJSX } from './parse.js'
 
 //
 // types

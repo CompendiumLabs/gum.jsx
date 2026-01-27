@@ -1,9 +1,9 @@
-#! /usr/bin/env node
+#! /usr/bin/env bun
 
 import express from 'express'
 import { program } from 'commander'
-import { evaluateGum } from './eval.js'
-import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from './eval.js'
+import { evaluateGum } from '../src/eval.js'
+import { ErrorNoCode, ErrorNoReturn, ErrorNoElement } from '../src/eval.js'
 
 function parseError(error) {
   if (error instanceof ErrorNoCode) {

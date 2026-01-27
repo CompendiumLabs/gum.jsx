@@ -1,8 +1,16 @@
-#! /usr/bin/env node
+#! /usr/bin/env bun
 
 import { program } from 'commander'
-import { waitForStdin } from './node.js'
-import { evaluateGum } from './eval.js'
+import { evaluateGum } from '../src/eval.js'
+
+// read from stdin
+async function readStdin() {
+  const chunks = []
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks).toString('utf-8')
+}
 
 // get options from commander
 program
@@ -12,7 +20,7 @@ program
 const { size, theme } = program.opts()
 
 // wait for stdin
-const code = await waitForStdin()
+const code = await readStdin()
 
 // evaluate gum with size
 const elem = evaluateGum(code, { size, theme })

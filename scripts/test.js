@@ -1,19 +1,7 @@
-// test cli
+#! /usr/bin/env bun
 
 import { program } from 'commander'
-
-import { waitForStdin } from './node.js'
-import { setTheme } from './defaults.js'
 import { textSizer, splitWords } from './text.js'
-import { evaluateGum } from './eval.js'
-
-// evaluate command
-async function cmdEvaluate({ debug }) {
-  const code = await waitForStdin()
-  const elem = evaluateGum(code, { debug, theme: 'dark', size: 1000 })
-  const svg = elem.svg()
-  console.log(svg)
-}
 
 // sizing command
 async function cmdSizing(text, { chunks, family, weight, size }) {
@@ -25,12 +13,7 @@ async function cmdSizing(text, { chunks, family, weight, size }) {
 }
 
 // get options from commander
-program.command('eval', )
-  .option('-d, --debug', 'debug mode', false)
-  .action(cmdEvaluate)
-
-program.command('size')
-  .argument('<text>', 'text to size')
+program.argument('<text>', 'text to size')
   .option('-f, --family <family>', 'font family', 'IBM Plex Sans')
   .option('-w, --weight <weight>', 'font weight', 'normal')
   .option('-s, --size <size>', 'font size', 16)

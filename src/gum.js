@@ -1,9 +1,9 @@
 // gum.js
 
 import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME, setTheme } from './defaults.js'
-import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, slice, intersperse, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal } from './utils.js'
+import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, slice, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
-import { parseMarkdown } from './mark.js'
+import { process_markdown } from './mark.js'
 import { mathjax } from './math.js'
 
 //
@@ -2193,34 +2193,25 @@ class Text extends HWrap {
     }
 }
 
-function process_marktree(tree) {
-    if (is_element(tree)) return tree
-
-    // process nodes recursively
-    const { type, children, value } = tree
-    if (type == 'paragraph') {
-        return children.map(x => process_marktree(x))
-    } else if (type == 'text') {
-        return value
-    } else if (type == 'strong') {
-        const children1 = children.map(c => process_marktree(c))
-        return new Text({ children: children1, font_weight: bold })
-    } else if (type == 'emphasis') {
-        const children1 = children.map(c => process_marktree(c))
-        return new Text({ children: children1, font_style: 'italic' })
-    } else if (type == 'inlineMath') {
-        return new Latex({ children: value })
-    } else {
-        console.error(`Unsupported markdown type: ${type}`)
-    }
+const MARKDOWN_HANDLERS = {
+    strong: (tree) => {
+        return new Text({ children: tree.children, font_weight: bold })
+    },
+    emphasis: (tree) => {
+        return new Text({ children: tree.children, font_style: 'italic' })
+    },
+    inlineMath: (tree) => {
+        return new Latex({ children: tree.value })
+    },
 }
 
 class Markdown extends Text {
     constructor(args = {}) {
         const { children: children0, ...attr } = THEME(args, 'Markdown')
         const children = ensure_array(children0)
-        const tree = children.flatMap(c => is_string(c) ? parseMarkdown(c) : c)
-        const nodes = tree.flatMap(x => process_marktree(x))
+        const nodes = children.flatMap(c =>
+            is_string(c) ? process_markdown(c, MARKDOWN_HANDLERS) : c
+        )
         super({ children: nodes, ...attr })
     }
 }
