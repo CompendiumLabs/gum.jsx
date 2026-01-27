@@ -1200,6 +1200,8 @@ declare module 'gum-jsx' {
 // =============================================================================
 
 declare module 'gum-jsx/eval' {
+  import type { Svg, themeName } from 'gum-jsx';
+
   /** Error when no code is provided */
   export class ErrorNoCode extends Error {
     constructor();
@@ -1225,15 +1227,6 @@ declare module 'gum-jsx/eval' {
   export class ErrorRender extends Error {
     constructor(message: string);
   }
-
-  /** The name of a theme */
-  export type themeName = 'light' | 'dark';
-
-  /** The arguments for the evaluate function */
-  export type Svg = Element & {
-    size: [number, number];
-    svg(): string;
-  };
 
   export interface EvaluateOptions {
     theme?: themeName | null;
