@@ -1237,3 +1237,14 @@ declare module 'gum-jsx/eval' {
   /** Evaluate gum JSX code and return an Svg element */
   export function evaluateGum(code: string, options?: EvaluateOptions): Svg;
 }
+
+// =============================================================================
+// Documentation (from meta.js)
+// =============================================================================
+
+declare module 'gum-jsx/meta' {
+  type DocMap = Record<string, string>;
+
+  /** Get the full documentation */
+  export function getDocs(docs: string): { tags: string[], cats: DocMap, text: DocMap, code: DocMap, gala: DocMap };
+}
