@@ -1,0 +1,50 @@
+{
+    "core": [
+        "gum",
+        "element",
+        "group",
+        "context"
+    ],
+    "layout": [
+        "box",
+        "stack",
+        "grid",
+        "points"
+    ],
+    "shapes": [
+        "rect",
+        "ellipse",
+        "line",
+        "shape",
+        "spline"
+    ],
+    "text": [
+        "text",
+        "latex",
+        "titleframe",
+        "slide"
+    ],
+    "symbolic": [
+        "sympoints",
+        "symline",
+        "symshape",
+        "symspline",
+        "symfill"
+    ],
+    "plotting": [
+        "graph",
+        "plot",
+        "axis",
+        "barplot"
+    ],
+    "networks": [
+        "node",
+        "edge",
+        "network"
+    ],
+    "utilities": [
+        "math",
+        "arrays",
+        "colors"
+    ]
+}

@@ -31,7 +31,8 @@
     },
     "./fonts/*": "./src/fonts/*",
     "./docs/*": "./docs/*",
-    "./prompt/*": "./prompt/*"
+    "./prompt/*": "./prompt/*",
+    "./skill/*": "./skill/*"
   },
   "scripts": {
     "skill": "bun ./scripts/skill.js"
