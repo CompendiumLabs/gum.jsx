@@ -18,6 +18,8 @@
     "docs/code",
     "docs/gallery",
     "prompt",
+    "skill",
+    "skill/references",
     "index.d.ts"
   ],
   "exports": {
