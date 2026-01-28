@@ -1244,7 +1244,11 @@ declare module 'gum-jsx/eval' {
 
 declare module 'gum-jsx/meta' {
   type DocMap = Record<string, string>;
+  type CatMap = Record<string, string[]>;
+
+  /** Prepare a page of documentation */
+  export function preparePage(text: string, code: string): string;
 
   /** Get the full documentation */
-  export function getDocs(docs: string): { tags: string[], cats: DocMap, text: DocMap, code: DocMap, gala: DocMap };
+  export function getDocs(docs: string): { tags: string[], cats: CatMap, text: DocMap, code: DocMap, gala: DocMap };
 }

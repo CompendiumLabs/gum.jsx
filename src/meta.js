@@ -2,6 +2,26 @@
 
 import { readFileSync, readdirSync } from 'fs'
 
+// replace links with bold and push headings
+function prepareText(text) {
+    const mark = text
+        .replace(/\[(.*?)\]\((.*?)\)/g, '**$1**') // links to bold
+        .replace(/^# (.*?)$/mg, '## $1') // headings to bold
+    return mark.trim()
+}
+
+// if there's a comment on line one, that's the query
+function prepareCode(text) {
+    const [ first, ...rest ] = text.split('\n')
+    const query = first.replace(/^\/\/(.*?)$/, '$1').trim()
+    const code = `\`\`\`jsx\n${rest.join('\n').trim()}\n\`\`\``
+    return `**Example**\n\nPrompt: ${query}\n\nGenerated code:\n${code}`
+}
+
+function preparePage(text, code) {
+    return `${prepareText(text)}\n\n${prepareCode(code)}`
+}
+
 // index directory contents
 function indexDirectory(dir) {
     return Object.fromEntries(readdirSync(dir).map(
@@ -24,4 +44,4 @@ function getDocs(docs_dir) {
     return { tags, cats, text, code, gala }
 }
 
-export { getDocs }
+export { getDocs, preparePage }
