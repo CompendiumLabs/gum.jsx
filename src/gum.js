@@ -3,7 +3,6 @@
 import { CONSTANTS as C, DEFAULTS as D, DEBUG, THEME, setTheme } from './defaults.js'
 import { is_scalar, is_string, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, gzip, zip, reshape, split, concat, slice, sum, prod, mean, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal } from './utils.js'
 import { textSizer, splitWords, wrapWidths, wrapText } from './text.js'
-import { process_markdown } from './mark.js'
 import { mathjax } from './math.js'
 
 //
@@ -793,7 +792,7 @@ function debug_element(element, indent = 0) {
     console.error(`${spaces}${element.constructor.name.toUpperCase()}(${args.join(', ')})`)
 
     // special cases
-    if (element instanceof TextSpan) {
+    if (element instanceof Span) {
         console.error(`${spaces}  STRING(${element.text})`)
     } else if (element instanceof Group) {
         element.children.forEach(c => debug_element(c, indent + 2))
@@ -2080,9 +2079,9 @@ function ensure_tail(text) {
 }
 
 // no wrapping at all, clobber newlines, mainly internal use
-class TextSpan extends Element {
+class Span extends Element {
     constructor(args = {}) {
-        const { children: children0, color, voffset = C.voffset, stroke = C.none, ...attr0 } = THEME(args, 'TextSpan')
+        const { children: children0, color, voffset = C.voffset, stroke = C.none, ...attr0 } = THEME(args, 'Span')
         const child = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -2145,24 +2144,24 @@ function compress_spans(children, font_args = {}) {
         // convert scalars to strings
         if (is_scalar(child)) child = child.toString()
 
-        // process strings into TextSpan
-        // process Text into TextSpan's
+        // process strings into Span
+        // process Text into Span's
         if (is_string(child)) {
             if (first_child) child = child.trimStart()
             if (!last_child) child = ensure_tail(child)
             if (last_child) child = child.trimEnd()
             const words = splitWords(child)
-            return words.map(w => new TextSpan({ children: w, ...font_args }))
+            return words.map(w => new Span({ children: w, ...font_args }))
         } else if (child instanceof Text) {
             return child.spans.map((s, i) => {
-                if (!(s instanceof TextSpan)) return s
+                if (!(s instanceof Span)) return s
                 let { text } = s
                 if (i == 0 && first_child) text = text.trimStart()
                 if (i == child.spans.length - 1 && !last_child) text = ensure_tail(text)
                 if (i == child.spans.length - 1 && last_child) text = text.trimEnd()
                 return s.clone({ children: text, ...font_args })
             })
-        } else if (child instanceof TextSpan) {
+        } else if (child instanceof Span) {
             let { text } = child
             if (first_child) text = text.trimStart()
             if (!last_child) text = ensure_tail(text)
@@ -2190,29 +2189,6 @@ class Text extends HWrap {
 
         // additional props
         this.spans = spans
-    }
-}
-
-const MARKDOWN_HANDLERS = {
-    strong: (tree) => {
-        return new Text({ children: tree.children, font_weight: bold })
-    },
-    emphasis: (tree) => {
-        return new Text({ children: tree.children, font_style: 'italic' })
-    },
-    inlineMath: (tree) => {
-        return new Latex({ children: tree.value })
-    },
-}
-
-class Markdown extends Text {
-    constructor(args = {}) {
-        const { children: children0, ...attr } = THEME(args, 'Markdown')
-        const children = ensure_array(children0)
-        const nodes = children.flatMap(c =>
-            is_string(c) ? process_markdown(c, MARKDOWN_HANDLERS) : c
-        )
-        super({ children: nodes, ...attr })
     }
 }
 
@@ -2324,6 +2300,20 @@ class TextFlex extends Element {
         const y1 = y + ( 1 + this.voffset ) * fs
         const elems = rows.map((r, i) => `<tspan x="${x}" y="${y1 + i * lh}">${r}</tspan>`)
         return `<text font-size="${fs}">\n${elems.join('\n')}\n</text>`
+    }
+}
+
+class Bold extends Text {
+    constructor(args = {}) {
+        const { ...attr } = THEME(args, 'Bold')
+        super({ font_weight: bold, ...attr })
+    }
+}
+
+class Italic extends Text {
+    constructor(args = {}) {
+        const { ...attr } = THEME(args, 'Italic')
+        super({ font_style: 'italic', ...attr })
     }
 }
 
@@ -2872,7 +2862,7 @@ function ensure_ticklabel(label, args = {}) {
     const { prec = D.prec, ...attr } = args
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
-    return new TextSpan({ children: rounder(str, prec), loc, ...attr })
+    return new Span({ children: rounder(str, prec), loc, ...attr })
 }
 
 class Scale extends Group {
@@ -3021,7 +3011,7 @@ class BoxLabel extends Attach {
         const { children: children0, size, offset, side, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
-        const label0 = is_element(text) ? text : new TextSpan({ children: text, ...attr })
+        const label0 = is_element(text) ? text : new Span({ children: text, ...attr })
         const label = (side == 'left' || side == 'right') ? label0.clone({ rotate: -90 }) : label0
         super({ children: label, side, size, offset, ...spec })
         this.args = args
@@ -3093,7 +3083,7 @@ function ensure_legendbadge(c, attr = {}) {
 function ensure_legendlabel(label, attr = {}) {
     if (is_element(label)) return label
     if (is_string(label)) {
-        return new TextSpan({ children: label, ...attr })
+        return new Span({ children: label, ...attr })
     } else {
         throw new Error(`Unrecognized legend label specification: ${label}`)
     }
@@ -3282,7 +3272,7 @@ class Plot extends Box {
 
         // optional yaxis label
         if (ylabel != null) {
-            const ylabel_text = is_element(ylabel) ? ylabel : new TextSpan({ children: ylabel, ...ylabel_attr, rotate: -90 })
+            const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: ylabel, ...ylabel_attr, rotate: -90 })
             ylabel = new BoxLabel({ children: ylabel_text, side: 'left', debug, ...ylabel_attr })
             children.push(ylabel)
         }
@@ -3408,7 +3398,7 @@ class Image extends Element {
 //
 
 const ELEMS = {
-    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Image
+    Context, Element, Debug, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, Span, Text, TextBox, TextFrame, TextStack, TextFlex, Bold, Italic, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Image
 }
 
 const VALS = [
@@ -3421,5 +3411,5 @@ const KEYS = VALS.map(g => g.name).map(g => g.replace(/\$\d+$/g, ''))
 //
 
 export {
-    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, TextSpan, Text, Markdown, TextBox, TextFrame, TextStack, TextFlex, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, add, sub, mul, div, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
+    ELEMS, KEYS, VALS, Context, Element, Debug, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rect, RoundedRect, Square, Ellipse, Circle, Dot, Shape, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, Triangle, Arrow, Field, Span, Text, TextBox, TextFrame, TextStack, TextFlex, Bold, Italic, Latex, Equation, TitleBox, TitleFrame, ArrowHead, ArrowSpline, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Image, range, linspace, enumerate, repeat, meshgrid, lingrid, hexToRgba, interp, palette, gzip, zip, reshape, split, concat, add, sub, mul, div, sum, prod, exp, log, sin, cos, tan, min, max, minimum, maximum, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, norm, clamp, rescale, sigmoid, logit, smoothstep, rounder, random, uniform, normal, cumsum, e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, bold, is_string, is_array, is_object, is_function, is_element, is_scalar, setTheme
 }

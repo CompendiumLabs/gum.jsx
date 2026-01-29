@@ -97,7 +97,7 @@ const THEME_LIGHT = {
         stroke: C.black,
     },
 
-    TextSpan: {
+    Span: {
         color: C.black,
     },
 
@@ -120,7 +120,7 @@ const THEME_DARK = {
         color: C.white,
     },
 
-    TextSpan: {
+    Span: {
         color: C.white,
     },
 
