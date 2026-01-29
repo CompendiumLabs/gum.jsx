@@ -1987,7 +1987,7 @@ class RoundedRect extends Path {
 
 class ArrowHead extends Path {
     constructor(args = {}) {
-        const { direc = 0, arc = 90, base: base0, exact = true, aspect = null, fill = null, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 75, base: base0, exact = true, aspect = null, fill = null, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
         const base = base0 ?? (fill != null)
 
         // get arc positions
@@ -2636,7 +2636,7 @@ function get_direction(p1, p2) {
 
 class ArrowSpline extends Group {
     constructor(args = {}) {
-        let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
+        let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, arrow_aspect = 1, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
         let [ spline_attr, arrow_attr, from_attr, to_attr, attr ] = prefix_split(
             [ 'spline', 'arrow', 'from', 'to' ], attr0
         )
@@ -2646,6 +2646,7 @@ class ArrowSpline extends Group {
         // accumulate arguments
         const stroke_attr = { stroke_linecap, stroke_width }
         spline_attr = { ...stroke_attr, ...spline_attr }
+        arrow_attr = { aspect: arrow_aspect, ...arrow_attr }
         from_attr = { fill, ...stroke_attr, ...arrow_attr, ...from_attr }
         to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...to_attr   }
 
@@ -3362,7 +3363,7 @@ class TitleFrame extends TitleBox {
 
 class Slide extends TitleFrame {
     constructor(args = {}) {
-        const { children: children0, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.05, wrap = 25, spacing, justify = 'left', ...attr0 } = THEME(args, 'Slide')
+        const { children: children0, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.05, wrap = 25, spacing = 0.05, justify = 'left', ...attr0 } = THEME(args, 'Slide')
         const children = ensure_array(children0)
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 

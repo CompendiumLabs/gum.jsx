@@ -8,5 +8,5 @@ return <Plot
   xaxis-label-spin={-45} xaxis-label-justify="right" xaxis-label-loc={0.7}
 >
   <Bars rounded={0.1} width={0.85}>{vals}</Bars>
-  {vals.map((s, i) => <TextSpan pos={[i, s+1.3]} yrad={0.75}>{`${s}%`}</TextSpan> )}
+  {vals.map((s, i) => <Span pos={[i, s+1.3]} yrad={0.75}>{`${s}%`}</Span> )}
 </Plot>
