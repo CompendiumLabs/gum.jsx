@@ -45,7 +45,7 @@
     "claude": "bun ./scripts/skill.js && bun ./scripts/claude.ts"
   },
   "bin": {
-    "gum": "./scripts/cli.js",
+    "gum": "./scripts/viewer.js",
     "gum-server": "./scripts/server.js"
   },
   "dependencies": {
