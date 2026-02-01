@@ -326,12 +326,12 @@ function max(vals) {
 }
 
 function clamp(x, lim) {
-    const [ lo, hi ] = lim ?? D.lim
+    const [ lo, hi ] = lim
     return maximum(lo, minimum(x, hi))
 }
 
 function rescale(x, lim) {
-    const [ lo, hi ] = lim ?? D.lim
+    const [ lo, hi ] = lim
     return (x - lo) / (hi - lo)
 }
 

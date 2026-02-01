@@ -1045,10 +1045,10 @@ declare module 'gum-jsx' {
   export function atan2(y: number, x: number): number;
 
   /** Clamp value to range */
-  export function clamp(x: number, lo: number, hi: number): number;
+  export function clamp(x: number, lim: limit): number;
 
-  /** Rescale value from one range to another */
-  export function rescale(x: number, inRange: limit, outRange: limit): number;
+  /** Rescale value to unit limits */
+  export function rescale(x: number, lim: limit): number;
 
   /** Sigmoid function */
   export function sigmoid(x: number): number;
