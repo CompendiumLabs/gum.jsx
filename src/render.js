@@ -51,24 +51,4 @@ function rasterizeSvg(svg, opts = {}) {
   return resvg.render().asPng()
 }
 
-// kitty image protocol
-function formatImage(pngBuffer, { imageId = null, chunkSize = 4096 } = {}) {
-  const idParam = imageId != null ? `,i=${imageId}` : ''
-  const base64 = pngBuffer.toString('base64')
-
-  let result = ''
-  for (let i = 0; i < base64.length; i += chunkSize) {
-    const chunk = base64.slice(i, i + chunkSize)
-    const isFirst = i === 0
-    const isLast = i + chunkSize >= base64.length
-    const control = isFirst
-      ? `f=100,a=T${idParam},q=1,m=${isLast ? 0 : 1}`
-      : `m=${isLast ? 0 : 1}`
-
-    result += `\x1b_G${control};${chunk}\x1b\\`
-  }
-
-  return result + '\n'
-}
-
-export { rasterizeSvg, formatImage }
+export { rasterizeSvg }

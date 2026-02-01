@@ -1258,8 +1258,14 @@ declare module 'gum-jsx/meta' {
 // =============================================================================
 
 declare module 'gum-jsx/render' {
-  import type { Svg } from 'gum-jsx';
+  export function rasterizeSvg(svg: string, opts?: { size?: number | point, width?: number, height?: number }): Buffer;
+}
 
-  export function rasterizeSvg(svg: Svg, opts?: { size?: number | point, width?: number, height?: number }): Buffer;
+// =============================================================================
+// Terminal Display (from term.js)
+// =============================================================================
+
+declare module 'gum-jsx/term' {
+  export function readStdin(): Promise<string>;
   export function formatImage(pngBuffer: Buffer, opts?: { imageId?: number, chunkSize?: number }): string;
 }
