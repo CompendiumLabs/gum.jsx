@@ -2,62 +2,10 @@
 
 import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
-import opentype from 'opentype.js'
 
-import { is_browser, is_string, compress_whitespace, sum } from './utils.js'
+import { is_string, compress_whitespace, sum } from './utils.js'
 import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
-
-//
-// load fonts as arraybuffers
-//
-
-async function getFontPaths() {
-    if (is_browser()) {
-        const { default: sans } = await import('./fonts/IBMPlexSans-Variable.ttf?url')
-        const { default: mono } = await import('./fonts/IBMPlexMono-Regular.ttf?url')
-        const { default: moji } = await import(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf?url')
-        return { sans, mono, moji }
-    } else {
-        return {
-            sans: new URL(/* @vite-ignore */ './fonts/IBMPlexSans-Variable.ttf', import.meta.url).pathname,
-            mono: new URL(/* @vite-ignore */ './fonts/IBMPlexMono-Regular.ttf', import.meta.url).pathname,
-            moji: new URL(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf', import.meta.url).pathname,
-        }
-    }
-}
-
-async function loadFont(path) {
-    try {
-        if (is_browser()) {
-            const response = await fetch(path)
-            const arrayBuffer = await response.arrayBuffer()
-            return opentype.parse(arrayBuffer)
-        } else {
-            const fs = await import(/* @vite-ignore */ 'fs/promises')
-            const { buffer} = await fs.readFile(path)
-            return opentype.parse(buffer)
-        }
-    } catch (e) {
-        console.error(`Failed to load font: ${path}\n\n${e.message}`)
-        return null
-    }
-}
-
-async function loadFonts() {
-    const { sans, mono, moji } = await getFontPaths()
-    const paths = { [C.sans]: sans, [C.mono]: mono, [C.moji]: moji }
-    return Object.fromEntries(
-        await Promise.all(
-            Object.entries(paths).map(
-                async ([ k, v ]) => [ k, await loadFont(v) ]
-            )
-        )
-    )
-}
-
-// load it
-const FONTS = await loadFonts()
-const SUBS = FONTS[C.moji]?.substitution.getFeature('ccmp')
+import { FONTS } from './fonts.js'
 
 //
 // create text sizer
@@ -93,8 +41,9 @@ function emojiSizer(text) {
     }
 
     // find substitution
+    const subs = font.substitution.getFeature('ccmp')
     const indices = glyphs.map(g => g.index)
-    const sub = SUBS.find(s => arrayEquals(s.sub, indices))
+    const sub = subs.find(s => arrayEquals(s.sub, indices))
 
     // if no substitution found, return sum of glyph widths
     if (sub == null) {
@@ -221,4 +170,4 @@ function mergeStrings(items) {
 // exports
 //
 
-export { getFontPaths, is_emoji, textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings, FONTS }
+export { is_emoji, textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
