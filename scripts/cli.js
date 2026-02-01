@@ -2,8 +2,7 @@
 
 import { program } from 'commander'
 import { evaluateGum } from '../src/eval.js'
-import { rasterizeSvg } from '../src/render.js'
-import { formatImage } from '../src/term.js'
+import { rasterizeSvg, formatImage } from '../src/render.js'
 
 // read from stdin
 async function readStdin() {
