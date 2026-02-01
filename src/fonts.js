@@ -11,16 +11,17 @@ const { FONT_PATHS, loadFont } = is_browser() ?
 // load font data
 //
 
-async function parseFont(path) {
-    const buffer = await loadFont(path)
-    return opentype.parse(buffer)
-}
-
-const FONTS = Object.fromEntries(
+const FONT_DATA = Object.fromEntries(
     await Promise.all(
         Object.entries(FONT_PATHS).map(
-            async ([ k, v ]) => [ C[k], await parseFont(v) ]
+            async ([ k, v ]) => [ k, await loadFont(v) ]
         )
+    )
+)
+
+const FONTS = Object.fromEntries(
+    Object.entries(FONT_DATA).map(
+        ([ k, v ]) => [ C[k], opentype.parse(v) ]
     )
 )
 
@@ -28,4 +29,4 @@ const FONTS = Object.fromEntries(
 // exports
 //
 
-export { FONTS }
+export { FONT_PATHS, FONT_DATA, FONTS, loadFont }
