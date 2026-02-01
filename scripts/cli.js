@@ -44,5 +44,5 @@ if (update) {
   const out = (isPng && !raw) ? formatImage(dat) : dat
 
   // write output
-  process.stdout.write(out)
+  process.stdout.write(out + '\n')
 }

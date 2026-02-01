@@ -34,7 +34,7 @@ function formatImage(pngBuffer, { imageId = null, chunkSize = 4096 } = {}) {
     result += `\x1b_G${control};${chunk}\x1b\\`
   }
 
-  return result + '\n'
+  return result
 }
 
 function watchAndRender(file, displayer) {
