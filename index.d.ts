@@ -1252,3 +1252,14 @@ declare module 'gum-jsx/meta' {
   /** Get the full documentation */
   export function getDocs(docs: string): { tags: string[], cats: CatMap, text: DocMap, code: DocMap, gala: DocMap };
 }
+
+// =============================================================================
+// Rendering (from render.js)
+// =============================================================================
+
+declare module 'gum-jsx/render' {
+  import type { Svg } from 'gum-jsx';
+
+  export function rasterizeSvg(svg: Svg, opts?: { size?: number | point, width?: number, height?: number }): Buffer;
+  export function formatImage(pngBuffer: Buffer, opts?: { imageId?: number, chunkSize?: number }): string;
+}

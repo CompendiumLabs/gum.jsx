@@ -51,6 +51,7 @@ function rasterizeSvg(svg, opts = {}) {
   return resvg.render().asPng()
 }
 
+// kitty image protocol
 function formatImage(pngBuffer, { imageId = null, chunkSize = 4096 } = {}) {
   const idParam = imageId != null ? `,i=${imageId}` : ''
   const base64 = pngBuffer.toString('base64')
