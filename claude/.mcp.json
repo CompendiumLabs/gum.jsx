@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "gum-jsx": {
+      "command": "gum-mcp"
+    }
+  }
+}

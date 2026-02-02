@@ -13,7 +13,7 @@ function capitalize(s) {
 const program = new Command()
 program.option('-o, --output <output>', 'the output directory for the skill')
 program.parse(process.argv)
-const { output = 'skills/gum-jsx' } = program.opts()
+const { output = 'claude/skills/gum-jsx' } = program.opts()
 
 // load docs pages
 const { tags, cats, text, code } = getDocs('docs')

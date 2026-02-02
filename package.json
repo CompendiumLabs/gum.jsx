@@ -53,8 +53,8 @@
     "claude": "bun ./scripts/skill.js && bun ./scripts/claude.ts"
   },
   "bin": {
-    "gum": "./scripts/cli.js",
-    "gum-server": "./scripts/server.js"
+    "gum-cli": "./scripts/cli.js",
+    "gum-mcp": "./scripts/mcp.js"
   },
   "dependencies": {
     "acorn-jsx": "^5.3.2",
@@ -64,10 +64,12 @@
   },
   "optionalDependencies": {
     "@mathjax/src": "^4.1.0",
+    "@modelcontextprotocol/sdk": "^1.25.3",
     "@resvg/resvg-js": "^2.6.2",
-    "commander": "^14.0.2",
+    "commander": "^14.0.3",
     "express": "^5.2.1",
-    "mathjax": "^4.1.0"
+    "mathjax": "^4.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.72.1"

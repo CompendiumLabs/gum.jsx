@@ -33,7 +33,7 @@ function buildFitTo(width, height) {
 
 // rasterize SVG buffer/string to PNG
 function rasterizeSvg(svg, opts = {}) {
-  let { size, width, height } = opts
+  let { size, width, height, background } = opts
 
   // scale down intrinsic height
   if (size != null && width != null && height != null) {
@@ -47,7 +47,7 @@ function rasterizeSvg(svg, opts = {}) {
 
   // pass to resvg
   const fitTo = buildFitTo(width, height)
-  const resvg = new Resvg(svg, { fitTo, font })
+  const resvg = new Resvg(svg, { fitTo, font, background })
   return resvg.render().asPng()
 }
 
