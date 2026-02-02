@@ -1,0 +1,8 @@
+{
+    "name": "gum-jsx",
+    "description": "Plugin for the gum.jsx graphics language.",
+    "version": "1.0.0",
+    "author": {
+        "name": "Douglas Hanley"
+    }
+}
