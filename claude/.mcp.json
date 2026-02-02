@@ -1,7 +1,10 @@
 {
-  "mcpServers": {
-    "gum-jsx": {
-      "command": "gum-mcp"
+    "mcpServers": {
+      "gum-jsx": {
+          "type": "stdio",
+          "command": "gum-mcp",
+          "args": [],
+          "env": {}
+      }
     }
-  }
 }
