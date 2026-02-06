@@ -1,6 +1,6 @@
 // defaults
 
-import { map_object, is_array, is_string } from './utils.js'
+import { map_object, is_array, is_string } from './lib/utils.js'
 
 //
 // constants

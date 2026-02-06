@@ -2,9 +2,9 @@
 
 // import font paths
 const FONT_PATHS = {
-    sans: new URL('./fonts/IBMPlexSans-Variable.ttf', import.meta.url).pathname,
-    mono: new URL('./fonts/IBMPlexMono-Regular.ttf', import.meta.url).pathname,
-    moji: new URL('./fonts/NotoColorEmoji-Regular.ttf', import.meta.url).pathname,
+    sans: new URL('./IBMPlexSans-Variable.ttf', import.meta.url).pathname,
+    mono: new URL('./IBMPlexMono-Regular.ttf', import.meta.url).pathname,
+    moji: new URL('./NotoColorEmoji-Regular.ttf', import.meta.url).pathname,
 }
 
 // load font data as arraybuffer

@@ -1,11 +1,11 @@
 import opentype from 'opentype.js'
 
 import { CONSTANTS as C } from './defaults.js'
-import { is_browser } from './utils.js'
+import { is_browser } from './lib/utils.js'
 
 const { FONT_PATHS, loadFont } = is_browser() ?
-    await import('./fonts.browser.js') :
-    await import(/* @vite-ignore */ './fonts.node.js')
+    await import('./fonts/fonts.browser.js') :
+    await import(/* @vite-ignore */ './fonts/fonts.node.js')
 
 //
 // load font data

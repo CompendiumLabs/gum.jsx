@@ -3,7 +3,7 @@
 import { program } from 'commander'
 import { evaluateGum } from '../src/eval.js'
 import { rasterizeSvg } from '../src/render.js'
-import { readStdin, formatImage, watchAndRender } from '../src/term.js'
+import { readStdin, formatImage, watchAndRender } from '../src/lib/term.js'
 import { readFileSync, writeFileSync } from 'fs'
 
 // set up commander

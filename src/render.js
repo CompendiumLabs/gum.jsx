@@ -3,7 +3,7 @@
 import { Resvg } from '@resvg/resvg-js'
 import { CONSTANTS as C } from './defaults.js'
 import { FONT_PATHS, FONT_DATA } from './fonts.js'
-import { is_browser } from './utils.js'
+import { is_browser } from './lib/utils.js'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?

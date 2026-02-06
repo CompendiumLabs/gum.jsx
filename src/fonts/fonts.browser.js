@@ -1,9 +1,9 @@
 // browser font paths
 
 // import font paths
-const { default: sans } = await import('./fonts/IBMPlexSans-Variable.ttf?url')
-const { default: mono } = await import('./fonts/IBMPlexMono-Regular.ttf?url')
-const { default: moji } = await import(/* @vite-ignore */ './fonts/NotoColorEmoji-Regular.ttf?url')
+const { default: sans } = await import('./IBMPlexSans-Variable.ttf?url')
+const { default: mono } = await import('./IBMPlexMono-Regular.ttf?url')
+const { default: moji } = await import(/* @vite-ignore */ './NotoColorEmoji-Regular.ttf?url')
 const FONT_PATHS = { sans, mono, moji }
 
 // load font data as arraybuffer
