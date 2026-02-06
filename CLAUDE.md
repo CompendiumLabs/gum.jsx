@@ -12,30 +12,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Generate SVG from a .jsx file
-cat test.jsx | npm run cli > output.svg
+cat test.jsx | bun run cli -f svg > output.svg
 
 # Generate PNG from a .jsx file
-cat test.jsx | npm run cli -- -f png > output.png
+cat test.jsx | bun run cli -f png > output.png
 
 # CLI options:
-# -s, --size <size>       size of the image (default: 500)
-# -x, --pixels <pixels>   svg pixel coords (default: 500)
-# -f, --format <format>   format: svg or png (default: svg)
-# -t, --theme <theme>     theme to use (default: dark)
+# -s, --size <size>        size of the svg (default: 500)
+# -w, --width <width>      width of the png (default: null)
+# -h, --height <height>    height of the png (default: null)
+# -f, --format <format>    format: svg or png (default: svg)
+# -t, --theme <theme>      theme to use (default: dark)
 # -b, --background <color> background color (default: null)
-```
-
-### Running the development server
-
-```bash
-npm run server
+# -o, --output <output>    output file (default: null)
+# -r, --raw                raw output (default: false)
 ```
 
 ### Testing
 
 Test files are located in `/test/` directory and are executable JSX examples. Run them by piping to the CLI:
 ```bash
-cat test/test_logo.jsx | npm run cli > output.svg
+cat test/test_logo.jsx | bun run cli -f svg > output.svg
 ```
 
 ## Architecture
@@ -113,15 +110,12 @@ Key functions for rect manipulation:
 - `src/text.js` - Text measurement and wrapping using opentype.js
 - `src/acorn.js` - JSX parser and AST walker
 - `src/eval.js` - Code evaluation and element validation
+- `src/render.js` - SVG rendering to PNG via Resvg
 - `src/cli.js` - Command-line interface
-- `src/server.js` - Development server
 - `src/math.js` - LaTeX rendering via MathJax
-- `src/katex.js` - Alternative LaTeX rendering via KaTeX
-- `src/mark.js` - Markdown parsing
-- `src/error.js` - Error types
 - `docs/code/` - Component examples
 - `docs/text/` - Text documentation
-- `docs/gallery/` - Gallery examples
+- `docs/gala/` - Gallery examples
 
 ## Important Patterns
 

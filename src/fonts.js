@@ -5,7 +5,7 @@ import { is_browser } from './utils.js'
 
 const { FONT_PATHS, loadFont } = is_browser() ?
     await import('./fonts.browser.js') :
-    await import('./' + 'fonts.node.js') // vite-ignore hack
+    await import(/* @vite-ignore */ './fonts.node.js')
 
 //
 // load font data

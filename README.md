@@ -15,7 +15,7 @@ Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live de
 # Installation
 
 ```bash
-npm install gum-jsx
+bun i gum-jsx
 ```
 
 # Usage
@@ -53,23 +53,23 @@ const svg = elem.svg()
 
 # CLI
 
-You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. At that point you can either pipe them to a file or even display them directly in the terminal using `chafa`! For the latter you need a terminal that supports images, such as `ghostty`. There are a bunch of code examples in `docs/code/` and `docs/gallery/` to try out.
+You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal! For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `docs/gallery/` to try out.
 
 Generate an SVG from a `gum.jsx` file:
 
 ```bash
-cat input.jsx | npx gum > output.svg
+cat input.jsx | bun run cli -f svg > output.svg
 ```
 
 Generate a PNG from a `gum.jsx` file:
 
 ```bash
-cat input.jsx | npx gum -f png > output.png
+cat input.jsx | bun run cli -f png > output.png
 ```
 
-Display a `gum.jsx` file with `chafa`:
+Display a `gum.jsx` file in the terminal:
 ```bash
-cat input.jsx | npx gum | chafa -s 75 -
+cat input.jsx | bun run cli
 ```
 
 CLI options:
@@ -78,3 +78,9 @@ CLI options:
 |--------|-------------|---------|
 | `-s, --size <size>` | Image size in pixels | 500 |
 | `-t, --theme <theme>` | Theme: `light` or `dark` | light |
+| `-w, --width <width>` | Width of the PNG | null |
+| `-h, --height <height>` | Height of the PNG | null |
+| `-f, --format <format>` | Format: `svg` or `png` | `svg` |
+| `-b, --background <color>` | Background color | null (transparent) |
+| `-o, --output <output>` | Output file | null (stdout) |
+| `-u, --update` | Live update display | false |
