@@ -1,8 +1,10 @@
 // geometry elements
 
-import { Element, Group } from './core.js'
-import { THEME } from '../defaults.js'
-import { is_scalar, ensure_array, ensure_vector, upright_rect, rect_box, rounder, minimum } from '../lib/utils.js'
+import { Element, Group, Rect, prefix_split } from './core.js'
+import { DEFAULTS as D, THEME } from '../defaults.js'
+import { is_scalar, is_array, ensure_array, ensure_vector, upright_rect, rect_box, rounder, minimum, maximum, abs, cos, sin, norm_angle, rect_radial, sub_mpos, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
+
+const d2r = Math.PI / 180
 
 //
 // line
@@ -77,42 +79,6 @@ class HLine extends UnitLine {
 //
 // shapes
 //
-
-class Rect extends Element {
-    constructor(args = {}) {
-        let { rounded, ...attr } = THEME(args, 'Rect')
-
-        // pass to Element
-        super({ tag: 'rect', unary: true, ...attr })
-        this.args = args
-
-        // additional props
-        this.rounded = rounded
-    }
-
-    props(ctx) {
-        // get core attributes
-        const attr = super.props(ctx)
-
-        // get true pixel rect
-        const { prect } = ctx
-        let [ x, y, w, h ] = rect_box(prect, true)
-
-        // scale border rounded
-        let rx, ry
-        if (this.rounded != null) {
-            let s = 0.5 * (w + h)
-            if (is_scalar(this.rounded)) {
-                rx = s * this.rounded
-            } else {
-                [ rx, ry ] = mul(this.rounded, s)
-            }
-        }
-
-        // output properties
-        return { x, y, width: w, height: h, rx, ry, ...attr }
-    }
-}
 
 class Square extends Rect {
     constructor(args = {}) {
@@ -556,4 +522,4 @@ class Arrow extends Group {
     }
 }
 
-export { Line, UnitLine, VLine, HLine, Rect, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, RoundedRect, ArrowHead, Arrow }
+export { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, RoundedRect, ArrowHead, Arrow }

@@ -50,6 +50,7 @@
   },
   "scripts": {
     "cli": "bun ./scripts/cli.js",
+    "test": "bun ./scripts/test.js",
     "skill": "bun ./scripts/skill.js",
     "claude": "bun ./scripts/skill.js && bun ./scripts/claude.ts"
   },

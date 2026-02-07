@@ -2,7 +2,7 @@
 
 import { prefix_split, spec_split } from './core.js'
 import { Box } from './layout.js'
-import { TextFrame } from './text.js'
+import { TextFrame, TextStack } from './text.js'
 import { THEME } from '../defaults.js'
 import { ensure_array } from '../lib/utils.js'
 

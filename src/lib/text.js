@@ -4,8 +4,8 @@ import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 
 import { is_string, compress_whitespace, sum } from './utils.js'
-import { CONSTANTS as C, DEFAULTS as D } from './defaults.js'
-import { FONTS } from './fonts.js'
+import { CONSTANTS as C, DEFAULTS as D } from '../defaults.js'
+import { FONTS } from '../fonts.js'
 
 //
 // create text sizer

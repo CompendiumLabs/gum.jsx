@@ -1,7 +1,9 @@
 // core components
 
-import { CONSTANTS as C, DEFAULTS as D, THEME } from '../defaults.js'
-import { is_scalar, abs, cos, sin, tan, cot, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, is_array, check_string, rounder } from '../lib/utils.js'
+import { CONSTANTS as C, DEFAULTS as D, THEME, DEBUG } from '../defaults.js'
+import { is_scalar, abs, cos, sin, tan, cot, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
+
+const d2r = Math.PI / 180
 
 //
 // context mapping
@@ -85,57 +87,6 @@ function rotate_rect(size, rotate, { aspect = null, expand = false, invar = fals
 
     // return base and rotated rect sizes
     return [ w, h ]
-}
-
-// get the aspect of a rect of given `aspect` after rotating it by `rotate` degrees
-function rotate_aspect(aspect, rotate) {
-    if (aspect == null || rotate == null) return aspect
-    const theta = d2r * rotate
-    const SIN = abs(sin(theta))
-    const COS = abs(cos(theta))
-    const DW = aspect * COS + SIN
-    const DH = aspect * SIN + COS
-    return DW / DH
-}
-
-function remap_rect(rect, coord_in, coord_out) {
-    const [ x0, y0, x1, y1 ] = rect
-    const [ c0x0, c0y0, c0x1, c0y1 ] = coord_in
-    const [ c1x0, c1y0, c1x1, c1y1 ] = coord_out
-    const [ cw0, ch0 ] = [ c0x1 - c0x0, c0y1 - c0y0 ]
-    const [ cw1, ch1 ] = [ c1x1 - c1x0, c1y1 - c1y0 ]
-    const [ fx0, fy0, fx1, fy1 ] = [
-        (x0 - c0x0) / cw0, (y0 - c0y0) / ch0,
-        (x1 - c0x0) / cw0, (y1 - c0y0) / ch0,
-    ]
-    return [
-        c1x0 + cw1 * fx0, c1y0 + ch1 * fy0,
-        c1x0 + cw1 * fx1, c1y0 + ch1 * fy1,
-    ]
-}
-
-function rescaler(lim_in, lim_out) {
-    const [ in_lo, in_hi ] = lim_in
-    const [ out_lo, out_hi ] = lim_out
-    const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
-    return (x0, offset = true) => {
-        const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
-        const f = (x - in_lo) / in_len
-        const x1 = out_lo + f * out_len
-        return offset ? x1 + c : x1
-    }
-}
-
-function resizer(lim_in, lim_out) {
-    const [ in_lo, in_hi ] = lim_in
-    const [ out_lo, out_hi ] = lim_out
-    const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
-    const ratio = out_len / in_len
-    return (x0, offset = true) => {
-        const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
-        const x1 = x * ratio
-        return offset ? x1 + c : x1
-    }
 }
 
 function rotate_repr(rotate, x, y, prec = D.prec) {
@@ -368,43 +319,6 @@ class Element {
         } else {
             return `<${this.tag}${pre}${props}>${this.inner(ctx)}</${this.tag}>`
         }
-    }
-}
-
-//
-// debug class
-//
-
-function debug_element(element, indent = 0) {
-    // indent with spaces
-    const spaces = ' '.repeat(indent)
-
-    // print name and arguments
-    const args = Object.entries(element.args)
-      .filter(([ k, v ]) => k != 'children' && v != null)
-      .map(([ k, v ]) => `${k}=${JSON.stringify(v)}`)
-    console.error(`${spaces}${element.constructor.name.toUpperCase()}(${args.join(', ')})`)
-
-    // special cases
-    if (element instanceof Span) {
-        console.error(`${spaces}  STRING(${element.text})`)
-    } else if (element instanceof Group) {
-        element.children.forEach(c => debug_element(c, indent + 2))
-    }
-}
-
-class Debug {
-    constructor(args = {}) {
-        const { children: children0, ...attr } = THEME(args, 'Debug')
-        this.children = ensure_array(children0)
-        this.attr = attr
-    }
-
-    svg(ctx) {
-        console.error('======== DEBUG START ========')
-        debug_element(this)
-        console.error('======== DEBUG END ========')
-        return ''
     }
 }
 
@@ -661,4 +575,40 @@ class Svg extends Group {
     }
 }
 
-export { Context, Element, Debug, Group, Svg, is_element, prefix_split, prefix_join, spec_split }
+class Rect extends Element {
+    constructor(args = {}) {
+        let { rounded, ...attr } = THEME(args, 'Rect')
+
+        // pass to Element
+        super({ tag: 'rect', unary: true, ...attr })
+        this.args = args
+
+        // additional props
+        this.rounded = rounded
+    }
+
+    props(ctx) {
+        // get core attributes
+        const attr = super.props(ctx)
+
+        // get true pixel rect
+        const { prect } = ctx
+        let [ x, y, w, h ] = rect_box(prect, true)
+
+        // scale border rounded
+        let rx, ry
+        if (this.rounded != null) {
+            let s = 0.5 * (w + h)
+            if (is_scalar(this.rounded)) {
+                rx = s * this.rounded
+            } else {
+                [ rx, ry ] = mul(this.rounded, s)
+            }
+        }
+
+        // output properties
+        return { x, y, width: w, height: h, rx, ry, ...attr }
+    }
+}
+
+export { Context, Element, Group, Svg, Rect, is_element, prefix_split, prefix_join, spec_split, align_frac }

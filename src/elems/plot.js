@@ -1,10 +1,11 @@
 // plot elements
 
-import { Group, prefix_split, spec_split } from './core.js'
-import { Box, Frame, Attach, Spacer } from './layout.js'
-import { RoundedRect } from './geometry.js'
-import { THEME } from '../defaults.js'
-import { linspace, invert_direc, join_limits, ensure_array, is_scalar, check_singleton } from '../lib/utils.js'
+import { Group, prefix_split, prefix_join, spec_split, is_element } from './core.js'
+import { Box, Frame, Attach, Spacer, HStack, VStack, Anchor } from './layout.js'
+import { RoundedRect, UnitLine, HLine } from './geometry.js'
+import { Span } from './text.js'
+import { CONSTANTS as C, DEFAULTS as D, THEME } from '../defaults.js'
+import { linspace, invert_direc, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils.js'
 
 //
 // bar components
@@ -12,7 +13,7 @@ import { linspace, invert_direc, join_limits, ensure_array, is_scalar, check_sin
 
 class Bar extends RoundedRect {
     constructor(args = {}) {
-        const { direc = 'v', fill = blue, stroke = none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
+        const { direc = 'v', fill = C.blue, stroke = C.none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
         const rounded = rounded0 == true ? (direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]) : rounded0
         super({ fill, stroke, rounded, ...attr })
         this.args = args
@@ -313,7 +314,7 @@ function ensure_legendlabel(label, attr = {}) {
 // TODO: have a .badge/.label api for plottable elements
 class Legend extends Frame {
     constructor(args = {}) {
-        const { children: children0, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, stroke = darkgray, justify = 'left', debug, ...attr0 } = THEME(args, 'Legend')
+        const { children: children0, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = C.white, justify = 'left', debug, ...attr0 } = THEME(args, 'Legend')
         const children = ensure_array(children0)
         const [ badge_attr, text_attr, attr ] = prefix_split([ 'badge', 'text' ], attr0)
 

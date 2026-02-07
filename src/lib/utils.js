@@ -1,5 +1,10 @@
 // core utils
 
+import { DEFAULTS as D } from '../defaults.js'
+
+const d2r = Math.PI / 180
+const r2d = 180 / Math.PI
+
 //
 // environment tests
 //
@@ -659,6 +664,61 @@ function aspect_invariant(value, aspect, alpha = 0.5) {
     }
 }
 
+// get the aspect of a rect of given `aspect` after rotating it by `rotate` degrees
+function rotate_aspect(aspect, rotate) {
+    if (aspect == null || rotate == null) return aspect
+    const theta = d2r * rotate
+    const SIN = abs(sin(theta))
+    const COS = abs(cos(theta))
+    const DW = aspect * COS + SIN
+    const DH = aspect * SIN + COS
+    return DW / DH
+}
+
+//
+// rect mappers
+//
+
+function remap_rect(rect, coord_in, coord_out) {
+    const [ x0, y0, x1, y1 ] = rect
+    const [ c0x0, c0y0, c0x1, c0y1 ] = coord_in
+    const [ c1x0, c1y0, c1x1, c1y1 ] = coord_out
+    const [ cw0, ch0 ] = [ c0x1 - c0x0, c0y1 - c0y0 ]
+    const [ cw1, ch1 ] = [ c1x1 - c1x0, c1y1 - c1y0 ]
+    const [ fx0, fy0, fx1, fy1 ] = [
+        (x0 - c0x0) / cw0, (y0 - c0y0) / ch0,
+        (x1 - c0x0) / cw0, (y1 - c0y0) / ch0,
+    ]
+    return [
+        c1x0 + cw1 * fx0, c1y0 + ch1 * fy0,
+        c1x0 + cw1 * fx1, c1y0 + ch1 * fy1,
+    ]
+}
+
+function rescaler(lim_in, lim_out) {
+    const [ in_lo, in_hi ] = lim_in
+    const [ out_lo, out_hi ] = lim_out
+    const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
+    return (x0, offset = true) => {
+        const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
+        const f = (x - in_lo) / in_len
+        const x1 = out_lo + f * out_len
+        return offset ? x1 + c : x1
+    }
+}
+
+function resizer(lim_in, lim_out) {
+    const [ in_lo, in_hi ] = lim_in
+    const [ out_lo, out_hi ] = lim_out
+    const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
+    const ratio = out_len / in_len
+    return (x0, offset = true) => {
+        const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
+        const x1 = x * ratio
+        return offset ? x1 + c : x1
+    }
+}
+
 //
 // angle and direction utils
 //
@@ -738,4 +798,4 @@ function palette(start0, stop0, clim = D.lim) {
 // export
 //
 
-export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, vector_angle, cardinal_direc, unit_direc, hexToRgba, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_direc, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder }
+export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_mloc, add_mloc, sub_mloc, ensure_mpos, add_mpos, sub_mpos, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, hexToRgba, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_direc, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }

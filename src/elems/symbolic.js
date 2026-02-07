@@ -1,9 +1,10 @@
 // symbolic elements
 
-import { THEME } from '../defaults.js'
-import { Group } from './core.js'
-import { Line, Spline, Shape, Arrow } from './geometry.js'
-import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits } from '../lib/utils.js'
+import { DEFAULTS as D, THEME } from '../defaults.js'
+import { Group, spec_split } from './core.js'
+import { Line, Spline, Shape, Arrow, Dot } from './geometry.js'
+import { Box } from './layout.js'
+import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid } from '../lib/utils.js'
 
 // GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
@@ -182,7 +183,7 @@ class SymShape extends Shape {
 
 class SymFill extends Shape {
     constructor(args = {}) {
-        const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = THEME(args, 'SymFill')
+        const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = 'none', fill = '#f0f0f0', coord: coord0, ...attr } = THEME(args, 'SymFill')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
 
         // compute point values

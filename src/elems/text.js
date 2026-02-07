@@ -1,10 +1,11 @@
 // text elements
 
-import { Element, Group } from './core.js'
+import { Element, Group, prefix_split, prefix_join, spec_split } from './core.js'
 import { Box, HWrap, VStack } from './layout.js'
-import { THEME } from '../defaults.js'
-import { ensure_array, check_string } from '../lib/utils.js'
-import { prefix_split, prefix_join, spec_split } from './core.js'
+import { CONSTANTS as C, DEFAULTS as D, THEME } from '../defaults.js'
+import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils.js'
+import { textSizer, wrapText, splitWords } from '../lib/text.js'
+import { mathjax } from '../lib/math.js'
 
 //
 // text
@@ -251,7 +252,7 @@ class TextFlex extends Element {
 class Bold extends Text {
     constructor(args = {}) {
         const { ...attr } = THEME(args, 'Bold')
-        super({ font_weight: bold, ...attr })
+        super({ font_weight: C.bold, ...attr })
     }
 }
 
