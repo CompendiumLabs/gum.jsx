@@ -30,38 +30,56 @@ cat test.jsx | bun run cli -f png > output.png
 
 ### Testing
 
-Test files are located in `/test/` directory and are executable JSX examples. Run them by piping to the CLI:
+Test examples are in `docs/code/` and `docs/gala/`. Run the full test suite:
 ```bash
-cat test/test_logo.jsx | bun run cli -f svg > output.svg
+bun scripts/test.js
+```
+
+Or test a single file:
+```bash
+cat docs/code/box.jsx | bun run cli -f svg > output.svg
 ```
 
 ## Architecture
 
-### Core Component System (`src/gum.js`)
+### Component System
 
-The entire library (~3300 lines) is built around a class hierarchy:
+The library is built around a class hierarchy split across element modules:
 
-**Element** - Base class for all components
+**Element** (`src/elems/core.js`) - Base class for all components
 - Stores `args` (constructor arguments) as a dictionary for easy cloning
 - Has a `spec` object containing layout parameters (rect, aspect, expand, align, rotate, invar, coord)
 - Has an `attr` object containing SVG attributes (stroke, fill, etc.)
 - Renders to SVG via the `svg(ctx)` method that takes a Context object
 
-**Group extends Element** - Container base class
+**Group extends Element** (`src/elems/core.js`) - Container base class
 - Has a `children` array of Elements
 - Supports automatic aspect ratio detection (`aspect: 'auto'`)
 - Supports automatic coordinate system detection (`coord: 'auto'`)
 - Handles clipping and masking
 
-**Container classes extend Group:**
-- `Box`, `Frame`, `Stack`, `VStack`, `HStack`, `HWrap`, `Grid` - Layout containers
-- `Points`, `Anchor`, `Attach` - Positioning containers
-- `Field` - Vector field container
+**Layout containers** (`src/elems/layout.js`):
+- `Box`, `Frame`, `Stack`, `VStack`, `HStack`, `HWrap`, `Grid`
+- `Points`, `Anchor`, `Attach`, `Absolute`, `Field`, `Spacer`
 
-**Shape classes extend Element:**
-- `Line`, `Rect`, `Ellipse`, `Circle`, `Path` - Basic shapes
-- `Curve`, `Shape`, `Spline`, `Triangle`, `Arc`, `Arrow` - Complex shapes
-- `Text`, `TextSpan`, `Markdown`, `TextBox` - Text elements
+**Geometry elements** (`src/elems/geometry.js`):
+- `Line`, `UnitLine`, `VLine`, `HLine`, `Square`, `Ellipse`, `Circle`, `Dot`, `Ray`
+- `Shape`, `Triangle`, `Path`, `Spline`, `Arc`, `RoundedRect`, `ArrowHead`, `Arrow`
+
+**Text elements** (`src/elems/text.js`):
+- `Span`, `Text`, `TextStack`, `TextBox`, `TextFrame`, `TextFlex`, `Bold`, `Italic`, `Latex`, `Equation`
+
+**Plot elements** (`src/elems/plot.js`):
+- `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
+
+**Network elements** (`src/elems/network.js`):
+- `ArrowSpline`, `Node`, `Edge`, `Network`
+
+**Symbolic elements** (`src/elems/symbolic.js`):
+- `SymPoints`, `SymLine`, `SymSpline`, `SymShape`, `SymFill`, `SymField`
+
+**Slide elements** (`src/elems/slide.js`):
+- `TitleBox`, `TitleFrame`, `Slide`
 
 ### Context System
 
@@ -87,33 +105,51 @@ Key functions for rect manipulation:
 
 ### Evaluation Pipeline
 
-1. **Parse** (`src/acorn.js`): JSX code → AST using Acorn parser
+1. **Parse** (`src/lib/parse.js`): JSX code → AST using Acorn parser
    - Walks the AST and converts JSX elements to `new ComponentName({ ...props })`
    - Handles JSX expressions, spreads, and nested children
-   - Exports all gum components and utilities as globals
+   - Imports `KEYS`/`VALS` from `src/gum.js` to inject all components and utilities as globals
 
 2. **Evaluate** (`src/eval.js`): AST → Element tree
    - Runs the transformed code to instantiate components
    - Wraps result in `Svg` component if needed
    - Validates that result is an Element
 
-3. **Render** (`src/gum.js`): Element tree → SVG string
+3. **Render** (element classes): Element tree → SVG string
    - Each Element's `svg(ctx)` method renders itself
    - Context propagates coordinate transformations down the tree
    - Groups recursively render their children
 
 ### File Organization
 
-- `src/gum.js` - Main library (Element classes, utilities, constants)
-- `src/defaults.js` - Default values, constants, theme configuration
-- `src/utils.js` - Math utilities (arrays, vectors, rescaling, etc.)
-- `src/text.js` - Text measurement and wrapping using opentype.js
-- `src/acorn.js` - JSX parser and AST walker
+**Top-level modules:**
+- `src/gum.js` - Re-exports all elements and utilities; defines named constants (`none`, `blue`, `red`, etc.) and `KEYS`/`VALS` for the JSX evaluator
+- `src/defaults.js` - `CONSTANTS`, `DEFAULTS`, `DEBUG`, `THEME()` function, and theme management
 - `src/eval.js` - Code evaluation and element validation
 - `src/render.js` - SVG rendering to PNG via Resvg
-- `src/cli.js` - Command-line interface
-- `src/math.js` - LaTeX rendering via MathJax
-- `docs/code/` - Component examples
+- `src/fonts.js` - Font data for text measurement
+
+**Element modules (`src/elems/`):**
+- `core.js` - `Context`, `Element`, `Group`, `Svg`, `Rect`, plus `prefix_split`, `spec_split`, `align_frac`, `is_element`
+- `layout.js` - `Box`, `Frame`, `Stack`, `VStack`, `HStack`, `HWrap`, `Grid`, `Points`, `Anchor`, `Attach`, `Absolute`, `Field`, `Spacer`
+- `geometry.js` - `Line`, `UnitLine`, `Square`, `Ellipse`, `Circle`, `Dot`, `Ray`, `Shape`, `Triangle`, `Path`, `Spline`, `Arc`, `RoundedRect`, `ArrowHead`, `Arrow`
+- `text.js` - `Span`, `Text`, `TextStack`, `TextBox`, `TextFrame`, `TextFlex`, `Bold`, `Italic`, `Latex`, `Equation`
+- `plot.js` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
+- `network.js` - `ArrowSpline`, `Node`, `Edge`, `Network`
+- `symbolic.js` - `SymPoints`, `SymLine`, `SymSpline`, `SymShape`, `SymFill`, `SymField`
+- `slide.js` - `TitleBox`, `TitleFrame`, `Slide`
+
+**Library modules (`src/lib/`):**
+- `utils.js` - Math utilities, array/vector ops, rect manipulation, color handling
+- `text.js` - Text measurement and wrapping using opentype.js
+- `math.js` - LaTeX rendering via MathJax
+- `parse.js` - JSX parser (Acorn) and AST walker
+- `meta.js` - Documentation metadata loading
+- `term.js` - Terminal utilities (stdin, Kitty protocol)
+
+**Other:**
+- `scripts/test.js` - Runs all `docs/code/` and `docs/gala/` examples as a test suite
+- `docs/code/` - Component examples (one per element type)
 - `docs/text/` - Text documentation
 - `docs/gala/` - Gallery examples
 
