@@ -8,7 +8,7 @@ The syntax is an XML component style one familiar to React developers. The outpu
 
 ## Common Patterns
 
-*Parameter specification*: You can specify boolean parameters like `border` just by writing their name. Some parameters, such as `margin` or `padding` default to `0` when not specified but have a default true value as well (in both cases `0.1`). You can also pass SVG properties such as `stroke-width` directly.
+*Parameter specification*: You can specify boolean parameters like `border` just by writing their name. Some parameters, such as `margin` or `padding` default to `0` when not specified, but also take a specific value when specified as boolean `true` (in both cases `0.1`). You can also pass SVG properties such as `stroke-width` directly.
 
 *Subunit arguments*: for compound elements that inherit [Group](/docs/Group), some keyword arguments are passed down to the constituent parts. For instance, in [Plot](/docs/Plot), one can specify arguments intended for the `XAxis` unit by prefixing them with `xaxis-`. For example, setting the `stroke-width` for this subunit can be achieved with `xaxis-stroke-width`.
 

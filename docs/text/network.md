@@ -7,7 +7,7 @@ Network diagrams can be created using the [Node](/docs/Node) and [Edge](/docs/Ed
 You can specify the internal coordinate system using the `coord` argument, which is a 4-element array specifying the position of the bottom left corner and the width and height of the coordinate system. For example, `coord: [0, 0, 1, 1]` specifies the unit square. When using `Graph`, one can also pass in `xlim`/`ylim` arguments to specify the extent of the graph.
 
 Parameters:
-- `coord` — the internal coordinate system to use, a 4-element array specifying the position of the bottom left corner and the width and height of the coordinate system
+- `coord` — the internal coordinate system to use
 
 Subunits:
 - `node` — arguments applied to all nodes

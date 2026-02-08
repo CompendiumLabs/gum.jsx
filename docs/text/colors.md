@@ -19,4 +19,4 @@ There are a few functions designed to manipulate colors in HEX, RGB, and HSL for
 - `hex2rgb(hex)` — convert a HEX color string to an RGB array
 - `rgb2hex(rgb)` — convert an RGB array to a HEX color string
 - `rgb2hsl(rgb)` — convert an RGB array to an HSL array
-- `palette(beg, end)` — create a palette function that interpolates between two colors
+- `palette(beg, end, lim=[0, 1])` — create a palette function that interpolates between two colors

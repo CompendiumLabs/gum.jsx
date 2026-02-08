@@ -1,10 +1,11 @@
 // layout components
 
-import { Group, Element, Rect, prefix_split, spec_split, align_frac } from './core.js'
-import { CONSTANTS as C, DEFAULTS as D, THEME } from '../defaults.js'
+import { DEFAULTS as D, THEME, none } from '../defaults.js'
 import { is_scalar, maximum, minimum, ensure_array, ensure_vector, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils.js'
-import { RoundedRect, Dot, Arrow } from './geometry.js'
 import { wrapWidths } from '../lib/text.js'
+
+import { Group, Element, Rect, prefix_split, spec_split, align_frac } from './core.js'
+import { RoundedRect, Dot, Arrow } from './geometry.js'
 
 //
 // utils
@@ -87,7 +88,7 @@ class Box extends Group {
 
         // make framing elements
         const rect_cl = clip ? shape : false
-        const rect_bg = fill != null ? shape.clone({ fill, stroke: C.none, ...fill_attr }) : null
+        const rect_bg = fill != null ? shape.clone({ fill, stroke: none, ...fill_attr }) : null
         const rect_fg = border != null ? shape.clone({ stroke_width: border, ...border_attr }) : null
 
         // make inner groups

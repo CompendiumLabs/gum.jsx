@@ -6,34 +6,39 @@ import { map_object, is_array, is_string } from './lib/utils.js'
 // constants
 //
 
-const CONSTANTS = {
-    svgns: 'http://www.w3.org/2000/svg',
-    htmlns: 'http://www.w3.org/1999/xhtml',
-    sans: 'IBM Plex Sans',
-    mono: 'IBM Plex Mono',
-    moji: 'Noto Color Emoji',
-    normal: 300,
-    bold: 500,
-    none: 'none',
-    black: 'black',
-    white: 'white',
-    gray: '#f0f0f0',
-    blue: '#1e88e5',
-    red: '#ff0d57',
-    green: '#4caf50',
-    yellow: '#ffb300',
-    purple: '#9c27b0',
-    lightgray: '#f6f6f6',
-    darkgray: '#888888',
-    voffset: -0.15,
-    e: Math.E,
-    pi: Math.PI,
-    phi: (1 + Math.sqrt(5)) / 2,
-    r2d: 180 / Math.PI,
-    d2r: Math.PI / 180,
-}
+// namespaces
+const svgns = 'http://www.w3.org/2000/svg'
+const htmlns = 'http://www.w3.org/1999/xhtml'
 
-const C = CONSTANTS
+// fonts names
+const sans = 'IBM Plex Sans'
+const mono = 'IBM Plex Mono'
+const moji = 'Noto Color Emoji'
+
+// font metrics
+const light = 300
+const bold = 500
+const vtext = -0.15
+
+// colors
+const none = 'none'
+const black = 'black'
+const white = 'white'
+const gray = '#f0f0f0'
+const blue = '#1e88e5'
+const red = '#ff0d57'
+const green = '#4caf50'
+const yellow = '#ffb300'
+const purple = '#9c27b0'
+const lightgray = '#f6f6f6'
+const darkgray = '#888888'
+
+// math
+const e = Math.E
+const pi = Math.PI
+const phi = (1 + Math.sqrt(5)) / 2
+const r2d = 180 / Math.PI
+const d2r = Math.PI / 180
 
 //
 // default values
@@ -51,11 +56,6 @@ const DEFAULTS = {
     N: 100,
     size: 500,
     calc_size: 16,
-}
-
-const DEBUG = {
-    stroke_dasharray: 3,
-    opacity: 0.5,
 }
 
 //
@@ -87,7 +87,7 @@ const BOOLEANS = {
     },
 
     TextSpan: {
-        color: C.black,
+        color: black,
     },
 
     Graph: {
@@ -105,16 +105,16 @@ const BOOLEANS = {
 
 const THEME_LIGHT = {
     Svg: {
-        fill: C.none,
-        stroke: C.black,
+        fill: none,
+        stroke: black,
     },
 
     Span: {
-        color: C.black,
+        color: black,
     },
 
     TitleBox: {
-        title_fill: C.white,
+        title_fill: white,
     },
 
     Plot: {
@@ -124,20 +124,20 @@ const THEME_LIGHT = {
 
 const THEME_DARK = {
     Svg: {
-        fill: C.none,
-        stroke: C.white,
+        fill: none,
+        stroke: white,
     },
 
     Dot: {
-        color: C.white,
+        color: white,
     },
 
     Span: {
-        color: C.white,
+        color: white,
     },
 
     Latex: {
-        color: C.white,
+        color: white,
     },
 
     TitleBox: {
@@ -186,4 +186,4 @@ function THEME(args, elem) {
 // exports
 //
 
-export { CONSTANTS, DEFAULTS, DEBUG, setTheme, THEME }
+export { DEFAULTS, setTheme, THEME, svgns, htmlns, sans, mono, moji, light, bold, vtext, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r }

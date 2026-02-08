@@ -1,10 +1,11 @@
 // symbolic elements
 
 import { DEFAULTS as D, THEME } from '../defaults.js'
+import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid } from '../lib/utils.js'
+
 import { Group, spec_split } from './core.js'
 import { Line, Spline, Shape, Arrow, Dot } from './geometry.js'
 import { Box } from './layout.js'
-import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid } from '../lib/utils.js'
 
 // GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord

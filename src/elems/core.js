@@ -1,6 +1,6 @@
 // core components
 
-import { CONSTANTS as C, DEFAULTS as D, THEME, DEBUG } from '../defaults.js'
+import { DEFAULTS as D, THEME, svgns, sans, light } from '../defaults.js'
 import { is_scalar, abs, cos, sin, tan, cot, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
 
 const d2r = Math.PI / 180
@@ -391,8 +391,9 @@ class Group extends Element {
 
         // create debug boxes
         if (debug) {
-            const orects = children.map(c => new Rect({ rect: c.spec.rect, ...DEBUG, stroke: blue }))
-            const irects = children.map(c => new Rect({ ...c.spec, ...DEBUG, stroke: red }))
+            const dargs = { stroke_dasharray: 3, opacity: 0.5 }
+            const orects = children.map(c => new Rect({ rect: c.spec.rect, ...dargs, stroke: blue }))
+            const irects = children.map(c => new Rect({ ...c.spec, ...dargs, stroke: red }))
             children.push(...irects, ...orects)
         }
 
@@ -511,7 +512,7 @@ class Metadata {
 
 class Svg extends Group {
     constructor(args = {}) {
-        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, xmlns = C.svgns, font_family = C.sans, font_weight = C.normal, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_array(children0)
         const size_base = ensure_vector(size0, 2)
 

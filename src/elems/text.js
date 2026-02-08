@@ -1,11 +1,12 @@
 // text elements
 
-import { Element, Group, prefix_split, prefix_join, spec_split } from './core.js'
-import { Box, HWrap, VStack } from './layout.js'
-import { CONSTANTS as C, DEFAULTS as D, THEME } from '../defaults.js'
+import { THEME, vtext, none, bold } from '../defaults.js'
 import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils.js'
 import { textSizer, wrapText, splitWords } from '../lib/text.js'
 import { mathjax } from '../lib/math.js'
+
+import { Element, Group, prefix_split, prefix_join, spec_split } from './core.js'
+import { Box, HWrap, VStack } from './layout.js'
 
 //
 // text
@@ -27,7 +28,7 @@ function ensure_tail(text) {
 // no wrapping at all, clobber newlines, mainly internal use
 class Span extends Element {
     constructor(args = {}) {
-        const { children: children0, color, voffset = C.voffset, stroke = C.none, ...attr0 } = THEME(args, 'Span')
+        const { children: children0, color, voffset = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
         const child = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -199,7 +200,7 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_size is absolutely scaled
 class TextFlex extends Element {
     constructor(args = {}) {
-        const { children: children0, font_scale, font_size, spacing = 0.1, color, voffset = C.voffset, ...attr0 } = THEME(args, 'TextFlex')
+        const { children: children0, font_scale, font_size, spacing = 0.1, color, voffset = vtext, ...attr0 } = THEME(args, 'TextFlex')
         const children = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
@@ -252,7 +253,7 @@ class TextFlex extends Element {
 class Bold extends Text {
     constructor(args = {}) {
         const { ...attr } = THEME(args, 'Bold')
-        super({ font_weight: C.bold, ...attr })
+        super({ font_weight: bold, ...attr })
     }
 }
 
@@ -270,7 +271,7 @@ class Italic extends Text {
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
     constructor(args = {}) {
-        const { children, display = false, voffset = C.voffset, ...attr } = THEME(args, 'Latex')
+        const { children, display = false, voffset = vtext, ...attr } = THEME(args, 'Latex')
         const tex = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)

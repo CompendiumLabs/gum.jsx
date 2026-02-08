@@ -1,11 +1,13 @@
 import opentype from 'opentype.js'
 
-import { CONSTANTS as C } from './defaults.js'
+import { sans, mono, moji } from './defaults.js'
 import { is_browser } from './lib/utils.js'
 
 const { FONT_PATHS, loadFont } = is_browser() ?
     await import('./fonts/fonts.browser.js') :
     await import(/* @vite-ignore */ './fonts/fonts.node.js')
+
+const FONT_NAMES = { sans, mono, moji }
 
 //
 // load font data
@@ -21,7 +23,7 @@ const FONT_DATA = Object.fromEntries(
 
 const FONTS = Object.fromEntries(
     Object.entries(FONT_DATA).map(
-        ([ k, v ]) => [ C[k], opentype.parse(v) ]
+        ([ k, v ]) => [ FONT_NAMES[k], opentype.parse(v) ]
     )
 )
 

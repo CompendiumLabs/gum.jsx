@@ -1,9 +1,10 @@
 // Parse markdown and extract gum.jsx code blocks
 
 import { Resvg } from '@resvg/resvg-js'
-import { CONSTANTS as C } from './defaults.js'
-import { FONT_PATHS, FONT_DATA } from './fonts.js'
+
+import { sans, mono } from './defaults.js'
 import { is_browser } from './lib/utils.js'
+import { FONT_PATHS, FONT_DATA } from './fonts.js'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?
@@ -14,9 +15,9 @@ const fontArgs = is_browser() ?
 const font = {
   ...fontArgs,
   loadSystemFonts: false,
-  defaultFontFamily: C.sans,
-  sansSerifFamily: C.sans,
-  monospaceFamily: C.mono,
+  defaultFontFamily: sans,
+  sansSerifFamily: sans,
+  monospaceFamily: mono,
 }
 
 // build fitTo object from width/height options

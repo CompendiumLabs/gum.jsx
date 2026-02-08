@@ -1,10 +1,9 @@
 // geometry elements
 
-import { Element, Group, Rect, prefix_split } from './core.js'
-import { DEFAULTS as D, THEME } from '../defaults.js'
-import { is_scalar, is_array, ensure_array, ensure_vector, upright_rect, rect_box, rounder, minimum, maximum, abs, cos, sin, norm_angle, rect_radial, sub_mpos, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
+import { DEFAULTS as D, THEME, d2r } from '../defaults.js'
+import { is_scalar, is_array, ensure_array, ensure_vector, upright_rect, rect_box, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpos, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
 
-const d2r = Math.PI / 180
+import { Element, Group, Rect, prefix_split } from './core.js'
 
 //
 // line
@@ -381,33 +380,6 @@ class Spline extends Path {
 // path elements
 //
 
-class Arc extends Path {
-    constructor(args = {}) {
-        const { deg0, deg1, ...attr } = THEME(args, 'Arc')
-
-        // get radian angles
-        const th0 = d2r * norm_angle(deg0)
-        const th1 = d2r * norm_angle(deg1)
-
-        // get start/stop points
-        const pos0 = [ 0.5 + 0.5 * cos(th0), 0.5 - 0.5 * sin(th0) ]
-        const pos1 = [ 0.5 + 0.5 * cos(th1), 0.5 - 0.5 * sin(th1) ]
-
-        // get large/sweep flags
-        const delta = norm_angle(deg1 - deg0)
-        const large = delta > 180 ? 1 : 0
-        const sweep = delta < 0 ? 1 : 0
-
-        // send commands to path
-        const children = [
-            new MoveCmd(pos0),
-            new ArcCmd(pos1, rad, large, sweep),
-        ]
-        super({ children, ...attr })
-        this.args = args
-    }
-}
-
 function parse_rounded(rounded) {
     if (rounded === false) rounded = 0
     if (is_scalar(rounded)) {
@@ -522,4 +494,4 @@ class Arrow extends Group {
     }
 }
 
-export { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, Arc, RoundedRect, ArrowHead, Arrow }
+export { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }

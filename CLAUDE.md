@@ -124,7 +124,7 @@ Key functions for rect manipulation:
 
 **Top-level modules:**
 - `src/gum.js` - Re-exports all elements and utilities; defines named constants (`none`, `blue`, `red`, etc.) and `KEYS`/`VALS` for the JSX evaluator
-- `src/defaults.js` - `CONSTANTS`, `DEFAULTS`, `DEBUG`, `THEME()` function, and theme management
+- `src/defaults.js` - `DEFAULTS`, `THEME()` function, and theme management
 - `src/eval.js` - Code evaluation and element validation
 - `src/render.js` - SVG rendering to PNG via Resvg
 - `src/fonts.js` - Font data for text measurement

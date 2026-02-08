@@ -1,11 +1,12 @@
 // network elements
 
+import { THEME } from '../defaults.js'
+import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils.js'
+
 import { Element, Group, prefix_split } from './core.js'
 import { Frame } from './layout.js'
 import { ArrowHead, Spline } from './geometry.js'
 import { Text } from './text.js'
-import { THEME } from '../defaults.js'
-import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils.js'
 
 //
 // networks

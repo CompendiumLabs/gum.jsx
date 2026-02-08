@@ -3,8 +3,8 @@
 import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 
+import { DEFAULTS as D, light, sans, moji } from '../defaults.js'
 import { is_string, compress_whitespace, sum } from './utils.js'
-import { CONSTANTS as C, DEFAULTS as D } from '../defaults.js'
 import { FONTS } from '../fonts.js'
 
 //
@@ -27,7 +27,7 @@ function splitSegments(text) {
 
 function emojiSizer(text) {
     // get emoji font
-    const font = FONTS[C.moji]
+    const font = FONTS[moji]
     if (font == null) return 1.25
 
     // get glyphs
@@ -57,7 +57,7 @@ function emojiSizer(text) {
 }
 
 // TODO: handle font_weight
-function textSizer0(text, { font_family = C.sans, font_weight = C.normal, calc_size = D.calc_size } = {}) {
+function textSizer0(text, { font_family = sans, font_weight = light, calc_size = D.calc_size } = {}) {
     if (is_emoji(text)) return emojiSizer(text)
     const font = FONTS[font_family]
     const width = font.getAdvanceWidth(text, calc_size)

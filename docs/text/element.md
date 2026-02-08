@@ -2,6 +2,8 @@
 
 The base class for all `gum.jsx` objects. You will usually not be working with this object directly unless you are implementing your own custom elements. An **Element** has a few methods that can be overriden, each of which takes a [Context](/docs/Context) object as an argument. The vast majority of implementations will override only `props` and `inner` (for non-unary elements).
 
+The position and size of an element are specified in the internal coordinates (`coord`) of its parent, which defaults to the unit square. Rectangles are always specified in `[left, top, right, bottom]` format. You can also specify the placement by specifying `pos` and `rad` or various combinations of `xrad`/`yrad` and `xrect`/`yrect`. When not specified, `rect` defaults to the unit square.
+
 Parameters:
 - `tag` = `g` — the SVG tag associated with this element
 - `unary` = `false` — whether there is inner text for this element
