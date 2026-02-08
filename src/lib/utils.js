@@ -182,7 +182,9 @@ function any(arr) {
     return arr.reduce((a, b) => a || b, false)
 }
 
+//
 // vector ops
+//
 
 function broadcast_tuple(x, y) {
     const xa = is_array(x)
@@ -798,4 +800,4 @@ function palette(start0, stop0, clim = D.lim) {
 // export
 //
 
-export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_mloc, add_mloc, sub_mloc, ensure_mpos, add_mpos, sub_mpos, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, hexToRgba, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_direc, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_mloc, add_mloc, sub_mloc, ensure_mpos, add_mpos, sub_mpos, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_direc, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }

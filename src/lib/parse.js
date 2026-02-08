@@ -3,7 +3,7 @@
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 
-import { KEYS, VALS } from '../gum.js'
+import { CONTEXT } from '../gum.js'
 
 //
 // parser utils
@@ -216,7 +216,7 @@ const handlers = {
     const { name, props } = walkTree(openingElement)
     const pstring = objectLiteral(props)
     const cstrings = children.map(walkTree).filter(c => c != null)
-    return `component(\n${name},\n${pstring},\n${cstrings.join(',\n')}\n)`
+    return `__COMPONENT__(\n${name},\n${pstring},\n${cstrings.join(',\n')}\n)`
   },
   JSXAttribute(node) {
     const { name, value } = node
@@ -298,10 +298,10 @@ function runJSX(text, debug = false) {
 
   // construct function
   const jsCode = `return ${jsCode0}`
-  const func = new Function('component', ...KEYS, jsCode)
+  const func = new Function('__COMPONENT__', ...Object.keys(CONTEXT), jsCode)
 
   // execute function
-  const output0 = func(component, ...VALS)
+  const output0 = func(component, ...Object.values(CONTEXT))
   const output = typeof(output0) == 'function' ? output0() : output0
 
   // return gum object
