@@ -5,6 +5,7 @@ import { Resvg } from '@resvg/resvg-js'
 import { sans, mono } from './defaults.js'
 import { is_browser } from './lib/utils.js'
 import { FONT_PATHS, FONT_DATA } from './fonts/fonts.js'
+import { formatImage } from './lib/term.js'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?
@@ -49,4 +50,4 @@ function rasterizeSvg(svg, { size, width, height, background } = {}) {
   return resvg.render().asPng()
 }
 
-export { rasterizeSvg }
+export { rasterizeSvg, formatImage }
