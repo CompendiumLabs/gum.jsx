@@ -4,7 +4,7 @@ import { Resvg } from '@resvg/resvg-js'
 
 import { sans, mono } from './defaults.js'
 import { is_browser } from './lib/utils.js'
-import { FONT_PATHS, FONT_DATA } from './fonts.js'
+import { FONT_PATHS, FONT_DATA } from './fonts/fonts.js'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?

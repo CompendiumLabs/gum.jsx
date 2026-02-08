@@ -955,9 +955,7 @@ declare module 'gum-jsx' {
   export function concat<T>(arrs: T[][]): T[];
 
   /** Creates a range of numbers */
-  export function range(n: number): number[];
-  export function range(start: number, stop: number): number[];
-  export function range(start: number, stop: number, step: number): number[];
+  export function range(start: number, stop?: number, step?: number): number[];
 
   /** Creates evenly spaced numbers */
   export function linspace(start: number, stop: number, n: number): number[];
@@ -1182,17 +1180,11 @@ declare module 'gum-jsx' {
   export const bold: number;
 
   // =============================================================================
-  // Element Maps
+  // Context
   // =============================================================================
 
-  /** Map of all element classes */
-  export const ELEMS: Record<string, typeof Element>;
-
-  /** Array of all exported values */
-  export const VALS: any[];
-
-  /** Array of all exported keys */
-  export const KEYS: string[];
+  /** Map of eval context variables */
+  export const CONTEXT: Record<string, any>;
 }
 
 // =============================================================================

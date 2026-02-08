@@ -127,7 +127,6 @@ Key functions for rect manipulation:
 - `src/defaults.js` - `DEFAULTS`, `THEME()` function, and theme management
 - `src/eval.js` - Code evaluation and element validation
 - `src/render.js` - SVG rendering to PNG via Resvg
-- `src/fonts.js` - Font data for text measurement
 
 **Element modules (`src/elems/`):**
 - `core.js` - `Context`, `Element`, `Group`, `Svg`, `Rect`, plus `prefix_split`, `spec_split`, `align_frac`, `is_element`
@@ -148,6 +147,7 @@ Key functions for rect manipulation:
 - `term.js` - Terminal utilities (stdin, Kitty protocol)
 
 **Other:**
+- `src/fonts/fonts.js` - Font data for text measurement
 - `scripts/test.js` - Runs all `docs/code/` and `docs/gala/` examples as a test suite
 - `docs/code/` - Component examples (one per element type)
 - `docs/text/` - Text documentation

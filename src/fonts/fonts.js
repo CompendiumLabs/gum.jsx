@@ -1,11 +1,11 @@
 import opentype from 'opentype.js'
 
-import { sans, mono, moji } from './defaults.js'
-import { is_browser } from './lib/utils.js'
+import { sans, mono, moji } from '../defaults.js'
+import { is_browser } from '../lib/utils.js'
 
 const { FONT_PATHS, loadFont } = is_browser() ?
-    await import('./fonts/fonts.browser.js') :
-    await import(/* @vite-ignore */ './fonts/fonts.node.js')
+    await import('./fonts.browser.js') :
+    await import(/* @vite-ignore */ './fonts.node.js')
 
 const FONT_NAMES = { sans, mono, moji }
 

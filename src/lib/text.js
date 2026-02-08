@@ -5,7 +5,7 @@ import LineBreaker from 'linebreak'
 
 import { DEFAULTS as D, light, sans, moji } from '../defaults.js'
 import { is_string, compress_whitespace, sum } from './utils.js'
-import { FONTS } from '../fonts.js'
+import { FONTS } from '../fonts/fonts.js'
 
 //
 // create text sizer
