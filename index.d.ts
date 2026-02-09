@@ -1251,14 +1251,10 @@ declare module 'gum-jsx/meta' {
 
 declare module 'gum-jsx/render' {
   import type { point } from 'gum-jsx';
+
+  /** Rasterize SVG to PNG */
   export function rasterizeSvg(svg: string, opts?: { size?: number | point, width?: number, height?: number }): Buffer;
-}
 
-// =============================================================================
-// Terminal Display (from term.js)
-// =============================================================================
-
-declare module 'gum-jsx/term' {
-  export function readStdin(): Promise<string>;
+  /** Format PNG buffer as Kitty image protocol */
   export function formatImage(pngBuffer: Buffer, opts?: { imageId?: number, chunkSize?: number }): string;
 }
