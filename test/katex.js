@@ -1,7 +1,7 @@
 import { __parse as parse_tex } from 'katex'
 import symbols from './symbols.js'
 import { is_array, is_object } from '../src/utils.js'
-import { HStack, VStack, Box, Spacer, TextSpan, Rect } from '../src/gum.js'
+import { HStack, VStack, Box, Spacer, TextSpan, Rectangle } from '../src/gum.js'
 
 // constants
 const FONTS = {
@@ -76,7 +76,7 @@ function convert_tree(tree) {
             const [ numer, denom ] = [ numer0, denom0 ].map(x => convert_tree(x))
 
             // make frac Vstack
-            const line = new Rect({ fill: 'black', pos: [0.5, 0.62], rad: [0.5, 0.0075] })
+            const line = new Rectangle({ fill: 'black', pos: [0.5, 0.62], rad: [0.5, 0.0075] })
             const denom1 = new Box({ children: denom.clone({ pos: [0.5, 0.3] }) })
             const stack = new VStack({ children: [ numer, denom1 ], even: true, justify: 'center', spacing: 0.2, pos: [0.5, 0.6], rad: [0.5, 0.6], expand: true })
             return new Box({ children: [ stack, line ], aspect: stack.spec.aspect * 1.3 })

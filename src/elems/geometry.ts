@@ -1,17 +1,87 @@
 // geometry elements
 
+import type { Point, Limit, Attrs, MPoint, Orient, Rounded } from '../lib/types.js'
 import { THEME } from '../lib/theme.js'
 import { DEFAULTS as D, d2r } from '../lib/const.js'
-import { is_scalar, is_array, ensure_array, ensure_vector, upright_rect, rect_box, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpos, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
+import { is_boolean, is_scalar, is_array, ensure_array, ensure_vector, ensure_point, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
 
-import { Element, Group, Rect, prefix_split } from './core.js'
+import { Context, Element, Group, Rectangle, prefix_split } from './core.js'
+import type { ElementArgs, GroupArgs, RectArgs } from './core.js'
+
+//
+// args interfaces
+//
+
+interface LineArgs extends ElementArgs {
+    closed?: boolean
+}
+
+interface UnitLineArgs extends LineArgs {
+    direc?: Orient
+    loc?: number
+    lim?: Limit
+}
+
+interface DotArgs extends ElementArgs {
+    color?: string
+    stroke?: string
+    fill?: string
+}
+
+interface RayArgs extends LineArgs {
+    angle?: number
+    loc?: Point
+    size?: number | Point
+}
+
+interface SplineArgs extends ElementArgs {
+    dir1?: Point
+    dir2?: Point
+    curve?: number
+    closed?: boolean
+}
+
+interface RoundedRectArgs extends ElementArgs {
+    rounded?: Rounded | boolean
+    border?: number
+}
+
+interface ArrowHeadArgs extends ElementArgs {
+    direc?: number
+    arc?: number
+    base?: boolean
+    exact?: boolean
+    fill?: string
+    stroke_width?: number
+    stroke_linecap?: string
+    stroke_linejoin?: string
+}
+
+interface ArrowArgs extends GroupArgs {
+    direc?: number
+    tail?: number
+    stroke_width?: number
+}
+
+interface CubicSplineCmdArgs {
+    pos1?: Point | MPoint
+    pos2?: Point | MPoint
+    dir1?: Point
+    dir2?: Point
+    tan1?: Point
+    tan2?: Point
+    curve?: number
+}
 
 //
 // line
 //
 
 class Line extends Element {
-    constructor(args = {}) {
+    points: Point[]
+    poly: boolean
+
+    constructor(args: LineArgs = {}) {
         const { children, closed = false, ...attr } = THEME(args, 'Line')
         const points = ensure_array(children)
 
@@ -27,7 +97,7 @@ class Line extends Element {
         this.poly = poly
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         if (this.points.length < 2) return attr
         if (this.poly) {
@@ -45,7 +115,7 @@ class Line extends Element {
 
 // plottable and coord adaptive
 class UnitLine extends Line {
-    constructor(args = {}) {
+    constructor(args: UnitLineArgs = {}) {
         const { direc = 'h', loc = D.loc, lim = D.lim, ...attr } = THEME(args, 'UnitLine')
 
         // construct line positions
@@ -61,7 +131,7 @@ class UnitLine extends Line {
 }
 
 class VLine extends UnitLine {
-    constructor(args = {}) {
+    constructor(args: UnitLineArgs = {}) {
         const { ...attr } = THEME(args, 'VLine')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -69,7 +139,7 @@ class VLine extends UnitLine {
 }
 
 class HLine extends UnitLine {
-    constructor(args = {}) {
+    constructor(args: UnitLineArgs = {}) {
         const { ...attr } = THEME(args, 'HLine')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -80,8 +150,8 @@ class HLine extends UnitLine {
 // shapes
 //
 
-class Square extends Rect {
-    constructor(args = {}) {
+class Square extends Rectangle {
+    constructor(args: RectArgs = {}) {
         const { ...attr } = THEME(args, 'Square')
         super({ aspect: 1, ...attr })
         this.args = args
@@ -89,13 +159,13 @@ class Square extends Rect {
 }
 
 class Ellipse extends Element {
-    constructor(args = {}) {
+    constructor(args: ElementArgs = {}) {
         const { ...attr } = THEME(args, 'Ellipse')
         super({ tag: 'ellipse', unary: true, ...attr })
         this.args = args
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         const { prect } = ctx
         let [ cx, cy, rx, ry ] = rect_radial(prect, true)
@@ -104,7 +174,7 @@ class Ellipse extends Element {
 }
 
 class Circle extends Ellipse {
-    constructor(args = {}) {
+    constructor(args: ElementArgs = {}) {
         const { ...attr } = THEME(args, 'Circle')
         super({ aspect: 1, ...attr })
         this.args = args
@@ -112,8 +182,8 @@ class Circle extends Ellipse {
 }
 
 class Dot extends Circle {
-    constructor(args = {}) {
-        const { color = 'black', stroke: stroke0 = null, fill: fill0 = null, ...attr } = THEME(args, 'Dot')
+    constructor(args: DotArgs = {}) {
+        const { color = 'black', stroke: stroke0, fill: fill0, ...attr } = THEME(args, 'Dot')
         const stroke = stroke0 ?? color
         const fill = fill0 ?? color
         super({ stroke, fill, ...attr })
@@ -122,8 +192,8 @@ class Dot extends Circle {
 }
 
 class Ray extends Line {
-    constructor(args = {}) {
-        const { angle, loc = D.pos, size = 0.5, ...attr } = THEME(args, 'Ray')
+    constructor(args: RayArgs = {}) {
+        const { angle = 0, loc = D.pos, size = 0.5, ...attr } = THEME(args, 'Ray')
         const theta = angle * d2r
         const [ x, y ] = loc
         const [ rx, ry ] = ensure_vector(size, 2)
@@ -140,14 +210,16 @@ class Ray extends Line {
 // point strings
 //
 
-function pointstring(pixels, prec = D.prec) {
+function pointstring(pixels: Point[], prec: number = D.prec): string {
     return pixels.map(([ x, y ]) =>
         `${rounder(x, prec)},${rounder(y, prec)}`
     ).join(' ')
 }
 
 class Pointstring extends Element {
-    constructor(args = {}) {
+    points: Point[]
+
+    constructor(args: ElementArgs = {}) {
         const { tag, children, ...attr } = THEME(args, 'Pointstring')
         const points = ensure_array(children)
 
@@ -159,7 +231,7 @@ class Pointstring extends Element {
         this.points = points
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         const pixels = this.points.map(p => ctx.mapPoint(p))
         const points = pointstring(pixels, ctx.prec)
@@ -168,7 +240,7 @@ class Pointstring extends Element {
 }
 
 class Shape extends Pointstring {
-    constructor(args = {}) {
+    constructor(args: ElementArgs = {}) {
         const { children, ...attr } = THEME(args, 'Shape')
         super({ tag: 'polygon', children, ...attr })
         this.args = args
@@ -176,7 +248,7 @@ class Shape extends Pointstring {
 }
 
 class Triangle extends Shape {
-    constructor(args = {}) {
+    constructor(args: ElementArgs = {}) {
         const { children: children0, ...attr } = THEME(args, 'Triangle')
         const children = [[0.5, 0], [1, 1], [0, 1]]
         super({ children, ...attr })
@@ -189,7 +261,9 @@ class Triangle extends Shape {
 //
 
 class Path extends Element {
-    constructor(args = {}) {
+    cmds: Command[]
+
+    constructor(args: ElementArgs = {}) {
         const { children, ...attr } = THEME(args, 'Path')
         const cmds = ensure_array(children)
         super({ tag: 'path', unary: true, ...attr })
@@ -197,11 +271,11 @@ class Path extends Element {
         this.args = args
     }
 
-    data(ctx) {
+    data(ctx: Context): string {
         return this.cmds.map(c => c.data(ctx)).join(' ')
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         const d = this.data(ctx)
         return { d, ...attr }
@@ -209,45 +283,56 @@ class Path extends Element {
 }
 
 class Command {
-    constructor(cmd) {
+    cmd: string
+
+    constructor(cmd: string) {
         this.cmd = cmd
     }
 
-    args(ctx) {
+    args(ctx: Context): string {
         return ''
     }
 
-    data(ctx) {
+    data(ctx: Context): string {
         return `${this.cmd} ${this.args(ctx)}`
     }
 }
 
 class MoveCmd extends Command {
-    constructor(pos) {
+    pos: Point | MPoint
+
+    constructor(pos: Point | MPoint) {
         super('M')
         this.pos = pos
     }
 
-    args(ctx) {
+    args(ctx: Context): string {
         const [ x, y ] = ctx.mapPoint(this.pos)
         return `${rounder(x, ctx.prec)},${rounder(y, ctx.prec)}`
     }
 }
 
 class LineCmd extends Command {
-    constructor(pos) {
+    pos: Point | MPoint
+
+    constructor(pos: Point | MPoint) {
         super('L')
         this.pos = pos
     }
 
-    args(ctx) {
+    args(ctx: Context): string {
         const [ x, y ] = ctx.mapPoint(this.pos)
         return `${rounder(x, ctx.prec)},${rounder(y, ctx.prec)}`
     }
 }
 
 class ArcCmd extends Command {
-    constructor(pos, rad, large, sweep) {
+    pos: Point
+    rad: Point
+    large: number
+    sweep: number
+
+    constructor(pos: Point, rad: Point, large: number, sweep: number) {
         super('A')
         this.pos = pos
         this.rad = rad
@@ -255,7 +340,7 @@ class ArcCmd extends Command {
         this.sweep = sweep
     }
 
-    args(ctx) {
+    args(ctx: Context): string {
         const [ x1, y1 ] = ctx.mapPoint(this.pos)
         const [ rx, ry ] = ctx.mapSize(this.rad)
         return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large} ${this.sweep} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
@@ -266,12 +351,15 @@ class ArcCmd extends Command {
 // the direction is by default counter-clockwise
 // this assumes the cursor is at pos0
 class CornerCmd {
-    constructor(pos0, pos1) {
+    pos0: Point
+    pos1: Point
+
+    constructor(pos0: Point, pos1: Point) {
         this.pos0 = pos0
         this.pos1 = pos1
     }
 
-    data(ctx) {
+    data(ctx: Context): string {
         const [ x0, y0 ] = ctx.mapPoint(this.pos0)
         const [ x1, y1 ] = ctx.mapPoint(this.pos1)
 
@@ -303,15 +391,23 @@ class CornerCmd {
 }
 
 class CubicSplineCmd extends Command {
-    constructor(args) {
+    pos1: Point | MPoint
+    pos2: Point | MPoint
+    dir1: Point | undefined
+    dir2: Point | undefined
+    tan1: Point | undefined
+    tan2: Point | undefined
+    curve: number
+
+    constructor(args: CubicSplineCmdArgs = {}) {
         const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 } = args ?? {}
 
         // pass to Command
         super('C')
 
         // additional props
-        this.pos1 = pos1
-        this.pos2 = pos2
+        this.pos1 = pos1!
+        this.pos2 = pos2!
         this.dir1 = dir1
         this.dir2 = dir2
         this.tan1 = tan1
@@ -319,9 +415,9 @@ class CubicSplineCmd extends Command {
         this.curve = curve
     }
 
-    args(ctx) {
+    args(ctx: Context): string {
         // use dir if provided, otherwise use tan
-        const dist = sub_mpos(this.pos2, this.pos1, true).map(abs)
+        const dist = squeeze_mpoint(sub_mpoint(this.pos2, this.pos1)).map(abs)
         const tan1 = this.dir1 != null ? mul(this.dir1, dist) : this.tan1
         const tan2 = this.dir2 != null ? mul(this.dir2, dist) : this.tan2
 
@@ -345,7 +441,7 @@ class CubicSplineCmd extends Command {
 }
 
 class Spline extends Path {
-    constructor(args = {}) {
+    constructor(args: SplineArgs = {}) {
         const { children: children0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
         const points = ensure_array(children0)
 
@@ -354,7 +450,7 @@ class Spline extends Path {
         const tans = range(n).map(i => {
             const i1 = (closed && i == 0    ) ? n - 1 : maximum(0    , i - 1)
             const i2 = (closed && i == n - 1) ? 0     : minimum(n - 1, i + 1)
-            return sub_mpos(points[i2], points[i1])
+            return squeeze_mpoint(sub_mpoint(points[i2], points[i1]))
         })
 
         // create path commands
@@ -362,8 +458,8 @@ class Spline extends Path {
         const num = maximum(0, closed ? n : n - 1)
         const splines = range(num).map(i => {
             const ip = (closed && i == num - 1) ? 0 : i + 1
-            const d1 = (!closed && i == 0) ? dir1 : null
-            const d2 = (!closed && i == num - 1) ? dir2 : null
+            const d1 = (!closed && i == 0) ? dir1 : undefined
+            const d2 = (!closed && i == num - 1) ? dir2 : undefined
             return new CubicSplineCmd({
                 pos1: points[i], pos2: points[ip],
                 tan1: tans[i], tan2: tans[ip],
@@ -381,21 +477,22 @@ class Spline extends Path {
 // path elements
 //
 
-function parse_rounded(rounded) {
-    if (rounded === false) rounded = 0
+function parse_rounded(rounded: Rounded): Point[] {
+    if (is_boolean(rounded)) rounded = 0
     if (is_scalar(rounded)) {
         rounded = [rounded, rounded, rounded, rounded]
     } else if (is_array(rounded) && rounded.length == 2) {
         const [ rx, ry ] = rounded
         rounded = [[rx, ry], [rx, ry], [rx, ry], [rx, ry]]
     }
-    return rounded.map(r => ensure_vector(r, 2))
+    return rounded.map(ensure_point)
 }
 
 // supports different rounded for each corner
 class RoundedRect extends Path {
-    constructor(args = {}) {
-        let { children: children0, rounded = 0, border = 1, ...attr } = THEME(args, 'RoundedRect')
+    constructor(args: RoundedRectArgs = {}) {
+        const { children: children0, rounded: rounded0 = 0, border = 1, ...attr } = THEME(args, 'RoundedRect')
+        const rounded = (rounded0 === false) ? 0 : rounded0 as Rounded
 
         // convert to array of arrays
         const [ rtl, rtr, rbr, rbl ] = parse_rounded(rounded)
@@ -425,7 +522,7 @@ class RoundedRect extends Path {
     // intercept prect and ensure its upright
     // otherwide CornerCmd will fail going counter-clockwise
     // TODO: could this be yet another spec property?
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const { prect: prect0 } = ctx
         const prect = upright_rect(prect0)
         const ctx1 = ctx.clone({ prect })
@@ -438,8 +535,8 @@ class RoundedRect extends Path {
 //
 
 class ArrowHead extends Path {
-    constructor(args = {}) {
-        const { direc = 0, arc = 75, base: base0, exact = true, aspect = null, fill = null, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
+    constructor(args: ArrowHeadArgs = {}) {
+        const { direc = 0, arc = 75, base: base0, exact = true, aspect, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
         const base = base0 ?? (fill != null)
 
         // get arc positions
@@ -448,8 +545,8 @@ class ArrowHead extends Path {
 
         // get vertex positions
         const off = exact ? mul(dir0, -0.5 * stroke_width) : [ 0, 0 ]
-        const [ fra0, fra1, fra2 ] = [ [0, 0], dir1, dir2 ].map(d => add(mul(d, -0.5), D.pos))
-        const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => zip(f, off))
+        const [ fra0, fra1, fra2 ] = [ [0, 0], dir1, dir2 ].map(d => add(mul(d, -0.5), D.pos) as Point)
+        const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => zip(f, off) as MPoint)
 
         // make command path
         const commands = fill == null ?
@@ -464,14 +561,14 @@ class ArrowHead extends Path {
 }
 
 class Arrow extends Group {
-    constructor(args = {}) {
-        let { children: children0, direc: direc0 = 0, tail, stroke_width, ...attr0 } = THEME(args, 'Arrow')
+    constructor(args: ArrowArgs = {}) {
+        let { direc: direc0 = 0, tail, stroke_width, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
         // sort out direction
         const soff = 0.5 * (stroke_width ?? 1)
-        const unit_vec = unit_direc(-direc0)
-        const children = []
+        const unit_vec = unit_direc(-direc0) as Point
+        const children: Element[] = []
 
         // create tail element
         if (tail != null) {
@@ -496,3 +593,4 @@ class Arrow extends Group {
 }
 
 export { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }

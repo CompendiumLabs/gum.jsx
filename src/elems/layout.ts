@@ -1,26 +1,90 @@
 // layout components
 
+import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types.js'
 import { THEME } from '../lib/theme.js'
 import { DEFAULTS as D, none } from '../lib/const.js'
-import { is_scalar, maximum, minimum, ensure_array, ensure_vector, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils.js'
+import { is_scalar, maximum, minimum, ensure_array, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils.js'
 import { wrapWidths } from '../lib/text.js'
 
-import { Group, Element, Rect, prefix_split, spec_split, align_frac } from './core.js'
+import { Context, Group, Element, Rectangle, prefix_split, spec_split, align_frac } from './core.js'
+import type { ElementArgs, GroupArgs } from './core.js'
 import { RoundedRect, Dot, Arrow } from './geometry.js'
+
+//
+// args interfaces
+//
+
+interface BoxArgs extends GroupArgs {
+    padding?: Padding
+    margin?: Padding
+    border?: boolean | number
+    fill?: string
+    shape?: Element
+    rounded?: Rounded
+    adjust?: boolean
+}
+
+interface StackArgs extends GroupArgs {
+    direc?: Orient
+    spacing?: boolean | number
+    justify?: AlignValue
+    even?: boolean
+}
+
+interface HWrapArgs extends StackArgs {
+    padding?: number
+    wrap?: number
+    measure?: (c: Element) => number
+}
+
+interface GridArgs extends GroupArgs {
+    rows?: number
+    cols?: number
+    widths?: number[]
+    heights?: number[]
+    spacing?: number | Point
+}
+
+interface PointsArgs extends GroupArgs {
+    shape?: Element
+    size?: number
+}
+
+interface AnchorArgs extends GroupArgs {
+    direc?: Orient
+    loc?: number
+    justify?: AlignValue
+}
+
+interface AttachArgs extends GroupArgs {
+    offset?: number
+    size?: number
+    side?: Side
+}
+
+interface AbsoluteArgs extends ElementArgs {
+    size?: number | Point
+}
+
+interface FieldArgs extends GroupArgs {
+    shape?: Element
+    size?: number
+    tail?: number
+}
 
 //
 // utils
 //
 
-function maybe_rounded_rect(rounded) {
+function maybe_rounded_rect(rounded: Rounded | undefined): Element {
     if (rounded == null) {
-        return new Rect()
+        return new Rectangle()
     } else {
         return new RoundedRect({ rounded })
     }
 }
 
-function pad_rect(p) {
+function pad_rect(p: any): Rect {
     if (p == null) {
         return [ 0, 0, 0, 0 ]
     } else if (is_scalar(p)) {
@@ -34,11 +98,11 @@ function pad_rect(p) {
 }
 
 // map padding/margin into internal boxes
-function apply_padding(padding, aspect0) {
+function apply_padding(padding: Rect, aspect0: number | undefined): { rect: Rect, aspect: number | undefined } {
     const [ pl, pt, pr, pb ] = padding
     const [ pw, ph ] = [ pl + 1 + pr, pt + 1 + pb ]
-    const rect = [ pl / pw, pt / ph, 1 - pr / pw, 1 - pb / ph ]
-    const aspect = (aspect0 != null) ? aspect0 * (pw / ph) : null
+    const rect = [ pl / pw, pt / ph, 1 - pr / pw, 1 - pb / ph ] as Rect
+    const aspect = (aspect0 != null) ? aspect0 * (pw / ph) : undefined
     return { rect, aspect }
 }
 
@@ -46,7 +110,7 @@ function apply_padding(padding, aspect0) {
 // box/frame
 //
 
-function computeBoxLayout(children, { padding = null, margin = null, aspect = null, adjust = true } = {}) {
+function computeBoxLayout(children: Element[], { padding, margin, aspect, adjust = true }: { padding?: any, margin?: any, aspect?: number | undefined, adjust?: boolean } = {}) {
     // try to determine box aspect
     const aspect_child = aspect ?? children[0]?.spec?.aspect
 
@@ -59,24 +123,21 @@ function computeBoxLayout(children, { padding = null, margin = null, aspect = nu
     }
 
     // apply padding to outer rect
-    padding = pad_rect(padding)
-    if (adjust && aspect_child != null) padding = aspect_invariant(padding, 1 / aspect_child)
-    const { rect: rect_inner, aspect: aspect_inner } = apply_padding(padding, aspect_child)
+    let padding1 = pad_rect(padding)
+    if (adjust && aspect_child != null) padding1 = aspect_invariant(padding1, 1 / aspect_child) as Rect
+    const { rect: rect_inner, aspect: aspect_inner } = apply_padding(padding1, aspect_child)
 
     // apply margin to global rect
-    margin = pad_rect(margin)
-    if (adjust && aspect_inner != null) margin = aspect_invariant(margin, 1 / aspect_inner)
-    const { rect: rect_outer, aspect: aspect_outer } = apply_padding(margin, aspect_inner)
-
-    // apply padding/margin and get box sizes
-    aspect ??= aspect_outer
+    let margin1 = pad_rect(margin)
+    if (adjust && aspect_inner != null) margin1 = aspect_invariant(margin1, 1 / aspect_inner) as Rect
+    const { rect: rect_outer, aspect: aspect_outer } = apply_padding(margin1, aspect_inner)
 
     // return inner/outer rects and aspect
-    return { rect_inner, rect_outer, aspect_inner, aspect_outer }
+    return { rect_inner, rect_outer, aspect_inner, aspect_outer: aspect ?? aspect_outer }
 }
 
 class Box extends Group {
-    constructor(args = {}) {
+    constructor(args: BoxArgs = {}) {
         let { children: children0, padding, margin, border, fill, shape, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
         const children = ensure_array(children0)
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
@@ -85,7 +146,7 @@ class Box extends Group {
         shape ??= maybe_rounded_rect(rounded)
 
         // compute layout
-        const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, border, aspect, adjust })
+        const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, aspect: aspect as number | undefined, adjust })
 
         // make framing elements
         const rect_cl = clip ? shape : false
@@ -103,7 +164,7 @@ class Box extends Group {
 }
 
 class Frame extends Box {
-    constructor(args = {}) {
+    constructor(args: BoxArgs = {}) {
         const { border = 1, ...attr } = THEME(args, 'Frame')
         super({ border, ...attr })
         this.args = args
@@ -114,18 +175,35 @@ class Frame extends Box {
 // stack/wrap/grid
 //
 
+type StackChildOver = {
+    size: number
+    aspect: number
+}
+
+type StackChildExpo = {
+    size?: number
+    aspect: number
+}
+
+type StackChildFlex = {
+    size: number
+    aspect: undefined
+}
+
+type StackChild = StackChildOver | StackChildExpo | StackChildFlex
+
 // TODO: better justify handling with aspect override (right now it's sort of "left" justified)
-function computeStackLayout(direc, children, { spacing = 0, even = false, aspect: aspect0 = null }) {
+function computeStackLayout(direc: string, children: Element[], { spacing = 0, even = false, aspect: aspect0 }: { spacing?: number, even?: boolean, aspect?: number } = {}): { ranges: Limit[], aspect: number | undefined } {
     // short circuit if empty
-    if (children.length == 0) return { ranges: null, aspect: null}
+    if (children.length == 0) return { ranges: [], aspect: undefined }
 
     // get size and aspect data from children
     // adjust for direction (invert aspect if horizontal)
     const items = children.map(c => {
         const size = c.attr.stack_size ?? (even ? 1 / children.length : null)
         const expd = c.attr.stack_expand ?? true
-        const aspect = expd ? c.spec.aspect : null
-        return { size, aspect }
+        const aspect = expd ? c.spec.aspect : undefined
+        return { size, aspect } as StackChild
     })
 
     // handle horizontal case (invert aspect)
@@ -137,12 +215,12 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
     const F_total = 1 - spacing * (children.length - 1)
 
     // for computing return values
-    const getSizes = cs => cs.map(c => c.size ?? 0)
-    const getAspect0 = (direc == 'v') ? invert : identity
-    const getAspect = a => (aspect0 ?? getAspect0(a))
+    const getSizes = (cs: StackChild[]): number[] => cs.map(c => c.size ?? 0)
+    const getAspect0: (a: number | undefined) => number | undefined = (direc == 'v') ? invert : identity
+    const getAspect = (a: number | undefined): number | undefined => (aspect0 ?? getAspect0(a))
 
     // compute ranges with spacing
-    function getRanges(sizes0) {
+    function getRanges(sizes0: number[]): Limit[] {
         const sizes1 = sizes0.map(s0 => F_total * s0)
         const bases = cumsum(sizes1.map(s1 => s1 + spacing)).slice(0, -1)
         return zip(bases, sizes1).map(([b, s1]) => [b, b + s1])
@@ -150,16 +228,16 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
 
     // children = list of dicts with keys size (s_i) and aspect (a_i)
     // const fixed = children.filter(c => c.size != null && c.aspect == null)
-    const over = items.filter(c => c.size != null && c.aspect != null)
-    const expo = items.filter(c => c.size == null && c.aspect != null)
-    const flex = items.filter(c => c.size == null && c.aspect == null)
+    const over = items.filter(c => c.size != null && c.aspect != null) as StackChildOver[]
+    const expo = items.filter(c => c.size == null && c.aspect != null) as StackChildExpo[]
+    const flex = items.filter(c => c.size == null && c.aspect == null) as StackChildFlex[]
 
     // get target aspect from over-constrained children
     // this is generically imperfect if len(over) > 1
     // single element case (exact): s * F_total * L = a
     // multi element case (approximate): agg(s_i / a_i) * F_total * L = 1
-    const agg = x => max(x) // fit to max aspect, otherwise will underfit
-    const L_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size / c.aspect))) : null
+    const agg: (x: number[]) => number = x => max(x) as number // fit to max aspect, otherwise will underfit
+    const L_over = (over.length > 0) ? 1 / (F_total * agg(over.map(c => c.size / c.aspect))) : undefined
 
     // knock out (over/exactly)-budgeted case right away
     // short-circuit since this is relatively simple
@@ -174,8 +252,8 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
     // set length to maximally accommodate over-constrained children (or expandables)
     // add up lengths required to make expandables height 1 (w = a)
     // set length to satisfy: L_expand * (1 - S_sum) * F_total = sum(w) = sum(a)
-    const L_expand = (expo.length > 0) ? sum(expo.map(c => c.aspect)) / ((1 - S_sum) * F_total) : null
-    const L_target = aspect0 ?? ((over.length > 0) ? L_over : L_expand)
+    const L_expand = (expo.length > 0) ? sum(expo.map(c => c.aspect)) / ((1 - S_sum) * F_total) : undefined
+    const L_target = aspect0 ?? ((over.length > 0) ? L_over : L_expand) as number
 
     // allocate space to expand then flex children
     // S_exp0 gets full length of expandables given realized L_target
@@ -204,13 +282,13 @@ function computeStackLayout(direc, children, { spacing = 0, even = false, aspect
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 // TODO: make native way to mimic using Spacer elements for spacing
 class Stack extends Group {
-    constructor(args = {}) {
-        let { children, direc, spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = THEME(args, 'Stack')
+    constructor(args: StackArgs = {}) {
+        let { children, direc = 'v', spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = THEME(args, 'Stack')
         children = ensure_array(children)
 
         // compute layout
-        const spacing1 = spacing / maximum(children.length - 1, 1)
-        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, even, aspect: aspect0 })
+        const spacing1 = (spacing as number) / maximum(children.length - 1, 1)
+        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, even, aspect: aspect0 as number | undefined })
 
         // assign child rects
         children = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
@@ -226,7 +304,7 @@ class Stack extends Group {
 }
 
 class VStack extends Stack {
-    constructor(args = {}) {
+    constructor(args: StackArgs = {}) {
         const { ...attr } = THEME(args, 'VStack')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -234,21 +312,21 @@ class VStack extends Stack {
 }
 
 class HStack extends Stack {
-    constructor(args = {}) {
+    constructor(args: StackArgs = {}) {
         const { ...attr } = THEME(args, 'HStack')
         super({ direc: 'h', ...attr })
         this.args = args
     }
 }
 
-function default_measure(c) {
+function default_measure(c: Element): number {
     return c.spec.aspect ?? 1
 }
 
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
-    constructor(args = {}) {
-        const { children: children0, spacing = 0, padding = 0, wrap = null, justify = 'left', measure: measure0 = null, debug, ...attr } = THEME(args, 'HWrap')
+    constructor(args: HWrapArgs = {}) {
+        const { children: children0, spacing = 0, padding = 0, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
         const children = ensure_array(children0)
         const measure = measure0 ?? default_measure
 
@@ -272,7 +350,7 @@ h_i = \frac{v_i}{\sum_{k=1}^M v_k}
 \log(a) = \log(\mu) - \frac{1}{N} \sum_{j=1}^N \log(w_j) + \frac{1}{M} \sum_{i=1}^M \log(h_i)
 */
 
-function computeGridLayout(children, rows, cols, { widths, heights, spacing } = {}) {
+function computeGridLayout(children: Element[][], rows: number, cols: number, { widths: widths0, heights: heights0, spacing = 0 }: { widths?: number[], heights?: number[], spacing?: number | [number, number] } = {}): { cranges: Limit[], rranges: Limit[], aspect: number } {
     // aggregate aspect ratios along rows and columns (assuming null goes to 1)
     const aspect_grid = children.map(row => row.map(e => e.spec.aspect ?? 1))
     const log_aspect = aspect_grid.map(row => row.map(log))
@@ -283,12 +361,12 @@ function computeGridLayout(children, rows, cols, { widths, heights, spacing } = 
     const log_vi = log_aspect.map(mean).map(x => log_mu - x)
 
     // implement findings
-    widths = widths ?? normalize(log_uj.map(exp))
-    heights = heights ?? normalize(log_vi.map(exp))
+    let widths = widths0 ?? normalize(log_uj.map(exp))
+    let heights = heights0 ?? normalize(log_vi.map(exp))
     const aspect_ideal = exp(log_mu - mean(widths.map(log)) + mean(heights.map(log)))
 
     // adjust widths and heights to account for spacing
-    const [spacex, spacey] = spacing
+    const [spacex, spacey] = ensure_point(spacing)
     const [scalex, scaley] = [1 - spacex * (cols-1), 1 - spacey * (rows-1)]
     widths = widths.map(w => scalex * w)
     heights = heights.map(h => scaley * h)
@@ -297,26 +375,30 @@ function computeGridLayout(children, rows, cols, { widths, heights, spacing } = 
     // get top left positions
     const lposit = cumsum(widths.map(w => w + spacex))
     const tposit = cumsum(heights.map(h => h + spacey))
-    const cranges = zip(lposit, widths).map(([l, w]) => [l, l + w])
-    const rranges = zip(tposit, heights).map(([t, h]) => [t, t + h])
+    const cranges = zip(lposit, widths).map(([l, w]) => [l, l + w] as Limit)
+    const rranges = zip(tposit, heights).map(([t, h]) => [t, t + h] as Limit)
 
     return { cranges, rranges, aspect }
 }
 
+function computeGridSize(num: number, rows: number | undefined, cols: number | undefined): { rows: number, cols: number } {
+    if (rows == null && cols != null) {
+        rows = Math.ceil(num / cols)
+    } else if (cols == null && rows != null) {
+        cols = Math.ceil(num / rows)
+    } else if (rows == null && cols == null) {
+        throw new Error('Either rows or cols must be specified')
+    } else {}
+    return { rows: rows as number, cols: cols as number }
+}
+
 class Grid extends Group {
-    constructor(args = {}) {
-        let { children: children0, rows, cols, widths, heights, spacing = 0, aspect, ...attr } = THEME(args, 'Grid')
+    constructor(args: GridArgs = {}) {
+        let { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect, ...attr } = THEME(args, 'Grid')
         const items = ensure_array(children0)
-        spacing = ensure_vector(spacing, 2)
 
         // reshape children to grid
-        if (rows == null && cols != null) {
-            rows = Math.ceil(items.length / cols)
-        } else if (cols == null && rows != null) {
-            cols = Math.ceil(items.length / rows)
-        } else if (rows == null && cols == null) {
-            throw new Error('Either rows or cols must be specified')
-        }
+        const { rows, cols } = computeGridSize(items.length, rows0, cols0)
         let grid = reshape(items, [rows, cols])
 
         // fill in missing rows and columns
@@ -348,7 +430,7 @@ class Grid extends Group {
 //
 
 class Points extends Group {
-    constructor(args = {}) {
+    constructor(args: PointsArgs = {}) {
         const { children: children0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
         const [ spec, attr ] = spec_split(attr0)
         const shape = shape0 ?? new Dot(attr)
@@ -360,8 +442,8 @@ class Points extends Group {
 }
 
 class Anchor extends Group {
-    constructor(args = {}) {
-        const { children: children0, direc = 'h', loc: loc0 = null, justify = 'center', ...attr } = args
+    constructor(args: AnchorArgs = {}) {
+        const { children: children0, direc = 'h', loc: loc0, justify = 'center', ...attr } = args
         const child = check_singleton(children0)
 
         // assign spec to child
@@ -379,8 +461,8 @@ class Anchor extends Group {
 }
 
 class Attach extends Group {
-    constructor(args = {}) {
-        const { children: children0, offset = 0, size = 1, align = 'center', side, ...attr } = THEME(args, 'Attach')
+    constructor(args: AttachArgs = {}) {
+        const { children: children0, offset = 0, size = 1, align = 'center', side = 'top', ...attr } = THEME(args, 'Attach')
         const child = check_singleton(children0)
 
         // get extent and map
@@ -403,7 +485,10 @@ class Attach extends Group {
 }
 
 class Absolute extends Element {
-    constructor(args = {}) {
+    child: Element
+    size?: number | Point
+
+    constructor(args: AbsoluteArgs = {}) {
         const { children: children0, size, ...attr } = THEME(args, 'Absolute')
         const child = check_singleton(children0)
 
@@ -416,7 +501,7 @@ class Absolute extends Element {
         this.size = size
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         const { prect } = ctx
 
         // get relative size from absolute size
@@ -432,7 +517,7 @@ class Absolute extends Element {
 }
 
 class Field extends Group {
-    constructor(args = {}) {
+    constructor(args: FieldArgs = {}) {
         const { children: children0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
         const points = ensure_array(children0)
         const shape = shape0 ?? new Arrow({ tail })
@@ -451,15 +536,16 @@ class Field extends Group {
 
 // this can have an aspect, which is utilized by layouts
 class Spacer extends Element {
-    constructor(args = {}) {
+    constructor(args: ElementArgs = {}) {
         const { ...attr } = THEME(args, 'Spacer')
         super({ tag: 'g', unary: true, ...attr })
         this.args = args
     }
 
-    svg(ctx) {
+    svg(ctx?: Context): string {
         return ''
     }
 }
 
 export { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Field, Spacer }
+export type { BoxArgs, StackArgs, HWrapArgs, GridArgs, PointsArgs, AnchorArgs, AttachArgs, AbsoluteArgs, FieldArgs }

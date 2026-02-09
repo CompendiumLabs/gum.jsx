@@ -11,21 +11,21 @@ import { FONTS } from '../fonts/fonts.js'
 // create text sizer
 //
 
-function is_emoji(text) {
+function is_emoji(text: string): boolean {
     return EMOJI_REGEX.test(text)
 }
 
-function arrayEquals(a, b) {
+function arrayEquals(a: number[], b: number[]): boolean {
     return a.length == b.length && a.every((x, i) => x == b[i])
 }
 
-function splitSegments(text) {
+function splitSegments(text: string): string[] {
     const segmenter = new Intl.Segmenter()
     const segments = segmenter.segment(text)
     return [...segments].map(s => s.segment)
 }
 
-function emojiSizer(text) {
+function emojiSizer(text: string): number {
     // get emoji font
     const font = FONTS[moji]
     if (font == null) return 1.25
@@ -56,16 +56,22 @@ function emojiSizer(text) {
     return advanceWidth / unitsPerEm
 }
 
+type TextSizerArgs = {
+    font_family?: string
+    font_weight?: number
+    calc_size?: number
+}
+
 // TODO: handle font_weight
-function textSizer0(text, { font_family = sans, font_weight = light, calc_size = D.calc_size } = {}) {
+function textSizer0(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size }: TextSizerArgs = {}): number {
     if (is_emoji(text)) return emojiSizer(text)
     const font = FONTS[font_family]
     const width = font.getAdvanceWidth(text, calc_size)
     return width / calc_size
 }
 
-function textSizer(text, args = {}) {
-    if (text == '\n') return null
+function textSizer(text: string, args: TextSizerArgs = {}): number | undefined {
+    if (text == '\n') return
     const text1 = compress_whitespace(text)
     const segments = splitSegments(text1)
     const widths = segments.map(s => textSizer0(s, args))
@@ -76,7 +82,7 @@ function textSizer(text, args = {}) {
 // text wrapping
 //
 
-function getBreaks(text) {
+function getBreaks(text: string): number[] {
     const breaker = new LineBreaker(text)
     const breaks = [0]
     for (let bk; (bk = breaker.nextBreak()); ) {
@@ -88,7 +94,7 @@ function getBreaks(text) {
     return breaks
 }
 
-function splitWords(text) {
+function splitWords(text: string): string[] {
     const breaks = getBreaks(text)
     const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
     return words.map(w =>
@@ -98,13 +104,13 @@ function splitWords(text) {
 }
 
 // when measure is null, that means mandatory line break (but zero width)
-function wrapWidths(objects, measure, maxWidth) {
+function wrapWidths<T>(objects: T[], measure: (obj: T) => number | undefined, maxWidth?: number): { rows: T[][], widths: number[] } {
     // return values
-    const rows = []
-    const widths = []
+    const rows: T[][] = []
+    const widths: number[] = []
 
     // line accumulation
-    let buffer = []
+    let buffer: T[] = []
     let width = 0
 
     // iterate over sizes
@@ -140,14 +146,14 @@ function wrapWidths(objects, measure, maxWidth) {
 }
 
 // compress whitespace, since that's what SVG does
-function wrapText(text, maxWidth, args) {
+function wrapText(text: string, maxWidth: number | undefined, args: TextSizerArgs = {}): { rows: string[][], widths: number[] } {
     const chunks = splitWords(text.replace(/\s+/g, ' '))
-    const measure = c => textSizer(c, args)
+    const measure = (c: string) => textSizer(c, args)
     return wrapWidths(chunks, measure, maxWidth)
 }
 
-function mergeStrings(items) {
-    const lines = []
+function mergeStrings(items: any[]): any[] {
+    const lines: any[] = []
     let buffer = ''
     for (const item of items) {
         if (is_string(item)) {

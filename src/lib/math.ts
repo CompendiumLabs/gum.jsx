@@ -23,7 +23,7 @@ const base_config = {
 // parse functions
 //
 
-function parse_style(style) {
+function parse_style(style: string): Map<string, string> {
     return new Map(style
         .split(';')
         .filter(s => s.includes(':'))
@@ -32,7 +32,8 @@ function parse_style(style) {
     )
 }
 
-function parse_ex(s) {
+function parse_ex(s: string | undefined): number {
+    if (s == null) return 0
     return parseFloat(s) / 2
 }
 
@@ -40,8 +41,18 @@ function parse_ex(s) {
 // MathJax interface
 //
 
+declare const MathJax: any
+
+type RenderResult = {
+    svg: string
+    viewBox: string
+    width: number
+    height: number
+    valign: number
+}
+
 class MathJaxBase {
-    process(tex, { display = false } = {}) {
+    process(tex: string, { display = false } = {}): any {
         const mml = MathJax.tex2mml(tex)
         const out = MathJax.mathml2svg(mml, { display })
         return out.children[0]
@@ -49,18 +60,18 @@ class MathJaxBase {
 }
 
 class MathJaxWeb extends MathJaxBase {
-    async init() {
-        window.MathJax = {
+    async init(): Promise<void> {
+        (window as any).MathJax = {
             loader: {
                 load: base_load,
             },
             ...base_config,
         }
         const mathjax_url = new URL('mathjax/tex-mml-svg.js', import.meta.url)
-        await import( /* @vite-ignore */ mathjax_url)
+        await import( /* @vite-ignore */ mathjax_url as any)
     }
 
-    render(tex, { display = false } = {}) {
+    render(tex: string, { display = false } = {}): RenderResult {
         // get svg element
         const elem = super.process(tex, { display })
 
@@ -77,12 +88,12 @@ class MathJaxWeb extends MathJaxBase {
 }
 
 class MathJaxNode extends MathJaxBase {
-    async init() {
+    async init(): Promise<void> {
         const { source } = await import( /* @vite-ignore */ '@mathjax/src/components/js/source.js')
-        global.MathJax = {
+        ;(global as any).MathJax = {
             loader: {
                 load: [ 'adaptors/liteDOM', ...base_load ],
-                require: (file => import( /* @vite-ignore */ file)),
+                require: ((file: string) => import( /* @vite-ignore */ file)),
                 source,
             },
             ...base_config,
@@ -91,7 +102,7 @@ class MathJaxNode extends MathJaxBase {
         await MathJax.startup.promise
     }
 
-    render(tex, { display = false } = {}) {
+    render(tex: string, { display = false } = {}): RenderResult {
         const elem = super.process(tex, { display })
 
         // get size and position attributes
@@ -103,7 +114,7 @@ class MathJaxNode extends MathJaxBase {
 
         // serialize inner html
         const svg = elem.children.map(
-            child => MathJax.startup.adaptor.serializeXML(child)
+            (child: any) => MathJax.startup.adaptor.serializeXML(child)
         ).join('\n')
 
         // get svg attributes and innerHTML
@@ -112,7 +123,7 @@ class MathJaxNode extends MathJaxBase {
 }
 
 // initialize mathjax
-let mathjax = null
+let mathjax: MathJaxWeb | MathJaxNode | null = null
 try {
     mathjax = (typeof window == 'undefined') ? new MathJaxNode() : new MathJaxWeb()
     await mathjax.init()

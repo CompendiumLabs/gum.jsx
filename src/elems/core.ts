@@ -1,16 +1,97 @@
 // core components
 
+import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber } from '../lib/types.js'
 import { THEME } from '../lib/theme.js'
-import { DEFAULTS as D, svgns, sans, light, d2r } from '../lib/const.js'
-import { is_scalar, abs, cos, sin, tan, cot, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
+import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const.js'
+import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, ensure_point, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
+
+//
+// args interfaces
+//
+
+interface SpecArgs {
+    rect?: Rect
+    coord?: Rect | 'auto'
+    aspect?: number | 'auto'
+    expand?: boolean
+    align?: Align
+    rotate?: number
+    invar?: boolean
+}
+
+interface Spec {
+    rect?: Rect
+    coord?: Rect
+    aspect?: number
+    aspect0?: number
+    expand?: boolean
+    align?: Align
+    rotate?: number
+    invar?: boolean
+}
+
+interface MapArgs {
+    offset?: boolean
+}
+
+interface ElementArgs extends SpecArgs {
+    tag?: string
+    unary?: boolean
+    children?: any
+    pos?: Point
+    rad?: number | Point
+    xrad?: number
+    yrad?: number
+    xlim?: Limit
+    ylim?: Limit
+    xrect?: Limit
+    yrect?: Limit
+    flex?: boolean
+    spin?: number
+    hflip?: boolean
+    vflip?: boolean
+    debug?: boolean
+    [key: string]: any
+}
+
+interface GroupArgs extends ElementArgs {
+    clip?: boolean | Element
+    mask?: boolean | Element
+}
+
+interface ContextArgs {
+    prect?: Rect
+    prec?: number
+    coord?: Rect
+    transform?: string
+    meta?: Metadata
+}
+
+interface SvgArgs extends GroupArgs {
+    size?: number | Point
+    padding?: number
+    bare?: boolean
+    dims?: boolean
+    filters?: any
+    view?: Rect
+    style?: string
+    xmlns?: string
+    font_family?: string
+    font_weight?: number
+    prec?: number
+}
+
+interface RectArgs extends ElementArgs {
+    rounded?: number | Point
+}
 
 //
 // context mapping
 //
 
-function align_frac(align) {
+function align_frac(align: AlignValue): number {
     if (is_scalar(align)) {
-        return align
+        return align as number
     } else if (align == 'left' || align == 'top') {
         return 0
     } else if (align == 'center' || align == 'middle') {
@@ -23,7 +104,7 @@ function align_frac(align) {
 }
 
 // embed a rect of given `aspect` into rect of given `size`
-function embed_size(size, { aspect = null, expand = false } = {}) {
+function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, expand?: boolean } = {}): Point {
     if (aspect == null) return size
     const [ w0, h0 ] = size
     const [ aw, ah ] = [ abs(w0), abs(h0) ]
@@ -31,11 +112,11 @@ function embed_size(size, { aspect = null, expand = false } = {}) {
     const agg = expand ? maximum : minimum
     const h = agg(aw / aspect, ah)
     const w = h * aspect
-    return [ sw * w, sh * h ]
+    return [ sw * w, sh * h ] as Point
 }
 
 // get the size of an `aspect` rect that will fit in `size` after `rotate`
-function rotate_rect(size, rotate, { aspect = null, expand = false, invar = false, tol = 0.001 } = {}) {
+function rotate_rect(size: Point, rotate: number, { aspect, expand = false, invar = false, tol = 0.001 }: { aspect?: number, expand?: boolean, invar?: boolean, tol?: number } = {}): Point {
     // knock out easy case
     if (rotate == 0 || invar) return embed_size(size, { aspect, expand })
 
@@ -85,10 +166,10 @@ function rotate_rect(size, rotate, { aspect = null, expand = false, invar = fals
     }
 
     // return base and rotated rect sizes
-    return [ w, h ]
+    return [ w, h ] as Point
 }
 
-function rotate_repr(rotate, x, y, prec = D.prec) {
+function rotate_repr(rotate: number, x: number, y: number, prec: number = D.prec): string {
     return `rotate(${rounder(rotate, prec)}, ${rounder(x, prec)}, ${rounder(y, prec)})`
 }
 
@@ -96,13 +177,24 @@ function rotate_repr(rotate, x, y, prec = D.prec) {
 // map() will create a new sub-context using rect in coord space
 // map*() functions map from coord to pixel space (in prect)
 class Context {
-    constructor(args = {}) {
-        const { prect = D.rect, coord = D.coord, transform = null, prec = D.prec, meta = null } = args
+    args: ContextArgs
+    prect: Rect
+    coord: Rect
+    prec: number
+    meta: Metadata
+    transform: string | undefined
+    rescalex: (v: number | MNumber, offset?: boolean) => number
+    rescaley: (v: number | MNumber, offset?: boolean) => number
+    resizex: (v: number | MNumber, offset?: boolean) => number
+    resizey: (v: number | MNumber, offset?: boolean) => number
+
+    constructor(args: ContextArgs = {}) {
+        const { prect = D.rect, coord = D.coord, transform, prec = D.prec, meta } = args
         this.args = args
 
         // coordinate transform
-        this.prect = prect // drawing rect
-        this.coord = coord // coordinate rect
+        this.prect = prect as Rect // drawing rect
+        this.coord = coord ?? D.coord // coordinate rect
         this.transform = transform // rotation transform
 
         // top level arguments
@@ -115,12 +207,12 @@ class Context {
         this.init_scalers()
     }
 
-    clone(args) {
+    clone(args: ContextArgs): Context {
         return new Context({ ...this.args, meta: this.meta, ...args })
     }
 
     // there are heavily used, so precompute what we can (haven't profiled yet)
-    init_scalers() {
+    init_scalers(): void {
         const [ cx1, cy1, cx2, cy2 ] = this.coord
         const [ px1, py1, px2, py2 ] = this.prect
         this.rescalex = rescaler([ cx1, cx2 ], [ px1, px2 ])
@@ -130,15 +222,13 @@ class Context {
     }
 
     // map point from coord to pixel
-    mapPoint(cpoint, offset = true) {
-        if (cpoint == null) return null
+    mapPoint(cpoint: Point | MPoint, offset: boolean = true): Point {
         const [ cx, cy ] = cpoint
         return [ this.rescalex(cx, offset), this.rescaley(cy, offset) ]
     }
 
     // map rect from coord to pixel
-    mapRect(crect, offset = true) {
-        if (crect == null) return null
+    mapRect(crect: Rect, offset: boolean = true): Rect {
         const [ x1, y1, x2, y2 ] = crect
         return [
             this.rescalex(x1, offset), this.rescaley(y1, offset),
@@ -147,24 +237,20 @@ class Context {
     }
 
     // map size from coord to pixel
-    mapSize(csize, offset = true) {
-        if (csize == null) return null
+    mapSize(csize: Point, offset: boolean = true): Point {
         const [ sw, sh ] = csize
         return [ this.resizex(sw, offset), this.resizey(sh, offset) ]
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect0: aspect = null, expand = false, align = 'center', rotate = 0, invar = false, offset = true, coord = D.coord } = {}) {
-        // use parent coord as default rect
-        rect ??= this.coord
-
-        // get true pixel rect
-        const prect0 = this.mapRect(rect, offset)
+    map({ rect, aspect, expand = false, align = 'center' as Align, rotate = 0, invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
+        // get true pixel rect (default to parent coord)
+        const prect0 = this.mapRect(rect ?? this.coord, offset)
         const [ x0, y0, w0, h0 ] = rect_cbox(prect0)
 
         // rotate rect inside
         const [ w, h ] = rotate_rect([ w0, h0 ], rotate, { aspect, expand, invar })
-        const transform = (rotate != null && rotate != 0) ? rotate_repr(rotate, x0, y0, this.prec) : null
+        const transform = (rotate != null && rotate != 0) ? rotate_repr(rotate, x0, y0, this.prec) : undefined
 
         // broadcast align into [ halign, valign ] components
         const [ hafrac, vafrac ] = ensure_vector(align, 2).map(align_frac)
@@ -183,11 +269,11 @@ class Context {
 // attributes
 //
 
-function demangle(k) {
+function demangle(k: string): string {
     return k.replace('_', '-')
 }
 
-function props_repr(d, prec) {
+function props_repr(d: Attrs, prec: number): string {
     return Object.entries(d)
         .filter(([k, v]) => v != null)
         .map(([k, v]) => `${demangle(k)}="${rounder(v, prec)}"`)
@@ -200,10 +286,10 @@ const HELP_KEYS = [ 'pos', 'rad', 'xlim', 'ylim', 'flex', 'spin', 'hflip', 'vfli
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 
-function prefix_split(pres, attr) {
-    const attr1 = { ...attr }
+function prefix_split(pres: string[], attr: Attrs): Attrs[] {
+    const attr1: Attrs = { ...attr }
     const pres1 = pres.map(p => `${p}_`)
-    const out = pres.map(p => ({}))
+    const out: Attrs[] = pres.map(p => ({}))
     Object.keys(attr).map(k => {
         for (const i in pres1) {
             const p1 = pres1[i]
@@ -218,16 +304,16 @@ function prefix_split(pres, attr) {
     return [ ...out, attr1 ]
 }
 
-function prefix_join(pre, attr) {
+function prefix_join(pre: string, attr: Attrs): Attrs {
     return Object.fromEntries(
         Object.entries(attr).map(([ k, v ]) => [ `${pre}_${k}`, v ])
     )
 }
 
-function spec_split(attr, extended = true) {
+function spec_split(attr: Attrs, extended: boolean = true): [Attrs, Attrs] {
     const SPLIT_KEYS = extended ? RESERVED_KEYS : SPEC_KEYS
-    const spec  = filter_object(attr, (k, v) => v != null &&  SPLIT_KEYS.includes(k))
-    const attr1 = filter_object(attr, (k, v) => v != null && !SPLIT_KEYS.includes(k))
+    const spec  = filter_object(attr, (k: string, v: any) => v != null &&  SPLIT_KEYS.includes(k))
+    const attr1 = filter_object(attr, (k: string, v: any) => v != null && !SPLIT_KEYS.includes(k))
     return [ spec, attr1 ]
 }
 
@@ -235,20 +321,26 @@ function spec_split(attr, extended = true) {
 // element class
 //
 
-function is_element(x) {
+function is_element(x: any): x is Element {
     return x instanceof Element
 }
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
-    constructor(args = {}) {
+    args: ElementArgs
+    tag: string
+    unary: boolean
+    spec: Spec
+    attr: Attrs
+
+    constructor(args: ElementArgs = {}) {
         const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, xrect, yrect, flex, spin, hflip, vflip, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
         // core display
-        this.tag = tag
-        this.unary = unary
+        this.tag = tag!
+        this.unary = unary!
 
         // store layout params
         this.spec = spec
@@ -261,7 +353,7 @@ class Element {
         // handle pos/rad conveniences
         if (pos != null || rad != null || xrad != null || yrad != null) {
             const has_xy = xrad != null || yrad != null
-            const rad1 = has_xy ? [ xrad ?? null, yrad ?? null ] : null
+            const rad1 = has_xy ? [ xrad, yrad ] as Point : undefined
             this.spec.rect ??= radial_rect(pos ?? D.pos, rad ?? rad1 ?? D.rad)
             if (has_xy) this.spec.expand = true
         }
@@ -270,10 +362,9 @@ class Element {
         if (spin != null) { this.spec.rotate = spin; this.spec.invar = true }
         if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
         if (vflip === true) this.spec.coord = flip_rect(this.spec.coord, true)
-        if (flex === true) this.spec.aspect = null
+        if (flex === true) this.spec.aspect = undefined
 
         // adjust aspect for rotation
-        if (this.spec.aspect === true) this.spec.aspect = 1
         this.spec.aspect0 = this.spec.aspect
         this.spec.aspect = this.spec.invar ? this.spec.aspect0 : rotate_aspect(this.spec.aspect, this.spec.rotate)
 
@@ -281,29 +372,33 @@ class Element {
         if (children != null) console.error(`Got children in ${this.tag}`)
     }
 
-    clone(args) {
-        return new this.constructor({ ...this.args, ...args })
+    clone(args: Attrs = {}): Element {
+        return new (this.constructor as any)({ ...this.args, ...args })
     }
 
     // why not just compute with ctx.prect=ctx.coord? then it won't get the true aspect right
     // there might be a better way to do this, but this works for now
-    rect(ctx) {
+    rect(ctx: Context): Rect {
         const { prect } = ctx.map(this.spec)
         return remap_rect(prect, ctx.prect, ctx.coord)
     }
 
-    // all this does is pass the transform to children (so they also rotate)
-    props(ctx) {
+    // all this does is pass the
+    //
+    //
+    //
+    //  to children (so they also rotate)
+    props(ctx: Context): Attrs {
         const { transform } = ctx
         if (transform == null) return this.attr
         return  { ...this.attr, transform }
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         return ''
     }
 
-    svg(ctx) {
+    svg(ctx?: Context): string {
         // default context
         ctx ??= new Context()
 
@@ -325,7 +420,7 @@ class Element {
 // group class
 //
 
-function rotated_vertices(rect, rotate) {
+function rotated_vertices(rect: Rect, rotate: number | undefined): Point[] {
     // handle zero case first
     if (rotate == null || rotate == 0) {
         const [ x1, y1, x2, y2 ] = rect
@@ -349,8 +444,8 @@ function rotated_vertices(rect, rotate) {
 }
 
 // NOTE: we disable absolute offsets to compute auto aspect
-function children_rect(children, offset = false) {
-    if (children.length == 0) return null
+function children_rect(children: Element[], offset: boolean = false): Rect | undefined {
+    if (children.length == 0) return
 
     // get post-rotated vertices of children
     const ctx = new Context()
@@ -364,25 +459,26 @@ function children_rect(children, offset = false) {
     return merge_points(verts)
 }
 
-function children_aspect(children) {
+function children_aspect(children: Element[]): number | undefined {
     if (children.length == 1) {
         const { aspect } = children[0].spec
         return aspect
     }
-    return null
 }
 
-function makeUID(prefix) {
+function makeUID(prefix: string): string {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 class Group extends Element {
-    constructor(args = {}) {
+    children: Element[]
+
+    constructor(args: GroupArgs = {}) {
         const { children: children0, aspect: aspect0, coord: coord0, clip: clip0 = false, mask: mask0 = false, debug = false, tag = 'g', ...attr } = args
         const children = ensure_array(children0)
 
         // handle boolean args
-        const clip = clip0 === true ? new Rect() : clip0
+        const clip = clip0 === true ? new Rectangle() : clip0
 
         // automatic aspect and coord detection
         const aspect = aspect0 == 'auto' ? children_aspect(children) : aspect0
@@ -391,13 +487,13 @@ class Group extends Element {
         // create debug boxes
         if (debug) {
             const dargs = { stroke_dasharray: 3, opacity: 0.5 }
-            const orects = children.map(c => new Rect({ rect: c.spec.rect, ...dargs, stroke: blue }))
-            const irects = children.map(c => new Rect({ ...c.spec, ...dargs, stroke: red }))
+            const orects = children.map(c => new Rectangle({ rect: c.spec.rect, ...dargs, stroke: blue }))
+            const irects = children.map(c => new Rectangle({ ...c.spec, ...dargs, stroke: red }))
             children.push(...irects, ...orects)
         }
 
         // make actual clip mask
-        let clip_path = null
+        let clip_path: string | undefined
         if (clip != false) {
             const clip_id = makeUID('clip')
             clip_path = `url(#${clip_id})`
@@ -406,7 +502,7 @@ class Group extends Element {
         }
 
         // handle mask
-        let mask = null
+        let mask: string | undefined
         if (mask0 != false) {
             const mask_id = makeUID('mask')
             mask = `url(#${mask_id})`
@@ -422,7 +518,7 @@ class Group extends Element {
         this.children = children
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         const inner = this.children
             .map(c => c.svg(ctx.map(c.spec)))
             .filter(s => s.length > 0)
@@ -430,9 +526,9 @@ class Group extends Element {
         return `\n${inner}\n`
     }
 
-    svg(ctx) {
-        const props = this.props(ctx)
-        if (Object.keys(props).length == 0) return this.inner(ctx).trim()
+    svg(ctx?: Context): string {
+        const props = this.props(ctx!)
+        if (Object.keys(props).length == 0) return this.inner(ctx!).trim()
         return super.svg(ctx)
     }
 }
@@ -442,64 +538,69 @@ class Group extends Element {
 //
 
 class ClipPath extends Group {
-    constructor(args = {}) {
+    constructor(args: GroupArgs = {}) {
         const { children: children0, ...attr } = args
         const children = ensure_array(children0)
         super({ tag: 'clipPath', children, ...attr })
         this.args = args
     }
 
-    svg(ctx) {
+    svg(ctx?: Context): string {
         const def = super.svg(ctx)
-        ctx.meta.addDef(def)
+        ctx!.meta.addDef(def)
         return ''
     }
 }
 
 class Mask extends Group {
-    constructor(args = {}) {
+    constructor(args: GroupArgs = {}) {
         const { children: children0, ...attr } = args
         const children = ensure_array(children0)
         super({ tag: 'mask', children, ...attr })
         this.args = args
     }
 
-    svg(ctx) {
+    svg(ctx?: Context): string {
         const def = super.svg(ctx)
-        ctx.meta.addDef(def)
+        ctx!.meta.addDef(def)
         return ''
     }
 }
 
 class Style extends Element {
-    constructor(args = {}) {
+    text: string
+
+    constructor(args: ElementArgs = {}) {
         const { children: children0 } = args
         const text = check_string(children0)
         super({ tag: 'style', unary: false })
         this.text = text
     }
 
-    svg(ctx) {
+    svg(ctx?: Context): string {
         if (this.text.length == 0) return ''
         return `<style>\n${this.text}\n</style>`
     }
 }
 
 class Metadata {
+    uuid: number
+    defs: string[]
+
     constructor() {
         this.uuid = 0 // next uuid
         this.defs = [] // defs list
     }
 
-    getUid() {
+    getUid(): string {
         return `uid-${this.uuid++}`
     }
 
-    addDef(def) {
+    addDef(def: string): void {
         this.defs.push(def)
     }
 
-    svg() {
+    svg(): string {
         if (this.defs.length == 0) return ''
         return `<defs>\n${this.defs.join('\n')}\n</defs>`
     }
@@ -510,10 +611,15 @@ class Metadata {
 //
 
 class Svg extends Group {
-    constructor(args = {}) {
-        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters = null, aspect: aspect0 = 'auto', view: view0, style = null, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
+    size: Point
+    viewrect: Rect
+    style: Style
+    prec: number
+
+    constructor(args: SvgArgs = {}) {
+        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_array(children0)
-        const size_base = ensure_vector(size0, 2)
+        const size_base = ensure_point(size0)
 
         // precompute aspect info
         const aspect = aspect0 == 'auto' ? children_aspect(children) : aspect0
@@ -521,7 +627,7 @@ class Svg extends Group {
 
         // compute outer viewBox
         const viewrect0 = view0 ?? [ 0, 0, width, height ]
-        const viewrect = expand_rect(viewrect0, padding)
+        const viewrect = expand_rect(viewrect0, padding) as Rect
 
         // make style element
         const style_elem = new Style({ children: style ?? '' })
@@ -538,7 +644,7 @@ class Svg extends Group {
         this.prec = prec
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         const { viewrect } = this
         const { prec } = ctx
@@ -551,7 +657,7 @@ class Svg extends Group {
         return { viewBox, ...attr }
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         const inner = super.inner(ctx)
         const defs = ctx.meta.svg()
         const style = this.style.svg(ctx)
@@ -562,12 +668,12 @@ class Svg extends Group {
         return `\n${body}\n`
     }
 
-    svg(args) {
+    svg(args?: ContextArgs): string {
         const { size, prec } = this
 
         // make new context
         const [ w, h ] = size
-        const prect = [ 0, 0, w, h ]
+        const prect = [ 0, 0, w, h ] as Rect
         const ctx = new Context({ prect, prec, ...args })
 
         // render children
@@ -575,8 +681,10 @@ class Svg extends Group {
     }
 }
 
-class Rect extends Element {
-    constructor(args = {}) {
+class Rectangle extends Element {
+    rounded: undefined | number | Point
+
+    constructor(args: RectArgs = {}) {
         let { rounded, ...attr } = THEME(args, 'Rect')
 
         // pass to Element
@@ -587,7 +695,7 @@ class Rect extends Element {
         this.rounded = rounded
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         // get core attributes
         const attr = super.props(ctx)
 
@@ -611,4 +719,5 @@ class Rect extends Element {
     }
 }
 
-export { Context, Element, Group, Svg, Rect, is_element, prefix_split, prefix_join, spec_split, align_frac }
+export { Context, Element, Group, Svg, Rectangle, is_element, prefix_split, prefix_join, spec_split, align_frac }
+export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }

@@ -9,8 +9,16 @@ import { CONTEXT } from '../gum.js'
 // parser utils
 //
 
+type ASTNode = acorn.Node & Record<string, any>
+
+type PropEntry = {
+    key?: string
+    value?: any
+    spread?: string
+}
+
 const parser = acorn.Parser.extend(jsx())
-function parseJSX(code) {
+function parseJSX(code: string): ASTNode {
   const tree = parser.parse(code, {
     ecmaVersion: 'latest',
     sourceType: 'module',
@@ -18,34 +26,34 @@ function parseJSX(code) {
   return tree
 }
 
-function objectLiteral(obj) {
+function objectLiteral(obj: PropEntry[]): string {
   const body = obj.map(({ key, value, spread }) =>
     spread? `...${spread}` : `${key}: ${value}`
   )
   return `{ ${body.join(', ')} }`
 }
 
-function isWhitespace(s) {
+function isWhitespace(s: any): boolean {
   return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
 }
 
-function isClass(func) {
+function isClass(func: any): boolean {
   return (typeof func === 'function') &&
          (func.prototype != null) &&
          (func.prototype.constructor === func) &&
-         (Object.getOwnPropertyDescriptor(func, 'prototype').writable === false)
+         (Object.getOwnPropertyDescriptor(func, 'prototype')!.writable === false)
 }
 
-function snakeCase(s) {
+function snakeCase(s: string): string {
   return s.replace(/-/g, '_')
 }
 
-function filterChildren(items) {
+function filterChildren(items: any[]): any[] {
   return items.flat(1)
     .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
-function collateTemplate(expressions, quasis) {
+function collateTemplate(expressions: ASTNode[], quasis: ASTNode[]): string[] {
   const exps = expressions.map(e => {
     const { start } = e
     const value = `\${${walkTree(e)}}`
@@ -65,7 +73,7 @@ function collateTemplate(expressions, quasis) {
 // tree walker
 //
 
-const handlers = {
+const handlers: Record<string, (node: ASTNode) => any> = {
   Program(node) {
     const { body } = node
     return body.map(walkTree).join('\n')
@@ -247,7 +255,7 @@ const handlers = {
   },
 }
 
-function walkTree(node) {
+function walkTree(node: ASTNode | null): any {
   if (node == null) return null
 
   // get handler function
@@ -265,13 +273,13 @@ function walkTree(node) {
 // gum runner
 //
 
-function component(klass, props, ...children0) {
+function component(klass: any, props: Record<string, any>, ...children0: any[]): any {
   const children = filterChildren(children0)
   const args = children.length > 0 ? { children, ...props } : props
   return isClass(klass) ? new klass(args) : klass(args)
 }
 
-function runJSX(text, debug = false) {
+function runJSX(text: string, debug: boolean = false): any {
   // strip comment lines (to allow comments before bare elements)
   const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
 

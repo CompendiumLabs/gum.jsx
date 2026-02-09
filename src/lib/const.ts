@@ -1,5 +1,7 @@
 // constants
 
+import type { Point, Rect, Limit } from './types.js'
+
 // namespaces
 const svgns = 'http://www.w3.org/2000/svg'
 const htmlns = 'http://www.w3.org/1999/xhtml'
@@ -38,11 +40,11 @@ const d2r = Math.PI / 180
 const DEFAULTS = {
     prec: 2,
     loc: 0.5,
-    lim: [0, 1],
-    pos: [0.5, 0.5],
+    lim: [0, 1] as Limit,
+    pos: [0.5, 0.5] as Point,
     rad: 0.5,
-    rect: [0, 0, 1, 1],
-    coord: [0, 0, 1, 1],
+    rect: [0, 0, 1, 1] as Rect,
+    coord: [0, 0, 1, 1] as Rect,
     point: 0.025,
     N: 100,
     size: 500,

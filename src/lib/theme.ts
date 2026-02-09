@@ -7,7 +7,10 @@ import { map_object, is_array, is_string } from './utils.js'
 // base layer
 //
 
-const BOOLEANS = {
+type ThemeAttrs = Record<string, any>
+type ThemeLayer = Record<string, ThemeAttrs>
+
+const BOOLEANS: ThemeLayer = {
     Box: {
         border: 1,
         padding: 0.1,
@@ -48,7 +51,7 @@ const BOOLEANS = {
 // theme definitions
 //
 
-const THEME_LIGHT = {
+const THEME_LIGHT: ThemeLayer = {
     Svg: {
         fill: none,
         stroke: black,
@@ -67,7 +70,7 @@ const THEME_LIGHT = {
     },
 }
 
-const THEME_DARK = {
+const THEME_DARK: ThemeLayer = {
     Svg: {
         fill: none,
         stroke: white,
@@ -98,7 +101,7 @@ const THEME_DARK = {
     },
 }
 
-const THEMES = {
+const THEMES: Record<string, ThemeLayer> = {
     light: THEME_LIGHT,
     dark: THEME_DARK,
 }
@@ -108,26 +111,26 @@ const THEMES = {
 //
 
 // theme state
-var theme = THEME_LIGHT
-function setTheme(names) {
-    names = is_array(names) ? names : [ names ]
-    theme = names.reduce((acc, name) => {
-        const layer = is_string(name) ? THEMES[name] : name
+let theme: ThemeLayer = THEME_LIGHT
+function setTheme(names: string | ThemeLayer | (string | ThemeLayer)[]): void {
+    const list = is_array(names) ? names as (string | ThemeLayer)[] : [names]
+    theme = list.reduce<ThemeLayer>((acc, name) => {
+        const layer = is_string(name) ? THEMES[name as string] : name as ThemeLayer
         return { ...acc, ...layer }
     }, {})
 }
 
 // theme function
-function THEME(args, elem) {
+function THEME<T extends Object>(args: T, elem: string): T {
     // get element defaults
     const BOOLEANS_ELEMENT = BOOLEANS[elem] ?? {}
     const DEFAULTS_ELEMENT = theme[elem] ?? {}
 
     // map in booleans from args
-    const ARGS_MAPPED = map_object(args, (k, v) => (v === true) && (k in BOOLEANS_ELEMENT) ? BOOLEANS_ELEMENT[k] : v)
+    const ARGS_MAPPED = map_object(args, (k: string, v: any) => (v === true) && (k in BOOLEANS_ELEMENT) ? BOOLEANS_ELEMENT[k] : v)
 
     // return the whole shazam
-    return { ...DEFAULTS_ELEMENT, ...ARGS_MAPPED }
+    return { ...DEFAULTS_ELEMENT, ...ARGS_MAPPED } as T
 }
 
 //

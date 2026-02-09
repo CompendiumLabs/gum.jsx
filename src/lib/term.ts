@@ -9,8 +9,8 @@ const ALT_SCREEN_ON = '\x1b[?1049h'
 const ALT_SCREEN_OFF = '\x1b[?1049l'
 
 // read from stdin
-async function readStdin() {
-  const chunks = []
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = []
   for await (const chunk of process.stdin) {
     chunks.push(chunk)
   }
@@ -18,7 +18,7 @@ async function readStdin() {
 }
 
 // kitty image protocol
-function formatImage(pngBuffer, { imageId = null, chunkSize = 4096 } = {}) {
+function formatImage(pngBuffer: Buffer, { imageId = null as number | null, chunkSize = 4096 } = {}): string {
   const idParam = imageId != null ? `,i=${imageId}` : ''
   const base64 = pngBuffer.toString('base64')
 
@@ -37,8 +37,8 @@ function formatImage(pngBuffer, { imageId = null, chunkSize = 4096 } = {}) {
   return result
 }
 
-function watchAndRender(file, displayer) {
-  function doRender(prefix, imageId) {
+function watchAndRender(file: string, displayer: (content: string, imageId?: number) => string): void {
+  function doRender(prefix: string, imageId?: number): void {
     const content = readFileSync(file, 'utf-8')
     const output = displayer(content, imageId)
     process.stdout.write(prefix + output)
