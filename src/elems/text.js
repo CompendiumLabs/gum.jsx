@@ -1,6 +1,7 @@
 // text elements
 
-import { THEME, vtext, none, bold } from '../defaults.js'
+import { THEME } from '../lib/theme.js'
+import { vtext, none, bold } from '../lib/const.js'
 import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils.js'
 import { textSizer, wrapText, splitWords } from '../lib/text.js'
 import { mathjax } from '../lib/math.js'

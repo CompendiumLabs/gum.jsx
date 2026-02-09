@@ -3,7 +3,7 @@
 import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 
-import { DEFAULTS as D, light, sans, moji } from '../defaults.js'
+import { DEFAULTS as D, light, sans, moji } from './const.js'
 import { is_string, compress_whitespace, sum } from './utils.js'
 import { FONTS } from '../fonts/fonts.js'
 

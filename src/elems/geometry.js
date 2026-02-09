@@ -1,6 +1,7 @@
 // geometry elements
 
-import { DEFAULTS as D, THEME, d2r } from '../defaults.js'
+import { THEME } from '../lib/theme.js'
+import { DEFAULTS as D, d2r } from '../lib/const.js'
 import { is_scalar, is_array, ensure_array, ensure_vector, upright_rect, rect_box, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpos, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
 
 import { Element, Group, Rect, prefix_split } from './core.js'

@@ -1,6 +1,6 @@
 // slide elements
 
-import { THEME } from '../defaults.js'
+import { THEME } from '../lib/theme.js'
 import { ensure_array } from '../lib/utils.js'
 
 import { prefix_split, spec_split } from './core.js'

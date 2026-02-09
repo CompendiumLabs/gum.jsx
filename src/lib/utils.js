@@ -1,9 +1,6 @@
 // core utils
 
-import { DEFAULTS as D } from '../defaults.js'
-
-const d2r = Math.PI / 180
-const r2d = 180 / Math.PI
+import { DEFAULTS as D, d2r, r2d } from './const.js'
 
 //
 // environment tests

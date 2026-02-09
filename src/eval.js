@@ -1,6 +1,7 @@
 // code evaluation
 
-import { is_element, setTheme, Svg } from './gum.js'
+import { setTheme } from './lib/theme.js'
+import { is_element, Svg } from './elems/core.js'
 import { runJSX } from './lib/parse.js'
 
 //

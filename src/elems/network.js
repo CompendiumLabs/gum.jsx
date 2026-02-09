@@ -1,6 +1,6 @@
 // network elements
 
-import { THEME } from '../defaults.js'
+import { THEME } from '../lib/theme.js'
 import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils.js'
 
 import { Element, Group, prefix_split } from './core.js'

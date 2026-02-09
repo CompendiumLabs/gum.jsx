@@ -1,9 +1,8 @@
 // core components
 
-import { DEFAULTS as D, THEME, svgns, sans, light } from '../defaults.js'
+import { THEME } from '../lib/theme.js'
+import { DEFAULTS as D, svgns, sans, light, d2r } from '../lib/const.js'
 import { is_scalar, abs, cos, sin, tan, cot, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
-
-const d2r = Math.PI / 180
 
 //
 // context mapping

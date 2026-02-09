@@ -1,6 +1,6 @@
 import opentype from 'opentype.js'
 
-import { sans, mono, moji } from '../defaults.js'
+import { sans, mono, moji } from '../lib/const.js'
 import { is_browser } from '../lib/utils.js'
 
 const { FONT_PATHS, loadFont } = is_browser() ?

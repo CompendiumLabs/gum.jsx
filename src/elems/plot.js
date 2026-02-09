@@ -1,6 +1,7 @@
 // plot elements
 
-import { DEFAULTS as D, THEME, none, blue, white } from '../defaults.js'
+import { THEME } from '../lib/theme.js'
+import { DEFAULTS as D, none, blue, white } from '../lib/const.js'
 import { linspace, invert_direc, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils.js'
 import { Span } from './text.js'
 

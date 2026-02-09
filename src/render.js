@@ -2,7 +2,7 @@
 
 import { Resvg } from '@resvg/resvg-js'
 
-import { sans, mono } from './defaults.js'
+import { sans, mono } from './lib/const.js'
 import { is_browser } from './lib/utils.js'
 import { FONT_PATHS, FONT_DATA } from './fonts/fonts.js'
 import { formatImage } from './lib/term.js'
