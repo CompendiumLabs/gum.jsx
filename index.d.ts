@@ -1250,6 +1250,7 @@ declare module 'gum-jsx/meta' {
 // =============================================================================
 
 declare module 'gum-jsx/render' {
+  import type { point } from 'gum-jsx';
   export function rasterizeSvg(svg: string, opts?: { size?: number | point, width?: number, height?: number }): Buffer;
 }
 
