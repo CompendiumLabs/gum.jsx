@@ -3,7 +3,7 @@
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 
-import { CONTEXT } from '../gum.js'
+import { CONTEXT } from '../gum'
 
 //
 // parser utils

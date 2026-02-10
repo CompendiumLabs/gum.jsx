@@ -2,11 +2,11 @@
 
 import { Resvg } from '@resvg/resvg-js'
 
-import type { Point } from './lib/types.js'
-import { sans, mono } from './lib/const.js'
-import { is_browser } from './lib/utils.js'
-import { FONT_PATHS, FONT_DATA } from './fonts/fonts.js'
-import { formatImage } from './lib/term.js'
+import type { Point } from './lib/types'
+import { sans, mono } from './lib/const'
+import { is_browser } from './lib/utils'
+import { FONT_PATHS, FONT_DATA } from './fonts/fonts'
+import { formatImage } from './lib/term'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?

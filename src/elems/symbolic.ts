@@ -1,16 +1,16 @@
 // symbolic elements
 
-import { THEME } from '../lib/theme.js'
-import { DEFAULTS as D } from '../lib/const.js'
-import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid } from '../lib/utils.js'
+import { THEME } from '../lib/theme'
+import { DEFAULTS as D } from '../lib/const'
+import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid } from '../lib/utils'
 
-import { Group, spec_split } from './core.js'
-import { Line, Spline, Shape, Arrow, Dot } from './geometry.js'
-import { Box } from './layout.js'
+import { Group, spec_split } from './core'
+import { Line, Spline, Shape, Arrow, Dot } from './geometry'
+import { Box } from './layout'
 
-import type { Point, Limit, Rect } from '../lib/types.js'
-import type { ElementArgs, GroupArgs } from './core.js'
-import type { LineArgs, SplineArgs } from './geometry.js'
+import type { Point, Limit, Rect } from '../lib/types'
+import type { ElementArgs, GroupArgs } from './core'
+import type { LineArgs, SplineArgs } from './geometry'
 
 // GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord

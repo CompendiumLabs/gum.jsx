@@ -1,7 +1,7 @@
 // themes
 
-import { none, black, white } from './const.js'
-import { map_object, is_array, is_string } from './utils.js'
+import { none, black, white } from './const'
+import { map_object, is_array, is_string } from './utils'
 
 //
 // base layer

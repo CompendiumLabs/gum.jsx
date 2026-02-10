@@ -1,16 +1,16 @@
 // gum.js
 
-import { setTheme } from './lib/theme.js'
-import { sans, mono, moji, light, bold, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r } from './lib/const.js'
-import { is_scalar, is_string, is_object, is_function, is_array, zip, reshape, split, concat, slice, sum, prod, mean, add, sub, mul, div, cumsum, norm, range, linspace, enumerate, repeat, meshgrid, lingrid, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, min, max, clamp, rescale, sigmoid, logit, smoothstep, random, uniform, normal, interp, palette, rounder } from './lib/utils.js'
-import { Context, Element, Group, Svg, Rectangle, is_element } from './elems/core.js'
-import { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Field, Spacer } from './elems/layout.js'
-import { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry.js'
-import { Span, Text, TextBox, TextFrame, TextStack, TextFlex, Bold, Italic, Latex, Equation } from './elems/text.js'
-import { ArrowSpline, Node, Edge, Network } from './elems/network.js'
-import { SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField } from './elems/symbolic.js'
-import { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend } from './elems/plot.js'
-import { TitleBox, TitleFrame, Slide } from './elems/slide.js'
+import { setTheme } from './lib/theme'
+import { sans, mono, moji, light, bold, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r } from './lib/const'
+import { is_scalar, is_string, is_object, is_function, is_array, zip, reshape, split, concat, slice, sum, prod, mean, add, sub, mul, div, cumsum, norm, range, linspace, enumerate, repeat, meshgrid, lingrid, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, min, max, clamp, rescale, sigmoid, logit, smoothstep, random, uniform, normal, interp, palette, rounder } from './lib/utils'
+import { Context, Element, Group, Svg, Rectangle, is_element } from './elems/core'
+import { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Field, Spacer } from './elems/layout'
+import { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry'
+import { Span, Text, TextBox, TextFrame, TextStack, TextFlex, Bold, Italic, Latex, Equation } from './elems/text'
+import { ArrowSpline, Node, Edge, Network } from './elems/network'
+import { SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField } from './elems/symbolic'
+import { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, VLabels, HLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend } from './elems/plot'
+import { TitleBox, TitleFrame, Slide } from './elems/slide'
 
 const CONTEXT = {
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, light, bold,

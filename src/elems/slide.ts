@@ -1,14 +1,14 @@
 // slide elements
 
-import { THEME } from '../lib/theme.js'
-import { ensure_array } from '../lib/utils.js'
+import { THEME } from '../lib/theme'
+import { ensure_array } from '../lib/utils'
 
-import { prefix_split, spec_split } from './core.js'
-import { Box } from './layout.js'
-import { TextFrame, TextStack } from './text.js'
+import { prefix_split, spec_split } from './core'
+import { Box } from './layout'
+import { TextFrame, TextStack } from './text'
 
-import type { AlignValue, Padding, Rounded, Point } from '../lib/types.js'
-import type { BoxArgs } from './layout.js'
+import type { AlignValue, Padding, Rounded, Point } from '../lib/types'
+import type { BoxArgs } from './layout'
 
 //
 // args interfaces

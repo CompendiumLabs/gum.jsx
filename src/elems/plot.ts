@@ -1,18 +1,18 @@
 // plot elements
 
-import { THEME } from '../lib/theme.js'
-import { DEFAULTS as D, none, blue, white } from '../lib/const.js'
-import { linspace, invert_orient, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils.js'
-import { Span } from './text.js'
+import { THEME } from '../lib/theme'
+import { DEFAULTS as D, none, blue, white } from '../lib/const'
+import { linspace, invert_orient, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils'
+import { Span } from './text'
 
-import { Element, Group, prefix_split, prefix_join, spec_split, is_element } from './core.js'
-import { Box, Frame, Attach, Spacer, HStack, VStack, Anchor } from './layout.js'
-import { RoundedRect, UnitLine, HLine } from './geometry.js'
+import { Element, Group, prefix_split, prefix_join, spec_split, is_element } from './core'
+import { Box, Frame, Attach, Spacer, HStack, VStack, Anchor } from './layout'
+import { RoundedRect, UnitLine, HLine } from './geometry'
 
-import type { Point, Rect, Limit, Attrs, Orient, Rounded, Zone, AlignValue, Side } from '../lib/types.js'
-import type { ElementArgs, GroupArgs } from './core.js'
-import type { BoxArgs } from './layout.js'
-import type { RoundedRectArgs } from './geometry.js'
+import type { Point, Rect, Limit, Attrs, Orient, Rounded, Zone, AlignValue, Side } from '../lib/types'
+import type { ElementArgs, GroupArgs } from './core'
+import type { BoxArgs } from './layout'
+import type { RoundedRectArgs } from './geometry'
 
 //
 // args interfaces

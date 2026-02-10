@@ -1,15 +1,15 @@
 // network elements
 
-import { THEME } from '../lib/theme.js'
-import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils.js'
+import { THEME } from '../lib/theme'
+import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils'
 
-import { Context, Element, Group, prefix_split } from './core.js'
-import type { ElementArgs, GroupArgs } from './core.js'
-import { Frame } from './layout.js'
-import { ArrowHead, Spline } from './geometry.js'
-import { Text } from './text.js'
+import { Context, Element, Group, prefix_split } from './core'
+import type { ElementArgs, GroupArgs } from './core'
+import { Frame } from './layout'
+import { ArrowHead, Spline } from './geometry'
+import { Text } from './text'
 
-import type { AlignValue, Cardinal, Direc, Limit, Point, Rect } from '../lib/types.js'
+import type { AlignValue, Cardinal, Direc, Limit, Point, Rect } from '../lib/types'
 
 //
 // args interfaces

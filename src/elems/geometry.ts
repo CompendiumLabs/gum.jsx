@@ -1,13 +1,13 @@
 // geometry elements
 
-import { THEME } from '../lib/theme.js'
-import { DEFAULTS as D, d2r } from '../lib/const.js'
-import { is_boolean, is_scalar, is_array, ensure_array, ensure_vector, ensure_point, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils.js'
+import { THEME } from '../lib/theme'
+import { DEFAULTS as D, d2r } from '../lib/const'
+import { is_boolean, is_scalar, is_array, ensure_array, ensure_vector, ensure_point, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
 
-import { Context, Element, Group, Rectangle, prefix_split } from './core.js'
+import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
-import type { Point, Limit, Attrs, MPoint, Orient, Rounded } from '../lib/types.js'
-import type { ElementArgs, GroupArgs, RectArgs } from './core.js'
+import type { Point, Limit, Attrs, MPoint, Orient, Rounded } from '../lib/types'
+import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
 // args interfaces

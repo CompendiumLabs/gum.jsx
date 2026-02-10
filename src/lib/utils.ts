@@ -1,7 +1,7 @@
 // core utils
 
-import { DEFAULTS as D, d2r, r2d, pi } from './const.js'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal } from './types.js'
+import { DEFAULTS as D, d2r, r2d, pi } from './const'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal } from './types'
 
 //
 // environment tests

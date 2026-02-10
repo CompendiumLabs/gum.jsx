@@ -89,7 +89,7 @@ class MathJaxWeb extends MathJaxBase {
 
 class MathJaxNode extends MathJaxBase {
     async init(): Promise<void> {
-        const { source } = await import( /* @vite-ignore */ '@mathjax/src/components/js/source.js')
+        const { source } = await import( /* @vite-ignore */ '@mathjax/src/components/mjs/source.js')
         ;(global as any).MathJax = {
             loader: {
                 load: [ 'adaptors/liteDOM', ...base_load ],

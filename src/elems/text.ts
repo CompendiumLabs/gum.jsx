@@ -1,16 +1,16 @@
 // text elements
 
-import type { Attrs, AlignValue } from '../lib/types.js'
-import { THEME } from '../lib/theme.js'
-import { vtext, none, bold } from '../lib/const.js'
-import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils.js'
-import { textSizer, wrapText, splitWords } from '../lib/text.js'
-import { mathjax } from '../lib/math.js'
+import type { Attrs, AlignValue } from '../lib/types'
+import { THEME } from '../lib/theme'
+import { vtext, none, bold } from '../lib/const'
+import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils'
+import { textSizer, wrapText, splitWords } from '../lib/text'
+import { mathjax } from '../lib/math'
 
-import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core.js'
-import type { ElementArgs, GroupArgs } from './core.js'
-import { Box, HWrap, VStack } from './layout.js'
-import type { BoxArgs, HWrapArgs, StackArgs } from './layout.js'
+import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core'
+import type { ElementArgs, GroupArgs } from './core'
+import { Box, HWrap, VStack } from './layout'
+import type { BoxArgs, HWrapArgs, StackArgs } from './layout'
 
 //
 // args interfaces

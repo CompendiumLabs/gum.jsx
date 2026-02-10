@@ -1,9 +1,9 @@
 // code evaluation
 
-import { setTheme } from './lib/theme.js'
-import { is_element, Element, Svg } from './elems/core.js'
-import type { SvgArgs } from './elems/core.js'
-import { runJSX } from './lib/parse.js'
+import { setTheme } from './lib/theme'
+import { is_element, Svg } from './elems/core'
+import type { SvgArgs } from './elems/core'
+import { runJSX } from './lib/parse'
 
 //
 // types

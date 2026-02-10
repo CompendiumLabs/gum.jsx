@@ -43,8 +43,13 @@ if (update) {
   const svg = elem.svg()
 
   // rasterize output
-  const dat = (format == null || format == 'png') ? rasterizeSvg(svg, { size: elem.size, width, height, background }) : svg
-  const out = (format == null) ? (formatImage(dat) + '\n') : dat
+  let out: string | Buffer
+  if (format == null || format == 'png') {
+    const dat = rasterizeSvg(svg, { size: elem.size, width, height, background })
+    out = formatImage(dat) + '\n'
+  } else {
+    out = svg
+  }
 
   // write output
   if (output) {

@@ -1,10 +1,10 @@
 // core components
 
-import { THEME } from '../lib/theme.js'
-import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const.js'
-import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, ensure_point, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
+import { THEME } from '../lib/theme'
+import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
+import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, ensure_point, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
 
-import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types.js'
+import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
 //
 // args interfaces

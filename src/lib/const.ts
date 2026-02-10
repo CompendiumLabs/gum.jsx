@@ -1,6 +1,6 @@
 // constants
 
-import type { Point, Rect, Limit } from './types.js'
+import type { Point, Rect, Limit } from './types'
 
 // namespaces
 const svgns = 'http://www.w3.org/2000/svg'
