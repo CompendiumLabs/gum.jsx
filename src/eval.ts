@@ -1,7 +1,8 @@
 // code evaluation
 
 import { setTheme } from './lib/theme.js'
-import { is_element, Svg } from './elems/core.js'
+import { is_element, Element, Svg } from './elems/core.js'
+import type { SvgArgs } from './elems/core.js'
 import { runJSX } from './lib/parse.js'
 
 //
@@ -21,20 +22,22 @@ class ErrorNoReturn extends Error {
 }
 
 class ErrorNoElement extends Error {
-  constructor(value) {
+  value: any
+
+  constructor(value: any) {
       super(`Non-element returned: ${JSON.stringify(value)}`)
       this.value = value
   }
 }
 
 class ErrorGenerate extends Error {
-  constructor(message) {
+  constructor(message: string) {
       super(`Generation error: ${message}`)
   }
 }
 
 class ErrorRender extends Error {
-  constructor(message) {
+  constructor(message: string) {
       super(`Render error: ${message}`)
   }
 }
@@ -43,7 +46,12 @@ class ErrorRender extends Error {
 // gum evaluator
 //
 
-function evaluateGum(code, { theme = null, debug = false, ...args } = {}) {
+interface EvaluateArgs extends SvgArgs {
+  theme?: string | null
+  debug?: boolean
+}
+
+function evaluateGum(code: string, { theme = null, debug = false, ...args }: EvaluateArgs = {}): Svg {
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
@@ -80,3 +88,4 @@ function evaluateGum(code, { theme = null, debug = false, ...args } = {}) {
 //
 
 export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum }
+export type { EvaluateArgs }

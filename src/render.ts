@@ -2,6 +2,7 @@
 
 import { Resvg } from '@resvg/resvg-js'
 
+import type { Point } from './lib/types.js'
 import { sans, mono } from './lib/const.js'
 import { is_browser } from './lib/utils.js'
 import { FONT_PATHS, FONT_DATA } from './fonts/fonts.js'
@@ -21,8 +22,31 @@ const font = {
   monospaceFamily: mono,
 }
 
+interface FitToWidth {
+  mode: 'width'
+  value: number
+}
+
+interface FitToHeight {
+  mode: 'height'
+  value: number
+}
+
+interface FitToOriginal {
+  mode: 'original'
+}
+
+type FitTo = FitToWidth | FitToHeight | FitToOriginal
+
+interface RasterizeArgs {
+  size?: Point
+  width?: number
+  height?: number
+  background?: string
+}
+
 // build fitTo object from width/height options
-function buildFitTo(width, height) {
+function buildFitTo(width?: number, height?: number): FitTo {
   if (height != null && width != null) {
     return { mode: 'width', value: width } // prefer width when both specified
   } else if (height != null) {
@@ -34,7 +58,7 @@ function buildFitTo(width, height) {
 }
 
 // rasterize SVG buffer/string to PNG
-function rasterizeSvg(svg, { size, width, height, background } = {}) {
+function rasterizeSvg(svg: string | Buffer, { size, width, height, background }: RasterizeArgs = {}): Buffer {
   // scale down intrinsic height
   if (size != null && width != null && height != null) {
     const [width0, height0] = size
@@ -51,3 +75,4 @@ function rasterizeSvg(svg, { size, width, height, background } = {}) {
 }
 
 export { rasterizeSvg, formatImage }
+export type { RasterizeArgs }
