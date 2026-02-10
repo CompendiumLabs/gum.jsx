@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const.js'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc } from './types.js'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient } from './types.js'
 
 //
 // environment tests
@@ -21,6 +21,14 @@ function is_boolean(x: any): x is boolean {
 
 function is_scalar(x: any): x is number {
     return typeof(x) == 'number'
+}
+
+function is_point(x: any): x is Point {
+    return is_array(x) && x.length == 2
+}
+
+function is_rect(x: any): x is Rect {
+    return is_array(x) && x.length == 4
 }
 
 function is_string(x: any): x is string {
@@ -640,7 +648,7 @@ function detect_coords(xvals: number[], yvals: number[], xlim: Limit | undefined
     })
 }
 
-function invert_direc(direc: string): string {
+function invert_orient(direc: Orient): Orient {
     return direc == 'v' ? 'h' :
            direc == 'h' ? 'v' :
            direc
@@ -650,22 +658,21 @@ function invert_direc(direc: string): string {
 // aspect utils
 //
 
-function aspect_invariant(value: any, aspect: number | undefined, alpha: number = 0.5): number[] | undefined {
-    aspect = aspect ?? 1
-
+function aspect_invariant(value0: number | Point | Rect, aspect0: number | undefined, alpha: number = 0.5): Point | Rect {
+    const aspect = aspect0 ?? 1
     const wfact = aspect**alpha
     const hfact = aspect**(1 - alpha)
 
-    if (is_scalar(value)) {
-        value = [ value, value ]
-    }
+    const value = is_scalar(value0) ? [ value0, value0 ] as Point : value0 as Rect
 
-    if (value.length == 2) {
+    if (is_point(value)) {
         const [ vw, vh ] = value
         return [ vw * wfact, vh / hfact ]
-    } else if (value.length == 4) {
+    } else if (is_rect(value)) {
         const [ vl, vt, vr, vb ] = value
         return [ vl * wfact, vt / hfact, vr * wfact, vb / hfact ]
+    } else {
+        throw new Error(`Invalid value: ${value}`)
     }
 }
 
@@ -807,4 +814,4 @@ function palette(start0: string, stop0: string, clim: Limit = D.lim): (x: number
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_direc, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }

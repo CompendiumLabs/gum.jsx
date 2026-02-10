@@ -2,14 +2,14 @@
 
 import { THEME } from '../lib/theme.js'
 import { DEFAULTS as D, none, blue, white } from '../lib/const.js'
-import { linspace, invert_direc, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils.js'
+import { linspace, invert_orient, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils.js'
 import { Span } from './text.js'
 
 import { Element, Group, prefix_split, prefix_join, spec_split, is_element } from './core.js'
 import { Box, Frame, Attach, Spacer, HStack, VStack, Anchor } from './layout.js'
 import { RoundedRect, UnitLine, HLine } from './geometry.js'
 
-import type { Point, Rect, Limit, Attrs, Orient } from '../lib/types.js'
+import type { Point, Rect, Limit, Attrs, Orient, Rounded, Zone, AlignValue, Side } from '../lib/types.js'
 import type { ElementArgs, GroupArgs } from './core.js'
 import type { BoxArgs } from './layout.js'
 import type { RoundedRectArgs } from './geometry.js'
@@ -41,8 +41,8 @@ interface ScaleArgs extends GroupArgs {
 
 interface LabelsArgs extends GroupArgs {
     direc?: Orient
-    justify?: string | null
-    loc?: number | null
+    justify?: AlignValue
+    loc?: number
     prec?: number
 }
 
@@ -50,12 +50,12 @@ interface AxisArgs extends GroupArgs {
     lim?: Limit
     direc?: Orient
     ticks?: number | any[]
-    tick_side?: string
-    label_side?: string
+    tick_side?: Zone
+    label_side?: Zone
     label_size?: number
     label_offset?: number
-    label_justify?: string | null
-    label_loc?: number | null
+    label_justify?: AlignValue
+    label_loc?: number
     discrete?: boolean
     prec?: number
     debug?: boolean
@@ -64,22 +64,22 @@ interface AxisArgs extends GroupArgs {
 interface BoxLabelArgs extends ElementArgs {
     size?: number
     offset?: number
-    side?: string
+    side?: Side
 }
 
 interface MeshArgs extends ScaleArgs {
-    locs?: number | number[]
+    N?: number
     lim?: Limit
 }
 
 interface Mesh2DArgs extends GroupArgs {
     locs?: number | number[]
-    xlocs?: number | number[] | null
-    ylocs?: number | number[] | null
+    xlocs?: number | number[]
+    ylocs?: number | number[]
     xlim?: Limit
     ylim?: Limit
-    xspan?: Limit | null
-    yspan?: Limit | null
+    xspan?: Limit
+    yspan?: Limit
 }
 
 interface LegendArgs extends ElementArgs {
@@ -89,7 +89,7 @@ interface LegendArgs extends ElementArgs {
     rounded?: number
     padding?: number
     fill?: string
-    justify?: string
+    justify?: AlignValue
     debug?: boolean
 }
 
@@ -104,18 +104,18 @@ interface PlotArgs extends BoxArgs {
     xlim?: Limit
     ylim?: Limit
     axis?: boolean
-    xaxis?: boolean | Element | null
-    yaxis?: boolean | Element | null
+    xaxis?: boolean | Element
+    yaxis?: boolean | Element
     xticks?: number | any[]
     yticks?: number | any[]
     xanchor?: number
     yanchor?: number
-    grid?: boolean | number[] | null
-    xgrid?: boolean | number[] | null
-    ygrid?: boolean | number[] | null
-    xlabel?: string | Element | null
-    ylabel?: string | Element | null
-    title?: string | Element | null
+    grid?: boolean | number[]
+    xgrid?: boolean | number[]
+    ygrid?: boolean | number[]
+    xlabel?: string | Element
+    ylabel?: string | Element
+    title?: string | Element
     tick_size?: number
     label_size?: number
     label_offset?: number | Point
@@ -145,7 +145,8 @@ interface BarPlotArgs extends PlotArgs {
 class Bar extends RoundedRect {
     constructor(args: BarArgs = {}) {
         const { direc = 'v', fill = blue, stroke = none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
-        const rounded = rounded0 == true ? (direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]) : rounded0
+        const rounded1: Rounded = direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]
+        const rounded = rounded0 == true ? rounded1 : rounded0 == false ? 0 : rounded0
         super({ fill, stroke, rounded, ...attr })
         this.args = args
     }
@@ -172,7 +173,7 @@ class Bars extends Group {
         const { children: children0, direc = 'v', width = 0.75, zero = 0, ...attr0 } = THEME(args, 'Bars')
         const [ spec, attr ] = spec_split(attr0)
         const bars = ensure_array(children0)
-        const idirec = invert_direc(direc)
+        const idirec = invert_orient(direc)
 
         // make rects from sizes
         const children = bars.map((child: any, i: number) => {
@@ -222,7 +223,7 @@ class Scale extends Group {
     constructor(args: ScaleArgs = {}) {
         const { children: children0, locs, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
         const [ spec, attr ] = spec_split(attr0)
-        const tick_dir = invert_direc(direc)
+        const tick_dir = invert_orient(direc)
 
         // make tick lines
         const children = (locs as number[]).map((t: number) => {
@@ -255,14 +256,14 @@ class HScale extends Scale {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args: LabelsArgs = {}) {
-        const { children: children0, direc = 'h', justify: justify0 = null, loc: subloc = null, prec = D.prec, ...attr0 } = THEME(args, 'Labels')
+        const { children: children0, direc = 'h', justify: justify0, loc: subloc, prec = D.prec, ...attr0 } = THEME(args, 'Labels')
         const items = ensure_array(children0)
         const [ spec, attr ] = spec_split(attr0)
         const justify = justify0 ?? (direc == 'h' ? 'center' : 'right')
 
         // place tick boxes using expanded lines
         const children = items.map((c0: any) => {
-            const c = ensure_ticklabel(c0, attr, prec)
+            const c = ensure_ticklabel(c0, { prec, ...attr })
             const { loc } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
             return new Anchor({ children: c, rect, expand: true, aspect: 1, justify, loc: subloc })
@@ -310,7 +311,7 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children, lim = D.lim, direc, ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, label_loc = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc, ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim
@@ -321,14 +322,14 @@ class Axis extends Group {
         const label_lim: Limit = [ label_base, label_base + label_size ]
 
         // set up one-sides coordinate system
-        const idirec = invert_direc(direc as Orient)
+        const idirec = invert_orient(direc as Orient)
         const coord = join_limits({ [direc as string]: lim })
         const scale_rect = join_limits({ [idirec]: tick_lim })
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
         const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0 as number) : ticks0) : []
-        const labels = children ?? (ticks as any[]).map((t: any) => ensure_ticklabel(t, label_attr, prec))
+        const labels = children ?? (ticks as any[]).map((t: any) => ensure_ticklabel(t, { prec, ...label_attr }))
         const locs = labels.map((c: any) => c.attr.loc)
 
         // accumulate children
@@ -375,8 +376,8 @@ class BoxLabel extends Attach {
 
 class Mesh extends Scale {
     constructor(args: MeshArgs = {}) {
-        const { children: children0, locs: locs0 = 10, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
-        const locs = is_scalar(locs0) ? linspace(...lim, locs0 as number) : locs0 as number[]
+        const { children: children0, N, locs: locs0, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
+        const locs = N != null ? linspace(...lim, N) : locs0
         const coord = join_limits({ [direc]: lim })
         super({ locs, direc, coord, span, ...attr })
         this.args = args
@@ -401,7 +402,7 @@ class VMesh extends Mesh {
 
 class Mesh2D extends Group {
     constructor(args: Mesh2DArgs = {}) {
-        let { children: children0, locs = 10, xlocs = null, ylocs = null, direc = 'h', xlim = D.lim, ylim = D.lim, xspan = null, yspan = null, ...attr } = THEME(args, 'Mesh2D')
+        let { children: children0, locs = 10, xlocs, ylocs, direc = 'h', xlim = D.lim, ylim = D.lim, xspan, yspan, ...attr } = THEME(args, 'Mesh2D')
 
         // set default values
         xlocs ??= locs
@@ -466,14 +467,14 @@ class Legend extends Frame {
         const vs = new VStack({ children: rows, spacing: vspacing, justify, even: true })
 
         // pass to Frame
-        super({ children: vs, rounded, padding, fill, stroke, ...attr })
+        super({ children: vs, rounded, padding, fill, ...attr })
         this.args = args
     }
 }
 
 // find minimal containing limits
-function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?: Limit, ylim?: Limit, padding?: number } = {}): Rect | null {
-    if (children.length == 0) return null
+function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?: Limit, ylim?: Limit, padding?: number } = {}): Rect | undefined {
+    if (children.length == 0) return
 
     // pull in child coordinate system
     const coord0 = merge_rects(children.map((c: Element) => c.spec.coord))
@@ -491,11 +492,11 @@ function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?:
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args: GraphArgs = {}) {
-        let { children: children0, xlim, ylim, coord = 'auto', aspect = null, padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
+        let { children: children0, xlim, ylim, coord: coord0 = 'auto', aspect, padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
         const elems = ensure_array(children0)
 
         // get default outer limits
-        coord = coord == 'auto' ? outer_limits(elems, { xlim, ylim, padding }) : coord
+        let coord = coord0 == 'auto' ? outer_limits(elems, { xlim, ylim, padding }) : coord0
         aspect = aspect == 'auto' ? rect_aspect(coord) : aspect
 
         // flip coordinate system if requested
@@ -519,7 +520,7 @@ class Graph extends Group {
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
         let {
-            children: children0, xlim, ylim, axis = true, xaxis = null, yaxis = null, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0, clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0, clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
@@ -578,45 +579,45 @@ class Plot extends Box {
         // default xaxis generation
         if (xaxis === true) {
             const xtick_size1 = xtick_size * (ymax - ymin)
-            const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
+            const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ] as Limit
             xaxis = new HAxis({ ticks: xticks, lim: xlim as Limit, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
-            xaxis = null
+            xaxis = undefined
         }
 
         // default yaxis generation
         if (yaxis === true) {
             const ytick_size1 = ytick_size * (xmax - xmin)
-            const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
+            const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ] as Limit
             yaxis = new VAxis({ ticks: yticks, lim: ylim as Limit, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
-            yaxis = null
+            yaxis = undefined
         }
 
         // automatic xgrid generation
         if (xgrid != null && xgrid !== false) {
             const locs = (xgrid === true && xaxis != null) ? (xaxis as Axis).locs : xgrid
-            xgrid = new HMesh({ locs: locs as number[], lim: xlim as Limit, rect: coord, ...xgrid_attr })
-            bg_elems.unshift(xgrid)
+            const xgrid_elem = new HMesh({ locs: locs as number[], lim: xlim as Limit, rect: coord, ...xgrid_attr })
+            bg_elems.unshift(xgrid_elem)
         } else {
-            xgrid = null
+            xgrid = undefined
         }
 
         // automatic ygrid generation
         if (ygrid != null && ygrid !== false) {
             const locs = (ygrid === true && yaxis != null) ? (yaxis as Axis).locs : ygrid
-            ygrid = new VMesh({ locs: locs as number[], lim: ylim as Limit, rect: coord, ...ygrid_attr })
-            bg_elems.unshift(ygrid)
+            const ygrid_elem = new VMesh({ locs: locs as number[], lim: ylim as Limit, rect: coord, ...ygrid_attr })
+            bg_elems.unshift(ygrid_elem)
         } else {
-            ygrid = null
+            ygrid = undefined
         }
 
         // create graph from core elements
-        const bg_graph = new Graph({ children: bg_elems, coord, aspect: null })
-        const fg_graph = new Graph({ children: fg_elems, coord, aspect: null })
-        const el_graph = new Graph({ children: elems, coord, aspect: null, clip })
+        const bg_graph = new Graph({ children: bg_elems, coord, aspect: undefined })
+        const fg_graph = new Graph({ children: fg_elems, coord, aspect: undefined })
+        const el_graph = new Graph({ children: elems, coord, aspect: undefined, clip })
         const children: Element[] = [ bg_graph, el_graph, fg_graph ]
 
         // optional xaxis label

@@ -13,6 +13,7 @@ type MNumber = [number, number]
 type MPoint = [MNumber, MNumber]
 
 // alignment: named position or fractional 0-1
+type Zone = 'inner' | 'outer'
 type Side = 'left' | 'right' | 'top' | 'bottom'
 type AlignValue = Side | 'center' | 'middle' | number
 type Align = AlignValue | [AlignValue, AlignValue]
@@ -44,4 +45,4 @@ type Spec = {
     invar?: boolean
 }
 
-export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Side, Orient, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
