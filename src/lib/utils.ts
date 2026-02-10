@@ -786,9 +786,9 @@ function hexToRgba(hex: string): RGBA {
     return [ r, g, b, a / 255 ]
 }
 
-function rgba_repr(rgba: RGBA, prec: number = D.prec): string {
+function rgba_repr(rgba: RGBA): string {
     const [ r, g, b, a ] = rgba
-    return `rgba(${rounder(r, prec)}, ${rounder(g, prec)}, ${rounder(b, prec)}, ${rounder(a, prec)})`
+    return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a})`
 }
 
 function interp(start0: string, stop0: string, x: number): string {
@@ -799,11 +799,11 @@ function interp(start0: string, stop0: string, x: number): string {
     return rgba_repr(color)
 }
 
-function palette(start0: string, stop0: string, clim: Limit = D.lim): (x: number) => string {
+function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number) => string {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
     const slope = sub(stop, start)
-    const scale = rescaler(clim, D.lim)
+    const scale = rescaler(lim, D.lim)
     function gradient(x: number): string {
         const x1 = scale(x)
         const c = add(start, mul(slope, x1))
