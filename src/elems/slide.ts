@@ -7,6 +7,34 @@ import { prefix_split, spec_split } from './core.js'
 import { Box } from './layout.js'
 import { TextFrame, TextStack } from './text.js'
 
+import type { BoxArgs } from './layout.js'
+
+//
+// args interfaces
+//
+
+interface TitleBoxArgs extends BoxArgs {
+    title?: string | null
+    title_size?: number
+    title_fill?: string
+    title_offset?: number
+    title_rounded?: number
+}
+
+interface TitleFrameArgs extends TitleBoxArgs {
+    border?: number
+}
+
+interface SlideArgs extends TitleFrameArgs {
+    padding?: number
+    margin?: number
+    rounded?: number
+    border_stroke?: string
+    wrap?: number
+    spacing?: number
+    justify?: string
+}
+
 //
 // slides
 //
@@ -14,7 +42,7 @@ import { TextFrame, TextStack } from './text.js'
 // TODO: use mask to clip frame for title box (then we can make it transparent)
 // TODO: title doesn't get rotated on spin
 class TitleBox extends Box {
-    constructor(args = {}) {
+    constructor(args: TitleBoxArgs = {}) {
         const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleBox')
         const children = ensure_array(children0)
         const [ title_attr, attr1 ] = prefix_split(['title'], attr0)
@@ -24,7 +52,7 @@ class TitleBox extends Box {
         const box = new Box({ children, ...attr })
 
         // make optional title box
-        let title_box = null
+        let title_box: TextFrame | null = null
         if (title != null) {
             const title_pos = [ 0.5, title_size * title_offset ]
             const title_rad = [ 0.5, title_size ]
@@ -38,7 +66,7 @@ class TitleBox extends Box {
 }
 
 class TitleFrame extends TitleBox {
-    constructor(args = {}) {
+    constructor(args: TitleFrameArgs = {}) {
         const { border = 1, ...attr } = THEME(args, 'TitleFrame')
         super({ border, ...attr })
         this.args = args
@@ -46,7 +74,7 @@ class TitleFrame extends TitleBox {
 }
 
 class Slide extends TitleFrame {
-    constructor(args = {}) {
+    constructor(args: SlideArgs = {}) {
         const { children: children0, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.05, wrap = 25, spacing = 0.05, justify = 'left', ...attr0 } = THEME(args, 'Slide')
         const children = ensure_array(children0)
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
@@ -61,3 +89,4 @@ class Slide extends TitleFrame {
 }
 
 export { TitleBox, TitleFrame, Slide }
+export type { TitleBoxArgs, TitleFrameArgs, SlideArgs }

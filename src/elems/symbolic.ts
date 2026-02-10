@@ -8,12 +8,60 @@ import { Group, spec_split } from './core.js'
 import { Line, Spline, Shape, Arrow, Dot } from './geometry.js'
 import { Box } from './layout.js'
 
+import type { Point, Limit, Rect } from '../lib/types.js'
+import type { ElementArgs, GroupArgs } from './core.js'
+import type { LineArgs, SplineArgs } from './geometry.js'
+
 // GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
 // they should compute their coordinate limits and report them in coord (for Graph)
 
+//
+// args interfaces
+//
+
+interface SymArgsBase {
+    xlim?: Limit
+    ylim?: Limit
+    tlim?: Limit
+    xvals?: number[]
+    yvals?: number[]
+    tvals?: number[]
+    N?: number
+}
+
+interface SymArgs extends SymArgsBase {
+    fx?: ((t: number) => number)
+    fy?: ((t: number) => number)
+}
+
+interface SymLineArgs extends SymArgs, LineArgs {
+}
+
+interface SymPointsArgs extends SymArgs, GroupArgs {
+    size?: number | ((x: number, y: number, t: number, i: number) => number)
+    shape?: any
+}
+
+interface SymSplineArgs extends SymArgs, SplineArgs {
+}
+
+interface SymShapeArgs extends SymArgs, ElementArgs {
+}
+
+interface SymFillArgs extends SymArgsBase, GroupArgs {
+    fx1?: ((t: number) => number)
+    fy1?: ((t: number) => number)
+    fx2?: ((t: number) => number)
+    fy2?: ((t: number) => number)
+}
+
+interface SymFieldArgs extends SymArgs, GroupArgs {
+    func?: (x: number, y: number) => any
+}
+
 // determines actual values given combinations of limits, values, and functions
-function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
+function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N }: SymArgs = {}): [number[], number[], number[]] {
     fx = ensure_function(fx)
     fy = ensure_function(fy)
 
@@ -30,7 +78,7 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
     const Ns = new Set(
         [ tvals, xvals, yvals ]
         .filter(v => v != null)
-        .map(v => v.length)
+        .map(v => v!.length)
     )
     if (Ns.size > 1) {
         throw new Error(`Error: data sizes must be in aggreement but got ${[...Ns]}`)
@@ -49,10 +97,10 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
         xvals = tvals.map(fx)
         yvals = tvals.map(fy)
     } else if (fy != null) {
-        xvals ??= linspace(...xlim, N)
+        xvals ??= linspace(...xlim!, N)
         yvals = xvals.map(fy)
     } else if (fx != null) {
-        yvals ??= linspace(...ylim, N)
+        yvals ??= linspace(...ylim!, N)
         xvals = yvals.map(fx)
     } else if (yvals != null && xvals == null) {
         xlim ??= D.lim
@@ -63,27 +111,27 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N } = {}) {
     }
 
     // filter out nan values
-    const data = zip(tvals, xvals, yvals).filter(
-        ([t, x, y]) => !isNaN(t) && !isNaN(x) && !isNaN(y)
+    const data = zip(tvals, xvals!, yvals!).filter(
+        ([t, x, y]: number[]) => !isNaN(t) && !isNaN(x) && !isNaN(y)
     )
 
     // return dataset
-    return zip(...data)
+    return zip(...data) as [number[], number[], number[]]
 }
 
 // a component is a function that returns an element
-function ensure_shapefunc(f) {
+function ensure_shapefunc(f: any): (...a: any[]) => any {
     const f1 = ensure_function(f)
-    return (...a) => f1(...a)
+    return (...a: any[]) => f1(...a)
 }
 
 class SymPoints extends Group {
-    constructor(args = {}) {
+    constructor(args: SymPointsArgs = {}) {
         const { children: children0, fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
         const [ spec, attr ] = spec_split(attr0)
         const fsize = ensure_function(size)
         const fshap = ensure_shapefunc(shape0 ?? new Dot(attr))
-        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -92,7 +140,7 @@ class SymPoints extends Group {
 
         // make points
         const points = zip(tvals1, xvals1, yvals1).filter(
-            ([t, x, y]) => (x != null) && (y != null)
+            ([t, x, y]: number[]) => (x != null) && (y != null)
         )
 
         // make children
@@ -112,9 +160,9 @@ class SymPoints extends Group {
 }
 
 class SymLine extends Line {
-    constructor(args = {}) {
+    constructor(args: SymLineArgs = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
-        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = sympath({
@@ -123,7 +171,7 @@ class SymLine extends Line {
 
         // get valid point pairs
         const children = zip(xvals1, yvals1).filter(
-            ([ x, y ]) => (x != null) && (y != null)
+            ([ x, y ]: number[]) => (x != null) && (y != null)
         )
 
         // compute real limits
@@ -136,9 +184,9 @@ class SymLine extends Line {
 }
 
 class SymSpline extends Spline {
-    constructor(args = {}) {
+    constructor(args: SymSplineArgs = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, curve, ...attr } = THEME(args, 'SymSpline')
-        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute path values
         const [ tvals1, xvals1, yvals1 ] = sympath({
@@ -147,7 +195,7 @@ class SymSpline extends Spline {
 
         // get valid point pairs
         const children = zip(xvals1, yvals1).filter(
-            ([ x, y ]) => (x != null) && (y != null)
+            ([ x, y ]: number[]) => (x != null) && (y != null)
         )
 
         // compute real limits
@@ -160,9 +208,9 @@ class SymSpline extends Spline {
 }
 
 class SymShape extends Shape {
-    constructor(args = {}) {
+    constructor(args: SymShapeArgs = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymShape')
-        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -171,7 +219,7 @@ class SymShape extends Shape {
 
         // get valid point pairs
         const children = zip(xvals1, yvals1).filter(
-            ([x, y]) => (x != null) && (y != null)
+            ([x, y]: number[]) => (x != null) && (y != null)
         )
 
         // compute real limits
@@ -184,9 +232,9 @@ class SymShape extends Shape {
 }
 
 class SymFill extends Shape {
-    constructor(args = {}) {
+    constructor(args: SymFillArgs = {}) {
         const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = 'none', fill = '#f0f0f0', coord: coord0, ...attr } = THEME(args, 'SymFill')
-        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
         const [tvals1, xvals1, yvals1] = sympath({
@@ -198,7 +246,7 @@ class SymFill extends Shape {
 
         // get valid point pairs
         const children = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
-            ([x, y]) => (x != null) && (y != null)
+            ([x, y]: number[]) => (x != null) && (y != null)
         )
 
         // compute real limits
@@ -210,25 +258,25 @@ class SymFill extends Shape {
     }
 }
 
-function default_arrow(direc) {
-    const theta = is_scalar(direc) ? direc : vector_angle(direc)
+function default_arrow(direc: number | Point): Box {
+    const theta = is_scalar(direc) ? direc as number : vector_angle(direc as Point)
     const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
     return new Box({ children: arrow, spin: theta })
 }
 
 class SymField extends SymPoints {
-    constructor(args = {}) {
+    constructor(args: SymFieldArgs = {}) {
         const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, coord: coord0, ...attr } = THEME(args, 'SymField')
-        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0)
+        const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
         const shape = ensure_singleton(children0) ?? default_arrow
         const size = size0 ?? 0.25 / N
 
         // create points and shape function
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
-        const fshap = (x, y, t, i) => shape(func(x, y))
+        const fshap = (x: number, y: number, t: number, i: number) => shape(func!(x, y))
 
         // compute real limits
-        const [ xvals, yvals ] = points.length > 0 ? zip(...points) : [ [], [] ]
+        const [ xvals, yvals ] = points.length > 0 ? zip(...points) as [number[], number[]] : [ [], [] ]
         const coord = coord0 ?? detect_coords(xvals, yvals, xlim, ylim)
 
         // pass to SymPoints
@@ -238,3 +286,4 @@ class SymField extends SymPoints {
 }
 
 export { SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField }
+export type { SymArgsBase, SymArgs, SymPointsArgs, SymLineArgs, SymSplineArgs, SymShapeArgs, SymFillArgs, SymFieldArgs }

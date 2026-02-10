@@ -1,14 +1,15 @@
 // layout components
 
-import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types.js'
 import { THEME } from '../lib/theme.js'
 import { DEFAULTS as D, none } from '../lib/const.js'
 import { is_scalar, maximum, minimum, ensure_array, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils.js'
 import { wrapWidths } from '../lib/text.js'
 
 import { Context, Group, Element, Rectangle, prefix_split, spec_split, align_frac } from './core.js'
-import type { ElementArgs, GroupArgs } from './core.js'
 import { RoundedRect, Dot, Arrow } from './geometry.js'
+
+import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types.js'
+import type { ElementArgs, GroupArgs } from './core.js'
 
 //
 // args interfaces

@@ -1,19 +1,83 @@
 // text elements
 
+import type { Attrs, AlignValue } from '../lib/types.js'
 import { THEME } from '../lib/theme.js'
 import { vtext, none, bold } from '../lib/const.js'
 import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils.js'
 import { textSizer, wrapText, splitWords } from '../lib/text.js'
 import { mathjax } from '../lib/math.js'
 
-import { Element, Group, prefix_split, prefix_join, spec_split } from './core.js'
+import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core.js'
+import type { ElementArgs, GroupArgs } from './core.js'
 import { Box, HWrap, VStack } from './layout.js'
+import type { BoxArgs, HWrapArgs, StackArgs } from './layout.js'
+
+//
+// args interfaces
+//
+
+interface SpanArgs extends ElementArgs {
+    children?: any
+    color?: string
+    voffset?: number
+    stroke?: string
+    font_family?: string
+    font_weight?: number
+    font_style?: string
+}
+
+interface ElemSpanArgs extends GroupArgs {
+    spacing?: number
+}
+
+interface TextArgs extends HWrapArgs {
+    font_family?: string
+    font_weight?: number
+    font_style?: string
+}
+
+interface TextStackArgs extends StackArgs {
+    wrap?: number | null
+    font_family?: string
+    font_weight?: number
+    text_wrap?: number
+    text_justify?: string
+}
+
+interface TextBoxArgs extends BoxArgs {
+    justify?: AlignValue
+    wrap?: number
+    font_family?: string
+    font_weight?: number
+    text_wrap?: number
+    text_justify?: string
+}
+
+interface TextFrameArgs extends TextBoxArgs {
+    border?: number
+    rounded?: number
+}
+
+interface TextFlexArgs extends ElementArgs {
+    children?: any
+    font_scale?: number
+    font_size?: number
+    spacing?: number
+    color?: string
+    voffset?: number
+}
+
+interface LatexArgs extends ElementArgs {
+    children?: any
+    display?: boolean
+    voffset?: number
+}
 
 //
 // text
 //
 
-function escape_xml(text) {
+function escape_xml(text: string): string {
     return String(text)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -22,13 +86,16 @@ function escape_xml(text) {
         .replace(/'/g, '&apos;')
 }
 
-function ensure_tail(text) {
+function ensure_tail(text: string): string {
     return `${text.trimEnd()} `
 }
 
 // no wrapping at all, clobber newlines, mainly internal use
 class Span extends Element {
-    constructor(args = {}) {
+    text: string
+    voffset: number
+
+    constructor(args: SpanArgs = {}) {
         const { children: children0, color, voffset = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
         const child = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
@@ -50,9 +117,10 @@ class Span extends Element {
     // because text will always be displayed upright,
     // we need to find the ordered bounds of the text
     // and then offset it by the given offset
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        const { size, voffset } = this
+        const { voffset } = this
+        const size = (this as any).size as number | undefined
         const { prect } = ctx
 
         // get position and size
@@ -68,13 +136,13 @@ class Span extends Element {
         return { x, y, font_size: `${h}px`, ...attr }
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         return this.text
     }
 }
 
 class ElemSpan extends Group {
-    constructor(args = {}) {
+    constructor(args: ElemSpanArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = args
         const children = check_singleton(children0)
         const aspect0 = children.spec.aspect ?? 1
@@ -84,8 +152,8 @@ class ElemSpan extends Group {
     }
 }
 
-function compress_spans(children, font_args = {}) {
-    return children.flatMap((child, i) => {
+function compress_spans(children: any[], font_args: Attrs = {}): any[] {
+    return children.flatMap((child: any, i: number) => {
         const first_child = i == 0
         const last_child = i == children.length - 1
 
@@ -99,9 +167,9 @@ function compress_spans(children, font_args = {}) {
             if (!last_child) child = ensure_tail(child)
             if (last_child) child = child.trimEnd()
             const words = splitWords(child)
-            return words.map(w => new Span({ children: w, ...font_args }))
+            return words.map((w: string) => new Span({ children: w, ...font_args }))
         } else if (child instanceof Text) {
-            return child.spans.map((s, i) => {
+            return child.spans.map((s: any, i: number) => {
                 if (!(s instanceof Span)) return s
                 let { text } = s
                 if (i == 0 && first_child) text = text.trimStart()
@@ -123,8 +191,10 @@ function compress_spans(children, font_args = {}) {
 
 // wrap text or elements to multiple lines with fixed line height
 class Text extends HWrap {
-    constructor(args = {}) {
-        const { children: children0, wrap = null, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
+    spans: any[]
+
+    constructor(args: TextArgs = {}) {
+        const { children: children0, wrap, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
         const items = ensure_array(children0)
     	const [ spec, attr ] = spec_split(attr0)
 
@@ -141,14 +211,14 @@ class Text extends HWrap {
 }
 
 class TextStack extends VStack {
-    constructor(args = {}) {
+    constructor(args: TextStackArgs = {}) {
         const { children: children0, wrap = null, justify = 'left', ...attr0 } = THEME(args, 'TextStack')
         const items = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // apply wrap to children
-        const children = items.map(c => c.clone({ ...font_attr, ...text_attr, wrap, justify }))
+        const children = items.map((c: any) => c.clone({ ...font_attr, ...text_attr, wrap, justify }))
 
         // pass to VStack
         super({ children, ...attr })
@@ -157,7 +227,7 @@ class TextStack extends VStack {
 }
 
 class TextBox extends Box {
-    constructor(args = {}) {
+    constructor(args: TextBoxArgs = {}) {
         const { children: children0, padding = 0.1, justify, wrap, debug, ...attr0 } = THEME(args, 'TextBox')
         const text = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
@@ -169,28 +239,29 @@ class TextBox extends Box {
 }
 
 class TextFrame extends TextBox {
-    constructor(args = {}) {
+    constructor(args: TextFrameArgs = {}) {
         const { border = 1, rounded = 0.05, ...attr } = THEME(args, 'TextFrame')
         super({ border, rounded, ...attr })
     }
 }
 
+// TODO: This isn't perfect. Need to handle impossible cases.
 // calculate font-size within box, iterative but still BlooP!
-function get_font_size(text, w, h, spacing, fargs) {
+function get_font_size(text: string, w: number, h: number, spacing: number, fargs: Attrs): number | undefined {
     // best guess font size
     const tw = textSizer(text, fargs)
-    const lw = ( tw * h ) / w
-    const { lines } = wrapText(text, lw, fargs)
-    const nmin = lines.length
-    const nmax = sum(lines.map(l => l.length))
+    const lw = ( tw! * h ) / w
+    const { rows } = wrapText(text, lw, fargs)
+    const nmin = rows.length
+    const nmax = sum(rows.map(l => l.length))
 
     // account for ragged newlines
     for (let n = nmin; n <= nmax; n++) {
         const fs = h / ( n + (n - 1) * spacing )
         const lw = w / fs
-        const { lines, widths } = wrapText(text, lw, fargs)
-        if (lines.length <= n) {
-            const mw = max(widths)
+        const { widths } = wrapText(text, lw, fargs)
+        if (widths.length <= n) {
+            const mw = max(widths) ?? 0
             return fs * mw < w ? fs : w / mw
         }
     }
@@ -200,7 +271,14 @@ function get_font_size(text, w, h, spacing, fargs) {
 // font_scale is proportionally scaled
 // font_size is absolutely scaled
 class TextFlex extends Element {
-    constructor(args = {}) {
+    text: string
+    voffset: number
+    spacing: number
+    font_scale: number | undefined
+    font_size: number | undefined
+    font_args: Attrs
+
+    constructor(args: TextFlexArgs = {}) {
         const { children: children0, font_scale, font_size, spacing = 0.1, color, voffset = vtext, ...attr0 } = THEME(args, 'TextFlex')
         const children = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
@@ -219,17 +297,17 @@ class TextFlex extends Element {
         this.font_args = font_attr
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         return { ...this.font_args, ...attr }
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         const { prect } = ctx
         const [ x, y, w, h ] = rect_box(prect)
 
         // handle font size specification
-        let fs = null
+        let fs: number | undefined = undefined
         if (this.font_size != null) {
             fs = this.font_size
         } else if (this.font_scale != null) {
@@ -237,29 +315,29 @@ class TextFlex extends Element {
         } else {
             fs = get_font_size(this.text, w, h, this.spacing, this.font_args)
         }
-        const lh = fs * ( 1 + this.spacing )
+        const lh = fs! * ( 1 + this.spacing )
 
         // compute wrapped rows
-        const mw = w / fs
-        const { lines } = wrapText(this.text, mw, this.font_args)
-        const rows = lines.map(r => r.join(' '))
+        const mw = w / fs!
+        const { rows } = wrapText(this.text, mw, this.font_args)
+        const lines = rows.map((r: string[]) => r.join(' '))
 
         // map line indices to positions
-        const y1 = y + ( 1 + this.voffset ) * fs
-        const elems = rows.map((r, i) => `<tspan x="${x}" y="${y1 + i * lh}">${r}</tspan>`)
+        const y1 = y + ( 1 + this.voffset ) * fs!
+        const elems = lines.map((r: string, i: number) => `<tspan x="${x}" y="${y1 + i * lh}">${r}</tspan>`)
         return `<text font-size="${fs}">\n${elems.join('\n')}\n</text>`
     }
 }
 
 class Bold extends Text {
-    constructor(args = {}) {
+    constructor(args: TextArgs = {}) {
         const { ...attr } = THEME(args, 'Bold')
         super({ font_weight: bold, ...attr })
     }
 }
 
 class Italic extends Text {
-    constructor(args = {}) {
+    constructor(args: TextArgs = {}) {
         const { ...attr } = THEME(args, 'Italic')
         super({ font_style: 'italic', ...attr })
     }
@@ -271,28 +349,22 @@ class Italic extends Text {
 
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
-    constructor(args = {}) {
+    math: string
+    vshift: number
+
+    constructor(args: LatexArgs = {}) {
         const { children, display = false, voffset = vtext, ...attr } = THEME(args, 'Latex')
         const tex = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
-        let math = '', svg_attr = {}, vshift = 0
-        if (typeof MathJax !== 'undefined') {
+        let math = '', svg_attr: Attrs = {}, vshift = 0
+        if (mathjax != null) {
             // render with mathjax
             const { svg, viewBox, width, height, valign } = mathjax.render(tex, { display })
 
             // handle vertical offset
             const vfactor = display ? 0.5 : 0.25
             const vshift0 = voffset + valign + vfactor * (1 - height)
-
-            // console.error('======== LATEX ========')
-            // console.error(text)
-            // console.error(viewBox)
-            // console.error(width)
-            // console.error(height)
-            // console.error(valign)
-            // console.error(svg.outerHTML)
-            // console.error('======== LATEX ========')
 
             // immediate attributes
             svg_attr = {
@@ -318,7 +390,7 @@ class Latex extends Element {
         this.vshift = vshift
     }
 
-    props(ctx) {
+    props(ctx: Context): Attrs {
         const attr = super.props(ctx)
         const { prect } = ctx
         const [ x, y0, w, h ] = rect_box(prect, true)
@@ -326,16 +398,17 @@ class Latex extends Element {
         return { x, y, width: w, height: h, ...attr }
     }
 
-    inner(ctx) {
+    inner(ctx: Context): string {
         return `\n${this.math}\n`
     }
 }
 
 class Equation extends Latex {
-    constructor(args = {}) {
+    constructor(args: LatexArgs = {}) {
         const { ...attr } = THEME(args, 'Equation')
         super({ display: true, ...attr })
     }
 }
 
 export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, TextFlex, Bold, Italic, Latex, Equation }
+export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, TextFlexArgs, LatexArgs }

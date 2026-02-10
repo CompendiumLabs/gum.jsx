@@ -68,7 +68,7 @@ function ensure_singleton(x: any): any {
     return is_array(x) ? x[0] : x
 }
 
-function ensure_function(x: any): Function | undefined {
+function ensure_function(x: any): any | undefined {
     if (x == null) return
     if (is_function(x)) {
         return x

@@ -3,16 +3,61 @@
 import { THEME } from '../lib/theme.js'
 import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils.js'
 
-import { Element, Group, prefix_split } from './core.js'
+import { Context, Element, Group, prefix_split } from './core.js'
+import type { ElementArgs, GroupArgs } from './core.js'
 import { Frame } from './layout.js'
 import { ArrowHead, Spline } from './geometry.js'
 import { Text } from './text.js'
+
+import type { Point, Rect } from '../lib/types.js'
+
+//
+// args interfaces
+//
+
+interface ArrowSplineArgs extends GroupArgs {
+    from?: Point
+    to?: Point
+    from_dir?: Point | string
+    to_dir?: Point | string
+    arrow?: boolean
+    from_arrow?: boolean
+    to_arrow?: boolean
+    arrow_size?: number
+    arrow_aspect?: number
+    curve?: number
+    stroke_width?: number
+    stroke_linecap?: string
+    fill?: string
+    coord?: Rect
+}
+
+interface NodeArgs extends ElementArgs {
+    id?: string
+    yrad?: number
+    rounded?: number
+    padding?: number
+    wrap?: number
+    justify?: string
+}
+
+interface EdgeArgs extends ElementArgs {
+    from?: any
+    to?: any
+    from_dir?: string
+    to_dir?: string
+}
+
+interface NetworkArgs extends GroupArgs {
+    xlim?: [number, number]
+    ylim?: [number, number]
+}
 
 //
 // networks
 //
 
-function get_direction(p1, p2) {
+function get_direction(p1: Point, p2: Point): string | null {
     const [ dx, dy ] = sub(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
 
@@ -24,7 +69,7 @@ function get_direction(p1, p2) {
 }
 
 class ArrowSpline extends Group {
-    constructor(args = {}) {
+    constructor(args: ArrowSplineArgs = {}) {
         let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, arrow_aspect = 1, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
         let [ spline_attr, arrow_attr, from_attr, to_attr, attr ] = prefix_split(
             [ 'spline', 'arrow', 'from', 'to' ], attr0
@@ -40,30 +85,30 @@ class ArrowSpline extends Group {
         to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...to_attr   }
 
         // set default directions (gets normalized later)
-        const direc = sub(to, from)
+        const direc = sub(to as Point, from as Point)
         const dir1 = unit_direc(from_dir ?? direc)
         const dir2 = unit_direc(to_dir   ?? direc)
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const pos1 = from_arrow ? zip(from, mul(dir1,  soff)) : from
-        const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) : to
+        const pos1 = from_arrow ? zip(from as Point, mul(dir1,  soff)) : from
+        const pos2 = to_arrow   ? zip(to as Point,   mul(dir2, -soff)) : to
 
         // make cubic spline shaft
         const spline = new Spline({ children: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
-        const children = [ spline ]
+        const children: Element[] = [ spline ]
 
         // make start arrowhead
         if (from_arrow) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: from, rad: arrow_size, ...from_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: from as Point, rad: arrow_size, ...from_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
         if (to_arrow) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: to, rad: arrow_size, ...to_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: to as Point, rad: arrow_size, ...to_attr })
             children.push(head_end)
         }
 
@@ -74,7 +119,9 @@ class ArrowSpline extends Group {
 }
 
 class Node extends Frame {
-    constructor(args = {}) {
+    id: string | undefined
+
+    constructor(args: NodeArgs = {}) {
         const { children: children0, id, yrad = 0.1, rounded = 0.05, padding = 0.1, wrap, justify = 'center', ...attr } = THEME(args, 'Node')
         const [ text_attr, frame_attr ] = prefix_split([ 'text' ], attr)
         const child = check_singleton(children0)
@@ -91,7 +138,7 @@ class Node extends Frame {
     }
 }
 
-function anchor_point(rect, direc) {
+function anchor_point(rect: Rect, direc: string): Point | null {
     const [ xmin, ymin, xmax, ymax] = rect
     const [ xmid, ymid ] = rect_center(rect)
     return (direc == 'n') ? [ xmid, ymin ] :
@@ -102,7 +149,12 @@ function anchor_point(rect, direc) {
 }
 
 class Edge extends Element {
-    constructor(args = {}) {
+    from: any
+    to: any
+    from_dir: string | undefined
+    to_dir: string | undefined
+
+    constructor(args: EdgeArgs = {}) {
         const { from, to, from_dir, to_dir, ...attr } = THEME(args, 'Edge')
 
         // pass to Element
@@ -116,7 +168,7 @@ class Edge extends Element {
         this.to_dir = to_dir
     }
 
-    svg(ctx) {
+    svg(ctx: Context): string {
         // get core attributes
         const attr = super.props(ctx)
 
@@ -133,10 +185,10 @@ class Edge extends Element {
         const direc_to = this.to_dir ?? get_direction(pcenter_to, pcenter_from)
 
         // get anchor points and tangent vectors
-        const from = anchor_point(rect_from, direc_from)
-        const to = anchor_point(rect_to, direc_to)
-        const from_dir = cardinal_direc(direc_from)
-        const to_dir = mul(cardinal_direc(direc_to), -1)
+        const from = anchor_point(rect_from, direc_from!)
+        const to = anchor_point(rect_to, direc_to!)
+        const from_dir = cardinal_direc(direc_from!)
+        const to_dir = mul(cardinal_direc(direc_to!), -1)
 
         const arrowpath = new ArrowSpline({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
         return arrowpath.svg(ctx)
@@ -144,17 +196,17 @@ class Edge extends Element {
 }
 
 class Network extends Group {
-    constructor(args = {}) {
+    constructor(args: NetworkArgs = {}) {
         const { children: children0, xlim, ylim, coord: coord0, ...attr0 } = THEME(args, 'Network')
         const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
 
         // process nodes and make label map
-        const nodes = children0.filter(c => c instanceof Node).map(n => n.clone({ ...node_attr, ...n.args }))
-        const nmap = new Map(nodes.map(n => [ n.id, n ]))
+        const nodes = children0.filter((c: any) => c instanceof Node).map((n: any) => n.clone({ ...node_attr, ...n.args }))
+        const nmap = new Map(nodes.map((n: any) => [ n.id, n ]))
 
         // process children in original order
-        const children = children0.map(c => {
+        const children = children0.map((c: any) => {
             if (c instanceof Edge) {
                 // create arrow path from edge
                 const n1 = nmap.get(c.args.from)
@@ -176,3 +228,4 @@ class Network extends Group {
 }
 
 export { ArrowSpline, Node, Edge, Network }
+export type { ArrowSplineArgs, NodeArgs, EdgeArgs, NetworkArgs }

@@ -5,16 +5,145 @@ import { DEFAULTS as D, none, blue, white } from '../lib/const.js'
 import { linspace, invert_direc, join_limits, ensure_array, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils.js'
 import { Span } from './text.js'
 
-import { Group, prefix_split, prefix_join, spec_split, is_element } from './core.js'
+import { Element, Group, prefix_split, prefix_join, spec_split, is_element } from './core.js'
 import { Box, Frame, Attach, Spacer, HStack, VStack, Anchor } from './layout.js'
 import { RoundedRect, UnitLine, HLine } from './geometry.js'
+
+import type { Point, Rect, Limit, Attrs, Orient } from '../lib/types.js'
+import type { ElementArgs, GroupArgs } from './core.js'
+import type { BoxArgs } from './layout.js'
+import type { RoundedRectArgs } from './geometry.js'
+
+//
+// args interfaces
+//
+
+interface BarArgs extends RoundedRectArgs {
+    direc?: Orient
+    fill?: string
+    stroke?: string
+    label?: string
+    loc?: number
+    size?: number
+}
+
+interface BarsArgs extends GroupArgs {
+    direc?: Orient
+    width?: number
+    zero?: number
+}
+
+interface ScaleArgs extends GroupArgs {
+    locs?: number[]
+    direc?: Orient
+    span?: Limit
+}
+
+interface LabelsArgs extends GroupArgs {
+    direc?: Orient
+    justify?: string | null
+    loc?: number | null
+    prec?: number
+}
+
+interface AxisArgs extends GroupArgs {
+    lim?: Limit
+    direc?: Orient
+    ticks?: number | any[]
+    tick_side?: string
+    label_side?: string
+    label_size?: number
+    label_offset?: number
+    label_justify?: string | null
+    label_loc?: number | null
+    discrete?: boolean
+    prec?: number
+    debug?: boolean
+}
+
+interface BoxLabelArgs extends ElementArgs {
+    size?: number
+    offset?: number
+    side?: string
+}
+
+interface MeshArgs extends ScaleArgs {
+    locs?: number | number[]
+    lim?: Limit
+}
+
+interface Mesh2DArgs extends GroupArgs {
+    locs?: number | number[]
+    xlocs?: number | number[] | null
+    ylocs?: number | number[] | null
+    xlim?: Limit
+    ylim?: Limit
+    xspan?: Limit | null
+    yspan?: Limit | null
+}
+
+interface LegendArgs extends ElementArgs {
+    lines?: any
+    vspacing?: number
+    hspacing?: number
+    rounded?: number
+    padding?: number
+    fill?: string
+    justify?: string
+    debug?: boolean
+}
+
+interface GraphArgs extends GroupArgs {
+    xlim?: Limit
+    ylim?: Limit
+    padding?: number
+    flip?: boolean
+}
+
+interface PlotArgs extends BoxArgs {
+    xlim?: Limit
+    ylim?: Limit
+    axis?: boolean
+    xaxis?: boolean | Element | null
+    yaxis?: boolean | Element | null
+    xticks?: number | any[]
+    yticks?: number | any[]
+    xanchor?: number
+    yanchor?: number
+    grid?: boolean | number[] | null
+    xgrid?: boolean | number[] | null
+    ygrid?: boolean | number[] | null
+    xlabel?: string | Element | null
+    ylabel?: string | Element | null
+    title?: string | Element | null
+    tick_size?: number
+    label_size?: number
+    label_offset?: number | Point
+    title_size?: number
+    title_offset?: number
+    xlabel_size?: number
+    ylabel_size?: number
+    xlabel_offset?: number
+    ylabel_offset?: number
+    xtick_size?: number
+    ytick_size?: number
+    padding?: number
+    margin?: number
+    clip?: boolean
+    debug?: boolean
+}
+
+interface BarPlotArgs extends PlotArgs {
+    direc?: Orient
+    xtick_side?: string
+}
 
 //
 // bar components
 //
 
 class Bar extends RoundedRect {
-    constructor(args = {}) {
+    constructor(args: BarArgs = {}) {
         const { direc = 'v', fill = blue, stroke = none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
         const rounded = rounded0 == true ? (direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]) : rounded0
         super({ fill, stroke, rounded, ...attr })
@@ -23,7 +152,7 @@ class Bar extends RoundedRect {
 }
 
 class VBar extends Bar {
-    constructor(args = {}) {
+    constructor(args: BarArgs = {}) {
         const { ...attr } = THEME(args, 'VBar')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -31,7 +160,7 @@ class VBar extends Bar {
 }
 
 class HBar extends Bar {
-    constructor(args = {}) {
+    constructor(args: BarArgs = {}) {
         const { ...attr } = THEME(args, 'HBar')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -39,14 +168,14 @@ class HBar extends Bar {
 }
 
 class Bars extends Group {
-    constructor(args = {}) {
+    constructor(args: BarsArgs = {}) {
         const { children: children0, direc = 'v', width = 0.75, zero = 0, ...attr0 } = THEME(args, 'Bars')
         const [ spec, attr ] = spec_split(attr0)
         const bars = ensure_array(children0)
         const idirec = invert_direc(direc)
 
         // make rects from sizes
-        const children = bars.map((child, i) => {
+        const children = bars.map((child: any, i: number) => {
             if (is_scalar(child)) child = new Bar({ direc, size: child, ...attr })
             const { loc = i, size } = child.attr
             const rect = join_limits({
@@ -63,7 +192,7 @@ class Bars extends Group {
 }
 
 class VBars extends Bars {
-    constructor(args = {}) {
+    constructor(args: BarsArgs = {}) {
         const { ...attr } = THEME(args, 'VBars')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -71,7 +200,7 @@ class VBars extends Bars {
 }
 
 class HBars extends Bars {
-    constructor(args = {}) {
+    constructor(args: BarsArgs = {}) {
         const { ...attr } = THEME(args, 'HBars')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -82,7 +211,7 @@ class HBars extends Bars {
 // plotting elements
 //
 
-function ensure_ticklabel(label, args = {}) {
+function ensure_ticklabel(label: any, args: Attrs = {}): Element {
     const { prec = D.prec, ...attr } = args
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
@@ -90,13 +219,13 @@ function ensure_ticklabel(label, args = {}) {
 }
 
 class Scale extends Group {
-    constructor(args = {}) {
+    constructor(args: ScaleArgs = {}) {
         const { children: children0, locs, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
         const [ spec, attr ] = spec_split(attr0)
         const tick_dir = invert_direc(direc)
 
         // make tick lines
-        const children = locs.map(t => {
+        const children = (locs as number[]).map((t: number) => {
             const rect = join_limits({ [direc]: [t, t], [tick_dir]: span })
             return new UnitLine({ direc: tick_dir, rect, expand: true, ...attr })
         })
@@ -108,7 +237,7 @@ class Scale extends Group {
 }
 
 class VScale extends Scale {
-    constructor(args = {}) {
+    constructor(args: ScaleArgs = {}) {
         const { ...attr } = THEME(args, 'VScale')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -116,7 +245,7 @@ class VScale extends Scale {
 }
 
 class HScale extends Scale {
-    constructor(args = {}) {
+    constructor(args: ScaleArgs = {}) {
         const { ...attr } = THEME(args, 'HScale')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -125,14 +254,14 @@ class HScale extends Scale {
 
 // label elements must have an aspect to properly size them
 class Labels extends Group {
-    constructor(args = {}) {
+    constructor(args: LabelsArgs = {}) {
         const { children: children0, direc = 'h', justify: justify0 = null, loc: subloc = null, prec = D.prec, ...attr0 } = THEME(args, 'Labels')
         const items = ensure_array(children0)
         const [ spec, attr ] = spec_split(attr0)
         const justify = justify0 ?? (direc == 'h' ? 'center' : 'right')
 
         // place tick boxes using expanded lines
-        const children = items.map(c0 => {
+        const children = items.map((c0: any) => {
             const c = ensure_ticklabel(c0, attr, prec)
             const { loc } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
@@ -146,7 +275,7 @@ class Labels extends Group {
 }
 
 class HLabels extends Labels {
-    constructor(args = {}) {
+    constructor(args: LabelsArgs = {}) {
         const { ...attr } = THEME(args, 'HLabels')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -154,14 +283,14 @@ class HLabels extends Labels {
 }
 
 class VLabels extends Labels {
-    constructor(args = {}) {
+    constructor(args: LabelsArgs = {}) {
         const { ...attr } = THEME(args, 'VLabels')
         super({ direc: 'v', ...attr })
         this.args = args
     }
 }
 
-function get_tick_lim(lim) {
+function get_tick_lim(lim: string | Limit): Limit {
     if (lim == 'inner') {
         return [0.5, 1]
     } else if (lim == 'outer') {
@@ -171,14 +300,16 @@ function get_tick_lim(lim) {
     } else if (lim == 'none') {
         return [0, 0]
     } else {
-        return lim
+        return lim as Limit
     }
 }
 
 // this is designed to be plotted directly
 // this takes a nested coord approach, not entirely sure about that
 class Axis extends Group {
-    constructor(args = {}) {
+    locs: number[]
+
+    constructor(args: AxisArgs = {}) {
         const { children, lim = D.lim, direc, ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0 = null, label_loc = null, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_side)
@@ -187,23 +318,23 @@ class Axis extends Group {
         // get tick and label limits
         const label_justify = label_justify0 ?? ((direc == 'v') ? (label_side == 'outer' ? 'right' : 'left') : 'center')
         const label_base = (label_side == 'inner') ? (tick_hi + label_offset) : (tick_lo - label_offset - label_size)
-        const label_lim = [ label_base, label_base + label_size ]
+        const label_lim: Limit = [ label_base, label_base + label_size ]
 
         // set up one-sides coordinate system
-        const idirec = invert_direc(direc)
-        const coord = join_limits({ [direc]: lim })
+        const idirec = invert_direc(direc as Orient)
+        const coord = join_limits({ [direc as string]: lim })
         const scale_rect = join_limits({ [idirec]: tick_lim })
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0) : []
-        const labels = children ?? ticks.map(t => ensure_ticklabel(t, label_attr, prec))
-        const locs = labels.map(c => c.attr.loc)
+        const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0 as number) : ticks0) : []
+        const labels = children ?? (ticks as any[]).map((t: any) => ensure_ticklabel(t, label_attr, prec))
+        const locs = labels.map((c: any) => c.attr.loc)
 
         // accumulate children
-        const cline = new UnitLine({ direc, lim, coord, ...line_attr })
-        const scale = new Scale({ locs, direc, rect: scale_rect, coord, debug, ...tick_attr })
-        const label = new Labels({ children: labels, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
+        const cline = new UnitLine({ direc: direc as Orient, lim, coord, ...line_attr })
+        const scale = new Scale({ locs, direc: direc as Orient, rect: scale_rect, coord, debug, ...tick_attr })
+        const label = new Labels({ children: labels, direc: direc as Orient, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
 
         // pass to Group
         super({ children: [ cline, scale, label ], debug, ...attr })
@@ -215,7 +346,7 @@ class Axis extends Group {
 }
 
 class HAxis extends Axis {
-    constructor(args = {}) {
+    constructor(args: AxisArgs = {}) {
         const { ...attr } = THEME(args, 'HAxis')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -223,7 +354,7 @@ class HAxis extends Axis {
 }
 
 class VAxis extends Axis {
-    constructor(args = {}) {
+    constructor(args: AxisArgs = {}) {
         const { ...attr } = THEME(args, 'VAxis')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -231,7 +362,7 @@ class VAxis extends Axis {
 }
 
 class BoxLabel extends Attach {
-    constructor(args = {}) {
+    constructor(args: BoxLabelArgs = {}) {
         const { children: children0, size, offset, side, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
@@ -243,9 +374,9 @@ class BoxLabel extends Attach {
 }
 
 class Mesh extends Scale {
-    constructor(args = {}) {
+    constructor(args: MeshArgs = {}) {
         const { children: children0, locs: locs0 = 10, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
-        const locs = is_scalar(locs0) ? linspace(...lim, locs0) : locs0
+        const locs = is_scalar(locs0) ? linspace(...lim, locs0 as number) : locs0 as number[]
         const coord = join_limits({ [direc]: lim })
         super({ locs, direc, coord, span, ...attr })
         this.args = args
@@ -253,7 +384,7 @@ class Mesh extends Scale {
 }
 
 class HMesh extends Mesh {
-    constructor(args = {}) {
+    constructor(args: MeshArgs = {}) {
         const { ...attr } = THEME(args, 'HMesh')
         super({ direc: 'h', ...attr })
         this.args = args
@@ -261,7 +392,7 @@ class HMesh extends Mesh {
 }
 
 class VMesh extends Mesh {
-    constructor(args = {}) {
+    constructor(args: MeshArgs = {}) {
         const { ...attr } = THEME(args, 'VMesh')
         super({ direc: 'v', ...attr })
         this.args = args
@@ -269,7 +400,7 @@ class VMesh extends Mesh {
 }
 
 class Mesh2D extends Group {
-    constructor(args = {}) {
+    constructor(args: Mesh2DArgs = {}) {
         let { children: children0, locs = 10, xlocs = null, ylocs = null, direc = 'h', xlim = D.lim, ylim = D.lim, xspan = null, yspan = null, ...attr } = THEME(args, 'Mesh2D')
 
         // set default values
@@ -279,12 +410,12 @@ class Mesh2D extends Group {
         yspan ??= ylim
 
         // convert locs to arrays
-        xlocs = is_scalar(xlocs) ? linspace(...xlim, xlocs) : xlocs
-        ylocs = is_scalar(ylocs) ? linspace(...ylim, ylocs) : ylocs
+        xlocs = is_scalar(xlocs) ? linspace(...xlim, xlocs as number) : xlocs
+        ylocs = is_scalar(ylocs) ? linspace(...ylim, ylocs as number) : ylocs
 
         // create meshes
-        const hmesh = new HMesh({ locs: xlocs, span: yspan, lim: xlim, ...attr })
-        const vmesh = new VMesh({ locs: ylocs, span: xspan, lim: ylim, ...attr })
+        const hmesh = new HMesh({ locs: xlocs as number[], span: yspan as Limit, lim: xlim, ...attr })
+        const vmesh = new VMesh({ locs: ylocs as number[], span: xspan as Limit, lim: ylim, ...attr })
 
         // pass to Group
         super({ children: [ hmesh, vmesh ], ...attr })
@@ -292,7 +423,7 @@ class Mesh2D extends Group {
     }
 }
 
-function ensure_legendbadge(c, attr = {}) {
+function ensure_legendbadge(c: any, attr: Attrs = {}): Element {
     if (is_element(c)) return c
     if (is_string(c)) {
         attr = { stroke: c, ...attr }
@@ -304,7 +435,7 @@ function ensure_legendbadge(c, attr = {}) {
     return new HLine({ aspect: 1, ...attr })
 }
 
-function ensure_legendlabel(label, attr = {}) {
+function ensure_legendlabel(label: any, attr: Attrs = {}): Element {
     if (is_element(label)) return label
     if (is_string(label)) {
         return new Span({ children: label, ...attr })
@@ -315,16 +446,16 @@ function ensure_legendlabel(label, attr = {}) {
 
 // TODO: have a .badge/.label api for plottable elements
 class Legend extends Frame {
-    constructor(args = {}) {
+    constructor(args: LegendArgs = {}) {
         const { children: children0, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, justify = 'left', debug, ...attr0 } = THEME(args, 'Legend')
         const children = ensure_array(children0)
         const [ badge_attr, text_attr, attr ] = prefix_split([ 'badge', 'text' ], attr0)
 
         // construct legend badges and labels
-        const badges = children.map(b => ensure_legendbadge(b, badge_attr))
+        const badges = children.map((b: any) => ensure_legendbadge(b, badge_attr))
 
         // construct legend grid
-        const rows = badges.map(b => {
+        const rows = badges.map((b: any) => {
             const { label } = b.attr
             const { aspect } = b.spec
             const b1 = b.clone({ aspect: aspect ?? 1, label: null })
@@ -341,11 +472,11 @@ class Legend extends Frame {
 }
 
 // find minimal containing limits
-function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
+function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?: Limit, ylim?: Limit, padding?: number } = {}): Rect | null {
     if (children.length == 0) return null
 
     // pull in child coordinate system
-    const coord0 = merge_rects(children.map(c => c.spec.coord))
+    const coord0 = merge_rects(children.map((c: Element) => c.spec.coord))
     const { xlim: xlim0, ylim: ylim0 } = resolve_limits(xlim, ylim, coord0)
 
     // expand with padding
@@ -359,7 +490,7 @@ function outer_limits(children, { xlim, ylim, padding = 0 } = {}) {
 
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
-    constructor(args = {}) {
+    constructor(args: GraphArgs = {}) {
         let { children: children0, xlim, ylim, coord = 'auto', aspect = null, padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
         const elems = ensure_array(children0)
 
@@ -371,7 +502,7 @@ class Graph extends Group {
         if (flip) coord = flip_rect(coord, true)
 
         // map coordinate system to all elements
-        const children = elems.map(e => {
+        const children = elems.map((e: any) => {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
@@ -386,14 +517,14 @@ class Graph extends Group {
 }
 
 class Plot extends Box {
-    constructor(args = {}) {
+    constructor(args: PlotArgs = {}) {
         let {
             children: children0, xlim, ylim, axis = true, xaxis = null, yaxis = null, xticks = 5, yticks = 5, xanchor, yanchor, grid = null, xgrid = null, ygrid = null, xlabel = null, ylabel = null, title = null, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0, clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
         // determine coordinate system and aspect
-        const coord = outer_limits(elems, { xlim, ylim, padding })
+        const coord = outer_limits(elems, { xlim, ylim, padding }) as Rect
         const [ xmin, ymin, xmax, ymax ] = coord
         xlim = [ xmin, xmax ]
         ylim = [ ymin, ymax ]
@@ -441,14 +572,14 @@ class Plot extends Box {
         title_attr = { size: title_size, offset: title_offset, ...title_attr }
 
         // collect axis elements
-        const bg_elems = []
-        const fg_elems = []
+        const bg_elems: Element[] = []
+        const fg_elems: Element[] = []
 
         // default xaxis generation
         if (xaxis === true) {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
-            xaxis = new HAxis({ ticks: xticks, lim: xlim, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
+            xaxis = new HAxis({ ticks: xticks, lim: xlim as Limit, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = null
@@ -458,7 +589,7 @@ class Plot extends Box {
         if (yaxis === true) {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
-            yaxis = new VAxis({ ticks: yticks, lim: ylim, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
+            yaxis = new VAxis({ ticks: yticks, lim: ylim as Limit, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = null
@@ -466,8 +597,8 @@ class Plot extends Box {
 
         // automatic xgrid generation
         if (xgrid != null && xgrid !== false) {
-            const locs = (xgrid === true && xaxis != null) ? xaxis.locs : xgrid
-            xgrid = new HMesh({ locs, lim: xlim, rect: coord, ...xgrid_attr })
+            const locs = (xgrid === true && xaxis != null) ? (xaxis as Axis).locs : xgrid
+            xgrid = new HMesh({ locs: locs as number[], lim: xlim as Limit, rect: coord, ...xgrid_attr })
             bg_elems.unshift(xgrid)
         } else {
             xgrid = null
@@ -475,8 +606,8 @@ class Plot extends Box {
 
         // automatic ygrid generation
         if (ygrid != null && ygrid !== false) {
-            const locs = (ygrid === true && yaxis != null) ? yaxis.locs : ygrid
-            ygrid = new VMesh({ locs, lim: ylim, rect: coord, ...ygrid_attr })
+            const locs = (ygrid === true && yaxis != null) ? (yaxis as Axis).locs : ygrid
+            ygrid = new VMesh({ locs: locs as number[], lim: ylim as Limit, rect: coord, ...ygrid_attr })
             bg_elems.unshift(ygrid)
         } else {
             ygrid = null
@@ -486,7 +617,7 @@ class Plot extends Box {
         const bg_graph = new Graph({ children: bg_elems, coord, aspect: null })
         const fg_graph = new Graph({ children: fg_elems, coord, aspect: null })
         const el_graph = new Graph({ children: elems, coord, aspect: null, clip })
-        const children = [ bg_graph, el_graph, fg_graph ]
+        const children: Element[] = [ bg_graph, el_graph, fg_graph ]
 
         // optional xaxis label
         if (xlabel != null) {
@@ -515,24 +646,24 @@ class Plot extends Box {
 }
 
 class BarPlot extends Plot {
-    constructor(args = {}) {
+    constructor(args: BarPlotArgs = {}) {
         const { children: children0, direc = 'v', aspect = 2, xtick_side = 'outer', ...attr0 } = THEME(args, 'BarPlot')
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
         const children = ensure_array(children0)
 
         // handle data array case
-        const sibs = children.map(child => {
+        const sibs = children.map((child: any) => {
             if (is_element(child)) return child
             const [ label, size ] = is_scalar(child) ? [ child, child ] : child
             return new Bar({ label, size, ...bar_attr })
         })
 
         // separate out bars and not-bars
-        const yes_bars = sibs.filter(child => child instanceof Bar)
-        const not_bars = sibs.filter(child => !(child instanceof Bar))
+        const yes_bars = sibs.filter((child: any) => child instanceof Bar)
+        const not_bars = sibs.filter((child: any) => !(child instanceof Bar))
 
         // extract labels and create bars
-        const labs = yes_bars.map(child => child.attr.label)
+        const labs = yes_bars.map((child: any) => child.attr.label)
         const bars = new Bars({ children: yes_bars, direc, ...bar_attr })
 
         // determine axis ticks
@@ -547,3 +678,4 @@ class BarPlot extends Plot {
 }
 
 export { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, HLabels, VLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Legend, Graph, Plot, BarPlot }
+export type { BarArgs, BarsArgs, ScaleArgs, LabelsArgs, AxisArgs, BoxLabelArgs, MeshArgs, Mesh2DArgs, LegendArgs, GraphArgs, PlotArgs, BarPlotArgs }

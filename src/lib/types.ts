@@ -29,18 +29,19 @@ type Padding = boolean | PaddingValue | [PaddingValue, PaddingValue, PaddingValu
 type RoundedValue = number | Point
 type Rounded = boolean | RoundedValue | [RoundedValue, RoundedValue, RoundedValue, RoundedValue]
 
+// element args: the common pattern for component constructors
+type Attrs = Record<string, any>
+
 // layout spec: the keys extracted by spec_split
 type Spec = {
-    rect?: Rect | null
-    aspect?: number | 'auto' | null
+    rect?: Rect
+    coord?: Rect
+    aspect?: number
+    aspect0?: number
     expand?: boolean
     align?: Align
     rotate?: number
     invar?: boolean
-    coord?: Rect | null
 }
 
-// element args: the common pattern for component constructors
-type Attrs = Record<string, any>
-
-export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Side, Orient, Direc, RoundedValue, Padding, Rounded, Spec, Attrs }
+export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Side, Orient, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }

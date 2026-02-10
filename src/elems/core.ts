@@ -1,29 +1,20 @@
 // core components
 
-import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber } from '../lib/types.js'
 import { THEME } from '../lib/theme.js'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const.js'
 import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, ensure_point, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils.js'
+
+import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types.js'
 
 //
 // args interfaces
 //
 
+// TODO: figure out a way to type optional 'auto' (lots of "coord as Rect" right now)
 interface SpecArgs {
     rect?: Rect
     coord?: Rect | 'auto'
     aspect?: number | 'auto'
-    expand?: boolean
-    align?: Align
-    rotate?: number
-    invar?: boolean
-}
-
-interface Spec {
-    rect?: Rect
-    coord?: Rect
-    aspect?: number
-    aspect0?: number
     expand?: boolean
     align?: Align
     rotate?: number
