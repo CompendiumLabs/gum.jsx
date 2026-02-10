@@ -6,10 +6,10 @@ return <Plot aspect={2} margin={0.3} xlim={xlim} ylabel={ylabel} xlabel={xlabel}
   <Mesh2D xlocs={41} ylocs={21} xlim={xlim} ylim={ylim} opacity={0.3} />
   <HLine loc={0} lim={xlim} opacity={0.3} />
   <VLine loc={0} lim={ylim} opacity={0.3} />
-  <Curve fx={y => -y + sqrt(max(0, y*y-1))} stroke={blue} />
-  <Curve fx={y => -y - sqrt(max(0, y*y-1))} stroke={blue} />
-  <Curve fx={y => +sqrt(max(0, 1-y*y))} stroke={red} />
-  <Curve fx={y => -sqrt(max(0, 1-y*y))} stroke={red} />
+  <Curve fx={y => -y + sqrt(maximum(0, y*y-1))} stroke={blue} />
+  <Curve fx={y => -y - sqrt(maximum(0, y*y-1))} stroke={blue} />
+  <Curve fx={y => +sqrt(maximum(0, 1-y*y))} stroke={red} />
+  <Curve fx={y => -sqrt(maximum(0, 1-y*y))} stroke={red} />
   <Dot pos={[-1, 1]} rad={0.04} color={blue} />
   <Dot pos={[1, -1]} rad={0.04} color={blue} />
   <Dot pos={[0, -1]} rad={0.04} color={red} />

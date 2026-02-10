@@ -78,7 +78,7 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N }: SymArgs =
     const Ns = new Set(
         [ tvals, xvals, yvals ]
         .filter(v => v != null)
-        .map(v => v!.length)
+        .map(v => v.length)
     )
     if (Ns.size > 1) {
         throw new Error(`Error: data sizes must be in aggreement but got ${[...Ns]}`)
@@ -96,11 +96,11 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N }: SymArgs =
     if (fx != null && fy != null) {
         xvals = tvals.map(fx)
         yvals = tvals.map(fy)
-    } else if (fy != null) {
-        xvals ??= linspace(...xlim!, N)
+    } else if (fy != null && xlim != null) {
+        xvals ??= linspace(...xlim, N)
         yvals = xvals.map(fy)
-    } else if (fx != null) {
-        yvals ??= linspace(...ylim!, N)
+    } else if (fx != null && ylim != null) {
+        yvals ??= linspace(...ylim, N)
         xvals = yvals.map(fx)
     } else if (yvals != null && xvals == null) {
         xlim ??= D.lim
@@ -108,10 +108,12 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N }: SymArgs =
     } else if (xvals != null && yvals == null) {
         ylim ??= D.lim
         yvals = linspace(...ylim, N)
+    } else if (xvals == null || yvals == null) {
+        throw new Error('Invalid input combination')
     }
 
     // filter out nan values
-    const data = zip(tvals, xvals!, yvals!).filter(
+    const data = zip(tvals, xvals, yvals).filter(
         ([t, x, y]: number[]) => !isNaN(t) && !isNaN(x) && !isNaN(y)
     )
 

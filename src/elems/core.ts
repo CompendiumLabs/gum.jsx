@@ -344,7 +344,7 @@ class Element {
         // handle pos/rad conveniences
         if (pos != null || rad != null || xrad != null || yrad != null) {
             const has_xy = xrad != null || yrad != null
-            const rad1 = has_xy ? [ xrad, yrad ] as Point : undefined
+            const rad1 = has_xy ? [ xrad ?? 0, yrad ?? 0 ] as Point : undefined
             this.spec.rect ??= radial_rect(pos ?? D.pos, rad ?? rad1 ?? D.rad)
             if (has_xy) this.spec.expand = true
         }

@@ -221,9 +221,13 @@ function ensure_ticklabel(label: any, args: Attrs = {}): Element {
 
 class Scale extends Group {
     constructor(args: ScaleArgs = {}) {
-        const { children: children0, locs, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
+        const { children: children0, N, locs: locs0, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
         const [ spec, attr ] = spec_split(attr0)
         const tick_dir = invert_orient(direc)
+
+        // get tick locations
+        const locs = N != null ? linspace(...span, N) : locs0
+        if (locs == null) throw new Error('No tick locations provided')
 
         // make tick lines
         const children = (locs as number[]).map((t: number) => {
@@ -376,8 +380,8 @@ class BoxLabel extends Attach {
 
 class Mesh extends Scale {
     constructor(args: MeshArgs = {}) {
-        const { children: children0, N, locs: locs0, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
-        const locs = N != null ? linspace(...lim, N) : locs0
+        const { children: children0, locs: locs0, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
+        const locs = is_scalar(locs0) ? linspace(...lim, locs0) : locs0
         const coord = join_limits({ [direc]: lim })
         super({ locs, direc, coord, span, ...attr })
         this.args = args
@@ -402,7 +406,7 @@ class VMesh extends Mesh {
 
 class Mesh2D extends Group {
     constructor(args: Mesh2DArgs = {}) {
-        let { children: children0, locs = 10, xlocs, ylocs, direc = 'h', xlim = D.lim, ylim = D.lim, xspan, yspan, ...attr } = THEME(args, 'Mesh2D')
+        let { children: children0, locs, xlocs, ylocs, direc = 'h', xlim = D.lim, ylim = D.lim, xspan, yspan, ...attr } = THEME(args, 'Mesh2D')
 
         // set default values
         xlocs ??= locs
@@ -411,8 +415,8 @@ class Mesh2D extends Group {
         yspan ??= ylim
 
         // convert locs to arrays
-        xlocs = is_scalar(xlocs) ? linspace(...xlim, xlocs as number) : xlocs
-        ylocs = is_scalar(ylocs) ? linspace(...ylim, ylocs as number) : ylocs
+        xlocs = is_scalar(xlocs) ? linspace(...xlim, xlocs) : xlocs
+        ylocs = is_scalar(ylocs) ? linspace(...ylim, ylocs) : ylocs
 
         // create meshes
         const hmesh = new HMesh({ locs: xlocs as number[], span: yspan as Limit, lim: xlim, ...attr })
