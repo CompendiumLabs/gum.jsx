@@ -8,10 +8,10 @@ const { default: sans } = await import('./IBMPlexSans-Variable.ttf?url')
 const { default: mono } = await import('./IBMPlexMono-Regular.ttf?url')
 // @ts-ignore
 const { default: moji } = await import('./NotoColorEmoji-Regular.ttf?url')
-const FONT_PATHS = { sans, mono, moji }
+const FONT_PATHS: Record<string, string> = { sans, mono, moji }
 
 // load font data as arraybuffer
-async function loadFont(path) {
+async function loadFont(path: string): Promise<ArrayBuffer> {
     const response = await fetch(path)
     const buffer = await response.arrayBuffer()
     return buffer
