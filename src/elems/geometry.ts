@@ -568,7 +568,7 @@ class Arrow extends Group {
 
         // sort out direction
         const soff = 0.5 * (stroke_width ?? 1)
-        const unit_vec = unit_direc(-direc0) as Point
+        const unit_vec = unit_direc(-direc0)
         const children: Element[] = []
 
         // create tail element

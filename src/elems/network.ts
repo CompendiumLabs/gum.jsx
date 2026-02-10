@@ -9,7 +9,7 @@ import { Frame } from './layout.js'
 import { ArrowHead, Spline } from './geometry.js'
 import { Text } from './text.js'
 
-import type { Point, Rect } from '../lib/types.js'
+import type { AlignValue, Cardinal, Direc, Limit, Point, Rect } from '../lib/types.js'
 
 //
 // args interfaces
@@ -18,8 +18,8 @@ import type { Point, Rect } from '../lib/types.js'
 interface ArrowSplineArgs extends GroupArgs {
     from?: Point
     to?: Point
-    from_dir?: Point | string
-    to_dir?: Point | string
+    from_dir?: Direc
+    to_dir?: Direc
     arrow?: boolean
     from_arrow?: boolean
     to_arrow?: boolean
@@ -38,34 +38,34 @@ interface NodeArgs extends ElementArgs {
     rounded?: number
     padding?: number
     wrap?: number
-    justify?: string
+    justify?: AlignValue
 }
 
 interface EdgeArgs extends ElementArgs {
-    from?: any
-    to?: any
-    from_dir?: string
-    to_dir?: string
+    from?: Node | string
+    to?: Node | string
+    from_dir?: Cardinal
+    to_dir?: Cardinal
 }
 
 interface NetworkArgs extends GroupArgs {
-    xlim?: [number, number]
-    ylim?: [number, number]
+    xlim?: Limit
+    ylim?: Limit
 }
 
 //
 // networks
 //
 
-function get_direction(p1: Point, p2: Point): string | null {
+function get_direction(p1: Point, p2: Point): Cardinal {
     const [ dx, dy ] = sub(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
-
-    return (dy <= -ax) ? 'n' :
-           (dy >=  ax) ? 's' :
-           (dx >=  ay) ? 'e' :
-           (dx <= -ay) ? 'w' :
-           null
+    const direc = (dy <= -ax) ? 'n' :
+                  (dy >=  ax) ? 's' :
+                  (dx >=  ay) ? 'e' :
+                  (dx <= -ay) ? 'w' :
+                  undefined // should never happen
+    return direc as Cardinal
 }
 
 class ArrowSpline extends Group {
@@ -84,15 +84,18 @@ class ArrowSpline extends Group {
         from_attr = { fill, ...stroke_attr, ...arrow_attr, ...from_attr }
         to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...to_attr   }
 
+        // check for points
+        if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
+
         // set default directions (gets normalized later)
-        const direc = sub(to as Point, from as Point)
+        const direc = sub(to, from)
         const dir1 = unit_direc(from_dir ?? direc)
         const dir2 = unit_direc(to_dir   ?? direc)
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const pos1 = from_arrow ? zip(from as Point, mul(dir1,  soff)) : from
-        const pos2 = to_arrow   ? zip(to as Point,   mul(dir2, -soff)) : to
+        const pos1 = from_arrow ? zip(from, mul(dir1,  soff)) : from
+        const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) : to
 
         // make cubic spline shaft
         const spline = new Spline({ children: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
@@ -101,14 +104,14 @@ class ArrowSpline extends Group {
         // make start arrowhead
         if (from_arrow) {
             const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: from as Point, rad: arrow_size, ...from_attr })
+            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: from, rad: arrow_size, ...from_attr })
             children.push(head_beg)
         }
 
         // make end arrowhead
         if (to_arrow) {
             const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: to as Point, rad: arrow_size, ...to_attr })
+            const head_end = new ArrowHead({ direc: -ang2, pos: to, rad: arrow_size, ...to_attr })
             children.push(head_end)
         }
 
@@ -138,24 +141,28 @@ class Node extends Frame {
     }
 }
 
-function anchor_point(rect: Rect, direc: string): Point | null {
+function anchor_point(rect: Rect, direc: Cardinal): Point {
     const [ xmin, ymin, xmax, ymax] = rect
     const [ xmid, ymid ] = rect_center(rect)
-    return (direc == 'n') ? [ xmid, ymin ] :
-           (direc == 's') ? [ xmid, ymax ] :
-           (direc == 'e') ? [ xmax, ymid ] :
-           (direc == 'w') ? [ xmin, ymid ] :
-           null
+    const point = (direc == 'n') ? [ xmid, ymin ] :
+                  (direc == 's') ? [ xmid, ymax ] :
+                  (direc == 'e') ? [ xmax, ymid ] :
+                  (direc == 'w') ? [ xmin, ymid ] :
+                  undefined // should never happen
+    return point as Point
 }
 
 class Edge extends Element {
-    from: any
-    to: any
-    from_dir: string | undefined
-    to_dir: string | undefined
+    from: Node | string
+    to: Node | string
+    from_dir: Cardinal | undefined
+    to_dir: Cardinal | undefined
 
     constructor(args: EdgeArgs = {}) {
         const { from, to, from_dir, to_dir, ...attr } = THEME(args, 'Edge')
+
+        // check for nodes
+        if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
 
         // pass to Element
         super({ tag: 'g', unary: false, ...attr })
@@ -169,6 +176,9 @@ class Edge extends Element {
     }
 
     svg(ctx: Context): string {
+        // check for nodes
+        if (is_string(this.from) || is_string(this.to)) throw new Error('Trying to render edge with node IDs')
+
         // get core attributes
         const attr = super.props(ctx)
 

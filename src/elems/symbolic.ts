@@ -57,7 +57,7 @@ interface SymFillArgs extends SymArgsBase, GroupArgs {
 }
 
 interface SymFieldArgs extends SymArgs, GroupArgs {
-    func?: (x: number, y: number) => any
+    func?: (x: number, y: number) => number | Point
 }
 
 // determines actual values given combinations of limits, values, and functions
@@ -259,7 +259,7 @@ class SymFill extends Shape {
 }
 
 function default_arrow(direc: number | Point): Box {
-    const theta = is_scalar(direc) ? direc as number : vector_angle(direc as Point)
+    const theta = is_scalar(direc) ? direc : vector_angle(direc)
     const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
     return new Box({ children: arrow, spin: theta })
 }
@@ -271,9 +271,12 @@ class SymField extends SymPoints {
         const shape = ensure_singleton(children0) ?? default_arrow
         const size = size0 ?? 0.25 / N
 
+        // check for function
+        if (func == null) throw new Error('`func` must be provided')
+
         // create points and shape function
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
-        const fshap = (x: number, y: number, t: number, i: number) => shape(func!(x, y))
+        const fshap = (x: number, y: number, t: number, i: number) => shape(func(x, y))
 
         // compute real limits
         const [ xvals, yvals ] = points.length > 0 ? zip(...points) as [number[], number[]] : [ [], [] ]

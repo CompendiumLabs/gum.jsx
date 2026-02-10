@@ -7,6 +7,7 @@ import { prefix_split, spec_split } from './core.js'
 import { Box } from './layout.js'
 import { TextFrame, TextStack } from './text.js'
 
+import type { AlignValue, Padding, Rounded, Point } from '../lib/types.js'
 import type { BoxArgs } from './layout.js'
 
 //
@@ -14,7 +15,7 @@ import type { BoxArgs } from './layout.js'
 //
 
 interface TitleBoxArgs extends BoxArgs {
-    title?: string | null
+    title?: string
     title_size?: number
     title_fill?: string
     title_offset?: number
@@ -26,13 +27,13 @@ interface TitleFrameArgs extends TitleBoxArgs {
 }
 
 interface SlideArgs extends TitleFrameArgs {
-    padding?: number
-    margin?: number
-    rounded?: number
+    padding?: Padding
+    margin?: Padding
+    rounded?: Rounded
     border_stroke?: string
     wrap?: number
     spacing?: number
-    justify?: string
+    justify?: AlignValue
 }
 
 //
@@ -54,8 +55,8 @@ class TitleBox extends Box {
         // make optional title box
         let title_box: TextFrame | null = null
         if (title != null) {
-            const title_pos = [ 0.5, title_size * title_offset ]
-            const title_rad = [ 0.5, title_size ]
+            const title_pos: Point = [ 0.5, title_size * title_offset ]
+            const title_rad: Point = [ 0.5, title_size ]
             title_box = new TextFrame({ children: title, pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
         }
 

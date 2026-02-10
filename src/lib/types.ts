@@ -20,7 +20,8 @@ type Align = AlignValue | [AlignValue, AlignValue]
 
 // direction: horizontal/vertical, cardinal, angle in degrees, or unit vector
 type Orient = 'h' | 'v'
-type Direc = 'n' | 'e' | 'w' | 's' | number | [number, number]
+type Cardinal = 'n' | 'e' | 'w' | 's'
+type Direc = Cardinal | number | Point
 
 // padding/margin: number, point, or [p0, p1, p2, p3]
 type PaddingValue = number | Point
@@ -45,4 +46,4 @@ type Spec = {
     invar?: boolean
 }
 
-export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Cardinal, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }

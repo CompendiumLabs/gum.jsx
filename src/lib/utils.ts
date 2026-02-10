@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const.js'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient } from './types.js'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal } from './types.js'
 
 //
 // environment tests
@@ -437,11 +437,11 @@ function normal(mean?: number, stdv?: number): Point {
 //
 
 function ensure_point(p: Point | number): Point {
-    return is_scalar(p) ? [p as number, p as number] : p as Point
+    return is_scalar(p) ? [ p, p ] as Point : p
 }
 
 function ensure_mnumber(p: MNumber | number): MNumber {
-    return is_scalar(p) ? [ p as number, 0 ] : p as [number, number]
+    return is_scalar(p) ? [ p, 0 ] as MNumber : p
 }
 
 function ensure_mpoint(p: [MNumber | number, MNumber | number]): MPoint {
@@ -663,7 +663,7 @@ function aspect_invariant(value0: number | Point | Rect, aspect0: number | undef
     const wfact = aspect**alpha
     const hfact = aspect**(1 - alpha)
 
-    const value = is_scalar(value0) ? [ value0, value0 ] as Point : value0 as Rect
+    const value = is_scalar(value0) ? [ value0, value0 ] as Point : value0
 
     if (is_point(value)) {
         const [ vw, vh ] = value
@@ -746,22 +746,24 @@ function vector_angle(vector: Point): number {
     return r2d * Math.atan2(y, x)
 }
 
-function cardinal_direc(direc: string): Point | undefined {
-    return (direc == 'n') ? [ 0, -1] :
-           (direc == 'e') ? [ 1, 0 ] :
-           (direc == 'w') ? [-1, 0 ] :
-           (direc == 's') ? [ 0, 1 ] :
-           undefined
+const CARDINAL_DIREC: Record<Cardinal, Point> = {
+    n: [ 0, -1 ],
+    e: [ 1, 0 ],
+    w: [ -1, 0 ],
+    s: [ 0, 1 ],
 }
 
-function angel_vector(angle: number): Point {
+function cardinal_direc(direc: Cardinal): Point {
+    return CARDINAL_DIREC[direc]
+}
+
+function angle_vector(angle: number): Point {
     return [ cos(d2r * angle), sin(d2r * angle) ]
 }
 
-function unit_direc(direc: Direc | undefined): Point | undefined {
-    if (direc == null) return
+function unit_direc(direc: Direc): Point {
     if (is_string(direc)) return cardinal_direc(direc)
-    if (is_scalar(direc)) return angel_vector(direc as number)
+    if (is_scalar(direc)) return angle_vector(direc as number)
     if (is_array(direc) && direc.length == 2) return normalize(direc, 2) as Point
     throw new Error(`Invalid direction: ${direc}`)
 }
