@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["esnext"],
+    "lib": ["dom", "esnext"],
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -10,5 +10,5 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["*.ts"]
+  "include": ["src/**/*.ts", "scripts/*.ts"]
 }

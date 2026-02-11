@@ -142,21 +142,17 @@ class Context {
         this.meta = meta ?? new Metadata() // meta data
 
         // make rescaler / resizer
-        this.init_scalers()
-    }
-
-    clone(args: ContextArgs): Context {
-        return new Context({ ...this.args, meta: this.meta, ...args })
-    }
-
-    // there are heavily used, so precompute what we can (haven't profiled yet)
-    init_scalers(): void {
+        // there are heavily used, so precompute what we can (haven't profiled yet)
         const [ cx1, cy1, cx2, cy2 ] = this.coord
         const [ px1, py1, px2, py2 ] = this.prect
         this.rescalex = rescaler([ cx1, cx2 ], [ px1, px2 ])
         this.rescaley = rescaler([ cy1, cy2 ], [ py1, py2 ])
         this.resizex = resizer([ cx1, cx2 ], [ px1, px2 ])
         this.resizey = resizer([ cy1, cy2 ], [ py1, py2 ])
+    }
+
+    clone(args: ContextArgs): Context {
+        return new Context({ ...this.args, meta: this.meta, ...args })
     }
 
     // map point from coord to pixel
