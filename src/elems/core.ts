@@ -131,8 +131,8 @@ class Context {
         this.args = args
 
         // coordinate transform
-        this.prect = prect as Rect // drawing rect
-        this.coord = coord ?? D.coord // coordinate rect
+        this.prect = prect // drawing rect
+        this.coord = coord // coordinate rect
         this.transform = transform // rotation transform
 
         // top level arguments
@@ -143,8 +143,8 @@ class Context {
 
         // make rescaler / resizer
         // there are heavily used, so precompute what we can (haven't profiled yet)
-        const [ cx1, cy1, cx2, cy2 ] = this.coord
-        const [ px1, py1, px2, py2 ] = this.prect
+        const [ cx1, cy1, cx2, cy2 ] = coord
+        const [ px1, py1, px2, py2 ] = prect
         this.rescalex = rescaler([ cx1, cx2 ], [ px1, px2 ])
         this.rescaley = rescaler([ cy1, cy2 ], [ py1, py2 ])
         this.resizex = resizer([ cx1, cx2 ], [ px1, px2 ])
