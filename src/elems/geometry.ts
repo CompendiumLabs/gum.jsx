@@ -10,73 +10,12 @@ import type { Point, Limit, Attrs, MPoint, Orient, Rounded } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
-// args interfaces
+// line classes
 //
 
 interface LineArgs extends ElementArgs {
     closed?: boolean
 }
-
-interface UnitLineArgs extends LineArgs {
-    direc?: Orient
-    loc?: number
-    lim?: Limit
-}
-
-interface DotArgs extends ElementArgs {
-    color?: string
-    stroke?: string
-    fill?: string
-}
-
-interface RayArgs extends LineArgs {
-    angle?: number
-    loc?: Point
-    size?: number | Point
-}
-
-interface SplineArgs extends ElementArgs {
-    dir1?: Point
-    dir2?: Point
-    curve?: number
-    closed?: boolean
-}
-
-interface RoundedRectArgs extends ElementArgs {
-    rounded?: Rounded | boolean
-    border?: number
-}
-
-interface ArrowHeadArgs extends ElementArgs {
-    direc?: number
-    arc?: number
-    base?: boolean
-    exact?: boolean
-    fill?: string
-    stroke_width?: number
-    stroke_linecap?: string
-    stroke_linejoin?: string
-}
-
-interface ArrowArgs extends GroupArgs {
-    direc?: number
-    tail?: number
-    stroke_width?: number
-}
-
-interface CubicSplineCmdArgs {
-    pos1?: Point | MPoint
-    pos2?: Point | MPoint
-    dir1?: Point
-    dir2?: Point
-    tan1?: Point
-    tan2?: Point
-    curve?: number
-}
-
-//
-// line
-//
 
 class Line extends Element {
     points: Point[]
@@ -114,7 +53,12 @@ class Line extends Element {
     }
 }
 
-// plottable and coord adaptive
+interface UnitLineArgs extends LineArgs {
+    direc?: Orient
+    loc?: number
+    lim?: Limit
+}
+
 class UnitLine extends Line {
     constructor(args: UnitLineArgs = {}) {
         const { direc = 'h', loc = D.loc, lim = D.lim, ...attr } = THEME(args, 'UnitLine')
@@ -148,7 +92,7 @@ class HLine extends UnitLine {
 }
 
 //
-// shapes
+// shape classes
 //
 
 class Square extends Rectangle {
@@ -182,6 +126,12 @@ class Circle extends Ellipse {
     }
 }
 
+interface DotArgs extends ElementArgs {
+    color?: string
+    stroke?: string
+    fill?: string
+}
+
 class Dot extends Circle {
     constructor(args: DotArgs = {}) {
         const { color = 'black', stroke: stroke0, fill: fill0, ...attr } = THEME(args, 'Dot')
@@ -190,6 +140,12 @@ class Dot extends Circle {
         super({ stroke, fill, ...attr })
         this.args = args
     }
+}
+
+interface RayArgs extends LineArgs {
+    angle?: number
+    loc?: Point
+    size?: number | Point
 }
 
 class Ray extends Line {
@@ -258,7 +214,7 @@ class Triangle extends Shape {
 }
 
 //
-// path builder
+// path classes
 //
 
 class Path extends Element {
@@ -391,6 +347,20 @@ class CornerCmd {
     }
 }
 
+//
+// spline class
+//
+
+interface CubicSplineCmdArgs {
+    pos1?: Point | MPoint
+    pos2?: Point | MPoint
+    dir1?: Point
+    dir2?: Point
+    tan1?: Point
+    tan2?: Point
+    curve?: number
+}
+
 class CubicSplineCmd extends Command {
     pos1: Point | MPoint
     pos2: Point | MPoint
@@ -441,6 +411,13 @@ class CubicSplineCmd extends Command {
     }
 }
 
+interface SplineArgs extends ElementArgs {
+    dir1?: Point
+    dir2?: Point
+    curve?: number
+    closed?: boolean
+}
+
 class Spline extends Path {
     constructor(args: SplineArgs = {}) {
         const { children: children0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
@@ -475,7 +452,7 @@ class Spline extends Path {
 }
 
 //
-// path elements
+// rounded rectangle class
 //
 
 function parse_rounded(rounded: Rounded): Point[] {
@@ -487,6 +464,11 @@ function parse_rounded(rounded: Rounded): Point[] {
         rounded = [[rx, ry], [rx, ry], [rx, ry], [rx, ry]]
     }
     return rounded.map(ensure_point)
+}
+
+interface RoundedRectArgs extends ElementArgs {
+    rounded?: Rounded | boolean
+    border?: number
 }
 
 // supports different rounded for each corner
@@ -532,8 +514,19 @@ class RoundedRect extends Path {
 }
 
 //
-// arrows and fields
+// arrow classes
 //
+
+interface ArrowHeadArgs extends ElementArgs {
+    direc?: number
+    arc?: number
+    base?: boolean
+    exact?: boolean
+    fill?: string
+    stroke_width?: number
+    stroke_linecap?: string
+    stroke_linejoin?: string
+}
 
 class ArrowHead extends Path {
     constructor(args: ArrowHeadArgs = {}) {
@@ -559,6 +552,12 @@ class ArrowHead extends Path {
         super({ children: commands, aspect, fill, stroke_width, stroke_linecap, stroke_linejoin, ...attr })
         this.args = args
     }
+}
+
+interface ArrowArgs extends GroupArgs {
+    direc?: number
+    tail?: number
+    stroke_width?: number
 }
 
 class Arrow extends Group {
@@ -592,6 +591,10 @@ class Arrow extends Group {
         this.args = args
     }
 }
+
+//
+// exports
+//
 
 export { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
 export type { LineArgs, UnitLineArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }

@@ -7,76 +7,7 @@ import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_objec
 import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
 //
-// args interfaces
-//
-
-interface SpecArgs {
-    rect?: Rect
-    coord?: Rect | 'auto'
-    aspect?: number | 'auto'
-    expand?: boolean
-    align?: Align
-    rotate?: number
-    invar?: boolean
-}
-
-interface MapArgs {
-    offset?: boolean
-}
-
-interface ElementArgs extends SpecArgs {
-    tag?: string
-    unary?: boolean
-    children?: any
-    pos?: Point
-    rad?: number | Point
-    xrad?: number
-    yrad?: number
-    xlim?: Limit
-    ylim?: Limit
-    xrect?: Limit
-    yrect?: Limit
-    flex?: boolean
-    spin?: number
-    hflip?: boolean
-    vflip?: boolean
-    debug?: boolean
-    [key: string]: any
-}
-
-interface GroupArgs extends ElementArgs {
-    clip?: boolean | Element
-    mask?: boolean | Element
-}
-
-interface ContextArgs {
-    prect?: Rect
-    prec?: number
-    coord?: Rect
-    transform?: string
-    meta?: Metadata
-}
-
-interface SvgArgs extends GroupArgs {
-    size?: number | Point
-    padding?: number
-    bare?: boolean
-    dims?: boolean
-    filters?: any
-    view?: Rect
-    style?: string
-    xmlns?: string
-    font_family?: string
-    font_weight?: number
-    prec?: number
-}
-
-interface RectArgs extends ElementArgs {
-    rounded?: number | Point
-}
-
-//
-// context mapping
+// rect embedding
 //
 
 function align_frac(align: AlignValue): number {
@@ -162,6 +93,22 @@ function rotate_rect(size: Point, rotate: number, { aspect, expand = false, inva
 function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string {
     const [ x, y ] = pos
     return `rotate(${rounder(rotate, prec)}, ${rounder(x, prec)}, ${rounder(y, prec)})`
+}
+
+//
+// context class
+//
+
+interface MapArgs {
+    offset?: boolean
+}
+
+interface ContextArgs {
+    prect?: Rect
+    prec?: number
+    coord?: Rect
+    transform?: string
+    meta?: Metadata
 }
 
 // context holds the current pixel rect and other global settings
@@ -316,6 +263,36 @@ function is_element(x: any): x is Element {
     return x instanceof Element
 }
 
+interface SpecArgs {
+    rect?: Rect
+    coord?: Rect | 'auto'
+    aspect?: number | 'auto'
+    expand?: boolean
+    align?: Align
+    rotate?: number
+    invar?: boolean
+}
+
+interface ElementArgs extends SpecArgs {
+    tag?: string
+    unary?: boolean
+    children?: any
+    pos?: Point
+    rad?: number | Point
+    xrad?: number
+    yrad?: number
+    xlim?: Limit
+    ylim?: Limit
+    xrect?: Limit
+    yrect?: Limit
+    flex?: boolean
+    spin?: number
+    hflip?: boolean
+    vflip?: boolean
+    debug?: boolean
+    [key: string]: any
+}
+
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     args: ElementArgs
@@ -408,7 +385,7 @@ class Element {
 }
 
 //
-// group class
+// children geometry
 //
 
 function rotated_vertices(rect: Rect, rotate: number | undefined): Point[] {
@@ -457,8 +434,17 @@ function children_aspect(children: Element[]): number | undefined {
     }
 }
 
+//
+// group class
+//
+
 function makeUID(prefix: string): string {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+interface GroupArgs extends ElementArgs {
+    clip?: boolean | Element
+    mask?: boolean | Element
 }
 
 class Group extends Element {
@@ -601,6 +587,20 @@ class Metadata {
 // svg class
 //
 
+interface SvgArgs extends GroupArgs {
+    size?: number | Point
+    padding?: number
+    bare?: boolean
+    dims?: boolean
+    filters?: any
+    view?: Rect
+    style?: string
+    xmlns?: string
+    font_family?: string
+    font_weight?: number
+    prec?: number
+}
+
 class Svg extends Group {
     size: Point
     viewrect: Rect
@@ -672,6 +672,14 @@ class Svg extends Group {
     }
 }
 
+//
+// rectangle class
+//
+
+interface RectArgs extends ElementArgs {
+    rounded?: number | Point
+}
+
 class Rectangle extends Element {
     rounded?: number | Point
 
@@ -710,6 +718,10 @@ class Rectangle extends Element {
         return { x, y, width: w, height: h, rx, ry, ...attr }
     }
 }
+
+//
+// exports
+//
 
 export { Context, Element, Group, Svg, Rectangle, is_element, prefix_split, prefix_join, spec_split, align_frac }
 export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }

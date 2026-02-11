@@ -12,69 +12,7 @@ import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } f
 import type { ElementArgs, GroupArgs } from './core'
 
 //
-// args interfaces
-//
-
-interface BoxArgs extends GroupArgs {
-    padding?: Padding
-    margin?: Padding
-    border?: boolean | number
-    fill?: string
-    shape?: Element
-    rounded?: Rounded
-    adjust?: boolean
-}
-
-interface StackArgs extends GroupArgs {
-    direc?: Orient
-    spacing?: boolean | number
-    justify?: AlignValue
-    even?: boolean
-}
-
-interface HWrapArgs extends StackArgs {
-    padding?: number
-    wrap?: number
-    measure?: (c: Element) => number
-}
-
-interface GridArgs extends GroupArgs {
-    rows?: number
-    cols?: number
-    widths?: number[]
-    heights?: number[]
-    spacing?: number | Point
-}
-
-interface PointsArgs extends GroupArgs {
-    shape?: Element
-    size?: number
-}
-
-interface AnchorArgs extends GroupArgs {
-    direc?: Orient
-    loc?: number
-    justify?: AlignValue
-}
-
-interface AttachArgs extends GroupArgs {
-    offset?: number
-    size?: number
-    side?: Side
-}
-
-interface AbsoluteArgs extends ElementArgs {
-    size?: number | Point
-}
-
-interface FieldArgs extends GroupArgs {
-    shape?: Element
-    size?: number
-    tail?: number
-}
-
-//
-// utils
+// padding/margin utils
 //
 
 function maybe_rounded_rect(rounded: Rounded | undefined): Element {
@@ -108,7 +46,7 @@ function apply_padding(padding: Rect, aspect0: number | undefined): { rect: Rect
 }
 
 //
-// box/frame
+// box/frame classes
 //
 
 function computeBoxLayout(children: Element[], { padding, margin, aspect, adjust = true }: { padding?: any, margin?: any, aspect?: number | undefined, adjust?: boolean } = {}) {
@@ -135,6 +73,16 @@ function computeBoxLayout(children: Element[], { padding, margin, aspect, adjust
 
     // return inner/outer rects and aspect
     return { rect_inner, rect_outer, aspect_inner, aspect_outer: aspect ?? aspect_outer }
+}
+
+interface BoxArgs extends GroupArgs {
+    padding?: Padding
+    margin?: Padding
+    border?: boolean | number
+    fill?: string
+    shape?: Element
+    rounded?: Rounded
+    adjust?: boolean
 }
 
 class Box extends Group {
@@ -173,7 +121,7 @@ class Frame extends Box {
 }
 
 //
-// stack/wrap/grid
+// stack/wrap/grid classes
 //
 
 type StackChildOver = {
@@ -279,6 +227,13 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
     return { ranges, aspect }
 }
 
+interface StackArgs extends GroupArgs {
+    direc?: Orient
+    spacing?: boolean | number
+    justify?: AlignValue
+    even?: boolean
+}
+
 // expects list of Element or [Element, height]
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 // TODO: make native way to mimic using Spacer elements for spacing
@@ -322,6 +277,12 @@ class HStack extends Stack {
 
 function default_measure(c: Element): number {
     return c.spec.aspect ?? 1
+}
+
+interface HWrapArgs extends StackArgs {
+    padding?: number
+    wrap?: number
+    measure?: (c: Element) => number
 }
 
 // like stack but wraps elements to multiple lines/columns
@@ -393,6 +354,14 @@ function computeGridSize(num: number, rows: number | undefined, cols: number | u
     return { rows: rows as number, cols: cols as number }
 }
 
+interface GridArgs extends GroupArgs {
+    rows?: number
+    cols?: number
+    widths?: number[]
+    heights?: number[]
+    spacing?: number | Point
+}
+
 class Grid extends Group {
     constructor(args: GridArgs = {}) {
         let { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect, ...attr } = THEME(args, 'Grid')
@@ -427,8 +396,13 @@ class Grid extends Group {
 }
 
 //
-// placement
+// placement classes
 //
+
+interface PointsArgs extends GroupArgs {
+    shape?: Element
+    size?: number
+}
 
 class Points extends Group {
     constructor(args: PointsArgs = {}) {
@@ -440,6 +414,12 @@ class Points extends Group {
         super({ children, ...spec })
         this.args = args
     }
+}
+
+interface AnchorArgs extends GroupArgs {
+    direc?: Orient
+    loc?: number
+    justify?: AlignValue
 }
 
 class Anchor extends Group {
@@ -459,6 +439,12 @@ class Anchor extends Group {
         super({ children, ...attr })
         this.args = args
     }
+}
+
+interface AttachArgs extends GroupArgs {
+    offset?: number
+    size?: number
+    side?: Side
 }
 
 class Attach extends Group {
@@ -483,6 +469,10 @@ class Attach extends Group {
         super({ children, ...attr })
         this.args = args
     }
+}
+
+interface AbsoluteArgs extends ElementArgs {
+    size?: number | Point
 }
 
 class Absolute extends Element {
@@ -517,6 +507,12 @@ class Absolute extends Element {
     }
 }
 
+interface FieldArgs extends GroupArgs {
+    shape?: Element
+    size?: number
+    tail?: number
+}
+
 class Field extends Group {
     constructor(args: FieldArgs = {}) {
         const { children: children0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
@@ -547,6 +543,10 @@ class Spacer extends Element {
         return ''
     }
 }
+
+//
+// exports
+//
 
 export { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Field, Spacer }
 export type { BoxArgs, StackArgs, HWrapArgs, GridArgs, PointsArgs, AnchorArgs, AttachArgs, AbsoluteArgs, FieldArgs }

@@ -11,7 +11,7 @@ import type { AlignValue, Padding, Rounded, Point } from '../lib/types'
 import type { BoxArgs } from './layout'
 
 //
-// args interfaces
+// title/slide classes
 //
 
 interface TitleBoxArgs extends BoxArgs {
@@ -21,24 +21,6 @@ interface TitleBoxArgs extends BoxArgs {
     title_offset?: number
     title_rounded?: number
 }
-
-interface TitleFrameArgs extends TitleBoxArgs {
-    border?: number
-}
-
-interface SlideArgs extends TitleFrameArgs {
-    padding?: Padding
-    margin?: Padding
-    rounded?: Rounded
-    border_stroke?: string
-    wrap?: number
-    spacing?: number
-    justify?: AlignValue
-}
-
-//
-// slides
-//
 
 // TODO: use mask to clip frame for title box (then we can make it transparent)
 // TODO: title doesn't get rotated on spin
@@ -66,12 +48,26 @@ class TitleBox extends Box {
     }
 }
 
+interface TitleFrameArgs extends TitleBoxArgs {
+    border?: number
+}
+
 class TitleFrame extends TitleBox {
     constructor(args: TitleFrameArgs = {}) {
         const { border = 1, ...attr } = THEME(args, 'TitleFrame')
         super({ border, ...attr })
         this.args = args
     }
+}
+
+interface SlideArgs extends TitleFrameArgs {
+    padding?: Padding
+    margin?: Padding
+    rounded?: Rounded
+    border_stroke?: string
+    wrap?: number
+    spacing?: number
+    justify?: AlignValue
 }
 
 class Slide extends TitleFrame {
@@ -88,6 +84,10 @@ class Slide extends TitleFrame {
         this.args = args
     }
 }
+
+//
+// exports
+//
 
 export { TitleBox, TitleFrame, Slide }
 export type { TitleBoxArgs, TitleFrameArgs, SlideArgs }

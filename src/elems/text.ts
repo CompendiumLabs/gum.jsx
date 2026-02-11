@@ -13,68 +13,7 @@ import { Box, HWrap, VStack } from './layout'
 import type { BoxArgs, HWrapArgs, StackArgs } from './layout'
 
 //
-// args interfaces
-//
-
-interface SpanArgs extends ElementArgs {
-    children?: any
-    color?: string
-    voffset?: number
-    stroke?: string
-    font_family?: string
-    font_weight?: number
-    font_style?: string
-}
-
-interface ElemSpanArgs extends GroupArgs {
-    spacing?: number
-}
-
-interface TextArgs extends HWrapArgs {
-    font_family?: string
-    font_weight?: number
-    font_style?: string
-}
-
-interface TextStackArgs extends StackArgs {
-    wrap?: number | null
-    font_family?: string
-    font_weight?: number
-    text_wrap?: number
-    text_justify?: string
-}
-
-interface TextBoxArgs extends BoxArgs {
-    justify?: AlignValue
-    wrap?: number
-    font_family?: string
-    font_weight?: number
-    text_wrap?: number
-    text_justify?: string
-}
-
-interface TextFrameArgs extends TextBoxArgs {
-    border?: number
-    rounded?: number
-}
-
-interface TextFlexArgs extends ElementArgs {
-    children?: any
-    font_scale?: number
-    font_size?: number
-    spacing?: number
-    color?: string
-    voffset?: number
-}
-
-interface LatexArgs extends ElementArgs {
-    children?: any
-    display?: boolean
-    voffset?: number
-}
-
-//
-// text
+// span class
 //
 
 function escape_xml(text: string): string {
@@ -88,6 +27,16 @@ function escape_xml(text: string): string {
 
 function ensure_tail(text: string): string {
     return `${text.trimEnd()} `
+}
+
+interface SpanArgs extends ElementArgs {
+    children?: any
+    color?: string
+    voffset?: number
+    stroke?: string
+    font_family?: string
+    font_weight?: number
+    font_style?: string
 }
 
 // no wrapping at all, clobber newlines, mainly internal use
@@ -141,6 +90,10 @@ class Span extends Element {
     }
 }
 
+interface ElemSpanArgs extends GroupArgs {
+    spacing?: number
+}
+
 class ElemSpan extends Group {
     constructor(args: ElemSpanArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = args
@@ -151,6 +104,10 @@ class ElemSpan extends Group {
         super({ children: child, aspect, ...attr })
     }
 }
+
+//
+// text class
+//
 
 function compress_spans(children: any[], font_args: Attrs = {}): any[] {
     return children.flatMap((child: any, i: number) => {
@@ -189,6 +146,12 @@ function compress_spans(children: any[], font_args: Attrs = {}): any[] {
     })
 }
 
+interface TextArgs extends HWrapArgs {
+    font_family?: string
+    font_weight?: number
+    font_style?: string
+}
+
 // wrap text or elements to multiple lines with fixed line height
 class Text extends HWrap {
     spans: any[]
@@ -210,6 +173,18 @@ class Text extends HWrap {
     }
 }
 
+//
+// text container classes
+//
+
+interface TextStackArgs extends StackArgs {
+    wrap?: number | null
+    font_family?: string
+    font_weight?: number
+    text_wrap?: number
+    text_justify?: string
+}
+
 class TextStack extends VStack {
     constructor(args: TextStackArgs = {}) {
         const { children: children0, wrap = null, justify = 'left', ...attr0 } = THEME(args, 'TextStack')
@@ -226,6 +201,15 @@ class TextStack extends VStack {
     }
 }
 
+interface TextBoxArgs extends BoxArgs {
+    justify?: AlignValue
+    wrap?: number
+    font_family?: string
+    font_weight?: number
+    text_wrap?: number
+    text_justify?: string
+}
+
 class TextBox extends Box {
     constructor(args: TextBoxArgs = {}) {
         const { children: children0, padding = 0.1, justify, wrap, debug, ...attr0 } = THEME(args, 'TextBox')
@@ -238,12 +222,21 @@ class TextBox extends Box {
     }
 }
 
+interface TextFrameArgs extends TextBoxArgs {
+    border?: number
+    rounded?: number
+}
+
 class TextFrame extends TextBox {
     constructor(args: TextFrameArgs = {}) {
         const { border = 1, rounded = 0.05, ...attr } = THEME(args, 'TextFrame')
         super({ border, rounded, ...attr })
     }
 }
+
+//
+// text flex class
+//
 
 // TODO: This isn't perfect. Need to handle impossible cases.
 // calculate font-size within box, iterative but still BlooP!
@@ -265,6 +258,15 @@ function get_font_size(text: string, w: number, h: number, spacing: number, farg
             return fs * mw < w ? fs : w / mw
         }
     }
+}
+
+interface TextFlexArgs extends ElementArgs {
+    children?: any
+    font_scale?: number
+    font_size?: number
+    spacing?: number
+    color?: string
+    voffset?: number
 }
 
 // text fits outer shape
@@ -344,8 +346,14 @@ class Italic extends Text {
 }
 
 //
-// math
+// latex classes
 //
+
+interface LatexArgs extends ElementArgs {
+    children?: any
+    display?: boolean
+    voffset?: number
+}
 
 // TODO: this is slow. can we get katex back somehow?
 class Latex extends Element {
@@ -409,6 +417,10 @@ class Equation extends Latex {
         super({ display: true, ...attr })
     }
 }
+
+//
+// exports
+//
 
 export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, TextFlex, Bold, Italic, Latex, Equation }
 export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, TextFlexArgs, LatexArgs }

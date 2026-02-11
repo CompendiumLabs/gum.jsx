@@ -15,7 +15,7 @@ import type { BoxArgs } from './layout'
 import type { RoundedRectArgs } from './geometry'
 
 //
-// args interfaces
+// bar components
 //
 
 interface BarArgs extends RoundedRectArgs {
@@ -26,121 +26,6 @@ interface BarArgs extends RoundedRectArgs {
     loc?: number
     size?: number
 }
-
-interface BarsArgs extends GroupArgs {
-    direc?: Orient
-    width?: number
-    zero?: number
-}
-
-interface ScaleArgs extends GroupArgs {
-    locs?: number[]
-    direc?: Orient
-    span?: Limit
-}
-
-interface LabelsArgs extends GroupArgs {
-    direc?: Orient
-    justify?: AlignValue
-    loc?: number
-    prec?: number
-}
-
-interface AxisArgs extends GroupArgs {
-    lim?: Limit
-    direc?: Orient
-    ticks?: number | any[]
-    tick_side?: Zone
-    label_side?: Zone
-    label_size?: number
-    label_offset?: number
-    label_justify?: AlignValue
-    label_loc?: number
-    discrete?: boolean
-    prec?: number
-    debug?: boolean
-}
-
-interface BoxLabelArgs extends ElementArgs {
-    size?: number
-    offset?: number
-    side?: Side
-}
-
-interface MeshArgs extends ScaleArgs {
-    N?: number
-    lim?: Limit
-}
-
-interface Mesh2DArgs extends GroupArgs {
-    locs?: number | number[]
-    xlocs?: number | number[]
-    ylocs?: number | number[]
-    xlim?: Limit
-    ylim?: Limit
-    xspan?: Limit
-    yspan?: Limit
-}
-
-interface LegendArgs extends ElementArgs {
-    lines?: any
-    vspacing?: number
-    hspacing?: number
-    rounded?: number
-    padding?: number
-    fill?: string
-    justify?: AlignValue
-    debug?: boolean
-}
-
-interface GraphArgs extends GroupArgs {
-    xlim?: Limit
-    ylim?: Limit
-    padding?: number
-    flip?: boolean
-}
-
-interface PlotArgs extends BoxArgs {
-    xlim?: Limit
-    ylim?: Limit
-    axis?: boolean
-    xaxis?: boolean | Element
-    yaxis?: boolean | Element
-    xticks?: number | any[]
-    yticks?: number | any[]
-    xanchor?: number
-    yanchor?: number
-    grid?: boolean | number[]
-    xgrid?: boolean | number[]
-    ygrid?: boolean | number[]
-    xlabel?: string | Element
-    ylabel?: string | Element
-    title?: string | Element
-    tick_size?: number
-    label_size?: number
-    label_offset?: number | Point
-    title_size?: number
-    title_offset?: number
-    xlabel_size?: number
-    ylabel_size?: number
-    xlabel_offset?: number
-    ylabel_offset?: number
-    xtick_size?: number
-    ytick_size?: number
-    padding?: number
-    margin?: number
-    clip?: boolean
-    debug?: boolean
-}
-
-interface BarPlotArgs extends PlotArgs {
-    direc?: Orient
-    xtick_side?: string
-}
-
-//
-// bar components
-//
 
 class Bar extends RoundedRect {
     constructor(args: BarArgs = {}) {
@@ -166,6 +51,12 @@ class HBar extends Bar {
         super({ direc: 'h', ...attr })
         this.args = args
     }
+}
+
+interface BarsArgs extends GroupArgs {
+    direc?: Orient
+    width?: number
+    zero?: number
 }
 
 class Bars extends Group {
@@ -209,7 +100,7 @@ class HBars extends Bars {
 }
 
 //
-// plotting elements
+// axis/tick/label elements
 //
 
 function ensure_ticklabel(label: any, args: Attrs = {}): Element {
@@ -217,6 +108,12 @@ function ensure_ticklabel(label: any, args: Attrs = {}): Element {
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
     return new Span({ children: rounder(str, prec), loc, ...attr })
+}
+
+interface ScaleArgs extends GroupArgs {
+    locs?: number[]
+    direc?: Orient
+    span?: Limit
 }
 
 class Scale extends Group {
@@ -255,6 +152,13 @@ class HScale extends Scale {
         super({ direc: 'h', ...attr })
         this.args = args
     }
+}
+
+interface LabelsArgs extends GroupArgs {
+    direc?: Orient
+    justify?: AlignValue
+    loc?: number
+    prec?: number
 }
 
 // label elements must have an aspect to properly size them
@@ -307,6 +211,21 @@ function get_tick_lim(lim: string | Limit): Limit {
     } else {
         return lim as Limit
     }
+}
+
+interface AxisArgs extends GroupArgs {
+    lim?: Limit
+    direc?: Orient
+    ticks?: number | any[]
+    tick_side?: Zone
+    label_side?: Zone
+    label_size?: number
+    label_offset?: number
+    label_justify?: AlignValue
+    label_loc?: number
+    discrete?: boolean
+    prec?: number
+    debug?: boolean
 }
 
 // this is designed to be plotted directly
@@ -376,6 +295,42 @@ class BoxLabel extends Attach {
         super({ children: label, side, size, offset, ...spec })
         this.args = args
     }
+}
+
+//
+// decorator classes
+//
+
+interface MeshArgs extends ScaleArgs {
+    N?: number
+    lim?: Limit
+}
+
+interface Mesh2DArgs extends GroupArgs {
+    locs?: number | number[]
+    xlocs?: number | number[]
+    ylocs?: number | number[]
+    xlim?: Limit
+    ylim?: Limit
+    xspan?: Limit
+    yspan?: Limit
+}
+
+interface LegendArgs extends ElementArgs {
+    lines?: any
+    vspacing?: number
+    hspacing?: number
+    rounded?: number
+    padding?: number
+    fill?: string
+    justify?: AlignValue
+    debug?: boolean
+}
+
+interface BoxLabelArgs extends ElementArgs {
+    size?: number
+    offset?: number
+    side?: Side
 }
 
 class Mesh extends Scale {
@@ -476,6 +431,17 @@ class Legend extends Frame {
     }
 }
 
+//
+// graph class
+//
+
+interface GraphArgs extends GroupArgs {
+    xlim?: Limit
+    ylim?: Limit
+    padding?: number
+    flip?: boolean
+}
+
 // find minimal containing limits
 function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?: Limit, ylim?: Limit, padding?: number } = {}): Rect | undefined {
     if (children.length == 0) return
@@ -519,6 +485,43 @@ class Graph extends Group {
         super({ children, aspect, ...attr })
         this.args = args
     }
+}
+
+//
+// plot class
+//
+
+interface PlotArgs extends BoxArgs {
+    xlim?: Limit
+    ylim?: Limit
+    axis?: boolean
+    xaxis?: boolean | Element
+    yaxis?: boolean | Element
+    xticks?: number | any[]
+    yticks?: number | any[]
+    xanchor?: number
+    yanchor?: number
+    grid?: boolean | number[]
+    xgrid?: boolean | number[]
+    ygrid?: boolean | number[]
+    xlabel?: string | Element
+    ylabel?: string | Element
+    title?: string | Element
+    tick_size?: number
+    label_size?: number
+    label_offset?: number | Point
+    title_size?: number
+    title_offset?: number
+    xlabel_size?: number
+    ylabel_size?: number
+    xlabel_offset?: number
+    ylabel_offset?: number
+    xtick_size?: number
+    ytick_size?: number
+    padding?: number
+    margin?: number
+    clip?: boolean
+    debug?: boolean
 }
 
 class Plot extends Box {
@@ -650,6 +653,15 @@ class Plot extends Box {
     }
 }
 
+//
+// bar plot class
+//
+
+interface BarPlotArgs extends PlotArgs {
+    direc?: Orient
+    xtick_side?: string
+}
+
 class BarPlot extends Plot {
     constructor(args: BarPlotArgs = {}) {
         const { children: children0, direc = 'v', aspect = 2, xtick_side = 'outer', ...attr0 } = THEME(args, 'BarPlot')
@@ -681,6 +693,10 @@ class BarPlot extends Plot {
         this.args = args
     }
 }
+
+//
+// exports
+//
 
 export { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, HLabels, VLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Legend, Graph, Plot, BarPlot }
 export type { BarArgs, BarsArgs, ScaleArgs, LabelsArgs, AxisArgs, BoxLabelArgs, MeshArgs, Mesh2DArgs, LegendArgs, GraphArgs, PlotArgs, BarPlotArgs }

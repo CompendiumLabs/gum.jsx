@@ -12,7 +12,33 @@ import { Text } from './text'
 import type { AlignValue, Cardinal, Direc, Limit, Point, Rect } from '../lib/types'
 
 //
-// args interfaces
+// cardinal direction utils
+//
+
+function get_direction(p1: Point, p2: Point): Cardinal {
+    const [ dx, dy ] = sub(p2, p1)
+    const [ ax, ay ] = [ abs(dx), abs(dy) ]
+    const direc = (dy <= -ax) ? 'n' :
+                  (dy >=  ax) ? 's' :
+                  (dx >=  ay) ? 'e' :
+                  (dx <= -ay) ? 'w' :
+                  undefined // should never happen
+    return direc as Cardinal
+}
+
+function anchor_point(rect: Rect, direc: Cardinal): Point {
+    const [ xmin, ymin, xmax, ymax] = rect
+    const [ xmid, ymid ] = rect_center(rect)
+    const point = (direc == 'n') ? [ xmid, ymin ] :
+                  (direc == 's') ? [ xmid, ymax ] :
+                  (direc == 'e') ? [ xmax, ymid ] :
+                  (direc == 'w') ? [ xmin, ymid ] :
+                  undefined // should never happen
+    return point as Point
+}
+
+//
+// arrow spline class
 //
 
 interface ArrowSplineArgs extends GroupArgs {
@@ -30,42 +56,6 @@ interface ArrowSplineArgs extends GroupArgs {
     stroke_linecap?: string
     fill?: string
     coord?: Rect
-}
-
-interface NodeArgs extends ElementArgs {
-    id?: string
-    yrad?: number
-    rounded?: number
-    padding?: number
-    wrap?: number
-    justify?: AlignValue
-}
-
-interface EdgeArgs extends ElementArgs {
-    from?: Node | string
-    to?: Node | string
-    from_dir?: Cardinal
-    to_dir?: Cardinal
-}
-
-interface NetworkArgs extends GroupArgs {
-    xlim?: Limit
-    ylim?: Limit
-}
-
-//
-// networks
-//
-
-function get_direction(p1: Point, p2: Point): Cardinal {
-    const [ dx, dy ] = sub(p2, p1)
-    const [ ax, ay ] = [ abs(dx), abs(dy) ]
-    const direc = (dy <= -ax) ? 'n' :
-                  (dy >=  ax) ? 's' :
-                  (dx >=  ay) ? 'e' :
-                  (dx <= -ay) ? 'w' :
-                  undefined // should never happen
-    return direc as Cardinal
 }
 
 class ArrowSpline extends Group {
@@ -121,6 +111,19 @@ class ArrowSpline extends Group {
     }
 }
 
+//
+// node class
+//
+
+interface NodeArgs extends ElementArgs {
+    id?: string
+    yrad?: number
+    rounded?: number
+    padding?: number
+    wrap?: number
+    justify?: AlignValue
+}
+
 class Node extends Frame {
     id: string | undefined
 
@@ -141,15 +144,15 @@ class Node extends Frame {
     }
 }
 
-function anchor_point(rect: Rect, direc: Cardinal): Point {
-    const [ xmin, ymin, xmax, ymax] = rect
-    const [ xmid, ymid ] = rect_center(rect)
-    const point = (direc == 'n') ? [ xmid, ymin ] :
-                  (direc == 's') ? [ xmid, ymax ] :
-                  (direc == 'e') ? [ xmax, ymid ] :
-                  (direc == 'w') ? [ xmin, ymid ] :
-                  undefined // should never happen
-    return point as Point
+//
+// edge class
+//
+
+interface EdgeArgs extends ElementArgs {
+    from?: Node | string
+    to?: Node | string
+    from_dir?: Cardinal
+    to_dir?: Cardinal
 }
 
 class Edge extends Element {
@@ -205,6 +208,15 @@ class Edge extends Element {
     }
 }
 
+//
+// network class
+//
+
+interface NetworkArgs extends GroupArgs {
+    xlim?: Limit
+    ylim?: Limit
+}
+
 class Network extends Group {
     constructor(args: NetworkArgs = {}) {
         const { children: children0, xlim, ylim, coord: coord0, ...attr0 } = THEME(args, 'Network')
@@ -236,6 +248,10 @@ class Network extends Group {
         this.args = args
     }
 }
+
+//
+// exports
+//
 
 export { ArrowSpline, Node, Edge, Network }
 export type { ArrowSplineArgs, NodeArgs, EdgeArgs, NetworkArgs }

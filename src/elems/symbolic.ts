@@ -17,7 +17,7 @@ import type { LineArgs, SplineArgs } from './geometry'
 // they should compute their coordinate limits and report them in coord (for Graph)
 
 //
-// args interfaces
+// symbolic data generator
 //
 
 interface SymArgsBase {
@@ -33,31 +33,6 @@ interface SymArgsBase {
 interface SymArgs extends SymArgsBase {
     fx?: ((t: number) => number)
     fy?: ((t: number) => number)
-}
-
-interface SymLineArgs extends SymArgs, LineArgs {
-}
-
-interface SymPointsArgs extends SymArgs, GroupArgs {
-    size?: number | ((x: number, y: number, t: number, i: number) => number)
-    shape?: any
-}
-
-interface SymSplineArgs extends SymArgs, SplineArgs {
-}
-
-interface SymShapeArgs extends SymArgs, ElementArgs {
-}
-
-interface SymFillArgs extends SymArgsBase, GroupArgs {
-    fx1?: ((t: number) => number)
-    fy1?: ((t: number) => number)
-    fx2?: ((t: number) => number)
-    fy2?: ((t: number) => number)
-}
-
-interface SymFieldArgs extends SymArgs, GroupArgs {
-    func?: (x: number, y: number) => number | Point
 }
 
 // determines actual values given combinations of limits, values, and functions
@@ -121,10 +96,19 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N }: SymArgs =
     return zip(...data) as [number[], number[], number[]]
 }
 
+//
+// sympoints class
+//
+
 // a component is a function that returns an element
 function ensure_shapefunc(f: any): (...a: any[]) => any {
     const f1 = ensure_function(f)
     return (...a: any[]) => f1(...a)
+}
+
+interface SymPointsArgs extends SymArgs, GroupArgs {
+    size?: number | ((x: number, y: number, t: number, i: number) => number)
+    shape?: any
 }
 
 class SymPoints extends Group {
@@ -161,6 +145,13 @@ class SymPoints extends Group {
     }
 }
 
+//
+// symline class
+//
+
+interface SymLineArgs extends SymArgs, LineArgs {
+}
+
 class SymLine extends Line {
     constructor(args: SymLineArgs = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
@@ -183,6 +174,13 @@ class SymLine extends Line {
         super({ children, coord, ...attr })
         this.args = args
     }
+}
+
+//
+// symspline class
+//
+
+interface SymSplineArgs extends SymArgs, SplineArgs {
 }
 
 class SymSpline extends Spline {
@@ -209,6 +207,13 @@ class SymSpline extends Spline {
     }
 }
 
+//
+// symshape class
+//
+
+interface SymShapeArgs extends SymArgs, ElementArgs {
+}
+
 class SymShape extends Shape {
     constructor(args: SymShapeArgs = {}) {
         const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymShape')
@@ -231,6 +236,17 @@ class SymShape extends Shape {
         super({ children, coord, ...attr })
         this.args = args
     }
+}
+
+//
+// symfill class
+//
+
+interface SymFillArgs extends SymArgsBase, GroupArgs {
+    fx1?: ((t: number) => number)
+    fy1?: ((t: number) => number)
+    fx2?: ((t: number) => number)
+    fy2?: ((t: number) => number)
 }
 
 class SymFill extends Shape {
@@ -260,10 +276,18 @@ class SymFill extends Shape {
     }
 }
 
+//
+// symfield class
+//
+
 function default_arrow(direc: number | Point): Box {
     const theta = is_scalar(direc) ? direc : vector_angle(direc)
     const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
     return new Box({ children: arrow, spin: theta })
+}
+
+interface SymFieldArgs extends SymArgs, GroupArgs {
+    func?: (x: number, y: number) => number | Point
 }
 
 class SymField extends SymPoints {
@@ -289,6 +313,10 @@ class SymField extends SymPoints {
         this.args = args
     }
 }
+
+//
+// exports
+//
 
 export { SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField }
 export type { SymArgsBase, SymArgs, SymPointsArgs, SymLineArgs, SymSplineArgs, SymShapeArgs, SymFillArgs, SymFieldArgs }
