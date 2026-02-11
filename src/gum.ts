@@ -1,5 +1,8 @@
 // gum.js
 
+import './types/opentype.d.ts'
+import './types/linebreak.d.ts'
+
 import { setTheme } from './lib/theme'
 import { sans, mono, moji, light, bold, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r } from './lib/const'
 import { is_scalar, is_string, is_object, is_function, is_array, zip, reshape, split, concat, slice, sum, prod, mean, add, sub, mul, div, cumsum, norm, range, linspace, enumerate, repeat, meshgrid, lingrid, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, min, max, clamp, rescale, sigmoid, logit, smoothstep, random, uniform, normal, interp, palette, rounder } from './lib/utils'
