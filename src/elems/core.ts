@@ -716,8 +716,25 @@ class Rectangle extends Element {
 }
 
 //
+// spacer class
+//
+
+// this can have an aspect, which is utilized by layouts
+class Spacer extends Element {
+    constructor(args: ElementArgs = {}) {
+        const { ...attr } = THEME(args, 'Spacer')
+        super({ tag: 'g', unary: true, ...attr })
+        this.args = args
+    }
+
+    svg(_ctx?: Context): string {
+        return ''
+    }
+}
+
+//
 // exports
 //
 
-export { Context, Element, Group, Svg, Rectangle, is_element, prefix_split, prefix_join, spec_split, align_frac }
+export { Context, Element, Group, Svg, Rectangle, Spacer, is_element, prefix_split, prefix_join, spec_split, align_frac }
 export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }

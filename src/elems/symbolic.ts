@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D } from '../lib/const'
-import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid } from '../lib/utils'
+import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, ensure_array } from '../lib/utils'
 
-import { Group, spec_split } from './core'
+import { Element, Group, spec_split } from './core'
 import { Line, Spline, Shape, Arrow, Dot } from './geometry'
 import { Box } from './layout'
 
@@ -284,6 +284,30 @@ function default_arrow(direc: number | Point): Box {
     const theta = is_scalar(direc) ? direc : vector_angle(direc)
     const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
     return new Box({ children: arrow, spin: theta })
+}
+
+interface FieldArgs extends GroupArgs {
+    shape?: Element
+    size?: number
+    tail?: number
+}
+
+class Field extends Group {
+    constructor(args: FieldArgs = {}) {
+        const { children: children0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
+        const points = ensure_array(children0)
+        const shape = shape0 ?? new Arrow({ tail })
+        const [ spec, attr ] = spec_split(attr0)
+
+        // create children
+        const children = points.map(([ p, d ]) =>
+            shape.clone({ pos: p, rad: size, spin: d, ...attr })
+        )
+
+        // pass to Group
+        super({ children, ...spec })
+        this.args = args
+    }
 }
 
 interface SymFieldArgs extends SymArgs, GroupArgs {

@@ -5,7 +5,7 @@ import { DEFAULTS as D, none } from '../lib/const'
 import { is_scalar, maximum, minimum, ensure_array, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils'
 import { wrapWidths } from '../lib/text'
 
-import { Context, Group, Element, Rectangle, prefix_split, spec_split, align_frac } from './core'
+import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac } from './core'
 import { RoundedRect, Dot, Arrow } from './geometry'
 
 import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types'
@@ -507,46 +507,9 @@ class Absolute extends Element {
     }
 }
 
-interface FieldArgs extends GroupArgs {
-    shape?: Element
-    size?: number
-    tail?: number
-}
-
-class Field extends Group {
-    constructor(args: FieldArgs = {}) {
-        const { children: children0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
-        const points = ensure_array(children0)
-        const shape = shape0 ?? new Arrow({ tail })
-        const [ spec, attr ] = spec_split(attr0)
-
-        // create children
-        const children = points.map(([ p, d ]) =>
-            shape.clone({ pos: p, rad: size, spin: d, ...attr })
-        )
-
-        // pass to Group
-        super({ children, ...spec })
-        this.args = args
-    }
-}
-
-// this can have an aspect, which is utilized by layouts
-class Spacer extends Element {
-    constructor(args: ElementArgs = {}) {
-        const { ...attr } = THEME(args, 'Spacer')
-        super({ tag: 'g', unary: true, ...attr })
-        this.args = args
-    }
-
-    svg(_ctx?: Context): string {
-        return ''
-    }
-}
-
 //
 // exports
 //
 
-export { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Field, Spacer }
-export type { BoxArgs, StackArgs, HWrapArgs, GridArgs, PointsArgs, AnchorArgs, AttachArgs, AbsoluteArgs, FieldArgs }
+export { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute }
+export type { BoxArgs, StackArgs, HWrapArgs, GridArgs, PointsArgs, AnchorArgs, AttachArgs, AbsoluteArgs }
