@@ -23,36 +23,24 @@
     "index.d.ts"
   ],
   "exports": {
-    ".": {
-      "types": "./index.d.ts",
-      "import": "./src/gum.js"
-    },
-    "./eval": {
-      "types": "./index.d.ts",
-      "import": "./src/eval.js"
-    },
-    "./render": {
-      "types": "./index.d.ts",
-      "import": "./src/render.js"
-    },
-    "./meta": {
-      "types": "./index.d.ts",
-      "import": "./src/meta.js"
-    },
+    ".": "./src/gum.ts",
+    "./eval": "./src/eval.ts",
+    "./render": "./src/render.ts",
+    "./meta": "./src/meta.ts",
     "./fonts/*": "./src/fonts/*",
     "./docs/*": "./docs/*",
     "./prompt/*": "./prompt/*",
     "./skill/*": "./skill/*"
   },
   "scripts": {
-    "cli": "bun ./scripts/cli.js",
-    "test": "bun ./scripts/test.js",
-    "skill": "bun ./scripts/skill.js",
-    "claude": "bun ./scripts/skill.js && bun ./scripts/claude.ts"
+    "cli": "bun ./scripts/cli.ts",
+    "test": "bun ./scripts/test.ts",
+    "skill": "bun ./scripts/skill.ts",
+    "claude": "bun ./scripts/skill.ts && bun ./scripts/claude.ts"
   },
   "bin": {
-    "gum-cli": "./scripts/cli.js",
-    "gum-mcp": "./scripts/mcp.js"
+    "gum-cli": "./scripts/cli.ts",
+    "gum-mcp": "./scripts/mcp.ts"
   },
   "dependencies": {
     "@types/node": "^25.2.3",
