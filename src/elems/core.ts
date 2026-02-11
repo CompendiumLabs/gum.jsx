@@ -10,7 +10,6 @@ import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spe
 // args interfaces
 //
 
-// TODO: figure out a way to type optional 'auto' (lots of "coord as Rect" right now)
 interface SpecArgs {
     rect?: Rect
     coord?: Rect | 'auto'
@@ -160,7 +159,8 @@ function rotate_rect(size: Point, rotate: number, { aspect, expand = false, inva
     return [ w, h ] as Point
 }
 
-function rotate_repr(rotate: number, x: number, y: number, prec: number = D.prec): string {
+function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string {
+    const [ x, y ] = pos
     return `rotate(${rounder(rotate, prec)}, ${rounder(x, prec)}, ${rounder(y, prec)})`
 }
 
@@ -241,7 +241,7 @@ class Context {
 
         // rotate rect inside
         const [ w, h ] = rotate_rect([ w0, h0 ], rotate, { aspect, expand, invar })
-        const transform = (rotate != null && rotate != 0) ? rotate_repr(rotate, x0, y0, this.prec) : undefined
+        const transform = (rotate != null && rotate != 0) ? rotate_repr(rotate, [ x0, y0 ], this.prec) : undefined
 
         // broadcast align into [ halign, valign ] components
         const [ hafrac, vafrac ] = ensure_vector(align, 2).map(align_frac)
@@ -673,7 +673,7 @@ class Svg extends Group {
 }
 
 class Rectangle extends Element {
-    rounded: undefined | number | Point
+    rounded?: number | Point
 
     constructor(args: RectArgs = {}) {
         let { rounded, ...attr } = THEME(args, 'Rect')
@@ -695,7 +695,8 @@ class Rectangle extends Element {
         let [ x, y, w, h ] = rect_box(prect, true)
 
         // scale border rounded
-        let rx, ry
+        let rx: number | undefined
+        let ry: number | undefined
         if (this.rounded != null) {
             let s = 0.5 * (w + h)
             if (is_scalar(this.rounded)) {
