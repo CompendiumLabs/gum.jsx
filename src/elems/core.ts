@@ -99,16 +99,16 @@ function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string 
 // context class
 //
 
-interface MapArgs {
-    offset?: boolean
-}
-
 interface ContextArgs {
     prect?: Rect
     prec?: number
     coord?: Rect
     transform?: string
     meta?: Metadata
+}
+
+interface MapArgs {
+    offset?: boolean
 }
 
 // context holds the current pixel rect and other global settings
