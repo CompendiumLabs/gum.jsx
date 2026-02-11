@@ -120,13 +120,13 @@ class SymPoints extends Group {
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = sympath({
+        const [ tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
         // make points
         const points = zip(tvals1, xvals1, yvals1).filter(
-            ([t, x, y]: number[]) => (x != null) && (y != null)
+            ([_t, x, y]: number[]) => (x != null) && (y != null)
         )
 
         // make children
@@ -158,7 +158,7 @@ class SymLine extends Line {
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute path values
-        const [ tvals1, xvals1, yvals1 ] = sympath({
+        const [ _tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -189,7 +189,7 @@ class SymSpline extends Spline {
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute path values
-        const [ tvals1, xvals1, yvals1 ] = sympath({
+        const [ _tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -220,7 +220,7 @@ class SymShape extends Shape {
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = sympath({
+        const [ _tvals1, xvals1, yvals1 ] = sympath({
             fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -255,10 +255,10 @@ class SymFill extends Shape {
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
-        const [tvals1, xvals1, yvals1] = sympath({
+        const [ _tvals1, xvals1, yvals1 ] = sympath({
             fx: fx1, fy: fy1, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
-        const [tvals2, xvals2, yvals2] = sympath({
+        const [ _tvals2, xvals2, yvals2 ] = sympath({
             fx: fx2, fy: fy2, xlim, ylim, tlim, xvals, yvals, tvals, N
         })
 
@@ -302,7 +302,7 @@ class SymField extends SymPoints {
 
         // create points and shape function
         const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
-        const fshap = (x: number, y: number, t: number, i: number) => shape(func(x, y))
+        const fshap = (x: number, y: number, _t: number, _i: number) => shape(func(x, y))
 
         // compute real limits
         const [ xvals, yvals ] = points.length > 0 ? zip(...points) as [number[], number[]] : [ [], [] ]

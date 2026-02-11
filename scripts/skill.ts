@@ -5,7 +5,7 @@ import { Command } from 'commander'
 import { getDocs, preparePage } from '../src/meta.js'
 
 // capitalize a string
-function capitalize(s) {
+function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1)
 }
 

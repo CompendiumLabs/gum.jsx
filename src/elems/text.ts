@@ -3,7 +3,7 @@
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { vtext, none, bold } from '../lib/const'
-import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rounder, rect_box, rect_center, check_singleton } from '../lib/utils'
+import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
 import { textSizer, wrapText, splitWords } from '../lib/text'
 import { mathjax } from '../lib/math'
 
@@ -73,7 +73,7 @@ class Span extends Element {
         const { prect } = ctx
 
         // get position and size
-        let [ x0, y0, w0, h0 ] = rect_box(prect, true)
+        let [ x0, y0, _w0, h0 ] = rect_box(prect, true)
         const yoff = voffset * h0
         const h = size ?? h0
 
@@ -85,7 +85,7 @@ class Span extends Element {
         return { x, y, font_size: `${h}px`, ...attr }
     }
 
-    inner(ctx: Context): string {
+    inner(_ctx: Context): string {
         return this.text
     }
 }
@@ -406,7 +406,7 @@ class Latex extends Element {
         return { x, y, width: w, height: h, ...attr }
     }
 
-    inner(ctx: Context): string {
+    inner(_ctx: Context): string {
         return `\n${this.math}\n`
     }
 }

@@ -18,8 +18,9 @@ for (const dir of dirs) {
             console.log(`PASS ${path}`)
             elem.svg()
             passed++
-        } catch (e) {
-            console.error(`FAIL ${path}: ${e.message}`)
+        } catch (e: any) {
+            const { message = 'Unknown error' } = e
+            console.error(`FAIL ${path}: ${message}`)
             failed++
         }
     }

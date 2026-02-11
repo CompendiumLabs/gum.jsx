@@ -20,7 +20,7 @@ mcpServer.registerTool(
             code: z.string().describe('gum.jsx code to render')
         }
     },
-    async ({ code }) => {
+    async ({ code }: { code: string }) => {
         try {
             const elem = evaluateGum(code, { size: [1000, 750] })
             const svg = elem.svg()
@@ -31,7 +31,7 @@ mcpServer.registerTool(
                     { type: 'image', mimeType: 'image/png', data: png.toString('base64') }
               ]
             }
-        } catch (error) {
+        } catch (error: any) {
             return {
                 content: [
                     { type: 'text', text: error.message }
@@ -46,7 +46,7 @@ async function main() {
     await mcpServer.connect(transport)
 }
 
-main().catch(error => {
+main().catch((error: any) => {
     console.error('Server error:', error)
     process.exit(1)
 })

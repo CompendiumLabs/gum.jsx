@@ -246,7 +246,7 @@ class Command {
         this.cmd = cmd
     }
 
-    args(ctx: Context): string {
+    args(_ctx: Context): string {
         return ''
     }
 

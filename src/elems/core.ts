@@ -209,7 +209,7 @@ function demangle(k: string): string {
 
 function props_repr(d: Attrs, prec: number): string {
     return Object.entries(d)
-        .filter(([k, v]) => v != null)
+        .filter(([_k, v]) => v != null)
         .map(([k, v]) => `${demangle(k)}="${rounder(v, prec)}"`)
         .join(' ')
 }
@@ -223,7 +223,7 @@ const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 function prefix_split(pres: string[], attr: Attrs): Attrs[] {
     const attr1: Attrs = { ...attr }
     const pres1 = pres.map(p => `${p}_`)
-    const out: Attrs[] = pres.map(p => ({}))
+    const out: Attrs[] = pres.map(_p => ({}))
     Object.keys(attr).map(k => {
         for (const i in pres1) {
             const p1 = pres1[i]
@@ -358,7 +358,7 @@ class Element {
         return  { ...this.attr, transform }
     }
 
-    inner(ctx: Context): string {
+    inner(_ctx: Context): string {
         return ''
     }
 
@@ -550,7 +550,7 @@ class Style extends Element {
         this.text = text
     }
 
-    svg(ctx?: Context): string {
+    svg(_ctx?: Context): string {
         if (this.text.length == 0) return ''
         return `<style>\n${this.text}\n</style>`
     }

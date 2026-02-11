@@ -66,7 +66,7 @@ function ensure_array(x: any, empty: boolean = true): any[] {
 
 function ensure_vector(x: any, n: number): any[] {
     if (!is_array(x)) {
-        return range(n).map(i => x)
+        return range(n).map(_i => x)
     } else {
         return x
     }
@@ -235,7 +235,7 @@ function norm(vals: number[], degree: number = 2): number {
 
 function normalize(vals: number[], degree: number = 1): number[] {
     const mag = norm(vals, degree)
-    return (mag == 0) ? vals.map(v => 0) : vals.map(v => v / mag)
+    return (mag == 0) ? vals.map(_v => 0) : vals.map(v => v / mag)
 }
 
 //

@@ -3,7 +3,7 @@
 import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 
-import { DEFAULTS as D, light, sans, moji } from './const.js'
+import { DEFAULTS as D, sans, moji } from './const.js'
 import { is_string, compress_whitespace, sum } from './utils.js'
 import { FONTS } from '../fonts/fonts.js'
 
@@ -36,7 +36,7 @@ function emojiSizer(text: string): number {
 
     // handle simple case
     if (glyphs.length == 1) {
-        const { advanceWidth } = glyphs[0]
+        const { advanceWidth = 0 } = glyphs[0]
         return advanceWidth / unitsPerEm
     }
 
@@ -52,18 +52,17 @@ function emojiSizer(text: string): number {
     }
 
     // get glyph advance
-    const { advanceWidth } = font.glyphs.get(sub.by)
+    const { advanceWidth = 0 } = font.glyphs.get(sub.by)
     return advanceWidth / unitsPerEm
 }
 
 type TextSizerArgs = {
     font_family?: string
-    font_weight?: number
     calc_size?: number
 }
 
 // TODO: handle font_weight
-function textSizer0(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size }: TextSizerArgs = {}): number {
+function textSizer0(text: string, { font_family = sans, calc_size = D.calc_size }: TextSizerArgs = {}): number {
     if (is_emoji(text)) return emojiSizer(text)
     const font = FONTS[font_family]
     const width = font.getAdvanceWidth(text, calc_size)
@@ -85,7 +84,7 @@ function textSizer(text: string, args: TextSizerArgs = {}): number | undefined {
 function getBreaks(text: string): number[] {
     const breaker = new LineBreaker(text)
     const breaks = [0]
-    for (let bk; (bk = breaker.nextBreak()); ) {
+    for (let bk: any; (bk = breaker.nextBreak()); ) {
         breaks.push(bk.position)
     }
     if (breaks[breaks.length - 1] !== text.length) {
@@ -96,7 +95,7 @@ function getBreaks(text: string): number[] {
 
 function splitWords(text: string): string[] {
     const breaks = getBreaks(text)
-    const words = breaks.slice(1).map((b, i) => text.slice(breaks[i], breaks[i+1]))
+    const words = breaks.slice(1).map((_b, i) => text.slice(breaks[i], breaks[i+1]))
     return words.map(w =>
         w.length > 1 && w.endsWith('\n') ?
         [ w.slice(0, -1), '\n' ] : w

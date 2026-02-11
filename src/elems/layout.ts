@@ -539,7 +539,7 @@ class Spacer extends Element {
         this.args = args
     }
 
-    svg(ctx?: Context): string {
+    svg(_ctx?: Context): string {
         return ''
     }
 }

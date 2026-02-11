@@ -143,10 +143,10 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     const { test, consequent, alternate } = node
     return `(${walkTree(test)}) ? ${walkTree(consequent)} : ${walkTree(alternate)}`
   },
-  Super(node) {
+  Super(_node) {
     return 'super'
   },
-  ThisExpression(node) {
+  ThisExpression(_node) {
     return 'this'
   },
   AssignmentExpression(node) {
@@ -212,7 +212,7 @@ const handlers: Record<string, (node: ASTNode) => any> = {
   JSXIdentifier(node) {
     return node.name
   },
-  JSXEmptyExpression(node) {
+  JSXEmptyExpression(_node) {
     return null
   },
   JSXExpressionContainer(node) {
@@ -223,7 +223,7 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     const { openingElement, children } = node
     const { name, props } = walkTree(openingElement)
     const pstring = objectLiteral(props)
-    const cstrings = children.map(walkTree).filter(c => c != null)
+    const cstrings = children.map(walkTree).filter((c: any) => c != null)
     return `__COMPONENT__(\n${name},\n${pstring},\n${cstrings.join(',\n')}\n)`
   },
   JSXAttribute(node) {
@@ -233,16 +233,16 @@ const handlers: Record<string, (node: ASTNode) => any> = {
       value: walkTree(value) ?? true
     }
   },
-  JSXMemberExpression(node) {},
-  JSXNamespacedName(node) {},
+  JSXMemberExpression(_node) {},
+  JSXNamespacedName(_node) {},
   JSXOpeningElement(node) {
     const { name: nameId, attributes } = node
     const name = walkTree(nameId)
     const props = attributes.map(walkTree)
     return { name, props }
   },
-  JSXClosingElement(node) {},
-  JSXFragment(node) {},
+  JSXClosingElement(_node) {},
+  JSXFragment(_node) {},
   JSXText(node) {
     if (isWhitespace(node.value)) return null
     return `${JSON.stringify(node.value)}`
