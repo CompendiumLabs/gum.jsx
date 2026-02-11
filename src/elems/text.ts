@@ -2,7 +2,7 @@
 
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
-import { vtext, none, bold } from '../lib/const'
+import { vtext, none, bold, svgns } from '../lib/const'
 import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
 import { textSizer, wrapText, splitWords } from '../lib/text'
 import { mathjax } from '../lib/math'
@@ -229,8 +229,8 @@ interface TextFrameArgs extends TextBoxArgs {
 
 class TextFrame extends TextBox {
     constructor(args: TextFrameArgs = {}) {
-        const { border = 1, rounded = 0.05, ...attr } = THEME(args, 'TextFrame')
-        super({ border, rounded, ...attr })
+        const { border = 1, ...attr } = THEME(args, 'TextFrame')
+        super({ border, ...attr })
     }
 }
 
@@ -365,22 +365,20 @@ class Latex extends Element {
         const tex = check_string(children)
 
         // render with mathjax (or do nothing if mathjax is not available)
-        let math = '', svg_attr: Attrs = {}, vshift = 0
+        let math = ''
+        let vshift = 0
+        let svg_attr: Attrs = {}
         if (mathjax != null) {
             // render with mathjax
             const { svg, viewBox, width, height, valign } = mathjax.render(tex, { display })
+            const aspect = width / height
 
             // handle vertical offset
             const vfactor = display ? 0.5 : 0.25
             const vshift0 = voffset + valign + vfactor * (1 - height)
 
             // immediate attributes
-            svg_attr = {
-                viewBox,
-                aspect: width / height,
-                preserveAspectRatio: 'none',
-                'xmlns': 'http://www.w3.org/2000/svg',
-            }
+            svg_attr = { viewBox, aspect, preserveAspectRatio: none, xmlns: svgns }
 
             // store for rendering
             math = svg

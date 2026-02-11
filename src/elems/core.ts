@@ -177,7 +177,7 @@ class Context {
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect, expand = false, align = 'center' as Align, rotate = 0, invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
+    map({ rect, aspect0: aspect, expand = false, align = 'center' as Align, rotate = 0, invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
         // get true pixel rect (default to parent coord)
         const prect0 = this.mapRect(rect ?? this.coord, offset)
         const [ x0, y0, w0, h0 ] = rect_cbox(prect0)

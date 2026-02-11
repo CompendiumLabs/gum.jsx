@@ -60,7 +60,7 @@ Prompt: a wide blue rectangle on top, with red and green squares side by side on
 Generated code:
 ```jsx
 <VStack spacing>
-  <Rect rounded fill={blue} />
+  <Rectangle rounded fill={blue} />
   <HStack stack-size={0.5} spacing>
     <Square rounded fill={red} />
     <Square rounded fill={green} />
@@ -123,7 +123,7 @@ Generated code:
     [0, 0.5], [0.5, 0], [-0.5, 0], [0, -0.5]
   ]}
   </Points>
-  <Rect pos={[0.5, 0.5]} rad={0.1} />
+  <Rectangle pos={[0.5, 0.5]} rad={0.1} />
   <Circle pos={[-0.5, -0.5]} rad={0.1} />
   {[0.5, 0.9, 1.5].map(a =>
     <SymLine fy={x => sin(a*x)} />
