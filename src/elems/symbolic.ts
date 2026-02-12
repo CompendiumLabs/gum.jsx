@@ -342,5 +342,5 @@ class SymField extends SymPoints {
 // exports
 //
 
-export { SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField }
-export type { SymArgsBase, SymArgs, SymPointsArgs, SymLineArgs, SymSplineArgs, SymShapeArgs, SymFillArgs, SymFieldArgs }
+export { SymPoints, SymLine, SymSpline, SymShape, SymFill, Field, SymField }
+export type { SymArgsBase, SymArgs, SymPointsArgs, SymLineArgs, SymSplineArgs, SymShapeArgs, SymFillArgs, FieldArgs, SymFieldArgs }

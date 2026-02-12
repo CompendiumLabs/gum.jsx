@@ -113,6 +113,8 @@ Below is the full documentation for the core \`gum.jsx\` components: \`Element\`
 
 The base class for all `gum.jsx` objects. You will usually not be working with this object directly unless you are implementing your own custom elements. An **Element** has a few methods that can be overriden, each of which takes a **Context** object as an argument. The vast majority of implementations will override only `props` and `inner` (for non-unary elements).
 
+The position and size of an element are specified in the internal coordinates (`coord`) of its parent, which defaults to the unit square. Rectangles are always specified in `[left, top, right, bottom]` format. You can also specify the placement by specifying `pos` and `rad` or various combinations of `xrad`/`yrad` and `xrect`/`yrect`. When not specified, `rect` defaults to the unit square.
+
 Parameters:
 - `tag` = `g` — the SVG tag associated with this element
 - `unary` = `false` — whether there is inner text for this element
@@ -150,9 +152,9 @@ return <Tri pos0={[0.5, 0.1]} pos1={[0.9, 0.9]} pos2={[0.1, 0.9]} fill={gray} />
 
 *Inherits*: **Element**
 
-This is the main container class that all compound elements are derived from. It accepts a list of child elements and attempts to place them according to their declared properties.
+This is the main container class that all compound elements are derived from. It accepts a list of child elements and attempts to place them according to their declared properties. Child placement positions are specified in the group's internal coordinates (`coord`), which defaults to the unit square. The coordinate space is specified in `[left, top, right, bottom]` format.
 
-Placement positions are specified in the group's internal coordinate space, which defaults to the unit square. The child's `aspect` is an important determinant of its placement. When it has a `null` aspect, it will fit exactly in the given `rect`. However, when it does have an aspect, it needs to be adjusted in the case that the given `rect` does not have the same aspect. The `expand` and `align` specification arguments govern how this adjustment is made.
+The child's `aspect` is an important determinant of its placement. When it has a `null` aspect, it will fit exactly in the given `rect`. However, when it does have an aspect, it needs to be adjusted in the case that the given `rect` does not have the same aspect. The `expand` and `align` specification arguments govern how this adjustment is made.
 
 Parameters:
 - `children` = `[]` — a list of child elements

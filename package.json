@@ -1,6 +1,6 @@
 {
   "name": "gum-jsx",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Language for vector graphics generation.",
   "type": "module",
   "author": "Douglas Hanley",
@@ -12,15 +12,20 @@
   "license": "MIT",
   "files": [
     "src",
+    "src/lib",
+    "src/types",
+    "src/elems",
     "src/fonts",
     "docs",
     "docs/text",
     "docs/code",
-    "docs/gallery",
+    "docs/gala",
+    "scripts",
     "prompt",
-    "skill",
-    "skill/references",
-    "index.d.ts"
+    "claude",
+    "claude/.claude-plugin",
+    "claude/skills/gum-jsx",
+    "claude/skills/gum-jsx/references"
   ],
   "exports": {
     ".": "./src/gum.ts",
@@ -28,15 +33,13 @@
     "./render": "./src/render.ts",
     "./meta": "./src/meta.ts",
     "./fonts/*": "./src/fonts/*",
-    "./docs/*": "./docs/*",
-    "./prompt/*": "./prompt/*",
-    "./skill/*": "./skill/*"
+    "./docs/*": "./docs/*"
   },
   "scripts": {
     "cli": "bun ./scripts/cli.ts",
     "test": "bun ./scripts/test.ts",
     "skill": "bun ./scripts/skill.ts",
-    "claude": "bun ./scripts/skill.ts && bun ./scripts/claude.ts"
+    "claude": "bun run skill && bun ./scripts/claude.ts"
   },
   "bin": {
     "gum-cli": "./scripts/cli.ts",

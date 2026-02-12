@@ -4,12 +4,14 @@
 
 *Inherits*: **Group** > **Element**
 
-This is the core graphing functionality used in **Plot** without the axes and labels. The default coordinate system is the unit square, `[0, 0, 1, 1]`. This can be overridden with custom `xlim`/`ylim` specifications. The Elements that are passed to **Graph** can express their position and size information in this new coordinate system.
+This is the core graphing functionality used in **Plot** without the axes and labels. By default, the coordinate system is automatically inferred from the limits of child elements. This can be overridden with custom `xlim`/`ylim` specifications. The Elements that are passed to **Graph** can express their position and size information in this new coordinate system.
+
+You'll often want to use this (directly or indirectly) to display mathematical curves, as they might otherwise come out looking upside down relative to what you expect (as higher y-values mean "down" in raw SVG).
 
 Parameters:
 - `xlim`/`ylim` = `[0, 1]` — the range over which to graph
 - `padding` = `0` — limit padding to add when auto-detected from `elems`
-- `coord` — the coordinate system to use for the graph (overrides `xlim`/`ylim`)
+- `coord` = `'auto'` — the coordinate system to use for the graph (overrides `xlim`/`ylim`)
 
 **Example**
 
@@ -29,7 +31,7 @@ Generated code:
 
 *Inherits*: **Group** > **Element**
 
-Use **Graph** to plot one or more elements over the desired limits and frame them with axes. If not specified by `xlim` and `ylim`, the limits of the plot will be computed from the bounding box of the constituent elements. By default, the `aspect` will be the ratio of the range of the `xlim` and `ylim`. See **Axis** for more details on how to customize the axes, ticks, and labels.
+Uses **Graph** to plot one or more elements over the desired limits and frame them with axes. If not specified by `xlim` and `ylim`, the limits of the plot will be computed from the bounding box of the constituent elements. By default, the `aspect` will be the ratio of the range of the `xlim` and `ylim`. See **Axis** for more details on how to customize the axes, ticks, and labels.
 
 Parameters:
 - `xlim`/`ylim` = `[0, 1]` — the range over which to graph
