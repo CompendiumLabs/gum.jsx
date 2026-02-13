@@ -6,7 +6,7 @@ import { is_scalar, maximum, minimum, ensure_array, ensure_vector, ensure_point,
 import { wrapWidths } from '../lib/text'
 
 import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac } from './core'
-import { RoundedRect, Dot, Arrow } from './geometry'
+import { RoundedRect, Dot } from './geometry'
 
 import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
