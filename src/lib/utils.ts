@@ -658,11 +658,9 @@ function invert_orient(direc: Orient): Orient {
 // aspect utils
 //
 
-function aspect_invariant(value0: number | Point | Rect, aspect0: number | undefined, alpha: number = 0.5): Point | Rect {
-    const aspect = aspect0 ?? 1
+function aspect_invariant(value0: number | Point | Rect, aspect: number = 1, alpha: number = 0.5): Point | Rect {
     const wfact = aspect**alpha
     const hfact = aspect**(1 - alpha)
-
     const value = is_scalar(value0) ? [ value0, value0 ] as Point : value0
 
     if (is_point(value)) {

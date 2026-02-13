@@ -285,6 +285,12 @@ class VAxis extends Axis {
     }
 }
 
+interface BoxLabelArgs extends ElementArgs {
+    size?: number
+    offset?: number
+    side?: Side
+}
+
 class BoxLabel extends Attach {
     constructor(args: BoxLabelArgs = {}) {
         const { children: children0, size, offset, side, ...attr0 } = args
@@ -325,12 +331,6 @@ interface LegendArgs extends ElementArgs {
     fill?: string
     justify?: AlignValue
     debug?: boolean
-}
-
-interface BoxLabelArgs extends ElementArgs {
-    size?: number
-    offset?: number
-    side?: Side
 }
 
 class Mesh extends Scale {
@@ -527,7 +527,7 @@ interface PlotArgs extends BoxArgs {
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
         let {
-            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0, clip = false, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const elems = ensure_array(children0, false)
 
@@ -575,9 +575,8 @@ class Plot extends Box {
         yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr), ...prefix_join('label', ytick_label_attr) }
         xgrid_attr = { ...grid_attr, ...xgrid_attr }
         ygrid_attr = { ...grid_attr, ...ygrid_attr }
-        xlabel_attr = { size: xlabel_size, offset: xlabel_offset, ...label_attr, ...xlabel_attr }
-        ylabel_attr = { size: ylabel_size, offset: ylabel_offset, ...label_attr, ...ylabel_attr }
-        title_attr = { size: title_size, offset: title_offset, ...title_attr }
+        xlabel_attr = { ...label_attr, ...xlabel_attr }
+        ylabel_attr = { ...label_attr, ...ylabel_attr }
 
         // collect axis elements
         const bg_elems: Element[] = []
@@ -629,20 +628,20 @@ class Plot extends Box {
 
         // optional xaxis label
         if (xlabel != null) {
-            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', debug, ...xlabel_attr })
+            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', debug, size: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
             children.push(xlabel)
         }
 
         // optional yaxis label
         if (ylabel != null) {
-            const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: ylabel, ...ylabel_attr, rotate: -90 })
-            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', debug, ...ylabel_attr })
+            const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: ylabel, rotate: -90 })
+            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
             children.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new BoxLabel({ children: title, side: 'top', debug, ...title_attr })
+            title = new BoxLabel({ children: title, side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
             children.push(title)
         }
 

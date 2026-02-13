@@ -46,7 +46,7 @@ if (update) {
   let out: string | Buffer
   if (format == null || format == 'png') {
     const dat = rasterizeSvg(svg, { size: elem.size, width, height, background })
-    out = formatImage(dat) + '\n'
+    out = (format == null) ? (formatImage(dat) + '\n') : dat
   } else {
     out = svg
   }
