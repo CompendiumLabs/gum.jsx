@@ -2,7 +2,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { Command } from 'commander'
-import { getDocs, preparePage } from '../src/meta.js'
+import { getDocs, preparePage } from '../src/meta'
 
 // capitalize a string
 function capitalize(s: string): string {

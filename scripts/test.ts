@@ -1,8 +1,9 @@
 #! /usr/bin/env bun
 
-import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { evaluateGum } from '../src/eval.js'
+import { readdirSync, readFileSync } from 'fs'
+
+import { evaluateGum } from '../src/eval'
 
 const dirs = ['docs/code', 'docs/gala']
 let passed = 0

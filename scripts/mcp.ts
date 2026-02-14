@@ -4,8 +4,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as z from 'zod/v4'
 
-import { evaluateGum } from '../src/eval.js'
-import { rasterizeSvg } from '../src/render.js'
+import { evaluateGum } from '../src/eval'
+import { rasterizeSvg } from '../src/render'
 
 const mcpServer = new McpServer({
     name: 'gum-jsx',

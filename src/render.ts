@@ -6,7 +6,6 @@ import type { Point } from './lib/types'
 import { sans, mono } from './lib/const'
 import { is_browser } from './lib/utils'
 import { FONT_PATHS, FONT_DATA } from './fonts/fonts'
-import { formatImage } from './lib/term'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?
@@ -72,6 +71,26 @@ function rasterizeSvg(svg: string | Buffer, { size, width, height, background }:
   const fitTo = buildFitTo(width, height)
   const resvg = new Resvg(svg, { fitTo, font, background })
   return resvg.render().asPng()
+}
+
+// kitty image protocol
+function formatImage(pngBuffer: Buffer, { imageId = null as number | null, chunkSize = 4096 } = {}): string {
+  const idParam = imageId != null ? `,i=${imageId}` : ''
+  const base64 = pngBuffer.toString('base64')
+
+  let result = ''
+  for (let i = 0; i < base64.length; i += chunkSize) {
+    const chunk = base64.slice(i, i + chunkSize)
+    const isFirst = i === 0
+    const isLast = i + chunkSize >= base64.length
+    const control = isFirst
+      ? `f=100,a=T${idParam},q=1,m=${isLast ? 0 : 1}`
+      : `m=${isLast ? 0 : 1}`
+
+    result += `\x1b_G${control};${chunk}\x1b\\`
+  }
+
+  return result
 }
 
 export { rasterizeSvg, formatImage }

@@ -1,10 +1,19 @@
 #! /usr/bin/env bun
 
 import { program } from 'commander'
-import { evaluateGum } from '../src/eval.js'
-import { rasterizeSvg, formatImage } from '../src/render.js'
-import { readStdin, watchAndRender } from '../src/lib/term.js'
 import { readFileSync, writeFileSync } from 'fs'
+
+import { evaluateGum } from '../src/eval'
+import { rasterizeSvg, formatImage } from '../src/render'
+
+// read from stdin
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks).toString('utf-8')
+}
 
 // set up commander
 program.name('gum')
@@ -30,31 +39,22 @@ if (output && format == null) format = 'png'
 // wait for stdin
 const code = file ? readFileSync(file, 'utf-8') : await readStdin()
 
-if (update) {
-  watchAndRender(file, (content, imageId) => {
-    const elem = evaluateGum(content, { size, theme })
-    const svg = elem.svg()
-    const dat = rasterizeSvg(svg, { size: elem.size, width, height, background })
-    return formatImage(dat, { imageId })
-  })
+// evaluate gum with size
+const elem = evaluateGum(code, { size, theme })
+const svg = elem.svg()
+
+// rasterize output
+let out: string | Buffer
+if (format == null || format == 'png') {
+  const dat = rasterizeSvg(svg, { size: elem.size, width, height, background })
+  out = (format == null) ? (formatImage(dat) + '\n') : dat
 } else {
-  // evaluate gum with size
-  const elem = evaluateGum(code, { size, theme })
-  const svg = elem.svg()
+  out = svg
+}
 
-  // rasterize output
-  let out: string | Buffer
-  if (format == null || format == 'png') {
-    const dat = rasterizeSvg(svg, { size: elem.size, width, height, background })
-    out = (format == null) ? (formatImage(dat) + '\n') : dat
-  } else {
-    out = svg
-  }
-
-  // write output
-  if (output) {
-    writeFileSync(output, out)
-  } else {
-    process.stdout.write(out)
-  }
+// write output
+if (output) {
+  writeFileSync(output, out)
+} else {
+  process.stdout.write(out)
 }
