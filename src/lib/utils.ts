@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal } from './types'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal, Size } from './types'
 
 //
 // environment tests
@@ -24,6 +24,10 @@ function is_scalar(x: any): x is number {
 }
 
 function is_point(x: any): x is Point {
+    return is_array(x) && x.length == 2
+}
+
+function is_size(x: any): x is Size {
     return is_array(x) && x.length == 2
 }
 
@@ -487,12 +491,12 @@ function sub_mpoint(p0: MPoint | Point, p1: MPoint | Point): MPoint {
 // rect stats
 //
 
-function rect_size(rect: Rect): Point {
+function rect_size(rect: Rect): Size {
     const [ x1, y1, x2, y2 ] = rect
     return [ x2 - x1, y2 - y1 ]
 }
 
-function rect_dims(rect: Rect): Point {
+function rect_dims(rect: Rect): Size {
     const [ w, h ] = rect_size(rect)
     return [ abs(w), abs(h) ]
 }
@@ -502,7 +506,7 @@ function rect_center(rect: Rect): Point {
     return [ (x1 + x2) / 2, (y1 + y2) / 2 ]
 }
 
-function rect_radius(rect: Rect): Point {
+function rect_radius(rect: Rect): Size {
     const [ w, h ] = rect_size(rect)
     return [ w / 2, h / 2 ]
 }
@@ -526,7 +530,7 @@ function rect_radial(rect: Rect, absolute: boolean = false): Rect {
 }
 
 // TODO: add optimized path for Point/number case
-function radial_rect(p0: Point | MPoint, r0: number | Point): Rect {
+function radial_rect(p0: Point | MPoint, r0: number | Size): Rect {
     const p = ensure_mpoint(p0)
     const r = ensure_point(r0)
     const pa = sub_mpoint(p, r)
@@ -658,17 +662,17 @@ function invert_orient(direc: Orient): Orient {
 // aspect utils
 //
 
-function aspect_invariant(value0: number | Point | Rect, aspect: number = 1, alpha: number = 0.5): Point | Rect {
+function aspect_invariant(value0: number | Size | Rect, aspect: number = 1, alpha: number = 0.5): Size | Rect {
     const wfact = aspect**alpha
     const hfact = aspect**(1 - alpha)
-    const value = is_scalar(value0) ? [ value0, value0 ] as Point : value0
+    const value = is_scalar(value0) ? [ value0, value0 ] as Size : value0
 
-    if (is_point(value)) {
+    if (is_size(value)) {
         const [ vw, vh ] = value
-        return [ vw * wfact, vh / hfact ]
+        return [ vw * wfact, vh / hfact ] as Size
     } else if (is_rect(value)) {
         const [ vl, vt, vr, vb ] = value
-        return [ vl * wfact, vt / hfact, vr * wfact, vb / hfact ]
+        return [ vl * wfact, vt / hfact, vr * wfact, vb / hfact ] as Rect
     } else {
         throw new Error(`Invalid value: ${value}`)
     }

@@ -2,7 +2,7 @@
 
 import { Resvg } from '@resvg/resvg-js'
 
-import type { Point } from './lib/types'
+import type { Size } from './lib/types'
 import { sans, mono } from './lib/const'
 import { is_browser } from './lib/utils'
 import { FONT_PATHS, FONT_DATA } from './fonts/fonts'
@@ -38,7 +38,7 @@ interface FitToOriginal {
 type FitTo = FitToWidth | FitToHeight | FitToOriginal
 
 interface RasterizeArgs {
-  size?: Point
+  size?: Size
   width?: number
   height?: number
   background?: string

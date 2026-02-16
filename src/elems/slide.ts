@@ -7,7 +7,7 @@ import { prefix_split, spec_split } from './core'
 import { Box } from './layout'
 import { TextFrame, TextStack } from './text'
 
-import type { AlignValue, Padding, Rounded, Point } from '../lib/types'
+import type { AlignValue, Padding, Rounded, Point, Size } from '../lib/types'
 import type { BoxArgs } from './layout'
 
 //
@@ -38,7 +38,7 @@ class TitleBox extends Box {
         let title_box: TextFrame | null = null
         if (title != null) {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
-            const title_rad: Point = [ 0.5, title_size ]
+            const title_rad: Size = [ 0.5, title_size ]
             title_box = new TextFrame({ children: title, pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
         }
 

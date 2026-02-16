@@ -47,11 +47,11 @@ class ErrorRender extends Error {
 //
 
 interface EvaluateArgs extends SvgArgs {
-  theme?: string | null
+  theme?: string
   debug?: boolean
 }
 
-function evaluateGum(code: string, { theme = null, debug = false, ...args }: EvaluateArgs = {}): Svg {
+function evaluateGum(code: string, { theme, debug = false, ...args }: EvaluateArgs = {}): Svg {
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()

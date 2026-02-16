@@ -293,7 +293,7 @@ interface BoxLabelArgs extends ElementArgs {
 
 class BoxLabel extends Attach {
     constructor(args: BoxLabelArgs = {}) {
-        const { children: children0, size, offset, side, ...attr0 } = args
+        const { children: children0, side = 'top', size = 0.1, offset, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
         const label0 = is_element(text) ? text : new Span({ children: text, ...attr })

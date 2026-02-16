@@ -4,6 +4,7 @@
 type Point = [number, number]
 type Rect = [number, number, number, number]
 type Limit = [number, number]
+type Size = [number, number]
 
 // color
 type RGBA = [number, number, number, number]
@@ -46,4 +47,4 @@ type Spec = {
     invar?: boolean
 }
 
-export type { Point, Rect, Limit, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Cardinal, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+export type { Point, Rect, Limit, Size, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Cardinal, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
