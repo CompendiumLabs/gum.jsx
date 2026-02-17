@@ -3,11 +3,11 @@
 // import font paths
 
 // @ts-ignore
-const { default: sans } = await import('./IBMPlexSans-Variable.ttf?url')
+import sans from './IBMPlexSans-Variable.ttf'
 // @ts-ignore
-const { default: mono } = await import('./IBMPlexMono-Regular.ttf?url')
+import mono from './IBMPlexMono-Regular.ttf'
 // @ts-ignore
-const { default: moji } = await import('./NotoColorEmoji-Regular.ttf?url')
+import moji from './NotoColorEmoji-Regular.ttf'
 const FONT_PATHS: Record<string, string> = { sans, mono, moji }
 
 // load font data as arraybuffer

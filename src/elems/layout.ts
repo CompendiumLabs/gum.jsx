@@ -3,7 +3,7 @@
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
 import { is_scalar, maximum, minimum, ensure_array, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils'
-import { wrapWidths } from '../lib/text'
+import { wrapWidths } from '../lib/wrap'
 
 import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac } from './core'
 import { RoundedRect, Dot } from './geometry'
