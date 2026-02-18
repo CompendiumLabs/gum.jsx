@@ -275,13 +275,8 @@ function walkTree(node: ASTNode | null): any {
 //
 
 function component(klass: any, props: Record<string, any>, ...children0: any[]): any {
-  let args = { ...props }
-  if (children0.length == 1 && is_string(children0[0])) {
-    args.children = children0[0]
-  } else if (children0.length > 0) {
-    args.children = filterChildren(children0)
-  }
-  console.log('component', args)
+  const children = filterChildren(children0)
+  const args = { ...props, children }
   return isClass(klass) ? new klass(args) : klass(args)
 }
 
@@ -319,7 +314,6 @@ function runJSX(text: string, debug: boolean = false): any {
   const output = typeof(output0) == 'function' ? output0() : output0
 
   // return gum object
-  console.log('output', output)
   return output
 }
 

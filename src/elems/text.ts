@@ -124,7 +124,7 @@ function compress_spans(children: any[], font_args: Attrs = {}): any[] {
             if (!last_child) child = ensure_tail(child)
             if (last_child) child = child.trimEnd()
             const words = splitWords(child)
-            return words.map((w: string) => new Span({ children: w, ...font_args }))
+            return words.map((w: string) => new Span({ children: [ w ], ...font_args }))
         } else if (child instanceof Text) {
             return child.spans.map((s: any, i: number) => {
                 if (!(s instanceof Span)) return s
@@ -132,17 +132,17 @@ function compress_spans(children: any[], font_args: Attrs = {}): any[] {
                 if (i == 0 && first_child) text = text.trimStart()
                 if (i == child.spans.length - 1 && !last_child) text = ensure_tail(text)
                 if (i == child.spans.length - 1 && last_child) text = text.trimEnd()
-                return s.clone({ children: text, ...font_args })
+                return s.clone({ children: [ text ], ...font_args })
             })
         } else if (child instanceof Span) {
             let { text } = child
             if (first_child) text = text.trimStart()
             if (!last_child) text = ensure_tail(text)
             if (last_child) text = text.trimEnd()
-            const child1 = child.clone({ children: text, ...font_args })
+            const child1 = child.clone({ children: [ text ], ...font_args })
             return [ child1 ]
         } else {
-            const child1 = (child instanceof ElemSpan) ? child : new ElemSpan({ children: child })
+            const child1 = (child instanceof ElemSpan) ? child : new ElemSpan({ children: [ child ] })
             return [ child1 ]
         }
     })
@@ -159,12 +159,11 @@ class Text extends HWrap {
     spans: any[]
 
     constructor(args: TextArgs = {}) {
-        const { children: children0, wrap, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
-        const items = is_string(children0) ? [ children0 ] : children0
+        const { children, wrap, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
     	const [ spec, attr ] = spec_split(attr0)
 
         // split into words and elements
-        const spans = compress_spans(items, attr)
+        const spans = compress_spans(children, attr)
 
         // pass to HWrap
         super({ children: spans, spacing, padding, justify, wrap, debug, ...spec })
