@@ -154,6 +154,7 @@ interface SymLineArgs extends SymArgs, LineArgs {
 
 class SymLine extends Line {
     constructor(args: SymLineArgs = {}) {
+        console.log(args)
         const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
@@ -163,15 +164,15 @@ class SymLine extends Line {
         })
 
         // get valid point pairs
-        const children = zip(xvals1, yvals1).filter(
+        const data = zip(xvals1, yvals1).filter(
             ([ x, y ]: number[]) => (x != null) && (y != null)
-        )
+        ) as Point[]
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Line
-        super({ children, coord, ...attr })
+        super({ data, coord, ...attr })
         this.args = args
     }
 }
@@ -194,15 +195,15 @@ class SymSpline extends Spline {
         })
 
         // get valid point pairs
-        const children = zip(xvals1, yvals1).filter(
+        const data = zip(xvals1, yvals1).filter(
             ([ x, y ]: number[]) => (x != null) && (y != null)
-        )
+        ) as Point[]
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Spline
-        super({ children, coord, curve, ...attr })
+        super({ data, coord, curve, ...attr })
         this.args = args
     }
 }
@@ -225,15 +226,15 @@ class SymShape extends Shape {
         })
 
         // get valid point pairs
-        const children = zip(xvals1, yvals1).filter(
+        const data = zip(xvals1, yvals1).filter(
             ([x, y]: number[]) => (x != null) && (y != null)
-        )
+        ) as Point[]
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Shape
-        super({ children, coord, ...attr })
+        super({ data, coord, ...attr })
         this.args = args
     }
 }
@@ -263,15 +264,15 @@ class SymFill extends Shape {
         })
 
         // get valid point pairs
-        const children = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
+        const data = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
             ([x, y]: number[]) => (x != null) && (y != null)
-        )
+        ) as Point[]
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Shape
-        super({ children, stroke, fill, coord, ...attr })
+        super({ data, stroke, fill, coord, ...attr })
         this.args = args
     }
 }
@@ -287,7 +288,7 @@ function default_arrow(direc: number | Point): Box {
 }
 
 interface FieldArgs extends GroupArgs {
-    points?: Point[]
+    data?: Point[]
     shape?: Element
     size?: number
     tail?: number
@@ -295,13 +296,13 @@ interface FieldArgs extends GroupArgs {
 
 class Field extends Group {
     constructor(args: FieldArgs = {}) {
-        const { points: points0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
+        const { data: data0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
         const [ spec, attr ] = spec_split(attr0)
-        const points = check_array(points0)
+        const data = check_array(data0)
         const shape = shape0 ?? new Arrow({ tail })
 
         // create children
-        const children = points.map(([ p, d ]) =>
+        const children = data.map(([ p, d ]) =>
             shape.clone({ pos: p, rad: size, spin: d, ...attr })
         )
 

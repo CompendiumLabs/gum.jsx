@@ -214,11 +214,11 @@ interface TextBoxArgs extends BoxArgs {
 
 class TextBox extends Box {
     constructor(args: TextBoxArgs = {}) {
-        const { children: children0, padding = 0.1, justify, wrap, debug, ...attr0 } = THEME(args, 'TextBox')
+        const { children, padding = 0.1, justify, wrap, debug, ...attr0 } = THEME(args, 'TextBox')
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
-        const children = new Text({ children: children0, justify, wrap, debug, ...text_attr, ...font_attr })
-        super({ children, padding, debug, ...attr })
+        const text = new Text({ children, justify, wrap, debug, ...text_attr, ...font_attr })
+        super({ children: [ text ], padding, debug, ...attr })
         this.args = args
     }
 }

@@ -37,7 +37,7 @@ class TitleBox extends Box {
         if (title != null) {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
             const title_rad: Size = [ 0.5, title_size ]
-            title_box = new TextFrame({ children: title, pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
+            title_box = new TextFrame({ children: [ title ], pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
         }
 
         // pass to Box for margin
@@ -77,7 +77,7 @@ class Slide extends TitleFrame {
         const stack = new TextStack({ children, spacing, justify, wrap, ...text_attr })
 
         // pass to TitleFrame
-        super({ children: stack, aspect, padding, margin, border, rounded, border_stroke, title_size, ...attr })
+        super({ children: [ stack ], aspect, padding, margin, border, rounded, border_stroke, title_size, ...attr })
         this.args = args
     }
 }

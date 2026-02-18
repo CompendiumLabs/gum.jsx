@@ -9,7 +9,7 @@ import { Frame } from './layout'
 import { ArrowHead, Spline } from './geometry'
 import { Text } from './text'
 
-import type { AlignValue, Cardinal, Direc, Limit, Point, Rect } from '../lib/types'
+import type { AlignValue, Cardinal, Direc, Limit, Point, Rect, MPoint } from '../lib/types'
 
 //
 // cardinal direction utils
@@ -84,11 +84,11 @@ class ArrowSpline extends Group {
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const pos1 = from_arrow ? zip(from, mul(dir1,  soff)) : from
-        const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) : to
+        const pos1 = from_arrow ? zip(from, mul(dir1,  soff)) as MPoint : from
+        const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) as MPoint : to
 
         // make cubic spline shaft
-        const spline = new Spline({ children: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
+        const spline = new Spline({ data: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
         const children: Element[] = [ spline ]
 
         // make start arrowhead
@@ -133,10 +133,10 @@ class Node extends Frame {
         const child = check_singleton(children0)
 
         // check for single string child and make text element
-        const children = is_string(child) ? new Text({ children: child, wrap, justify, ...text_attr }) : child
+        const inner = is_string(child) ? new Text({ children: [ child ], wrap, justify, ...text_attr }) : child
 
         // pass to Frame
-        super({ children, yrad, rounded, padding, ...frame_attr })
+        super({ children: [ inner ], yrad, rounded, padding, ...frame_attr })
         this.args = args
 
         // additional props

@@ -275,8 +275,9 @@ function walkTree(node: ASTNode | null): any {
 //
 
 function component(klass: any, props: Record<string, any>, ...children0: any[]): any {
+  let args = { ...props }
   const children = filterChildren(children0)
-  const args = { ...props, children }
+  if (children.length > 0) args.children = children
   return isClass(klass) ? new klass(args) : klass(args)
 }
 

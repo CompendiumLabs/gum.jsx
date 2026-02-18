@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -14,41 +14,39 @@ import type { ElementArgs, GroupArgs, RectArgs } from './core'
 //
 
 interface LineArgs extends ElementArgs {
-    points?: Point[]
+    data?: Point[]
     closed?: boolean
 }
 
 class Line extends Element {
-    points: Point[]
+    data: Point[]
     poly: boolean
 
     constructor(args: LineArgs = {}) {
-        const { points, closed = false, ...attr } = THEME(args, 'Line')
-
-        // check valid points
-        if (points == null) throw new Error('Points are required')
+        const { data: data0, closed = false, ...attr } = THEME(args, 'Line')
+        const data = check_array(data0)
 
         // use line tag for 2 points, polyline for more
-        const poly = closed || points.length > 2
+        const poly = closed || data.length > 2
         const tag = closed ? 'polygon' : (poly ? 'polyline' : 'line')
 
         super({ tag, unary: true, ...attr })
         this.args = args
 
         // additional props
-        this.points = points
+        this.data = data
         this.poly = poly
     }
 
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        if (this.points.length < 2) return attr
+        if (this.data.length < 2) return attr
         if (this.poly) {
-            const pixels = this.points.map(p => ctx.mapPoint(p))
+            const pixels = this.data.map(p => ctx.mapPoint(p))
             const points = pointstring(pixels, ctx.prec)
             return { points, ...attr }
         } else {
-            const [ p1, p2 ] = this.points
+            const [ p1, p2 ] = this.data
             const [ x1, y1 ] = ctx.mapPoint(p1)
             const [ x2, y2 ] = ctx.mapPoint(p2)
             return { x1, y1, x2, y2, ...attr }
@@ -68,12 +66,12 @@ class UnitLine extends Line {
 
         // construct line positions
         const [ lo, hi ] = lim
-        const children = (direc == 'v') ?
+        const data: Point[] = (direc == 'v') ?
             [ [ loc, lo ], [ loc, hi ] ] :
             [ [ lo, loc ], [ hi, loc ] ]
 
         // pass to Line
-        super({ children, ...attr })
+        super({ data, ...attr })
         this.args = args
     }
 }
@@ -176,30 +174,35 @@ function pointstring(pixels: Point[], prec: number = D.prec): string {
     ).join(' ')
 }
 
-class Pointstring extends Element {
-    points: Point[]
+interface PointstringArgs extends ElementArgs {
+    data?: Point[]
+}
 
-    constructor(args: ElementArgs = {}) {
-        const { tag, points, ...attr } = THEME(args, 'Pointstring')
+class Pointstring extends Element {
+    data: Point[]
+
+    constructor(args: PointstringArgs = {}) {
+        const { tag, data: data0, ...attr } = THEME(args, 'Pointstring')
+        const data = check_array(data0)
 
         // pass to Element
         super({ tag, unary: true, ...attr })
         this.args = args
 
         // additional props
-        this.points = points
+        this.data = data
     }
 
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        const pixels = this.points.map(p => ctx.mapPoint(p))
+        const pixels = this.data.map(p => ctx.mapPoint(p))
         const points = pointstring(pixels, ctx.prec)
         return { points, ...attr }
     }
 }
 
 class Shape extends Pointstring {
-    constructor(args: ElementArgs = {}) {
+    constructor(args: PointstringArgs = {}) {
         const attr = THEME(args, 'Shape')
         super({ tag: 'polygon', ...attr })
         this.args = args
@@ -414,6 +417,7 @@ class CubicSplineCmd extends Command {
 }
 
 interface SplineArgs extends ElementArgs {
+    data?: (MPoint | Point)[]
     dir1?: Point
     dir2?: Point
     curve?: number
@@ -422,25 +426,26 @@ interface SplineArgs extends ElementArgs {
 
 class Spline extends Path {
     constructor(args: SplineArgs = {}) {
-        const { points, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
+        const { data: data0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
+        const data = check_array(data0)
 
         // compute tangent directions at each point (cardinal spline)
-        const n = points.length
+        const n = data.length
         const tans = range(n).map(i => {
             const i1 = (closed && i == 0    ) ? n - 1 : maximum(0    , i - 1)
             const i2 = (closed && i == n - 1) ? 0     : minimum(n - 1, i + 1)
-            return squeeze_mpoint(sub_mpoint(points[i2], points[i1]))
+            return squeeze_mpoint(sub_mpoint(data[i2], data[i1]))
         })
 
         // create path commands
-        const move = new MoveCmd(points[0])
+        const move = new MoveCmd(data[0])
         const num = maximum(0, closed ? n : n - 1)
         const splines = range(num).map(i => {
             const ip = (closed && i == num - 1) ? 0 : i + 1
             const d1 = (!closed && i == 0) ? dir1 : undefined
             const d2 = (!closed && i == num - 1) ? dir2 : undefined
             return new CubicSplineCmd({
-                pos1: points[i], pos2: points[ip],
+                pos1: data[i], pos2: data[ip],
                 tan1: tans[i], tan2: tans[ip],
                 dir1: d1, dir2: d2, curve
             })
@@ -578,7 +583,7 @@ class Arrow extends Group {
                 zip(D.pos, tail_off),
                 add(D.pos, tail_vec)
             ]
-            const tail_elem = new Line({ children: tail_children, stroke_width, ...tail_attr })
+            const tail_elem = new Line({ data: tail_children, stroke_width, ...tail_attr })
             children.push(tail_elem)
         }
 

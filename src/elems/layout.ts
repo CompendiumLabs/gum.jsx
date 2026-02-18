@@ -396,18 +396,18 @@ class Grid extends Group {
 //
 
 interface PointsArgs extends GroupArgs {
-    points?: Point[]
-    shape?: Element
+    data?: Point[]
     size?: number
+    shape?: Element
 }
 
 class Points extends Group {
     constructor(args: PointsArgs = {}) {
-        const { points: points0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const { data: data0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
         const [ spec, attr ] = spec_split(attr0)
-        const points = check_array(points0)
+        const data = check_array(data0)
         const shape = shape0 ?? new Dot(attr)
-        const children = points.map((pos: Point) => shape.clone({ pos, rad: size })) ?? []
+        const children = data.map((pos: Point) => shape.clone({ pos, rad: size })) ?? []
         super({ children, ...spec })
         this.args = args
     }

@@ -476,7 +476,7 @@ class Graph extends Group {
         // map coordinate system to all elements
         const children = children0.map((e: any) => {
             if (e.spec.rect != null) {
-                return new Group({ children: e, coord })
+                return new Group({ children: [ e ], coord })
             } else {
                 return e.clone({ coord })
             }
@@ -628,26 +628,26 @@ class Plot extends Box {
 
         // optional xaxis label
         if (xlabel != null) {
-            xlabel = new BoxLabel({ children: xlabel, side: 'bottom', debug, size: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
+            xlabel = new BoxLabel({ children: [ xlabel ], side: 'bottom', debug, size: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
             children.push(xlabel)
         }
 
         // optional yaxis label
         if (ylabel != null) {
             const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: ylabel, rotate: -90 })
-            ylabel = new BoxLabel({ children: ylabel_text, side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
+            ylabel = new BoxLabel({ children: [ ylabel_text ], side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
             children.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new BoxLabel({ children: title, side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
+            title = new BoxLabel({ children: [ title ], side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
             children.push(title)
         }
 
         // pass to Box
         const inner = new Group({ children, aspect })
-        super({ children: inner, margin, ...attr })
+        super({ children: [ inner ], margin, ...attr })
         this.args = args
     }
 }
