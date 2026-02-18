@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_array, ensure_vector, ensure_point, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -14,6 +14,7 @@ import type { ElementArgs, GroupArgs, RectArgs } from './core'
 //
 
 interface LineArgs extends ElementArgs {
+    points?: Point[]
     closed?: boolean
 }
 
@@ -22,8 +23,10 @@ class Line extends Element {
     poly: boolean
 
     constructor(args: LineArgs = {}) {
-        const { children, closed = false, ...attr } = THEME(args, 'Line')
-        const points = ensure_array(children)
+        const { points, closed = false, ...attr } = THEME(args, 'Line')
+
+        // check valid points
+        if (points == null) throw new Error('Points are required')
 
         // use line tag for 2 points, polyline for more
         const poly = closed || points.length > 2
@@ -177,8 +180,7 @@ class Pointstring extends Element {
     points: Point[]
 
     constructor(args: ElementArgs = {}) {
-        const { tag, children, ...attr } = THEME(args, 'Pointstring')
-        const points = ensure_array(children)
+        const { tag, points, ...attr } = THEME(args, 'Pointstring')
 
         // pass to Element
         super({ tag, unary: true, ...attr })
@@ -198,17 +200,17 @@ class Pointstring extends Element {
 
 class Shape extends Pointstring {
     constructor(args: ElementArgs = {}) {
-        const { children, ...attr } = THEME(args, 'Shape')
-        super({ tag: 'polygon', children, ...attr })
+        const attr = THEME(args, 'Shape')
+        super({ tag: 'polygon', ...attr })
         this.args = args
     }
 }
 
 class Triangle extends Shape {
     constructor(args: ElementArgs = {}) {
-        const { children: children0, ...attr } = THEME(args, 'Triangle')
-        const children = [[0.5, 0], [1, 1], [0, 1]]
-        super({ children, ...attr })
+        const attr = THEME(args, 'Triangle')
+        const points = [[0.5, 0], [1, 1], [0, 1]]
+        super({ points, ...attr })
         this.args = args
     }
 }
@@ -222,10 +224,9 @@ class Path extends Element {
 
     constructor(args: ElementArgs = {}) {
         const { children, ...attr } = THEME(args, 'Path')
-        const cmds = ensure_array(children)
         super({ tag: 'path', unary: true, ...attr })
-        this.cmds = cmds
         this.args = args
+        this.cmds = children
     }
 
     data(ctx: Context): string {
@@ -239,6 +240,7 @@ class Path extends Element {
     }
 }
 
+// TODO: make Commands proper Elements so they work with React
 class Command {
     cmd: string
 
@@ -420,8 +422,7 @@ interface SplineArgs extends ElementArgs {
 
 class Spline extends Path {
     constructor(args: SplineArgs = {}) {
-        const { children: children0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
-        const points = ensure_array(children0)
+        const { points, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
 
         // compute tangent directions at each point (cardinal spline)
         const n = points.length
@@ -456,7 +457,7 @@ class Spline extends Path {
 //
 
 function parse_rounded(rounded: Rounded): Point[] {
-    if (is_boolean(rounded)) rounded = 0
+    if (is_boolean(rounded)) rounded = rounded ? 0.1 : 0
     if (is_scalar(rounded)) {
         rounded = [rounded, rounded, rounded, rounded]
     } else if (is_array(rounded) && rounded.length == 2) {
@@ -471,11 +472,10 @@ interface RoundedRectArgs extends ElementArgs {
     border?: number
 }
 
-// supports different rounded for each corner
+// supports different rounded for each corner (contra base Rectangle)
 class RoundedRect extends Path {
     constructor(args: RoundedRectArgs = {}) {
-        const { children: children0, rounded: rounded0 = 0, border = 1, ...attr } = THEME(args, 'RoundedRect')
-        const rounded = (rounded0 === false) ? 0 : rounded0 as Rounded
+        const { rounded = 0, border = 1, ...attr } = THEME(args, 'RoundedRect')
 
         // convert to array of arrays
         const [ rtl, rtr, rbr, rbl ] = parse_rounded(rounded)
@@ -562,12 +562,12 @@ interface ArrowArgs extends GroupArgs {
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        let { direc: direc0 = 0, tail, stroke_width, ...attr0 } = THEME(args, 'Arrow')
+        const { direc = 0, tail, stroke_width, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
         // sort out direction
         const soff = 0.5 * (stroke_width ?? 1)
-        const unit_vec = unit_direc(-direc0)
+        const unit_vec = unit_direc(-direc)
         const children: Element[] = []
 
         // create tail element
@@ -583,7 +583,7 @@ class Arrow extends Group {
         }
 
         // create head element
-        const head_elem = new ArrowHead({ direc: direc0, stroke_width, ...head_attr })
+        const head_elem = new ArrowHead({ direc, stroke_width, ...head_attr })
         children.push(head_elem)
 
         // pass to Group

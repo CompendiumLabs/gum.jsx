@@ -54,6 +54,7 @@ class HBar extends Bar {
 }
 
 interface BarsArgs extends GroupArgs {
+    data?: any[]
     direc?: Orient
     width?: number
     zero?: number
@@ -61,14 +62,17 @@ interface BarsArgs extends GroupArgs {
 
 class Bars extends Group {
     constructor(args: BarsArgs = {}) {
-        const { children: children0, direc = 'v', width = 0.75, zero = 0, ...attr0 } = THEME(args, 'Bars')
+        const { children: children0, data, direc = 'v', width = 0.75, zero = 0, ...attr0 } = THEME(args, 'Bars')
         const [ spec, attr ] = spec_split(attr0)
-        const bars = ensure_array(children0)
         const idirec = invert_orient(direc)
+
+        // handle data array case
+        const bars = data != null ?
+          data.map((size: any) => new Bar({ direc, size, ...attr })) :
+          children0
 
         // make rects from sizes
         const children = bars.map((child: any, i: number) => {
-            if (is_scalar(child)) child = new Bar({ direc, size: child, ...attr })
             const { loc = i, size } = child.attr
             const rect = join_limits({
                 [direc]: [ zero, size ],
@@ -165,12 +169,11 @@ interface LabelsArgs extends GroupArgs {
 class Labels extends Group {
     constructor(args: LabelsArgs = {}) {
         const { children: children0, direc = 'h', justify: justify0, loc: subloc, prec = D.prec, ...attr0 } = THEME(args, 'Labels')
-        const items = ensure_array(children0)
         const [ spec, attr ] = spec_split(attr0)
         const justify = justify0 ?? (direc == 'h' ? 'center' : 'right')
 
         // place tick boxes using expanded lines
-        const children = items.map((c0: any) => {
+        const children = children0.map((c0: any) => {
             const c = ensure_ticklabel(c0, { prec, ...attr })
             const { loc } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
@@ -407,8 +410,7 @@ function ensure_legendlabel(label: any, attr: Attrs = {}): Element {
 // TODO: have a .badge/.label api for plottable elements
 class Legend extends Frame {
     constructor(args: LegendArgs = {}) {
-        const { children: children0, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, justify = 'left', debug, ...attr0 } = THEME(args, 'Legend')
-        const children = ensure_array(children0)
+        const { children, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, justify = 'left', debug, ...attr0 } = THEME(args, 'Legend')
         const [ badge_attr, text_attr, attr ] = prefix_split([ 'badge', 'text' ], attr0)
 
         // construct legend badges and labels
@@ -463,17 +465,16 @@ function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?:
 class Graph extends Group {
     constructor(args: GraphArgs = {}) {
         let { children: children0, xlim, ylim, coord: coord0 = 'auto', aspect, padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
-        const elems = ensure_array(children0)
 
         // get default outer limits
-        let coord = coord0 == 'auto' ? outer_limits(elems, { xlim, ylim, padding }) : coord0
+        let coord = coord0 == 'auto' ? outer_limits(children0, { xlim, ylim, padding }) : coord0
         aspect = aspect == 'auto' ? rect_aspect(coord) : aspect
 
         // flip coordinate system if requested
         if (flip) coord = flip_rect(coord, true)
 
         // map coordinate system to all elements
-        const children = elems.map((e: any) => {
+        const children = children0.map((e: any) => {
             if (e.spec.rect != null) {
                 return new Group({ children: e, coord })
             } else {
@@ -529,10 +530,9 @@ class Plot extends Box {
         let {
             children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip = false, debug = false, ...attr0
         } = THEME(args, 'Plot')
-        const elems = ensure_array(children0, false)
 
         // determine coordinate system and aspect
-        const coord = outer_limits(elems, { xlim, ylim, padding }) as Rect
+        const coord = outer_limits(children0, { xlim, ylim, padding }) as Rect
         const [ xmin, ymin, xmax, ymax ] = coord
         xlim = [ xmin, xmax ]
         ylim = [ ymin, ymax ]
@@ -623,7 +623,7 @@ class Plot extends Box {
         // create graph from core elements
         const bg_graph = new Graph({ children: bg_elems, coord, aspect: undefined })
         const fg_graph = new Graph({ children: fg_elems, coord, aspect: undefined })
-        const el_graph = new Graph({ children: elems, coord, aspect: undefined, clip })
+        const el_graph = new Graph({ children: children0, coord, aspect: undefined, clip })
         const children: Element[] = [ bg_graph, el_graph, fg_graph ]
 
         // optional xaxis label
@@ -658,21 +658,20 @@ class Plot extends Box {
 
 interface BarPlotArgs extends PlotArgs {
     direc?: Orient
+    data?: any[]
     xtick_side?: string
 }
 
 class BarPlot extends Plot {
     constructor(args: BarPlotArgs = {}) {
-        const { children: children0, direc = 'v', aspect = 2, xtick_side = 'outer', ...attr0 } = THEME(args, 'BarPlot')
+        const { children: children0, direc = 'v', data, aspect = 2, xtick_side = 'outer', ...attr0 } = THEME(args, 'BarPlot')
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
-        const children = ensure_array(children0)
 
         // handle data array case
-        const sibs = children.map((child: any) => {
-            if (is_element(child)) return child
+        const sibs = data != null ? data.map((child: any) => {
             const [ label, size ] = is_scalar(child) ? [ child, child ] : child
             return new Bar({ label, size, ...bar_attr })
-        })
+        }) : children0
 
         // separate out bars and not-bars
         const yes_bars = sibs.filter((child: any) => child instanceof Bar)

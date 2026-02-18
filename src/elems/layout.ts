@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
-import { is_scalar, maximum, minimum, ensure_array, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils'
+import { is_scalar, maximum, minimum, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
 import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac } from './core'
@@ -87,12 +87,11 @@ interface BoxArgs extends GroupArgs {
 
 class Box extends Group {
     constructor(args: BoxArgs = {}) {
-        let { children: children0, padding, margin, border, fill, shape, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
-        const children = ensure_array(children0)
+        const { children, padding, margin, border, fill, shape: shape0, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
 
         // ensure shape is a function
-        shape ??= maybe_rounded_rect(rounded)
+        const shape = shape0 ?? maybe_rounded_rect(rounded)
 
         // compute layout
         const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, aspect: aspect as number | undefined, adjust })
@@ -107,7 +106,7 @@ class Box extends Group {
         const outer = new Group({ children: [ rect_bg, inner, rect_fg ], rect: rect_outer, clip: rect_cl })
 
         // pass to Group
-        super({ children: outer, aspect: aspect_outer, ...attr })
+        super({ children: [ outer ], aspect: aspect_outer, ...attr })
         this.args = args
     }
 }
@@ -239,15 +238,14 @@ interface StackArgs extends GroupArgs {
 // TODO: make native way to mimic using Spacer elements for spacing
 class Stack extends Group {
     constructor(args: StackArgs = {}) {
-        let { children, direc = 'v', spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = THEME(args, 'Stack')
-        children = ensure_array(children)
+        const { children: children0, direc = 'v', spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = THEME(args, 'Stack')
 
         // compute layout
-        const spacing1 = (spacing as number) / maximum(children.length - 1, 1)
-        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, even, aspect: aspect0 as number | undefined })
+        const spacing1 = (spacing as number) / maximum(children0.length - 1, 1)
+        const { ranges, aspect } = computeStackLayout(direc, children0, { spacing: spacing1, even, aspect: aspect0 as number | undefined })
 
         // assign child rects
-        children = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
+        const children = children0.length > 0 ? zip(children0, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
             const align = c.spec.align ?? justify
             return c.clone({ rect, align })
@@ -261,7 +259,7 @@ class Stack extends Group {
 
 class VStack extends Stack {
     constructor(args: StackArgs = {}) {
-        const { ...attr } = THEME(args, 'VStack')
+        const attr = THEME(args, 'VStack')
         super({ direc: 'v', ...attr })
         this.args = args
     }
@@ -269,7 +267,7 @@ class VStack extends Stack {
 
 class HStack extends Stack {
     constructor(args: StackArgs = {}) {
-        const { ...attr } = THEME(args, 'HStack')
+        const attr = THEME(args, 'HStack')
         super({ direc: 'h', ...attr })
         this.args = args
     }
@@ -288,8 +286,7 @@ interface HWrapArgs extends StackArgs {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args: HWrapArgs = {}) {
-        const { children: children0, spacing = 0, padding = 0, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
-        const children = ensure_array(children0)
+        const { children, spacing = 0, padding = 0, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
         const measure = measure0 ?? default_measure
 
         // make HStack rows
@@ -364,12 +361,11 @@ interface GridArgs extends GroupArgs {
 
 class Grid extends Group {
     constructor(args: GridArgs = {}) {
-        let { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect, ...attr } = THEME(args, 'Grid')
-        const items = ensure_array(children0)
+        const { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect: aspect0, ...attr } = THEME(args, 'Grid')
 
         // reshape children to grid
-        const { rows, cols } = computeGridSize(items.length, rows0, cols0)
-        let grid = reshape(items, [rows, cols])
+        const { rows, cols } = computeGridSize(children0.length, rows0, cols0)
+        let grid = reshape(children0, [rows, cols])
 
         // fill in missing rows and columns
         const spacer = new Spacer()
@@ -379,13 +375,13 @@ class Grid extends Group {
 
         // compute layout
         const { cranges, rranges, aspect: aspect_ideal } = computeGridLayout(grid, rows, cols, { widths, heights, spacing })
-        aspect ??= aspect_ideal
+        const aspect = aspect0 ?? aspect_ideal
 
         // make grid
         const rects = meshgrid(rranges, cranges).map(([ ylim, xlim ]) =>
             join_limits({ h: xlim, v: ylim })
         )
-        const children = zip(items, rects).map(([ child, rect ]) =>
+        const children = zip(children0, rects).map(([ child, rect ]) =>
             child.clone({ rect })
         )
 
@@ -400,17 +396,18 @@ class Grid extends Group {
 //
 
 interface PointsArgs extends GroupArgs {
+    points?: Point[]
     shape?: Element
     size?: number
 }
 
 class Points extends Group {
     constructor(args: PointsArgs = {}) {
-        const { children: children0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const { points: points0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
         const [ spec, attr ] = spec_split(attr0)
+        const points = check_array(points0)
         const shape = shape0 ?? new Dot(attr)
-        const points = ensure_array(children0)
-        const children = points.map(pos => shape.clone({ pos, rad: size }))
+        const children = points.map((pos: Point) => shape.clone({ pos, rad: size })) ?? []
         super({ children, ...spec })
         this.args = args
     }
@@ -425,18 +422,18 @@ interface AnchorArgs extends GroupArgs {
 class Anchor extends Group {
     constructor(args: AnchorArgs = {}) {
         const { children: children0, direc = 'h', loc: loc0, justify = 'center', ...attr } = args
-        const child = check_singleton(children0)
+        const child0 = check_singleton(children0)
 
         // assign spec to child
         const frac = align_frac(loc0 ?? justify)
-        const children = child.clone({
+        const child = child0.clone({
             rect: join_limits({ [direc]: [ frac, frac ] }),
             align: justify,
             expand: true,
         })
 
         // pass to Group
-        super({ children, ...attr })
+        super({ children: [ child ], ...attr })
         this.args = args
     }
 }
@@ -450,7 +447,7 @@ interface AttachArgs extends GroupArgs {
 class Attach extends Group {
     constructor(args: AttachArgs = {}) {
         const { children: children0, offset = 0, size = 1, align = 'center', side = 'top', ...attr } = THEME(args, 'Attach')
-        const child = check_singleton(children0)
+        const child0 = check_singleton(children0)
 
         // get extent and map
         const extent = size + offset
@@ -460,13 +457,13 @@ class Attach extends Group {
         }
 
         // assign spec to child
-        const children = child.clone({
+        const child = child0.clone({
             rect: rmap[side],
             align,
         })
 
         // pass to Group
-        super({ children, ...attr })
+        super({ children: [ child ], ...attr })
         this.args = args
     }
 }

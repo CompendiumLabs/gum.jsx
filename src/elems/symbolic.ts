@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D } from '../lib/const'
-import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, ensure_array } from '../lib/utils'
+import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, check_array } from '../lib/utils'
 
 import { Element, Group, spec_split } from './core'
 import { Line, Spline, Shape, Arrow, Dot } from './geometry'
@@ -113,7 +113,7 @@ interface SymPointsArgs extends SymArgs, GroupArgs {
 
 class SymPoints extends Group {
     constructor(args: SymPointsArgs = {}) {
-        const { children: children0, fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
+        const { fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
         const [ spec, attr ] = spec_split(attr0)
         const fsize = ensure_function(size)
         const fshap = ensure_shapefunc(shape0 ?? new Dot(attr))
@@ -154,7 +154,7 @@ interface SymLineArgs extends SymArgs, LineArgs {
 
 class SymLine extends Line {
     constructor(args: SymLineArgs = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute path values
@@ -185,7 +185,7 @@ interface SymSplineArgs extends SymArgs, SplineArgs {
 
 class SymSpline extends Spline {
     constructor(args: SymSplineArgs = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, curve, ...attr } = THEME(args, 'SymSpline')
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, curve, ...attr } = THEME(args, 'SymSpline')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute path values
@@ -216,7 +216,7 @@ interface SymShapeArgs extends SymArgs, ElementArgs {
 
 class SymShape extends Shape {
     constructor(args: SymShapeArgs = {}) {
-        const { children: children0, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymShape')
+        const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymShape')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
@@ -251,7 +251,7 @@ interface SymFillArgs extends SymArgsBase, GroupArgs {
 
 class SymFill extends Shape {
     constructor(args: SymFillArgs = {}) {
-        const { children: children0, fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = 'none', fill = '#f0f0f0', coord: coord0, ...attr } = THEME(args, 'SymFill')
+        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = 'none', fill = '#f0f0f0', coord: coord0, ...attr } = THEME(args, 'SymFill')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
@@ -287,6 +287,7 @@ function default_arrow(direc: number | Point): Box {
 }
 
 interface FieldArgs extends GroupArgs {
+    points?: Point[]
     shape?: Element
     size?: number
     tail?: number
@@ -294,10 +295,10 @@ interface FieldArgs extends GroupArgs {
 
 class Field extends Group {
     constructor(args: FieldArgs = {}) {
-        const { children: children0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
-        const points = ensure_array(children0)
-        const shape = shape0 ?? new Arrow({ tail })
+        const { points: points0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
         const [ spec, attr ] = spec_split(attr0)
+        const points = check_array(points0)
+        const shape = shape0 ?? new Arrow({ tail })
 
         // create children
         const children = points.map(([ p, d ]) =>
@@ -312,13 +313,14 @@ class Field extends Group {
 
 interface SymFieldArgs extends SymArgs, GroupArgs {
     func?: (x: number, y: number) => number | Point
+    shape?: Element | ((direc: Point) => Element)
 }
 
 class SymField extends SymPoints {
     constructor(args: SymFieldArgs = {}) {
-        const { children: children0, func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, coord: coord0, ...attr } = THEME(args, 'SymField')
+        const { func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, shape: shape0, coord: coord0, ...attr } = THEME(args, 'SymField')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
-        const shape = ensure_singleton(children0) ?? default_arrow
+        const shape = ensure_shapefunc(shape0 ?? default_arrow)
         const size = size0 ?? 0.25 / N
 
         // check for function

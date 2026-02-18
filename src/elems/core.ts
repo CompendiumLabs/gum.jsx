@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_array, ensure_vector, ensure_point, check_string, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
 
 import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
@@ -269,6 +269,7 @@ interface SpecArgs {
     invar?: boolean
 }
 
+// TODO: children should be Element[] | string
 interface ElementArgs extends SpecArgs {
     tag?: string
     unary?: boolean
@@ -448,7 +449,7 @@ class Group extends Element {
 
     constructor(args: GroupArgs = {}) {
         const { children: children0, aspect: aspect0, coord: coord0, clip: clip0 = false, mask: mask0 = false, debug = false, tag = 'g', ...attr } = args
-        const children = ensure_array(children0)
+        const children = children0.filter((c: any) => c != null)
 
         // handle boolean args
         const clip = clip0 === true ? new Rectangle() : clip0
@@ -460,8 +461,8 @@ class Group extends Element {
         // create debug boxes
         if (debug) {
             const dargs = { stroke_dasharray: 3, opacity: 0.5 }
-            const orects = children.map(c => new Rectangle({ rect: c.spec.rect, ...dargs, stroke: blue }))
-            const irects = children.map(c => new Rectangle({ ...c.spec, ...dargs, stroke: red }))
+            const orects = children.map((c: Element) => new Rectangle({ rect: c.spec.rect, ...dargs, stroke: blue }))
+            const irects = children.map((c: Element) => new Rectangle({ ...c.spec, ...dargs, stroke: red }))
             children.push(...irects, ...orects)
         }
 
@@ -470,7 +471,7 @@ class Group extends Element {
         if (clip != false) {
             const clip_id = makeUID('clip')
             clip_path = `url(#${clip_id})`
-            const mask = new ClipPath({ children: clip, id: clip_id })
+            const mask = new ClipPath({ children: [ clip ], id: clip_id })
             children.push(mask)
         }
 
@@ -479,7 +480,7 @@ class Group extends Element {
         if (mask0 != false) {
             const mask_id = makeUID('mask')
             mask = `url(#${mask_id})`
-            const mask_elem = new Mask({ children: mask0, id: mask_id })
+            const mask_elem = new Mask({ children: [ mask0 ], id: mask_id })
             children.push(mask_elem)
         }
 
@@ -512,8 +513,7 @@ class Group extends Element {
 
 class ClipPath extends Group {
     constructor(args: GroupArgs = {}) {
-        const { children: children0, ...attr } = args
-        const children = ensure_array(children0)
+        const { children, ...attr } = args
         super({ tag: 'clipPath', children, ...attr })
         this.args = args
     }
@@ -527,8 +527,7 @@ class ClipPath extends Group {
 
 class Mask extends Group {
     constructor(args: GroupArgs = {}) {
-        const { children: children0, ...attr } = args
-        const children = ensure_array(children0)
+        const { children, ...attr } = args
         super({ tag: 'mask', children, ...attr })
         this.args = args
     }
@@ -544,10 +543,9 @@ class Style extends Element {
     text: string
 
     constructor(args: ElementArgs = {}) {
-        const { children: children0 } = args
-        const text = check_string(children0)
+        const { children } = args
         super({ tag: 'style', unary: false })
-        this.text = text
+        this.text = children
     }
 
     svg(_ctx?: Context): string {
@@ -604,8 +602,7 @@ class Svg extends Group {
     prec: number
 
     constructor(args: SvgArgs = {}) {
-        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
-        const children = ensure_array(children0)
+        const { children, size : size0 = D.size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const size_base = ensure_point(size0)
 
         // precompute aspect info
@@ -680,7 +677,7 @@ class Rectangle extends Element {
     rounded?: number | Point
 
     constructor(args: RectArgs = {}) {
-        let { rounded, ...attr } = THEME(args, 'Rect')
+        const { rounded, ...attr } = THEME(args, 'Rect')
 
         // pass to Element
         super({ tag: 'rect', unary: true, ...attr })
@@ -702,7 +699,7 @@ class Rectangle extends Element {
         let rx: number | undefined
         let ry: number | undefined
         if (this.rounded != null) {
-            let s = 0.5 * (w + h)
+            const s = 0.5 * (w + h)
             if (is_scalar(this.rounded)) {
                 rx = s * this.rounded
             } else {
@@ -722,7 +719,7 @@ class Rectangle extends Element {
 // this can have an aspect, which is utilized by layouts
 class Spacer extends Element {
     constructor(args: ElementArgs = {}) {
-        const { ...attr } = THEME(args, 'Spacer')
+        const attr = THEME(args, 'Spacer')
         super({ tag: 'g', unary: true, ...attr })
         this.args = args
     }

@@ -76,8 +76,10 @@ function evaluateGum(code: string, { theme, debug = false, ...args }: EvaluateAr
 
   // wrap it in Svg if not already
   if (!(result instanceof Svg)) {
-    return new Svg({ children: result, ...args })
+    return new Svg({ children: [ result ], ...args })
   }
+
+  console.log(result)
 
   // return result
   return result

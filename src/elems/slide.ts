@@ -1,7 +1,6 @@
 // slide elements
 
 import { THEME } from '../lib/theme'
-import { ensure_array } from '../lib/utils'
 
 import { prefix_split, spec_split } from './core'
 import { Box } from './layout'
@@ -26,8 +25,7 @@ interface TitleBoxArgs extends BoxArgs {
 // TODO: title doesn't get rotated on spin
 class TitleBox extends Box {
     constructor(args: TitleBoxArgs = {}) {
-        const { children: children0, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleBox')
-        const children = ensure_array(children0)
+        const { children, title, title_size = 0.05, title_fill, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleBox')
         const [ title_attr, attr1 ] = prefix_split(['title'], attr0)
         const [ spec, attr ] = spec_split(attr1)
 
@@ -72,8 +70,7 @@ interface SlideArgs extends TitleFrameArgs {
 
 class Slide extends TitleFrame {
     constructor(args: SlideArgs = {}) {
-        const { children: children0, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.05, wrap = 25, spacing = 0.05, justify = 'left', ...attr0 } = THEME(args, 'Slide')
-        const children = ensure_array(children0)
+        const { children, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.05, wrap = 25, spacing = 0.05, justify = 'left', ...attr0 } = THEME(args, 'Slide')
         const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
 
         // stack up children

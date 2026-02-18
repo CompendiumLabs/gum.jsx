@@ -59,15 +59,6 @@ function is_array(x: any): x is any[] {
 // type conversions
 //
 
-function ensure_array(x: any, empty: boolean = true): any[] {
-    x = is_array(x) ? x : [ x ]
-    x = x.filter((v: any) => v != null)
-    if (!empty && x.length == 0) {
-        throw new Error('Array must have at least one element')
-    }
-    return x
-}
-
 function ensure_vector(x: any, n: number): any[] {
     if (!is_array(x)) {
         return range(n).map(_i => x)
@@ -94,11 +85,15 @@ function ensure_function(x: any): any | undefined {
 //
 
 function check_singleton(children: any): any {
-    if (children == null || children.length == 0) return null
     if (is_array(children) && children.length > 1) {
         throw new Error('Must have exactly one child')
     }
     return ensure_singleton(children)
+}
+
+function check_array(x: any): any[] {
+    if (!is_array(x)) throw new Error('Must be an array')
+    return x
 }
 
 function check_string(children: any): string {
@@ -818,4 +813,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }

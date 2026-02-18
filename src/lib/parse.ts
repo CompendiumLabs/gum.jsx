@@ -4,6 +4,7 @@ import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 
 import { CONTEXT } from '../gum'
+import { is_string } from '../lib/utils'
 
 //
 // parser utils
@@ -49,7 +50,7 @@ function snakeCase(s: string): string {
 }
 
 function filterChildren(items: any[]): any[] {
-  return items.flat(1)
+  return items.flat()
     .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
@@ -274,8 +275,13 @@ function walkTree(node: ASTNode | null): any {
 //
 
 function component(klass: any, props: Record<string, any>, ...children0: any[]): any {
-  const children = filterChildren(children0)
-  const args = children.length > 0 ? { children, ...props } : props
+  let args = { ...props }
+  if (children0.length == 1 && is_string(children0[0])) {
+    args.children = children0[0]
+  } else if (children0.length > 0) {
+    args.children = filterChildren(children0)
+  }
+  console.log('component', args)
   return isClass(klass) ? new klass(args) : klass(args)
 }
 
@@ -313,6 +319,7 @@ function runJSX(text: string, debug: boolean = false): any {
   const output = typeof(output0) == 'function' ? output0() : output0
 
   // return gum object
+  console.log('output', output)
   return output
 }
 

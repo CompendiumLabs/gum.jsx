@@ -3,7 +3,7 @@
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { vtext, none, bold, svgns } from '../lib/const'
-import { ensure_array, check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
+import { check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
 import { textSizer, wrapText, splitWords } from '../lib/text'
 import { mathjax } from '../lib/math'
 
@@ -46,12 +46,12 @@ class Span extends Element {
 
     constructor(args: SpanArgs = {}) {
         const { children: children0, color, voffset = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
-        const child = check_string(children0)
+        const text0 = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // compress whitespace, since that's what SVG does
-        const text = compress_whitespace(child)
+        const text = compress_whitespace(text0)
         const width = textSizer(text, font_attr)
 
         // pass to element
@@ -97,11 +97,11 @@ interface ElemSpanArgs extends GroupArgs {
 class ElemSpan extends Group {
     constructor(args: ElemSpanArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = args
-        const children = check_singleton(children0)
-        const aspect0 = children.spec.aspect ?? 1
+        const child0 = check_singleton(children0)
+        const aspect0 = child0.spec.aspect ?? 1
         const aspect = aspect0 + spacing
-        const child = children.clone({ align: 'left' })
-        super({ children: child, aspect, ...attr })
+        const child = child0.clone({ align: 'left' })
+        super({ children: [ child ], aspect, ...attr })
     }
 }
 
@@ -139,9 +139,11 @@ function compress_spans(children: any[], font_args: Attrs = {}): any[] {
             if (first_child) text = text.trimStart()
             if (!last_child) text = ensure_tail(text)
             if (last_child) text = text.trimEnd()
-            return child.clone({ children: text, ...font_args })
+            const child1 = child.clone({ children: text, ...font_args })
+            return [ child1 ]
         } else {
-            return (child instanceof ElemSpan) ? child : new ElemSpan({ children: child })
+            const child1 = (child instanceof ElemSpan) ? child : new ElemSpan({ children: child })
+            return [ child1 ]
         }
     })
 }
@@ -158,7 +160,7 @@ class Text extends HWrap {
 
     constructor(args: TextArgs = {}) {
         const { children: children0, wrap, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
-        const items = ensure_array(children0)
+        const items = is_string(children0) ? [ children0 ] : children0
     	const [ spec, attr ] = spec_split(attr0)
 
         // split into words and elements
@@ -188,12 +190,13 @@ interface TextStackArgs extends StackArgs {
 class TextStack extends VStack {
     constructor(args: TextStackArgs = {}) {
         const { children: children0, wrap = null, justify = 'left', ...attr0 } = THEME(args, 'TextStack')
-        const items = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // apply wrap to children
-        const children = items.map((c: any) => c.clone({ ...font_attr, ...text_attr, wrap, justify }))
+        const children = children0.map((c: Element) =>
+            c.clone({ ...font_attr, ...text_attr, wrap, justify })
+        )
 
         // pass to VStack
         super({ children, ...attr })
@@ -213,10 +216,9 @@ interface TextBoxArgs extends BoxArgs {
 class TextBox extends Box {
     constructor(args: TextBoxArgs = {}) {
         const { children: children0, padding = 0.1, justify, wrap, debug, ...attr0 } = THEME(args, 'TextBox')
-        const text = ensure_array(children0)
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
-        const children = new Text({ children: text, justify, wrap, debug, ...text_attr, ...font_attr })
+        const children = new Text({ children: children0, justify, wrap, debug, ...text_attr, ...font_attr })
         super({ children, padding, debug, ...attr })
         this.args = args
     }
@@ -281,8 +283,8 @@ class TextFlex extends Element {
     font_args: Attrs
 
     constructor(args: TextFlexArgs = {}) {
-        const { children: children0, font_scale, font_size, spacing = 0.1, color, voffset = vtext, ...attr0 } = THEME(args, 'TextFlex')
-        const children = check_string(children0)
+        const { children, font_scale, font_size, spacing = 0.1, color, voffset = vtext, ...attr0 } = THEME(args, 'TextFlex')
+        const text = check_string(children)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
@@ -291,7 +293,7 @@ class TextFlex extends Element {
         this.args = args
 
         // additional props
-        this.text = children
+        this.text = text
         this.voffset = voffset
         this.spacing = spacing
         this.font_scale = font_scale
@@ -333,14 +335,14 @@ class TextFlex extends Element {
 
 class Bold extends Text {
     constructor(args: TextArgs = {}) {
-        const { ...attr } = THEME(args, 'Bold')
+        const attr = THEME(args, 'Bold')
         super({ font_weight: bold, ...attr })
     }
 }
 
 class Italic extends Text {
     constructor(args: TextArgs = {}) {
-        const { ...attr } = THEME(args, 'Italic')
+        const attr = THEME(args, 'Italic')
         super({ font_style: 'italic', ...attr })
     }
 }
@@ -350,7 +352,6 @@ class Italic extends Text {
 //
 
 interface LatexArgs extends ElementArgs {
-    children?: any
     display?: boolean
     voffset?: number
 }
@@ -411,7 +412,7 @@ class Latex extends Element {
 
 class Equation extends Latex {
     constructor(args: LatexArgs = {}) {
-        const { ...attr } = THEME(args, 'Equation')
+        const attr = THEME(args, 'Equation')
         super({ display: true, ...attr })
     }
 }
