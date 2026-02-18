@@ -14,7 +14,5 @@ const points1 = theta1.map(t => polar(R, t))
 
 // return full spline
 return <Frame aspect margin padding rounded fill={gray}>
-  <Spline closed fill={blue} curve={c} coord={[-1, -1, 1, 1]}>
-    {zip(points0, points1).flat()}
-  </Spline>
+  <Spline closed fill={blue} curve={c} coord={[-1, -1, 1, 1]} data={zip(points0, points1).flat()} />
 </Frame>
