@@ -51,9 +51,7 @@ try {
     FONT_PATHS.moji = mojiPath
     FONT_DATA.moji = await loadFont(mojiPath)
     FONTS[moji] = opentype.parse(FONT_DATA.moji)
-} catch {
-    console.warn('Emoji font not found')
-}
+} catch {}
 
 //
 // exports

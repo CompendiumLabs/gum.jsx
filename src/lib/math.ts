@@ -67,8 +67,8 @@ class MathJaxWeb extends MathJaxBase {
             },
             ...base_config,
         }
-        const mathjax_url = new URL(/* @vite-ignore */ 'mathjax/tex-mml-svg.js', import.meta.url)
-        await import(mathjax_url.toString())
+        // @ts-ignore
+        await import('mathjax/tex-mml-svg.js')
     }
 
     render(tex: string, { display = false } = {}): RenderResult {
