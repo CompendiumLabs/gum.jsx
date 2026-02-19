@@ -154,7 +154,6 @@ interface SymLineArgs extends SymArgs, LineArgs {
 
 class SymLine extends Line {
     constructor(args: SymLineArgs = {}) {
-        console.log(args)
         const { fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymLine')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
