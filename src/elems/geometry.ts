@@ -212,8 +212,8 @@ class Shape extends Pointstring {
 class Triangle extends Shape {
     constructor(args: ElementArgs = {}) {
         const attr = THEME(args, 'Triangle')
-        const points = [[0.5, 0], [1, 1], [0, 1]]
-        super({ points, ...attr })
+        const data: Point[] = [[0.5, 0], [1, 1], [0, 1]]
+        super({ data, ...attr })
         this.args = args
     }
 }
