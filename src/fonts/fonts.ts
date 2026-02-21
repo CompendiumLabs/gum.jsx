@@ -47,7 +47,7 @@ const FONTS: Record<string, Font> = {
 try {
     // @ts-ignore
     const mojiFile = './' + 'NotoColorEmoji-Regular.ttf'
-    const { default: mojiPath } = await import(mojiFile)
+    const { default: mojiPath } = await import(/* @vite-ignore */ mojiFile)
     FONT_PATHS.moji = mojiPath
     FONT_DATA.moji = await loadFont(mojiPath)
     FONTS[moji] = opentype.parse(FONT_DATA.moji)
