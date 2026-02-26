@@ -4,7 +4,6 @@ import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 
 import { CONTEXT } from '../gum'
-import { is_string } from '../lib/utils'
 
 //
 // parser utils

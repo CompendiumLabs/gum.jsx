@@ -669,8 +669,8 @@ class BarPlot extends Plot {
 
         // handle data array case
         const sibs = data != null ? data.map((child: any) => {
-            const [ label, size ] = is_scalar(child) ? [ child, child ] : child
-            return new Bar({ label, size, ...bar_attr })
+            const [ label, size ] = ensure_vector(child, 2)
+            return new Bar({ label, size })
         }) : children0
 
         // separate out bars and not-bars
