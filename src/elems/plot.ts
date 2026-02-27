@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none, blue, white } from '../lib/const'
-import { linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep } from '../lib/utils'
+import { sign, abs, linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep } from '../lib/utils'
 import { Span } from './text'
 
 import { Element, Group, Spacer, prefix_split, prefix_join, spec_split, is_element } from './core'
@@ -159,10 +159,10 @@ class HScale extends Scale {
 }
 
 function calcLabelLayout(direc: Orient, rot0: number): number {
-    if (direc == 'v') return 1
     const rot = rot0 ?? 0
-    const t0 = smoothstep(Math.abs(rot), [ 0, 45 ])
-    const t = -Math.sign(rot) * t0
+    const t = (direc == 'h') ?
+        -sign(rot) * smoothstep(     abs(rot), [ 0, 45 ]) :
+                     smoothstep(90 - abs(rot), [ 0, 45 ])
     return 0.5 * (1 + t)
 }
 
