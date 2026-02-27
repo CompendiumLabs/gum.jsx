@@ -13,6 +13,7 @@ async function loadFont(path: string): Promise<ArrayBuffer> {
         const response = await fetch(path)
         return response.arrayBuffer()
     } else {
+        // @ts-ignore
         const fs = await import('fs/promises')
         const { buffer } = await fs.readFile(path)
         return buffer

@@ -280,7 +280,7 @@ function component(klass: any, props: Record<string, any>, ...children0: any[]):
   return isClass(klass) ? new klass(args) : klass(args)
 }
 
-function runJSX(text: string, debug: boolean = false): any {
+function runJSX(text: string, context: Record<string, any> = {}, debug: boolean = false): any {
   // strip comment lines (to allow comments before bare elements)
   const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
 
@@ -305,12 +305,15 @@ function runJSX(text: string, debug: boolean = false): any {
     console.log()
   }
 
+  // merge contexts
+  const context0 = { ...CONTEXT, ...context }
+
   // construct function
   const jsCode = `return ${jsCode0}`
-  const func = new Function('__COMPONENT__', ...Object.keys(CONTEXT), jsCode)
+  const func = new Function('__COMPONENT__', ...Object.keys(context0), jsCode)
 
   // execute function
-  const output0 = func(component, ...Object.values(CONTEXT))
+  const output0 = func(component, ...Object.values(context0))
   const output = typeof(output0) == 'function' ? output0() : output0
 
   // return gum object

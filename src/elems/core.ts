@@ -4,7 +4,7 @@ import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
 import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
 
-import type { Point, Rect, Limit, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
+import type { Point, Rect, Limit, Size, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
 //
 // rect embedding
@@ -25,7 +25,7 @@ function align_frac(align: AlignValue): number {
 }
 
 // embed a rect of given `aspect` into rect of given `size`
-function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, expand?: boolean } = {}): Point {
+function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, expand?: boolean } = {}): Size {
     if (aspect == null) return size
     const [ w0, h0 ] = size
     const [ aw, ah ] = [ abs(w0), abs(h0) ]
@@ -33,11 +33,11 @@ function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, 
     const agg = expand ? maximum : minimum
     const h = agg(aw / aspect, ah)
     const w = h * aspect
-    return [ sw * w, sh * h ] as Point
+    return [ sw * w, sh * h ]
 }
 
 // get the size of an `aspect` rect that will fit in `size` after `rotate`
-function rotate_rect(size: Point, rotate: number, { aspect, expand = false, invar = false, tol = 0.001 }: { aspect?: number, expand?: boolean, invar?: boolean, tol?: number } = {}): Point {
+function rotate_rect(size: Size, rotate: number, { aspect, expand = false, invar = false, tol = 0.001 }: { aspect?: number, expand?: boolean, invar?: boolean, tol?: number } = {}): Size {
     // knock out easy case
     if (rotate == 0 || invar) return embed_size(size, { aspect, expand })
 
@@ -87,7 +87,7 @@ function rotate_rect(size: Point, rotate: number, { aspect, expand = false, inva
     }
 
     // return base and rotated rect sizes
-    return [ w, h ] as Point
+    return [ w, h ]
 }
 
 function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string {
@@ -275,7 +275,7 @@ interface ElementArgs extends SpecArgs {
     unary?: boolean
     children?: any
     pos?: Point
-    rad?: number | Point
+    rad?: number | Size
     xrad?: number
     yrad?: number
     xlim?: Limit
@@ -582,7 +582,7 @@ class Metadata {
 //
 
 interface SvgArgs extends GroupArgs {
-    size?: number | Point
+    size?: number | Size
     padding?: number
     bare?: boolean
     dims?: boolean
@@ -596,7 +596,7 @@ interface SvgArgs extends GroupArgs {
 }
 
 class Svg extends Group {
-    size: Point
+    size: Size
     viewrect: Rect
     style: Style
     prec: number
@@ -670,11 +670,11 @@ class Svg extends Group {
 //
 
 interface RectArgs extends ElementArgs {
-    rounded?: number | Point
+    rounded?: number | Size
 }
 
 class Rectangle extends Element {
-    rounded?: number | Point
+    rounded?: number | Size
 
     constructor(args: RectArgs = {}) {
         const { rounded, ...attr } = THEME(args, 'Rect')

@@ -48,10 +48,11 @@ class ErrorRender extends Error {
 
 interface EvaluateArgs extends SvgArgs {
   theme?: string
+  context?: Record<string, any>
   debug?: boolean
 }
 
-function evaluateGum(code: string, { theme, debug = false, ...args }: EvaluateArgs = {}): Svg {
+function evaluateGum(code: string, { theme, context = {}, debug = false, ...args }: EvaluateArgs = {}): Svg {
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
@@ -63,7 +64,7 @@ function evaluateGum(code: string, { theme, debug = false, ...args }: EvaluateAr
   }
 
   // parse to property tree
-  const result = runJSX(code, debug)
+  const result = runJSX(code, context, debug)
 
   // check if its actually a tree
   if (!is_element(result)) {

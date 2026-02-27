@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D } from '../lib/const'
-import { zip, linspace, ensure_function, ensure_singleton, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, check_array } from '../lib/utils'
+import { zip, linspace, ensure_function, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, check_array } from '../lib/utils'
 
 import { Element, Group, spec_split } from './core'
 import { Line, Spline, Shape, Arrow, Dot } from './geometry'

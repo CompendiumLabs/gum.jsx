@@ -19,6 +19,7 @@ async function readStdin(): Promise<string> {
 program.name('gum')
   .description('gum.jsx to SVG/PNG converter and viewer')
   .argument('[file]', 'gum.jsx file to render (reads from stdin if not provided)')
+  .option('-i, --input <input>', 'input format')
   .option('-f, --format <format>', 'format to output')
   .option('-o, --output <output>', 'output file')
   .option('-t, --theme <theme>', 'theme to use', 'dark')
@@ -31,7 +32,7 @@ program.name('gum')
 
 // parse arguments
 const [file] = program.args
-let { format, output, theme, background, update, size, width, height } = program.opts()
+let { input, format = 'kitty', output, theme, background, size, width, height } = program.opts()
 
 // don't output kitty to file
 if (output && format == null) format = 'png'
@@ -40,16 +41,26 @@ if (output && format == null) format = 'png'
 const code = file ? readFileSync(file, 'utf-8') : await readStdin()
 
 // evaluate gum with size
-const elem = evaluateGum(code, { size, theme })
-const svg = elem.svg()
+let svg: string
+if (input == 'svg') {
+  svg = code
+} else if (input == 'jsx') {
+  const elem = evaluateGum(code, { size, theme })
+  size = elem.size
+  svg = elem.svg()
+} else {
+  throw new Error(`Unsupported input format: ${input}`)
+}
 
 // rasterize output
 let out: string | Buffer
-if (format == null || format == 'png') {
-  const dat = rasterizeSvg(svg, { size: elem.size, width, height, background })
-  out = (format == null) ? (formatImage(dat) + '\n') : dat
-} else {
+if (format == 'svg') {
   out = svg
+} else if (format == 'png' || format == 'kitty') {
+  const dat = rasterizeSvg(svg, { size, width, height, background })
+  out = (format == 'kitty') ? (formatImage(dat) + '\n') : dat
+} else {
+  throw new Error(`Unsupported output format: ${format}`)
 }
 
 // write output
