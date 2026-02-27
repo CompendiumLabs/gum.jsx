@@ -623,7 +623,11 @@ function upright_rect(rect: Rect | undefined): Rect | undefined {
 // limit utils
 //
 
-function join_limits({ v, h }: { v?: Limit, h?: Limit } = {}): Rect {
+type LimitArgs = {
+    [key in Orient]?: Limit
+}
+
+function join_limits({ v, h }: LimitArgs = {}): Rect {
     const [ vlo, vhi ] = v ?? D.lim
     const [ hlo, hhi ] = h ?? D.lim
     return [ hlo, vlo, hhi, vhi ]

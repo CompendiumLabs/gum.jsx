@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none, blue, white } from '../lib/const'
-import { linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits } from '../lib/utils'
+import { linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep } from '../lib/utils'
 import { Span } from './text'
 
 import { Element, Group, Spacer, prefix_split, prefix_join, spec_split, is_element } from './core'
@@ -107,7 +107,7 @@ class HBars extends Bars {
 // axis/tick/label elements
 //
 
-function ensure_ticklabel(label: any, args: Attrs = {}): Element {
+function ensure_ticklabel(label: Element | number | [number, string], args: Attrs = {}): Element {
     const { prec = D.prec, ...attr } = args
     if (is_element(label)) return label.clone(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
@@ -158,6 +158,14 @@ class HScale extends Scale {
     }
 }
 
+function calcLabelLayout(direc: Orient, rot0: number): number {
+    if (direc == 'v') return 1
+    const rot = rot0 ?? 0
+    const t0 = smoothstep(Math.abs(rot), [ 0, 45 ])
+    const t = -Math.sign(rot) * t0
+    return 0.5 * (1 + t)
+}
+
 interface LabelsArgs extends GroupArgs {
     direc?: Orient
     justify?: AlignValue
@@ -168,20 +176,18 @@ interface LabelsArgs extends GroupArgs {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args: LabelsArgs = {}) {
-        const { children: children0, direc = 'h', justify: justify0, loc: subloc, prec = D.prec, ...attr0 } = THEME(args, 'Labels')
-        const [ spec, attr ] = spec_split(attr0)
-        const justify = justify0 ?? (direc == 'h' ? 'center' : 'right')
+        const { children: children0, direc = 'h', justify: justify0, loc: subloc, ...attr } = THEME(args, 'Labels')
 
         // place tick boxes using expanded lines
-        const children = children0.map((c0: any) => {
-            const c = ensure_ticklabel(c0, { prec, ...attr })
-            const { loc } = c.attr
+        const children = children0.map((c: Element) => {
+            const { loc, rot } = c.attr
             const rect = join_limits({ [direc]: [ loc, loc ] })
-            return new Anchor({ children: c, rect, expand: true, aspect: 1, justify, loc: subloc })
+            const justify = calcLabelLayout(direc, rot)
+            return new Anchor({ children: c, rect, expand: true, aspect: 1, justify, loc: justify, spin: rot })
         })
 
         // pass to Group
-        super({ children, ...spec })
+        super({ children, ...attr })
         this.args = args
     }
 }
@@ -216,10 +222,12 @@ function get_tick_lim(lim: string | Limit): Limit {
     }
 }
 
+type TickArgs = number | [number, string]
+
 interface AxisArgs extends GroupArgs {
     lim?: Limit
     direc?: Orient
-    ticks?: number | any[]
+    ticks?: number | TickArgs[]
     tick_side?: Zone
     label_side?: Zone
     label_size?: number
@@ -237,31 +245,31 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children, lim = D.lim, direc, ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim
 
         // get tick and label limits
-        const label_justify = label_justify0 ?? ((direc == 'v') ? (label_side == 'outer' ? 'right' : 'left') : 'center')
+        const label_justify = label_justify0 ?? ((direc == 'v') ? (label_side == 'outer' ? 'right' : 'left') : undefined)
         const label_base = (label_side == 'inner') ? (tick_hi + label_offset) : (tick_lo - label_offset - label_size)
         const label_lim: Limit = [ label_base, label_base + label_size ]
 
         // set up one-sides coordinate system
-        const idirec = invert_orient(direc as Orient)
-        const coord = join_limits({ [direc as string]: lim })
+        const idirec = invert_orient(direc)
+        const coord = join_limits({ [direc]: lim })
         const scale_rect = join_limits({ [idirec]: tick_lim })
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0 as number) : ticks0) : []
-        const labels = children ?? (ticks as any[]).map((t: any) => ensure_ticklabel(t, { prec, ...label_attr }))
-        const locs = labels.map((c: any) => c.attr.loc)
+        const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0) : []
+        const labels = children ?? ticks.map((t: TickArgs) => ensure_ticklabel(t, { prec, ...label_attr }))
+        const locs = labels.map((c: Element) => c.attr.loc)
 
         // accumulate children
-        const cline = new UnitLine({ direc: direc as Orient, lim, coord, ...line_attr })
-        const scale = new Scale({ locs, direc: direc as Orient, rect: scale_rect, coord, debug, ...tick_attr })
-        const label = new Labels({ children: labels, direc: direc as Orient, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
+        const cline = new UnitLine({ direc, lim, coord, ...line_attr })
+        const scale = new Scale({ locs, direc, rect: scale_rect, coord, debug, ...tick_attr })
+        const label = new Labels({ children: labels, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
 
         // pass to Group
         super({ children: [ cline, scale, label ], debug, ...attr })
