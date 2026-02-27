@@ -107,13 +107,6 @@ class HBars extends Bars {
 // axis/tick/label elements
 //
 
-function ensure_ticklabel(label: Element | number | [number, string], args: Attrs = {}): Element {
-    const { prec = D.prec, ...attr } = args
-    if (is_element(label)) return label.clone(attr)
-    const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
-    return new Span({ children: rounder(str, prec), loc, ...attr })
-}
-
 interface ScaleArgs extends GroupArgs {
     locs?: number[]
     direc?: Orient
@@ -158,7 +151,7 @@ class HScale extends Scale {
     }
 }
 
-function calcLabelLayout(direc: Orient, rot0: number): number {
+function calcLabelJustify(direc: Orient, rot0: number): number {
     const rot = rot0 ?? 0
     const t = (direc == 'h') ?
         -sign(rot) * smoothstep(     abs(rot), [ 0, 45 ]) :
@@ -166,24 +159,56 @@ function calcLabelLayout(direc: Orient, rot0: number): number {
     return 0.5 * (1 + t)
 }
 
-interface LabelsArgs extends GroupArgs {
+interface LabelArgs extends GroupArgs {
+    loc?: number
     direc?: Orient
     justify?: AlignValue
+}
+
+class Label extends Anchor {
     loc?: number
-    prec?: number
+
+    constructor(args: LabelArgs = {}) {
+        const { children: children0, loc, direc = 'h', spin = 0, justify: justify0, ...attr } = THEME(args, 'Label')
+        const child = check_singleton(children0)
+        const elem = is_string(child) ? new Span({ children: [ child ] }) : child
+        const justify = justify0 ?? calcLabelJustify(direc, spin)
+        super({ children: [ elem ], spin, justify, aspect: 1, ...attr })
+        this.args = args
+        this.loc = loc
+    }
+}
+
+class HLabel extends Label {
+    constructor(args: LabelArgs = {}) {
+        const attr = THEME(args, 'HLabel')
+        super({ direc: 'h', ...attr })
+        this.args = args
+    }
+}
+
+class VLabel extends Label {
+    constructor(args: LabelArgs = {}) {
+        const attr = THEME(args, 'VLabel')
+        super({ direc: 'v', ...attr })
+        this.args = args
+    }
+}
+
+interface LabelsArgs extends GroupArgs {
+    direc?: Orient
 }
 
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args: LabelsArgs = {}) {
-        const { children: children0, direc = 'h', justify: justify0, loc: subloc, ...attr } = THEME(args, 'Labels')
+        const { children: children0, direc = 'h', ...attr } = THEME(args, 'Labels')
 
         // place tick boxes using expanded lines
         const children = children0.map((c: Element) => {
-            const { loc, rot } = c.attr
+            const loc = c.args.loc
             const rect = join_limits({ [direc]: [ loc, loc ] })
-            const justify = calcLabelLayout(direc, rot)
-            return new Anchor({ children: c, rect, expand: true, aspect: 1, justify, loc: justify, spin: rot })
+            return c.clone({ rect, expand: true })
         })
 
         // pass to Group
@@ -222,7 +247,21 @@ function get_tick_lim(lim: string | Limit): Limit {
     }
 }
 
-type TickArgs = number | [number, string]
+function ensure_ticklabel(label: Element | Label | number | [number, string], args: Attrs = {}): Element {
+    const { direc = 'h', prec = D.prec, ...attr } = args
+
+    // handle element cases
+    if (label instanceof Label) return label.clone(attr)
+    if (is_element(label)) return new Label({ children: [ label ], direc, loc: label.args.loc, ...attr })
+
+    // handle scalar case
+    const [ spec, attr1 ] = spec_split(attr)
+    const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
+    const child = new Span({ children: rounder(str, prec), ...attr1 })
+    return new Label({ children: child, direc, loc, ...spec })
+}
+
+type TickArgs = Label | number | [number, string]
 
 interface AxisArgs extends GroupArgs {
     lim?: Limit
@@ -263,8 +302,8 @@ class Axis extends Group {
 
         // extract tick information
         const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0) : []
-        const labels = children ?? ticks.map((t: TickArgs) => ensure_ticklabel(t, { prec, ...label_attr }))
-        const locs = labels.map((c: Element) => c.attr.loc)
+        const labels = children ?? ticks.map((t: TickArgs) => ensure_ticklabel(t, { direc, prec, ...label_attr }))
+        const locs = labels.map((c: Element) => c.args.loc)
 
         // accumulate children
         const cline = new UnitLine({ direc, lim, coord, ...line_attr })
@@ -704,5 +743,5 @@ class BarPlot extends Plot {
 // exports
 //
 
-export { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Labels, HLabels, VLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Legend, Graph, Plot, BarPlot }
+export { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Legend, Graph, Plot, BarPlot }
 export type { BarArgs, BarsArgs, ScaleArgs, LabelsArgs, AxisArgs, BoxLabelArgs, MeshArgs, Mesh2DArgs, LegendArgs, GraphArgs, PlotArgs, BarPlotArgs }

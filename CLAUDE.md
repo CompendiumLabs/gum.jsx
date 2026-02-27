@@ -26,6 +26,12 @@ cat test.jsx | bun run cli -f png > output.png
 
 ### Testing
 
+Run type checking:
+
+```bash
+bun tsc --noEmit
+```
+
 Test examples are in `docs/code/` and `docs/gala/`. Run the full test suite:
 ```bash
 bun scripts/test.js

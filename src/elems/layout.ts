@@ -415,13 +415,13 @@ class Points extends Group {
 
 interface AnchorArgs extends GroupArgs {
     direc?: Orient
-    loc?: number
     justify?: AlignValue
+    loc?: AlignValue
 }
 
 class Anchor extends Group {
     constructor(args: AnchorArgs = {}) {
-        const { children: children0, direc = 'h', loc: loc0, justify = 'center', ...attr } = args
+        const { children: children0, direc = 'h', justify = 'center', loc: loc0, ...attr } = args
         const child0 = check_singleton(children0)
 
         // assign spec to child
