@@ -334,7 +334,7 @@ class Element {
         this.spec.aspect = this.spec.invar ? this.spec.aspect0 : rotate_aspect(this.spec.aspect, this.spec.rotate)
 
         // warn if children are passed
-        if (children != null) console.error(`Got children in ${this.tag}`)
+        if (children != null) console.error(`Got children in ${this.constructor.name}`)
     }
 
     clone(args: Attrs = {}): Element {

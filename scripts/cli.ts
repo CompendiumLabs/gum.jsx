@@ -32,7 +32,7 @@ program.name('gum')
 
 // parse arguments
 const [file] = program.args
-let { input, format = 'kitty', output, theme, background, size, width, height } = program.opts()
+let { input = 'jsx', format = 'kitty', output, theme, background, size, width, height } = program.opts()
 
 // don't output kitty to file
 if (output && format == null) format = 'png'

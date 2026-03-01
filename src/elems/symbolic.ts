@@ -283,7 +283,7 @@ class SymFill extends Shape {
 function default_arrow(direc: number | Point): Box {
     const theta = is_scalar(direc) ? direc : vector_angle(direc)
     const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
-    return new Box({ children: arrow, spin: theta })
+    return new Box({ children: [ arrow ], spin: theta })
 }
 
 interface FieldArgs extends GroupArgs {
@@ -335,7 +335,7 @@ class SymField extends SymPoints {
         const coord = coord0 ?? detect_coords(xvals, yvals, xlim, ylim)
 
         // pass to SymPoints
-        super({ children: fshap, xvals, yvals, size, coord, ...attr })
+        super({ shape: fshap, xvals, yvals, size, coord, ...attr })
         this.args = args
     }
 }

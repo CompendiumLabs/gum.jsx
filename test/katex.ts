@@ -2,10 +2,22 @@ import { __parse as parse_tex } from 'katex'
 import type { SymbolMode, Tree, TreeNode } from 'katex'
 import symbols from './symbols'
 import { is_array, is_object, Element, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
+import { registerFont } from '../src/fonts/fonts'
+import { join, resolve } from 'path'
+
+//
+// register katex fonts
+//
+
+const fonts_dir = resolve(__dirname, '../node_modules/katex/dist/fonts')
+await registerFont('KaTeX_Math', join(fonts_dir, 'KaTeX_Math-Italic.ttf'))
+await registerFont('KaTeX_Main', join(fonts_dir, 'KaTeX_Main-Regular.ttf'))
+
+//
+// symbols and fonts
+//
 
 type FontFamily = 'KaTeX_Math' | 'KaTeX_Main'
-
-// constants
 const FONTS: Record<SymbolMode, FontFamily> = {
     'math': 'KaTeX_Math',
     'text': 'KaTeX_Main',
@@ -31,7 +43,10 @@ function make_symbol(mode: SymbolMode, text: string, args: Attrs = {}): Span {
     return make_span(children, { font_family, ...attr })
 }
 
+//
 // parse katex tree
+//
+
 function convert_tree(tree: Tree | TreeNode): Element {
     if (is_array(tree)) {
         const children = tree.map(x => convert_tree(x))
@@ -88,7 +103,10 @@ function convert_tree(tree: Tree | TreeNode): Element {
     return new Spacer()
 }
 
-// get tex from stdin and parse
+//
+// main function
+//
+
 function parse_katex(tex: string): Element | null {
     const tree = parse_tex(tex)
     return convert_tree(tree)

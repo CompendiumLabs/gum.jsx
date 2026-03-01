@@ -42,6 +42,16 @@ const FONTS: Record<string, Font> = {
 }
 
 //
+// allow additional fonts to be loaded
+//
+
+async function registerFont(name: string, path: string) {
+    FONT_PATHS[name] = path
+    FONT_DATA[name] = await loadFont(path)
+    FONTS[name] = opentype.parse(FONT_DATA[name])
+}
+
+//
 // try to load emoji font (obfuscated path excludes it from vite bundles)
 //
 
@@ -49,13 +59,11 @@ try {
     // @ts-ignore
     const mojiFile = './' + 'NotoColorEmoji-Regular.ttf'
     const { default: mojiPath } = await import(/* @vite-ignore */ mojiFile)
-    FONT_PATHS.moji = mojiPath
-    FONT_DATA.moji = await loadFont(mojiPath)
-    FONTS[moji] = opentype.parse(FONT_DATA.moji)
+    await registerFont(moji, mojiPath)
 } catch {}
 
 //
 // exports
 //
 
-export { FONT_PATHS, FONT_DATA, FONTS }
+export { FONT_PATHS, FONT_DATA, FONTS, registerFont }
