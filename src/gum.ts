@@ -2,6 +2,7 @@
 
 import './types/opentype.d.ts'
 import './types/linebreak.d.ts'
+import './types/katex.d.ts'
 
 import { setTheme } from './lib/theme'
 import { sans, mono, moji, light, bold, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r } from './lib/const'

@@ -53,6 +53,9 @@ type RenderResult = {
 
 class MathJaxBase {
     process(tex: string, { display = false } = {}): any {
+        if (MathJax?.tex2mml == null) {
+            throw new Error('MathJax is not initialized')
+        }
         const mml = MathJax.tex2mml(tex)
         const out = MathJax.mathml2svg(mml, { display })
         return out.children[0]
@@ -69,6 +72,7 @@ class MathJaxWeb extends MathJaxBase {
         }
         // @ts-ignore
         await import('mathjax/tex-mml-svg.js')
+        await (window as any).MathJax.startup.promise
     }
 
     render(tex: string, { display = false } = {}): RenderResult {
@@ -101,7 +105,7 @@ class MathJaxNode extends MathJaxBase {
             ...base_config,
         }
         await import( /* @vite-ignore */ source['tex-mml-svg'])
-        await MathJax.startup.promise
+        await (global as any).MathJax.startup.promise
     }
 
     render(tex: string, { display = false } = {}): RenderResult {
@@ -131,6 +135,7 @@ try {
     await mathjax.init()
 } catch (error) {
     // console.error(`Failed to initialize MathJax: ${error}`)
+    mathjax = null
 }
 
 export { mathjax }
