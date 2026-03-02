@@ -13,6 +13,7 @@ const fonts_dir = resolve(__dirname, '../node_modules/katex/dist/fonts')
 await registerFont('KaTeX_Math', join(fonts_dir, 'KaTeX_Math-Italic.ttf'))
 await registerFont('KaTeX_Main', join(fonts_dir, 'KaTeX_Main-Regular.ttf'))
 await registerFont('KaTeX_AMS', join(fonts_dir, 'KaTeX_AMS-Regular.ttf'))
+await registerFont('KaTeX_Size1', join(fonts_dir, 'KaTeX_Size1-Regular.ttf'))
 
 //
 // atom classes + spacing data (ported from KaTeX spacingData.js)
@@ -146,11 +147,12 @@ function cancel_binary_atoms(layouts0: MathLayout[]): MathLayout[] {
 // symbols and fonts
 //
 
-type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS'
+type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1'
 const FONTS: Record<SymbolMode, FontFamily> = {
     'math': 'KaTeX_Math',
     'text': 'KaTeX_Main',
 }
+const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
 
 const FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
     'mathord': 'mord',
@@ -356,7 +358,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const { mode, name } = tree
             const entry = get_symbol(mode, name)
             if (entry != null) {
-                const span = make_span(entry.replace ?? name)
+                const span = make_span(entry.replace ?? name, { font_family: OP_SYMBOL_FONT })
                 return layout_with(span, 'mop')
             } else {
                 const name1 = name.slice(1)

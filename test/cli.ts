@@ -5,7 +5,7 @@ import path from 'path'
 import { spawnSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import { Command } from 'commander'
-import { Svg } from '../src/gum'
+import { Svg, Box } from '../src/gum'
 import { formatImage } from '../src/render'
 import { parse_katex } from './katex'
 
@@ -82,7 +82,8 @@ if (elem == null) {
     throw new Error('Failed to parse TeX input')
 }
 
-const out = new Svg({ children: [ elem ], size }).svg()
+const box = new Box({ children: [ elem ], padding: 0.1 })
+const out = new Svg({ children: [ box ], size }).svg()
 
 if (png) {
     const pngBuffer = convertSvgToPng(out, output, background)
