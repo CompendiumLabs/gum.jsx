@@ -61,13 +61,6 @@ const FRAC_RULE_GAP = 0.05
 const FRAC_NO_RULE_GAP = 0.22
 const FRAC_DELIM_GAP = 0.04
 
-const STYLE_SCALE: Record<string, number> = {
-    display: 1,
-    text: 1,
-    script: SCRIPT_SCALE,
-    scriptscript: SCRIPT_SCALE * SCRIPT_SCALE,
-}
-
 function set_math_classes(element: Element, leftClass: AtomClass | null, rightClass: AtomClass | null = leftClass): Element {
     const math = element as MathClassedElement
     math.leftClass = leftClass
@@ -425,36 +418,9 @@ class Frac extends HStack {
 
 const Fraction = Frac
 
-function layout_row(items: MathItem | MathItem[], args: Omit<MathTextArgs, 'items'> = {}): Element {
-    const row = new MathText({ items, ...args })
-    if (row.items.length == 0) return empty_math()
-    return row
-}
-
-function layout_style(element: Element, style: string): Element {
-    const scale = STYLE_SCALE[style] ?? 1
-    if (scale == 1) return element
-
-    const { leftClass, rightClass } = get_math_classes(element)
-    const scaled = scale_element(element, scale)
-    return set_math_classes(scaled, leftClass, rightClass)
-}
-
-function layout_supsub(base: Element, sup: Element | null, sub: Element | null, args: Omit<SupSubArgs, 'base' | 'sup' | 'sub'> = {}): Element {
-    const element = new SupSub({ base, sup, sub, ...args })
-    const { leftClass, rightClass } = get_math_classes(base)
-    return set_math_classes(element, leftClass, rightClass)
-}
-
-function layout_frac(numer: Element, denom: Element, args: Omit<FracArgs, 'numer' | 'denom'> = {}): Element {
-    const element = new Frac({ numer, denom, ...args })
-    return set_math_classes(element, 'mord')
-}
-
 export {
     MathSpan, MathText, SupSub, Frac, Fraction,
     EMPTY_MATH,
     set_math_classes, get_math_classes,
-    layout_row, layout_style, layout_supsub, layout_frac,
 }
 export type { AtomClass, MathItem }

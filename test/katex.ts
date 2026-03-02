@@ -1,9 +1,9 @@
 import { join, resolve } from 'path'
 import { __parse as parse_tex } from 'katex'
 
-import { registerFont, is_array, is_object, Element, Spacer } from '../src/gum'
+import { registerFont, is_array, is_object, Element, Group, Spacer } from '../src/gum'
 import symbols from './symbols'
-import { EMPTY_MATH, MathSpan, layout_frac, layout_row, layout_style, layout_supsub, set_math_classes } from './math'
+import { EMPTY_MATH, MathSpan, MathText, SupSub, Frac, get_math_classes, set_math_classes } from './math'
 
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode, Measurement } from 'katex'
 import type { Attrs } from '../src/gum'
@@ -90,6 +90,17 @@ function measurement_to_em(d: Measurement): number {
     return d.number * (scale[d.unit] ?? 0)
 }
 
+function element_aspect(element: Element | null): number {
+    return element?.spec.aspect ?? 1
+}
+
+const STYLE_SCALE: Record<string, number> = {
+    display: 1,
+    text: 1,
+    script: 1,
+    scriptscript: 1,
+}
+
 //
 // parse katex tree
 //
@@ -98,7 +109,8 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
     if (tree == null) return EMPTY_MATH
 
     if (is_array(tree)) {
-        return layout_row(tree.map(node => convert_tree(node)))
+        const row = new MathText({ items: tree.map(node => convert_tree(node)) })
+        return row.items.length > 0 ? row : EMPTY_MATH
     }
 
     if (is_object(tree)) {
@@ -140,13 +152,22 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
         } else if (type == 'styling') {
             const { body, style } = tree
             const body_element = convert_tree(body)
-            return layout_style(body_element, style)
+            const scale = STYLE_SCALE[style] ?? 1
+            if (scale == 1) return body_element
+
+            const ypad = (1 - scale) / 2
+            const child = body_element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
+            const scaled = new Group({ children: [ child ], aspect: element_aspect(body_element) * scale })
+            const { leftClass, rightClass } = get_math_classes(body_element)
+            return set_math_classes(scaled, leftClass, rightClass)
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0)
             const sup = sup0 ? convert_tree(sup0) : null
             const sub = sub0 ? convert_tree(sub0) : null
-            return layout_supsub(base, sup, sub)
+            const element = new SupSub({ base, sup, sub })
+            const { leftClass, rightClass } = get_math_classes(base)
+            return set_math_classes(element, leftClass, rightClass)
         } else if (type == 'genfrac') {
             const {
                 mode = 'math',
@@ -160,11 +181,14 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const denom = convert_tree(denom0)
             const left = make_delimiter(mode, leftDelim)
             const right = make_delimiter(mode, rightDelim)
-            return layout_frac(numer, denom, {
+            const element = new Frac({
+                numer,
+                denom,
                 has_bar: hasBarLine,
                 left,
                 right,
             })
+            return set_math_classes(element, 'mord')
         }
     }
 
