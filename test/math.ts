@@ -1,0 +1,457 @@
+import { black, is_array, is_scalar, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
+
+import type { Attrs } from '../src/gum'
+
+type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
+
+interface MathLayout {
+    element: Element
+    leftClass: AtomClass | null
+    rightClass: AtomClass | null
+}
+
+type Measurement = {
+    number: number
+    unit: 'mu'
+}
+
+const THINSPACE: Measurement = { number: 3, unit: 'mu' }
+const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
+const THICKSPACE: Measurement = { number: 5, unit: 'mu' }
+
+type SpacingTable = Partial<Record<AtomClass, Measurement>>
+const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
+    mord: { mop: THINSPACE, mbin: MEDIUMSPACE, mrel: THICKSPACE, minner: THINSPACE },
+    mop: { mord: THINSPACE, mop: THINSPACE, mrel: THICKSPACE, minner: THINSPACE },
+    mbin: { mord: MEDIUMSPACE, mop: MEDIUMSPACE, mopen: MEDIUMSPACE, minner: MEDIUMSPACE },
+    mrel: { mord: THICKSPACE, mop: THICKSPACE, mopen: THICKSPACE, minner: THICKSPACE },
+    mopen: {},
+    mclose: { mop: THINSPACE, mbin: MEDIUMSPACE, mrel: THICKSPACE, minner: THINSPACE },
+    mpunct: {
+        mord: THINSPACE,
+        mop: THINSPACE,
+        mrel: THICKSPACE,
+        mopen: THINSPACE,
+        mclose: THINSPACE,
+        mpunct: THINSPACE,
+        minner: THINSPACE,
+    },
+    minner: {
+        mord: THINSPACE,
+        mop: THINSPACE,
+        mbin: MEDIUMSPACE,
+        mrel: THICKSPACE,
+        mopen: THINSPACE,
+        mpunct: THINSPACE,
+        minner: THINSPACE,
+    },
+}
+
+const BIN_LEFT_CANCELLER = new Set<AtomClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
+const BIN_RIGHT_CANCELLER = new Set<AtomClass>(['mrel', 'mclose', 'mpunct'])
+
+const ROW_PADDING = 0.05
+const SCRIPT_SCALE = 1.0
+const SCRIPT_SPACE = 0.05
+const SCRIPT_SHIFT = 0.05
+
+const FRAC_SCALE = 1.0
+const FRAC_PAD = 0.06
+const FRAC_RULE_SIZE = 0.015
+const FRAC_RULE_GAP = 0.05
+const FRAC_NO_RULE_GAP = 0.22
+const FRAC_DELIM_GAP = 0.04
+
+const STYLE_SCALE: Record<string, number> = {
+    display: 1,
+    text: 1,
+    script: SCRIPT_SCALE,
+    scriptscript: SCRIPT_SCALE * SCRIPT_SCALE,
+}
+
+const EMPTY_LAYOUT: MathLayout = { element: new Spacer(), leftClass: null, rightClass: null }
+
+function layout_with(element: Element, klass: AtomClass | null): MathLayout {
+    return { element, leftClass: klass, rightClass: klass }
+}
+
+function layout_from(element: Element, leftClass: AtomClass | null, rightClass: AtomClass | null = leftClass): MathLayout {
+    return { element, leftClass, rightClass }
+}
+
+function measurement_to_em(m: Measurement): number {
+    return m.number / 18
+}
+
+function inter_atom_spacing(prev: AtomClass | null, next: AtomClass | null): number {
+    if (prev == null || next == null) return 0
+    const table = SPACING_TABLE[prev]
+    const measurement = table?.[next]
+    if (measurement == null) return 0
+    return measurement_to_em(measurement)
+}
+
+function element_aspect(element: Element | null): number {
+    return element?.spec.aspect ?? 1
+}
+
+function scale_element(element: Element, scale: number = SCRIPT_SCALE): Element {
+    if (scale == 1) return element
+    const ypad = (1 - scale) / 2
+    const child = element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
+    return new Group({ children: [ child ], aspect: element_aspect(element) * scale })
+}
+
+function cancel_layout_left_bin(layout: MathLayout): void {
+    if (layout.leftClass != 'mbin') return
+    layout.leftClass = 'mord'
+    if (layout.rightClass == 'mbin') {
+        layout.rightClass = 'mord'
+    }
+}
+
+function cancel_layout_right_bin(layout: MathLayout): void {
+    if (layout.rightClass != 'mbin') return
+    layout.rightClass = 'mord'
+    if (layout.leftClass == 'mbin') {
+        layout.leftClass = 'mord'
+    }
+}
+
+function cancel_binary_atoms(layouts0: MathLayout[]): MathLayout[] {
+    const layouts = layouts0.map(layout => ({ ...layout }))
+    let prevIndex: number | null = null
+
+    for (let i = 0; i < layouts.length; i++) {
+        const layout = layouts[i]
+        if (layout.leftClass == null && layout.rightClass == null) continue
+
+        if (prevIndex == null) {
+            cancel_layout_left_bin(layout)
+        } else if (layout.leftClass != null) {
+            const prev = layouts[prevIndex]
+
+            if (prev.rightClass == 'mbin' && BIN_RIGHT_CANCELLER.has(layout.leftClass)) {
+                cancel_layout_right_bin(prev)
+            }
+
+            const prevClass = prev.rightClass
+            if (layout.leftClass == 'mbin' && (prevClass == null || BIN_LEFT_CANCELLER.has(prevClass))) {
+                cancel_layout_left_bin(layout)
+            }
+        }
+
+        prevIndex = i
+    }
+
+    if (prevIndex != null) {
+        cancel_layout_right_bin(layouts[prevIndex])
+    }
+
+    return layouts
+}
+
+interface MathTextArgs extends Attrs {
+    items?: MathItem | MathItem[]
+    children?: MathItem | MathItem[]
+    padding?: number
+    defaultClass?: AtomClass | null
+}
+
+interface MathSpanArgs extends Attrs {
+    children?: any
+    klass?: AtomClass | null
+    leftClass?: AtomClass | null
+    rightClass?: AtomClass | null
+}
+
+type MathItem =
+    | MathLayout
+    | Element
+    | MathText
+    | MathSpan
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | MathItem[]
+
+class MathSpan extends Span {
+    leftClass: AtomClass | null
+    rightClass: AtomClass | null
+
+    constructor(args: MathSpanArgs = {}) {
+        const {
+            children: children0 = '',
+            klass = 'mord',
+            leftClass = klass,
+            rightClass = leftClass,
+            ...attr
+        } = args
+
+        super({ children: children0, ...attr })
+        this.args = args
+        this.leftClass = leftClass
+        this.rightClass = rightClass
+    }
+}
+
+function is_math_layout(value: any): value is MathLayout {
+    return value?.element instanceof Element
+}
+
+function normalize_math_children(children0: any, defaultClass: AtomClass | null): MathLayout[] {
+    const children = is_array(children0) ? children0 : [ children0 ]
+    const out: MathLayout[] = []
+
+    for (const child of children) {
+        if (child == null) continue
+
+        if (is_array(child)) {
+            out.push(...normalize_math_children(child, defaultClass))
+            continue
+        }
+
+        if (child instanceof MathText) {
+            out.push(...child.layouts)
+            continue
+        }
+
+        if (child instanceof MathSpan) {
+            out.push(layout_from(child, child.leftClass, child.rightClass))
+            continue
+        }
+
+        if (is_math_layout(child)) {
+            out.push(child)
+            continue
+        }
+
+        if (child instanceof Element) {
+            out.push(layout_with(child, defaultClass))
+            continue
+        }
+
+        if (is_scalar(child) || typeof child == 'string') {
+            const span = new MathSpan({ children: child, klass: defaultClass })
+            out.push(layout_from(span, span.leftClass, span.rightClass))
+        }
+    }
+
+    return out
+}
+
+class MathText extends HStack {
+    leftClass: AtomClass | null
+    rightClass: AtomClass | null
+    items: Element[]
+    layouts: MathLayout[]
+
+    constructor(args: MathTextArgs = {}) {
+        const {
+            items: items0,
+            children: children0 = [],
+            padding = ROW_PADDING,
+            defaultClass = 'mord',
+            ...attr
+        } = args
+        const rawItems = normalize_math_children(items0 ?? children0, defaultClass)
+        const items = cancel_binary_atoms(rawItems)
+        const children: Element[] = []
+        const itemElements: Element[] = []
+        let leftClass: AtomClass | null = null
+        let rightClass: AtomClass | null = null
+        let prevClass: AtomClass | null = null
+
+        if (padding > 0 && items.length > 0) {
+            children.push(new Spacer({ aspect: padding }))
+        }
+
+        for (const layout of items) {
+            if (layout.leftClass && prevClass) {
+                const gap = inter_atom_spacing(prevClass, layout.leftClass)
+                if (gap > 0) children.push(new Spacer({ aspect: gap }))
+            }
+            children.push(layout.element)
+            itemElements.push(layout.element)
+            if (leftClass == null) leftClass = layout.leftClass
+            if (layout.rightClass != null) {
+                prevClass = layout.rightClass
+                rightClass = layout.rightClass
+            }
+        }
+
+        if (padding > 0 && items.length > 0) {
+            children.push(new Spacer({ aspect: padding }))
+        }
+
+        if (rightClass == null) rightClass = leftClass
+
+        super({ children, ...attr })
+        this.args = args
+        this.leftClass = leftClass
+        this.rightClass = rightClass
+        this.items = itemElements
+        this.layouts = items
+    }
+}
+
+interface SupSubArgs extends Attrs {
+    base: Element
+    sup?: Element | null
+    sub?: Element | null
+    script_scale?: number
+    script_space?: number
+    script_shift?: number
+}
+
+class SupSub extends HStack {
+    constructor(args: SupSubArgs) {
+        const {
+            base,
+            sup = null,
+            sub = null,
+            script_scale = SCRIPT_SCALE,
+            script_space = SCRIPT_SPACE,
+            script_shift = SCRIPT_SHIFT,
+            ...attr
+        } = args
+
+        const supElem = sup ? scale_element(sup, script_scale) : new Spacer()
+        const subElem = sub ? scale_element(sub, script_scale) : new Spacer()
+        const supBox = new Box({ children: [ supElem ], stack_size: (1 - script_space) / 2 })
+        const subBox = new Box({ children: [ subElem ], stack_size: (1 - script_space) / 2 })
+        const spacer = new Spacer({ stack_size: script_space })
+        const stack = new VStack({
+            children: [ supBox, spacer, subBox ],
+            justify: 'left',
+            pos: [0.5, 0.5 + script_shift],
+        })
+        const side = new Box({ children: [ stack ] })
+
+        super({ children: [ base, side ], ...attr })
+        this.args = args
+    }
+}
+
+interface FracArgs extends Attrs {
+    numer: Element
+    denom: Element
+    has_bar?: boolean
+    left?: Element | null
+    right?: Element | null
+    frac_scale?: number
+    frac_pad?: number
+    rule_size?: number
+    rule_gap?: number
+    no_rule_gap?: number
+    delim_gap?: number
+}
+
+class Frac extends HStack {
+    constructor(args: FracArgs) {
+        const {
+            numer,
+            denom,
+            has_bar = true,
+            left = null,
+            right = null,
+            bar_rounded = 0.025,
+            frac_scale = FRAC_SCALE,
+            frac_pad = FRAC_PAD,
+            rule_size = FRAC_RULE_SIZE,
+            rule_gap = FRAC_RULE_GAP,
+            no_rule_gap = FRAC_NO_RULE_GAP,
+            delim_gap = FRAC_DELIM_GAP,
+            ...attr
+        } = args
+
+        const numerElem = scale_element(numer, frac_scale)
+        const denomElem = scale_element(denom, frac_scale)
+        const coreAspect = Math.max(element_aspect(numerElem), element_aspect(denomElem)) + 2 * frac_pad
+
+        const gapTop = has_bar ? rule_gap : no_rule_gap / 2
+        const gapBot = has_bar ? rule_gap : no_rule_gap / 2
+        const lineSize = has_bar ? rule_size : 0
+        const sideSize = Math.max((1 - gapTop - gapBot - lineSize) / 2, 0.01)
+
+        const numerBox = new Box({
+            children: [ numerElem ],
+            aspect: coreAspect,
+            padding: [ frac_pad, 0 ],
+            stack_size: sideSize,
+        })
+        const denomBox = new Box({
+            children: [ denomElem ],
+            aspect: coreAspect,
+            padding: [ frac_pad, 0 ],
+            stack_size: sideSize,
+        })
+
+        const coreChildren: Element[] = [
+            numerBox,
+            new Spacer({ stack_size: gapTop }),
+        ]
+
+        if (has_bar) {
+            coreChildren.push(new Rectangle({ fill: black, rounded: bar_rounded, stack_size: lineSize }))
+        }
+
+        coreChildren.push(
+            new Spacer({ stack_size: gapBot }),
+            denomBox,
+        )
+
+        const core = new VStack({ children: coreChildren, justify: 'center' })
+
+        const children: Element[] = []
+        if (left != null) children.push(left, new Spacer({ aspect: delim_gap }))
+        children.push(core)
+        if (right != null) children.push(new Spacer({ aspect: delim_gap }), right)
+
+        super({ children, ...attr })
+        this.args = args
+    }
+}
+
+const Fraction = Frac
+
+function layout_row(items: MathItem | MathItem[], args: Omit<MathTextArgs, 'items'> = {}): MathLayout {
+    const row = new MathText({ items, ...args })
+    if (row.layouts.length == 0) return EMPTY_LAYOUT
+    return layout_from(row, row.leftClass, row.rightClass)
+}
+
+function layout_style(layout: MathLayout, style: string): MathLayout {
+    const scale = STYLE_SCALE[style] ?? 1
+    if (scale == 1) return layout
+    const element = scale_element(layout.element, scale)
+    return layout_from(element, layout.leftClass, layout.rightClass)
+}
+
+function layout_supsub(base: MathLayout, sup: MathLayout | null, sub: MathLayout | null, args: Omit<SupSubArgs, 'base' | 'sup' | 'sub'> = {}): MathLayout {
+    const element = new SupSub({
+        base: base.element,
+        sup: sup?.element,
+        sub: sub?.element,
+        ...args,
+    })
+    return layout_from(element, base.leftClass, base.rightClass)
+}
+
+function layout_frac(numer: MathLayout, denom: MathLayout, args: Omit<FracArgs, 'numer' | 'denom'> = {}): MathLayout {
+    const element = new Frac({
+        numer: numer.element,
+        denom: denom.element,
+        ...args,
+    })
+    return layout_with(element, 'mord')
+}
+
+export {
+    MathSpan, MathText, SupSub, Frac, Fraction,
+    EMPTY_LAYOUT,
+    layout_with, layout_from, layout_row, layout_style, layout_supsub, layout_frac,
+}
+export type { AtomClass, MathLayout, MathItem }

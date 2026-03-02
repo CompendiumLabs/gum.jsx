@@ -37,6 +37,15 @@ declare module 'katex' {
         type: 'op'
         mode: SymbolMode
         name: string
+        symbol?: boolean
+        limits?: boolean
+        parentIsSupSub?: boolean
+    }
+
+    export type TreeKern = {
+        type: 'kern'
+        mode: SymbolMode
+        dimension: Measurement
     }
 
     export type TreeText = {
@@ -80,6 +89,7 @@ declare module 'katex' {
         | TreeMathOrd
         | TreeOrdGroup
         | TreeOp
+        | TreeKern
         | TreeText
         | TreeStyling
         | TreeSupSub
