@@ -14,20 +14,15 @@ const projectRoot = path.resolve(__dirname, '..')
 const RESVG_RESOURCES_DIR = projectRoot
 const RESVG_FONTS_DIR = path.join(projectRoot, 'node_modules', 'katex', 'dist', 'fonts')
 
-function convertSvgToPng(svg: string, outputPath?: string, background?: string): Buffer {
+function convertSvgToPng(svg: string, outputPath?: string): Buffer {
     const args = [
         '--use-fonts-dir',
         RESVG_FONTS_DIR,
         '--resources-dir',
         RESVG_RESOURCES_DIR,
+        '-',
+        outputPath ?? '-c',
     ]
-
-    if (background != null) {
-        args.push('--background', background)
-    }
-
-    args.push('-')
-    args.push(outputPath ?? '-c')
 
     const result = spawnSync('resvg', args, {
         input: svg,
@@ -65,7 +60,7 @@ program
     .description('Render TeX from stdin using test/katex.ts and output SVG/PNG')
     .option('-o, --output <output>', 'output file; defaults to stdout')
     .option('-p, --png', 'emit PNG (via resvg) instead of SVG')
-    .option('-b, --background <color>', 'background color (PNG)', '#ffffff')
+    .option('-b, --background <color>', 'background color (PNG)', 'white')
     .option('-s, --size <size>', 'svg size in px', (value) => parseInt(value), 500)
     .parse(process.argv)
 
@@ -82,11 +77,11 @@ if (elem == null) {
     throw new Error('Failed to parse TeX input')
 }
 
-const box = new Box({ children: [ elem ], padding: 0.1 })
+const box = new Box({ children: [ elem ], padding: 0.1, border: 1, rounded: 0.1, fill: background, clip: true })
 const out = new Svg({ children: [ box ], size }).svg()
 
 if (png) {
-    const pngBuffer = convertSvgToPng(out, output, background)
+    const pngBuffer = convertSvgToPng(out, output)
     if (!output) {
         const outputData = stdoutIsTTY ? (formatImage(pngBuffer) + '\n') : pngBuffer
         process.stdout.write(outputData)
