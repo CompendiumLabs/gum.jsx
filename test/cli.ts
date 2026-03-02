@@ -14,15 +14,20 @@ const projectRoot = path.resolve(__dirname, '..')
 const RESVG_RESOURCES_DIR = projectRoot
 const RESVG_FONTS_DIR = path.join(projectRoot, 'node_modules', 'katex', 'dist', 'fonts')
 
-function convertSvgToPng(svg: string, outputPath?: string): Buffer {
+function convertSvgToPng(svg: string, outputPath?: string, background?: string): Buffer {
     const args = [
         '--use-fonts-dir',
         RESVG_FONTS_DIR,
         '--resources-dir',
         RESVG_RESOURCES_DIR,
-        '-',
-        outputPath ?? '-c',
     ]
+
+    if (background != null) {
+        args.push('--background', background)
+    }
+
+    args.push('-')
+    args.push(outputPath ?? '-c')
 
     const result = spawnSync('resvg', args, {
         input: svg,
@@ -60,10 +65,11 @@ program
     .description('Render TeX from stdin using test/katex.ts and output SVG/PNG')
     .option('-o, --output <output>', 'output file; defaults to stdout')
     .option('-p, --png', 'emit PNG (via resvg) instead of SVG')
+    .option('-b, --background <color>', 'background color (PNG)', '#ffffff')
     .option('-s, --size <size>', 'svg size in px', (value) => parseInt(value), 500)
     .parse(process.argv)
 
-const { output, png, size } = program.opts<{ output?: string, png?: boolean, size: number }>()
+const { output, png, size, background } = program.opts<{ output?: string, png?: boolean, size: number, background?: string }>()
 const stdoutIsTTY = process.stdout.isTTY === true
 const tex = await read_stdin()
 
@@ -79,15 +85,15 @@ if (elem == null) {
 const out = new Svg({ children: [ elem ], size }).svg()
 
 if (png) {
-    const pngBuffer = convertSvgToPng(out, output)
+    const pngBuffer = convertSvgToPng(out, output, background)
     if (!output) {
-        const outputData = stdoutIsTTY ? formatImage(pngBuffer) : pngBuffer
-        process.stdout.write(outputData + '\n')
+        const outputData = stdoutIsTTY ? (formatImage(pngBuffer) + '\n') : pngBuffer
+        process.stdout.write(outputData)
     }
 } else {
     if (output) {
         writeFileSync(output, out)
     } else {
-        process.stdout.write(out + '\n')
+        process.stdout.write(out)
     }
 }
