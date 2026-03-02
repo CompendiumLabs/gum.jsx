@@ -1,6 +1,6 @@
 import { black, is_array, is_scalar, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
 
-import type { Attrs } from '../src/gum'
+import type { Attrs, Padding } from '../src/gum'
 
 type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
 
@@ -295,7 +295,7 @@ class SupSub extends HStack {
             sup = null,
             sub = null,
             spacing = 0.05,
-            shift = 0.05,
+            shift = 0.075,
             ...attr
         } = args
 
@@ -303,11 +303,11 @@ class SupSub extends HStack {
         const subElem = sub ?? new Spacer()
         const supBox = new Box({ children: [ supElem ], stack_size: (1 - spacing) / 2 })
         const subBox = new Box({ children: [ subElem ], stack_size: (1 - spacing) / 2 })
-        const spacer = new Spacer({ stack_size: spacing })
         const stack = new VStack({
-            children: [ supBox, spacer, subBox ],
-            justify: 'left',
+            children: [ supBox, subBox ],
             pos: [0.5, 0.5 + shift],
+            justify: 'left',
+            spacing,
         })
         const side = new Box({ children: [ stack ] })
 
@@ -322,7 +322,7 @@ interface FracArgs extends Attrs {
     has_bar?: boolean
     left?: Element | null
     right?: Element | null
-    frac_pad?: number
+    padding?: Padding
     rule_size?: number
     rule_gap?: number
     no_rule_gap?: number
@@ -341,16 +341,16 @@ class Frac extends HStack {
             rule_size = 0.015,
             ...attr
         } = args
-        const elemSize = (1 - rule_size) / 2
 
+        const elemSize = (1 - rule_size) / 2
         const numerBox = new Box({ children: [ numer ], padding })
         const denomBox = new Box({ children: [ denom ], padding })
 
-        const coreChildren: Element[] = []
-        coreChildren.push(numerBox.clone({ stack_size: elemSize }))
-        if (has_bar) coreChildren.push(new Rectangle({ fill: black, stack_size: rule_size }))
-        coreChildren.push(denomBox.clone({ stack_size: elemSize }))
-        const stack = new VStack({ children: coreChildren, justify: 'center' })
+        const children: Element[] = []
+        children.push(numerBox.clone({ stack_size: elemSize }))
+        if (has_bar) children.push(new Rectangle({ fill: black, stack_size: rule_size }))
+        children.push(denomBox.clone({ stack_size: elemSize }))
+        const stack = new VStack({ children, justify: 'center' })
 
         super({ children: [ stack ], ...attr })
         this.args = args
@@ -375,10 +375,9 @@ class Sqrt extends HStack {
             body,
             index = null,
             radical_font = 'KaTeX_Size1',
-            bar_size = 0.035,
-            bar_gap = 0.05,
-            body_pad = 0.05,
-            index_scale = 0.5,
+            rule_size = 0.035,
+            padding = [0, 0.05, 0.1, 0],
+            index_size = 0.5,
             index_pos = [0.75, 0.25],
             ...attr
         } = args
@@ -393,21 +392,15 @@ class Sqrt extends HStack {
         const radical = (index != null) ? new Box({
             children: [
                 radical0,
-                index.clone({ pos: index_pos, yrad: index_scale / 2, align: 'right' }),
+                index.clone({ pos: index_pos, yrad: index_size / 2, align: 'right' }),
             ],
         }) : radical0
 
         const bodyStack = new VStack({
             children: [
-                new Rectangle({ fill: black, stack_size: bar_size }),
-                new Spacer({ stack_size: bar_gap }),
-                new Box({
-                    children: [ body ],
-                    stack_size: Math.max(1 - bar_size - bar_gap, 0.01),
-                    padding: [ body_pad, 0 ],
-                }),
+                new Rectangle({ fill: black, stack_size: rule_size }),
+                new Box({ children: [ body ], padding }),
             ],
-            justify: 'left',
         })
 
         const core = new HStack({ children: [ radical, bodyStack ] })
@@ -422,7 +415,6 @@ interface BracketArgs extends Attrs {
     body: Element
     left?: Element | null
     right?: Element | null
-    gap?: number
 }
 
 class Bracket extends HStack {
@@ -431,14 +423,13 @@ class Bracket extends HStack {
             body,
             left = null,
             right = null,
-            gap = 0,
             ...attr
         } = args
 
         const children: Element[] = []
-        if (left != null) children.push(left, new Spacer({ aspect: gap }))
+        if (left != null) children.push(left)
         children.push(body)
-        if (right != null) children.push(new Spacer({ aspect: gap }), right)
+        if (right != null) children.push(right)
 
         super({ children, justify: 'left', ...attr })
         this.args = args
