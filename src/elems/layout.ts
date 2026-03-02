@@ -49,7 +49,7 @@ function apply_padding(padding: Rect, aspect0: number | undefined): { rect: Rect
 // box/frame classes
 //
 
-function computeBoxLayout(children: Element[], { padding, margin, aspect, adjust = true }: { padding?: any, margin?: any, aspect?: number | undefined, adjust?: boolean } = {}) {
+function computeBoxLayout(children: Element[], { padding, margin, aspect, adjust = true }: { padding?: Padding, margin?: Padding, aspect?: number, adjust?: boolean } = {}) {
     // try to determine box aspect
     const aspect_child = aspect ?? children[0]?.spec?.aspect
 

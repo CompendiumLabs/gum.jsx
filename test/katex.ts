@@ -1,7 +1,7 @@
 import { __parse as parse_tex } from 'katex'
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
 import symbols from './symbols'
-import { is_array, is_object, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
+import { is_array, is_object, maximum, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
 import { registerFont } from '../src/fonts/fonts'
 import { join, resolve } from 'path'
 
@@ -199,6 +199,25 @@ function make_symbol(mode: SymbolMode, text: string, args: Attrs = {}): MathLayo
 //
 
 const ROW_PADDING = 0.05
+const SCRIPT_SCALE = 0.75
+const SCRIPT_SPACE = 0.05
+const SCRIPT_SHIFT = 0.05
+
+function make_supsub_side(sup: MathLayout | null, sub: MathLayout | null): Element {
+    const supElem = sup ? sup.element : new Spacer()
+    const subElem = sub ? sub.element : new Spacer()
+    const supBox = new Box({
+        children: [ supElem ], padding: [0, (1 - SCRIPT_SCALE) / 2], stack_size: (1 - SCRIPT_SPACE) / 2
+    })
+    const subBox = new Box({
+        children: [ subElem ], padding: [0, (1 - SCRIPT_SCALE) / 2], stack_size: (1 - SCRIPT_SPACE) / 2
+    })
+    const spacer = new Spacer({ stack_size: SCRIPT_SPACE })
+    const stack = new VStack({
+        children: [ supBox, spacer, subBox ], justify: 'left', pos: [0.5, 0.5 + SCRIPT_SHIFT]
+    })
+    return new Box({ children: [ stack ] })
+}
 
 function layout_row(nodes: (Tree | TreeNode)[]): MathLayout {
     if (nodes.length == 0) return EMPTY_LAYOUT
@@ -274,9 +293,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const sup = sup0 ? convert_tree(sup0) : null
             const sub = sub0 ? convert_tree(sub0) : null
 
-            const children = [ sup?.element ?? new Spacer(), sub?.element ?? new Spacer() ]
-            const supsub0 = new VStack({ children, even: true, justify: 'left', pos: [0.5, 0.55] })
-            const supsub = new Box({ children: [ supsub0 ] })
+            const supsub = make_supsub_side(sup, sub)
             const row = new HStack({ children: [ base.element, supsub ] })
             return layout_from(row, base.leftClass, base.rightClass)
         } else if (type == 'genfrac') {
