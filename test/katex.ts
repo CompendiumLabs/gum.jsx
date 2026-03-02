@@ -3,11 +3,11 @@ import { __parse as parse_tex } from 'katex'
 
 import { registerFont, is_array, is_object, Element, Spacer } from '../src/gum'
 import symbols from './symbols'
-import { EMPTY_LAYOUT, MathSpan, layout_frac, layout_from, layout_row, layout_style, layout_supsub, layout_with } from './math'
+import { EMPTY_MATH, MathSpan, layout_frac, layout_row, layout_style, layout_supsub, set_math_classes } from './math'
 
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode, Measurement } from 'katex'
 import type { Attrs } from '../src/gum'
-import type { AtomClass, MathLayout } from './math'
+import type { AtomClass } from './math'
 
 //
 // register katex fonts
@@ -59,20 +59,25 @@ function atom_font(entry: SymbolEntry | null): FontFamily {
     return 'KaTeX_Main'
 }
 
-function make_symbol(mode: SymbolMode, text: string, args: Attrs = {}): MathLayout {
-    const { fallback = null, font_family = FONTS[mode], ...attr } = args
+interface SymbolArgs extends Attrs {
+    fallback?: string | null
+    font_family?: FontFamily
+    klass?: AtomClass | null
+}
+
+function make_symbol(mode: SymbolMode, text: string, args: SymbolArgs = {}): Element {
+    const { fallback = null, font_family = FONTS[mode], klass: klass0 = null, ...attr } = args
     const entry = get_symbol(mode, text)
     const children = entry?.replace ?? fallback ?? text
-    const klass = symbol_group_class(entry)
-    const span = new MathSpan({ children, font_family, leftClass: klass, rightClass: klass, ...attr })
-    return layout_from(span, span.leftClass, span.rightClass)
+    const klass = klass0 ?? symbol_group_class(entry)
+    return new MathSpan({ children, font_family, leftClass: klass, rightClass: klass, ...attr })
 }
 
 function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
     if (delim == null || delim == '.') return null
     const entry = get_symbol(mode, delim)
     const font_family = atom_font(entry)
-    return make_symbol(mode, delim, { font_family }).element
+    return make_symbol(mode, delim, { font_family })
 }
 
 function measurement_to_em(d: Measurement): number {
@@ -89,12 +94,16 @@ function measurement_to_em(d: Measurement): number {
 // parse katex tree
 //
 
-function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
-    if (tree == null) return EMPTY_LAYOUT
+function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
+    if (tree == null) return EMPTY_MATH
+
     if (is_array(tree)) {
         return layout_row(tree.map(node => convert_tree(node)))
-    } else if (is_object(tree)) {
+    }
+
+    if (is_object(tree)) {
         const { type } = tree
+
         if (type == 'mathord') {
             const { mode, text } = tree
             return make_symbol(mode, text, { font_family: FONTS['math'] })
@@ -105,9 +114,11 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const { mode, text, family } = tree
             const entry = get_symbol(mode, text)
             const font_family = atom_font(entry)
-            const { element, leftClass } = make_symbol(mode, text, { font_family })
-            const klass = family != null ? (FAMILY_CLASS[family] ?? 'mord') : leftClass
-            return layout_with(element, klass)
+            const element = make_symbol(mode, text, { font_family })
+            if (family != null) {
+                return set_math_classes(element, FAMILY_CLASS[family])
+            }
+            return element
         } else if (type == 'ordgroup') {
             const { body } = tree
             return convert_tree(body)
@@ -115,23 +126,21 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const { mode, name } = tree
             const entry = get_symbol(mode, name)
             if (entry != null) {
-                const op = new MathSpan({ children: [ entry.replace ?? name ], leftClass: 'mop', font_family: OP_SYMBOL_FONT })
-                return layout_from(op, op.leftClass, op.rightClass)
+                return new MathSpan({ children: [ entry.replace ?? name ], leftClass: 'mop', font_family: OP_SYMBOL_FONT })
             } else {
                 const name1 = name.slice(1)
-                const op = new MathSpan({ children: [ name1 ], leftClass: 'mop', font_family: FONTS['text'] })
-                return layout_from(op, op.leftClass, op.rightClass)
+                return new MathSpan({ children: [ name1 ], leftClass: 'mop', font_family: FONTS['text'] })
             }
         } else if (type == 'text') {
             const { body } = tree
             return convert_tree(body)
         } else if (type == 'kern') {
             const em = measurement_to_em(tree.dimension)
-            return layout_with(new Spacer({ aspect: em }), null)
+            return set_math_classes(new Spacer({ aspect: em }), null)
         } else if (type == 'styling') {
             const { body, style } = tree
-            const body_layout = convert_tree(body)
-            return layout_style(body_layout, style)
+            const body_element = convert_tree(body)
+            return layout_style(body_element, style)
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0)
@@ -158,7 +167,8 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             })
         }
     }
-    return EMPTY_LAYOUT
+
+    return EMPTY_MATH
 }
 
 //
@@ -167,7 +177,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
 
 function parse_katex(tex: string): Element | null {
     const tree = parse_tex(tex)
-    return convert_tree(tree).element
+    return convert_tree(tree)
 }
 
 export { parse_katex }

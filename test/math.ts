@@ -4,10 +4,9 @@ import type { Attrs } from '../src/gum'
 
 type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
 
-interface MathLayout {
-    element: Element
-    leftClass: AtomClass | null
-    rightClass: AtomClass | null
+type MathClassedElement = Element & {
+    leftClass?: AtomClass | null
+    rightClass?: AtomClass | null
 }
 
 type Measurement = {
@@ -69,15 +68,33 @@ const STYLE_SCALE: Record<string, number> = {
     scriptscript: SCRIPT_SCALE * SCRIPT_SCALE,
 }
 
-const EMPTY_LAYOUT: MathLayout = { element: new Spacer(), leftClass: null, rightClass: null }
-
-function layout_with(element: Element, klass: AtomClass | null): MathLayout {
-    return { element, leftClass: klass, rightClass: klass }
+function set_math_classes(element: Element, leftClass: AtomClass | null, rightClass: AtomClass | null = leftClass): Element {
+    const math = element as MathClassedElement
+    math.leftClass = leftClass
+    math.rightClass = rightClass
+    return element
 }
 
-function layout_from(element: Element, leftClass: AtomClass | null, rightClass: AtomClass | null = leftClass): MathLayout {
-    return { element, leftClass, rightClass }
+function get_math_classes(element: Element, fallbackClass: AtomClass | null = null): {
+    leftClass: AtomClass | null
+    rightClass: AtomClass | null
+} {
+    const math = element as MathClassedElement
+    const leftClass = math.leftClass ?? fallbackClass
+    const rightClass = math.rightClass ?? leftClass
+    return { leftClass, rightClass }
 }
+
+function ensure_math_classes(element: Element, fallbackClass: AtomClass | null = null): Element {
+    const { leftClass, rightClass } = get_math_classes(element, fallbackClass)
+    return set_math_classes(element, leftClass, rightClass)
+}
+
+function empty_math(): Element {
+    return set_math_classes(new Spacer(), null, null)
+}
+
+const EMPTY_MATH = empty_math()
 
 function measurement_to_em(m: Measurement): number {
     return m.number / 18
@@ -102,42 +119,40 @@ function scale_element(element: Element, scale: number = SCRIPT_SCALE): Element 
     return new Group({ children: [ child ], aspect: element_aspect(element) * scale })
 }
 
-function cancel_layout_left_bin(layout: MathLayout): void {
-    if (layout.leftClass != 'mbin') return
-    layout.leftClass = 'mord'
-    if (layout.rightClass == 'mbin') {
-        layout.rightClass = 'mord'
-    }
+function cancel_element_left_bin(element: Element): void {
+    const { leftClass, rightClass } = get_math_classes(element)
+    if (leftClass != 'mbin') return
+    set_math_classes(element, 'mord', rightClass == 'mbin' ? 'mord' : rightClass)
 }
 
-function cancel_layout_right_bin(layout: MathLayout): void {
-    if (layout.rightClass != 'mbin') return
-    layout.rightClass = 'mord'
-    if (layout.leftClass == 'mbin') {
-        layout.leftClass = 'mord'
-    }
+function cancel_element_right_bin(element: Element): void {
+    const { leftClass, rightClass } = get_math_classes(element)
+    if (rightClass != 'mbin') return
+    set_math_classes(element, leftClass == 'mbin' ? 'mord' : leftClass, 'mord')
 }
 
-function cancel_binary_atoms(layouts0: MathLayout[]): MathLayout[] {
-    const layouts = layouts0.map(layout => ({ ...layout }))
+function cancel_binary_atoms(items0: Element[]): Element[] {
+    const items = items0.slice()
     let prevIndex: number | null = null
 
-    for (let i = 0; i < layouts.length; i++) {
-        const layout = layouts[i]
-        if (layout.leftClass == null && layout.rightClass == null) continue
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        const { leftClass, rightClass } = get_math_classes(item)
+        if (leftClass == null && rightClass == null) continue
 
         if (prevIndex == null) {
-            cancel_layout_left_bin(layout)
-        } else if (layout.leftClass != null) {
-            const prev = layouts[prevIndex]
+            cancel_element_left_bin(item)
+        } else if (leftClass != null) {
+            const prev = items[prevIndex]
+            const { rightClass: prevRight } = get_math_classes(prev)
 
-            if (prev.rightClass == 'mbin' && BIN_RIGHT_CANCELLER.has(layout.leftClass)) {
-                cancel_layout_right_bin(prev)
+            if (prevRight == 'mbin' && BIN_RIGHT_CANCELLER.has(leftClass)) {
+                cancel_element_right_bin(prev)
             }
 
-            const prevClass = prev.rightClass
-            if (layout.leftClass == 'mbin' && (prevClass == null || BIN_LEFT_CANCELLER.has(prevClass))) {
-                cancel_layout_left_bin(layout)
+            const prevClass = get_math_classes(prev).rightClass
+            if (leftClass == 'mbin' && (prevClass == null || BIN_LEFT_CANCELLER.has(prevClass))) {
+                cancel_element_left_bin(item)
             }
         }
 
@@ -145,10 +160,10 @@ function cancel_binary_atoms(layouts0: MathLayout[]): MathLayout[] {
     }
 
     if (prevIndex != null) {
-        cancel_layout_right_bin(layouts[prevIndex])
+        cancel_element_right_bin(items[prevIndex])
     }
 
-    return layouts
+    return items
 }
 
 interface MathTextArgs extends Attrs {
@@ -166,7 +181,6 @@ interface MathSpanArgs extends Attrs {
 }
 
 type MathItem =
-    | MathLayout
     | Element
     | MathText
     | MathSpan
@@ -197,13 +211,9 @@ class MathSpan extends Span {
     }
 }
 
-function is_math_layout(value: any): value is MathLayout {
-    return value?.element instanceof Element
-}
-
-function normalize_math_children(children0: any, defaultClass: AtomClass | null): MathLayout[] {
+function normalize_math_children(children0: MathItem | MathItem[], defaultClass: AtomClass | null): Element[] {
     const children = is_array(children0) ? children0 : [ children0 ]
-    const out: MathLayout[] = []
+    const out: Element[] = []
 
     for (const child of children) {
         if (child == null) continue
@@ -214,28 +224,22 @@ function normalize_math_children(children0: any, defaultClass: AtomClass | null)
         }
 
         if (child instanceof MathText) {
-            out.push(...child.layouts)
+            out.push(...child.items)
             continue
         }
 
         if (child instanceof MathSpan) {
-            out.push(layout_from(child, child.leftClass, child.rightClass))
-            continue
-        }
-
-        if (is_math_layout(child)) {
-            out.push(child)
+            out.push(ensure_math_classes(child, defaultClass))
             continue
         }
 
         if (child instanceof Element) {
-            out.push(layout_with(child, defaultClass))
+            out.push(ensure_math_classes(child, defaultClass))
             continue
         }
 
         if (is_scalar(child) || typeof child == 'string') {
-            const span = new MathSpan({ children: child, klass: defaultClass })
-            out.push(layout_from(span, span.leftClass, span.rightClass))
+            out.push(new MathSpan({ children: child, klass: defaultClass }))
         }
     }
 
@@ -246,7 +250,6 @@ class MathText extends HStack {
     leftClass: AtomClass | null
     rightClass: AtomClass | null
     items: Element[]
-    layouts: MathLayout[]
 
     constructor(args: MathTextArgs = {}) {
         const {
@@ -268,17 +271,21 @@ class MathText extends HStack {
             children.push(new Spacer({ aspect: padding }))
         }
 
-        for (const layout of items) {
-            if (layout.leftClass && prevClass) {
-                const gap = inter_atom_spacing(prevClass, layout.leftClass)
+        for (const item of items) {
+            const { leftClass: itemLeft, rightClass: itemRight } = get_math_classes(item, defaultClass)
+
+            if (itemLeft && prevClass) {
+                const gap = inter_atom_spacing(prevClass, itemLeft)
                 if (gap > 0) children.push(new Spacer({ aspect: gap }))
             }
-            children.push(layout.element)
-            itemElements.push(layout.element)
-            if (leftClass == null) leftClass = layout.leftClass
-            if (layout.rightClass != null) {
-                prevClass = layout.rightClass
-                rightClass = layout.rightClass
+
+            children.push(item)
+            itemElements.push(item)
+
+            if (leftClass == null) leftClass = itemLeft
+            if (itemRight != null) {
+                prevClass = itemRight
+                rightClass = itemRight
             }
         }
 
@@ -293,7 +300,8 @@ class MathText extends HStack {
         this.leftClass = leftClass
         this.rightClass = rightClass
         this.items = itemElements
-        this.layouts = items
+
+        set_math_classes(this, leftClass, rightClass)
     }
 }
 
@@ -417,41 +425,36 @@ class Frac extends HStack {
 
 const Fraction = Frac
 
-function layout_row(items: MathItem | MathItem[], args: Omit<MathTextArgs, 'items'> = {}): MathLayout {
+function layout_row(items: MathItem | MathItem[], args: Omit<MathTextArgs, 'items'> = {}): Element {
     const row = new MathText({ items, ...args })
-    if (row.layouts.length == 0) return EMPTY_LAYOUT
-    return layout_from(row, row.leftClass, row.rightClass)
+    if (row.items.length == 0) return empty_math()
+    return row
 }
 
-function layout_style(layout: MathLayout, style: string): MathLayout {
+function layout_style(element: Element, style: string): Element {
     const scale = STYLE_SCALE[style] ?? 1
-    if (scale == 1) return layout
-    const element = scale_element(layout.element, scale)
-    return layout_from(element, layout.leftClass, layout.rightClass)
+    if (scale == 1) return element
+
+    const { leftClass, rightClass } = get_math_classes(element)
+    const scaled = scale_element(element, scale)
+    return set_math_classes(scaled, leftClass, rightClass)
 }
 
-function layout_supsub(base: MathLayout, sup: MathLayout | null, sub: MathLayout | null, args: Omit<SupSubArgs, 'base' | 'sup' | 'sub'> = {}): MathLayout {
-    const element = new SupSub({
-        base: base.element,
-        sup: sup?.element,
-        sub: sub?.element,
-        ...args,
-    })
-    return layout_from(element, base.leftClass, base.rightClass)
+function layout_supsub(base: Element, sup: Element | null, sub: Element | null, args: Omit<SupSubArgs, 'base' | 'sup' | 'sub'> = {}): Element {
+    const element = new SupSub({ base, sup, sub, ...args })
+    const { leftClass, rightClass } = get_math_classes(base)
+    return set_math_classes(element, leftClass, rightClass)
 }
 
-function layout_frac(numer: MathLayout, denom: MathLayout, args: Omit<FracArgs, 'numer' | 'denom'> = {}): MathLayout {
-    const element = new Frac({
-        numer: numer.element,
-        denom: denom.element,
-        ...args,
-    })
-    return layout_with(element, 'mord')
+function layout_frac(numer: Element, denom: Element, args: Omit<FracArgs, 'numer' | 'denom'> = {}): Element {
+    const element = new Frac({ numer, denom, ...args })
+    return set_math_classes(element, 'mord')
 }
 
 export {
     MathSpan, MathText, SupSub, Frac, Fraction,
-    EMPTY_LAYOUT,
-    layout_with, layout_from, layout_row, layout_style, layout_supsub, layout_frac,
+    EMPTY_MATH,
+    set_math_classes, get_math_classes,
+    layout_row, layout_style, layout_supsub, layout_frac,
 }
-export type { AtomClass, MathLayout, MathItem }
+export type { AtomClass, MathItem }
