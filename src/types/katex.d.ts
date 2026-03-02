@@ -83,6 +83,13 @@ declare module 'katex' {
         barSize: Measurement | null
     }
 
+    export type TreeSqrt = {
+        type: 'sqrt'
+        mode: SymbolMode
+        body: TreeNode
+        index: TreeNode | null
+    }
+
     export type TreeNode =
         | TreeAtom
         | TreeTextOrd
@@ -94,6 +101,7 @@ declare module 'katex' {
         | TreeStyling
         | TreeSupSub
         | TreeGenFrac
+        | TreeSqrt
 
     export type Tree = TreeNode[]
 

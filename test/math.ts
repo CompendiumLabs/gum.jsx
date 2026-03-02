@@ -416,10 +416,70 @@ class Frac extends HStack {
     }
 }
 
+interface SqrtArgs extends Attrs {
+    body: Element
+    index?: Element | null
+    radical_font?: string
+    bar_size?: number
+    bar_gap?: number
+    body_pad?: number
+    index_scale?: number
+    index_gap?: number
+    index_pos?: [number, number]
+}
+
+class Sqrt extends HStack {
+    constructor(args: SqrtArgs) {
+        const {
+            body,
+            index = null,
+            radical_font = 'KaTeX_Size1',
+            bar_size = 0.035,
+            bar_gap = 0.05,
+            body_pad = 0.05,
+            index_scale = 0.5,
+            index_pos = [0.75, 0.25],
+            ...attr
+        } = args
+
+        const radical0 = new MathSpan({
+            children: [ '√' ],
+            font_family: radical_font,
+            leftClass: 'mopen',
+            rightClass: 'mopen',
+        })
+
+        let radical: Element = radical0
+        if (index != null) {
+            const indexScaled = index.clone({ pos: index_pos, yrad: index_scale / 2, align: 'right' })
+            radical = new Box({ children: [ radical0, indexScaled ] })
+        }
+
+        const bodyStack = new VStack({
+            children: [
+                new Rectangle({ fill: black, stack_size: bar_size }),
+                new Spacer({ stack_size: bar_gap }),
+                new Box({
+                    children: [ body ],
+                    stack_size: Math.max(1 - bar_size - bar_gap, 0.01),
+                    padding: [ body_pad, 0 ],
+                }),
+            ],
+            justify: 'left',
+        })
+
+        const core = new HStack({ children: [ radical, bodyStack ] })
+        super({ children: [ core ], ...attr })
+
+        this.args = args
+        set_math_classes(this, 'mord')
+    }
+}
+
 const Fraction = Frac
 
 export {
-    MathSpan, MathText, SupSub, Frac, Fraction,
+    MathSpan, MathText, SupSub, Frac, Fraction, Sqrt,
     EMPTY_MATH,
     set_math_classes, get_math_classes,
 }

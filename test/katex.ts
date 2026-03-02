@@ -3,7 +3,7 @@ import { __parse as parse_tex } from 'katex'
 
 import { registerFont, is_array, is_object, Element, Group, Spacer } from '../src/gum'
 import symbols from './symbols'
-import { EMPTY_MATH, MathSpan, MathText, SupSub, Frac, get_math_classes, set_math_classes } from './math'
+import { EMPTY_MATH, MathSpan, MathText, SupSub, Frac, Sqrt, get_math_classes, set_math_classes } from './math'
 
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode, Measurement } from 'katex'
 import type { Attrs } from '../src/gum'
@@ -189,6 +189,15 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
                 right,
             })
             return set_math_classes(element, 'mord')
+        } else if (type == 'sqrt') {
+            const { body: body0, index: index0 } = tree
+            const body = convert_tree(body0)
+            const index = index0 ? convert_tree(index0) : null
+            return new Sqrt({
+                body,
+                index,
+                radical_font: OP_SYMBOL_FONT,
+            })
         }
     }
 
