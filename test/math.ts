@@ -294,20 +294,20 @@ class SupSub extends HStack {
             base,
             sup = null,
             sub = null,
-            spacing = 0.05,
-            shift = 0.075,
+            script_spacing = 0.05,
+            script_shift = 0.075,
             ...attr
         } = args
 
         const supElem = sup ?? new Spacer()
         const subElem = sub ?? new Spacer()
-        const supBox = new Box({ children: [ supElem ], stack_size: (1 - spacing) / 2 })
-        const subBox = new Box({ children: [ subElem ], stack_size: (1 - spacing) / 2 })
+
         const stack = new VStack({
-            children: [ supBox, subBox ],
-            pos: [0.5, 0.5 + shift],
+            children: [ supElem, subElem ],
+            pos: [ 0.5, 0.5 + script_shift],
             justify: 'left',
-            spacing,
+            even: true,
+            spacing: script_spacing,
         })
         const side = new Box({ children: [ stack ] })
 
