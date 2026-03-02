@@ -49,18 +49,6 @@ const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
 const BIN_LEFT_CANCELLER = new Set<AtomClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
 const BIN_RIGHT_CANCELLER = new Set<AtomClass>(['mrel', 'mclose', 'mpunct'])
 
-const ROW_PADDING = 0.05
-const SCRIPT_SCALE = 1.0
-const SCRIPT_SPACE = 0.05
-const SCRIPT_SHIFT = 0.05
-
-const FRAC_SCALE = 1.0
-const FRAC_PAD = 0.06
-const FRAC_RULE_SIZE = 0.015
-const FRAC_RULE_GAP = 0.05
-const FRAC_NO_RULE_GAP = 0.22
-const FRAC_DELIM_GAP = 0.04
-
 function set_math_classes(element: Element, leftClass: AtomClass | null, rightClass: AtomClass | null = leftClass): Element {
     const math = element as MathClassedElement
     math.leftClass = leftClass
@@ -103,13 +91,6 @@ function inter_atom_spacing(prev: AtomClass | null, next: AtomClass | null): num
 
 function element_aspect(element: Element | null): number {
     return element?.spec.aspect ?? 1
-}
-
-function scale_element(element: Element, scale: number = SCRIPT_SCALE): Element {
-    if (scale == 1) return element
-    const ypad = (1 - scale) / 2
-    const child = element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
-    return new Group({ children: [ child ], aspect: element_aspect(element) * scale })
 }
 
 function cancel_element_left_bin(element: Element): void {
@@ -248,7 +229,7 @@ class MathText extends HStack {
         const {
             items: items0,
             children: children0 = [],
-            padding = ROW_PADDING,
+            padding = 0.05,
             defaultClass = 'mord',
             ...attr
         } = args
@@ -313,21 +294,20 @@ class SupSub extends HStack {
             base,
             sup = null,
             sub = null,
-            script_scale = SCRIPT_SCALE,
-            script_space = SCRIPT_SPACE,
-            script_shift = SCRIPT_SHIFT,
+            spacing = 0.05,
+            shift = 0.05,
             ...attr
         } = args
 
-        const supElem = sup ? scale_element(sup, script_scale) : new Spacer()
-        const subElem = sub ? scale_element(sub, script_scale) : new Spacer()
-        const supBox = new Box({ children: [ supElem ], stack_size: (1 - script_space) / 2 })
-        const subBox = new Box({ children: [ subElem ], stack_size: (1 - script_space) / 2 })
-        const spacer = new Spacer({ stack_size: script_space })
+        const supElem = sup ?? new Spacer()
+        const subElem = sub ?? new Spacer()
+        const supBox = new Box({ children: [ supElem ], stack_size: (1 - spacing) / 2 })
+        const subBox = new Box({ children: [ subElem ], stack_size: (1 - spacing) / 2 })
+        const spacer = new Spacer({ stack_size: spacing })
         const stack = new VStack({
             children: [ supBox, spacer, subBox ],
             justify: 'left',
-            pos: [0.5, 0.5 + script_shift],
+            pos: [0.5, 0.5 + shift],
         })
         const side = new Box({ children: [ stack ] })
 
@@ -342,7 +322,6 @@ interface FracArgs extends Attrs {
     has_bar?: boolean
     left?: Element | null
     right?: Element | null
-    frac_scale?: number
     frac_pad?: number
     rule_size?: number
     rule_gap?: number
@@ -358,60 +337,22 @@ class Frac extends HStack {
             has_bar = true,
             left = null,
             right = null,
-            bar_rounded = 0,
-            frac_scale = FRAC_SCALE,
-            frac_pad = FRAC_PAD,
-            rule_size = FRAC_RULE_SIZE,
-            rule_gap = FRAC_RULE_GAP,
-            no_rule_gap = FRAC_NO_RULE_GAP,
-            delim_gap = FRAC_DELIM_GAP,
+            padding = [0.05, 0.1],
+            rule_size = 0.015,
             ...attr
         } = args
+        const elemSize = (1 - rule_size) / 2
 
-        const numerElem = scale_element(numer, frac_scale)
-        const denomElem = scale_element(denom, frac_scale)
-        const coreAspect = Math.max(element_aspect(numerElem), element_aspect(denomElem)) + 2 * frac_pad
+        const numerBox = new Box({ children: [ numer ], padding })
+        const denomBox = new Box({ children: [ denom ], padding })
 
-        const gapTop = has_bar ? rule_gap : no_rule_gap / 2
-        const gapBot = has_bar ? rule_gap : no_rule_gap / 2
-        const lineSize = has_bar ? rule_size : 0
-        const sideSize = Math.max((1 - gapTop - gapBot - lineSize) / 2, 0.01)
+        const coreChildren: Element[] = []
+        coreChildren.push(numerBox.clone({ stack_size: elemSize }))
+        if (has_bar) coreChildren.push(new Rectangle({ fill: black, stack_size: rule_size }))
+        coreChildren.push(denomBox.clone({ stack_size: elemSize }))
+        const stack = new VStack({ children: coreChildren, justify: 'center' })
 
-        const numerBox = new Box({
-            children: [ numerElem ],
-            aspect: coreAspect,
-            padding: [ frac_pad, 0 ],
-            stack_size: sideSize,
-        })
-        const denomBox = new Box({
-            children: [ denomElem ],
-            aspect: coreAspect,
-            padding: [ frac_pad, 0 ],
-            stack_size: sideSize,
-        })
-
-        const coreChildren: Element[] = [
-            numerBox,
-            new Spacer({ stack_size: gapTop }),
-        ]
-
-        if (has_bar) {
-            coreChildren.push(new Rectangle({ fill: black, rounded: bar_rounded, stack_size: lineSize }))
-        }
-
-        coreChildren.push(
-            new Spacer({ stack_size: gapBot }),
-            denomBox,
-        )
-
-        const core = new VStack({ children: coreChildren, justify: 'center' })
-
-        const children: Element[] = []
-        if (left != null) children.push(left, new Spacer({ aspect: delim_gap }))
-        children.push(core)
-        if (right != null) children.push(new Spacer({ aspect: delim_gap }), right)
-
-        super({ children, ...attr })
+        super({ children: [ stack ], ...attr })
         this.args = args
     }
 }
@@ -505,10 +446,8 @@ class Bracket extends HStack {
     }
 }
 
-const Fraction = Frac
-
 export {
-    MathSpan, MathText, SupSub, Frac, Fraction, Sqrt, Bracket,
+    MathSpan, MathText, SupSub, Frac, Sqrt, Bracket,
     EMPTY_MATH,
     set_math_classes, get_math_classes,
 }
