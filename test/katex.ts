@@ -1,9 +1,11 @@
-import { __parse as parse_tex } from 'katex'
-import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
-import symbols from './symbols'
-import { is_array, is_object, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
-import { registerFont } from '../src/fonts/fonts'
 import { join, resolve } from 'path'
+import { __parse as parse_tex } from 'katex'
+
+import { registerFont, is_array, is_object, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
+import symbols from './symbols'
+
+import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
+import type { Attrs } from '../src/gum'
 
 //
 // register katex fonts
