@@ -490,7 +490,7 @@ class Bracket extends HStack {
             body,
             left = null,
             right = null,
-            gap = 0.01,
+            gap = 0,
             ...attr
         } = args
 

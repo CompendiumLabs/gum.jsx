@@ -61,10 +61,11 @@ program
     .option('-o, --output <output>', 'output file; defaults to stdout')
     .option('-p, --png', 'emit PNG (via resvg) instead of SVG')
     .option('-b, --background <color>', 'background color (PNG)', 'white')
+    .option('-m, --margin <margin>', 'margin in px', (value) => parseFloat(value), 0.1)
     .option('-s, --size <size>', 'svg size in px', (value) => parseInt(value), 500)
     .parse(process.argv)
 
-const { output, png, size, background } = program.opts<{ output?: string, png?: boolean, size: number, background?: string }>()
+const { output, png, size, background, margin } = program.opts<{ output?: string, png?: boolean, size: number, background?: string, margin?: number }>()
 const stdoutIsTTY = process.stdout.isTTY === true
 const tex = await read_stdin()
 
@@ -77,7 +78,7 @@ if (elem == null) {
     throw new Error('Failed to parse TeX input')
 }
 
-const box = new Box({ children: [ elem ], padding: 0.1, border: 1, rounded: 0.1, fill: background, clip: true })
+const box = new Box({ children: [ elem ], padding: margin, rounded: 0.1, fill: background, clip: true })
 const out = new Svg({ children: [ box ], size }).svg()
 
 if (png) {
