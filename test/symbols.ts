@@ -1,5 +1,5 @@
 // FROM KATEX SYMBOLS.JS (DE-FLOWED)
-import type { SymbolMode, SymbolFont, SymbolGroup, SymbolEntry } from 'katex'
+import type { SymbolMode, SymbolFont, SymbolFamily, SymbolEntry } from 'katex'
 
 /**
  * This file holds a list of all no-argument functions and single-character
@@ -28,12 +28,12 @@ const symbols: Record<SymbolMode, Record<string, SymbolEntry>> = {
 function defineSymbol(
     mode: SymbolMode,
     font: SymbolFont,
-    group: SymbolGroup,
+    family: SymbolFamily,
     replace: string | null,
     name: string,
     acceptUnicodeChar: boolean = false,
 ) {
-    symbols[mode][name] = { font, group, replace }
+    symbols[mode][name] = { font, family, replace }
 
     if (acceptUnicodeChar && replace) {
         symbols[mode][replace] = symbols[mode][name]
@@ -52,17 +52,17 @@ const main: SymbolFont = "main"
 const ams: SymbolFont = "ams"
 
 // groups:
-const accent: SymbolGroup = "accent-token"
-const bin: SymbolGroup = "bin"
-const close: SymbolGroup = "close"
-const inner: SymbolGroup = "inner"
-const mathord: SymbolGroup = "mathord"
-const op: SymbolGroup = "op-token"
-const open: SymbolGroup = "open"
-const punct: SymbolGroup = "punct"
-const rel: SymbolGroup = "rel"
-const spacing: SymbolGroup = "spacing"
-const textord: SymbolGroup = "textord"
+const accent: SymbolFamily = "accent-token"
+const bin: SymbolFamily = "bin"
+const close: SymbolFamily = "close"
+const inner: SymbolFamily = "inner"
+const mathord: SymbolFamily = "mathord"
+const op: SymbolFamily = "op-token"
+const open: SymbolFamily = "open"
+const punct: SymbolFamily = "punct"
+const rel: SymbolFamily = "rel"
+const spacing: SymbolFamily = "spacing"
+const textord: SymbolFamily = "textord"
 
 // Now comes the symbol table
 

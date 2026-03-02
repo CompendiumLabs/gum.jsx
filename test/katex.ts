@@ -1,7 +1,7 @@
 import { __parse as parse_tex } from 'katex'
-import type { SymbolMode, SymbolEntry, Tree, TreeNode } from 'katex'
+import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
 import symbols from './symbols'
-import { is_array, is_object, Element, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
+import { is_array, is_object, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
 import { registerFont } from '../src/fonts/fonts'
 import { join, resolve } from 'path'
 
@@ -12,6 +12,7 @@ import { join, resolve } from 'path'
 const fonts_dir = resolve(__dirname, '../node_modules/katex/dist/fonts')
 await registerFont('KaTeX_Math', join(fonts_dir, 'KaTeX_Math-Italic.ttf'))
 await registerFont('KaTeX_Main', join(fonts_dir, 'KaTeX_Main-Regular.ttf'))
+await registerFont('KaTeX_AMS', join(fonts_dir, 'KaTeX_AMS-Regular.ttf'))
 
 //
 // atom classes + spacing data (ported from KaTeX spacingData.js)
@@ -56,6 +57,9 @@ const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
     },
 }
 
+const BIN_LEFT_CANCELLER = new Set<AtomClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
+const BIN_RIGHT_CANCELLER = new Set<AtomClass>(['mrel', 'mclose', 'mpunct'])
+
 function measurement_to_em(m: Measurement): number {
     // 1mu = 1/18em in TeX; keep it simple here.
     return m.number / 18
@@ -77,7 +81,7 @@ interface MathLayout {
 
 const EMPTY_LAYOUT: MathLayout = { element: new Spacer(), leftClass: null, rightClass: null }
 
-function layout_with(element: Element, klass: AtomClass | null = 'mord'): MathLayout {
+function layout_with(element: Element, klass: AtomClass | null): MathLayout {
     return { element, leftClass: klass, rightClass: klass }
 }
 
@@ -85,17 +89,70 @@ function layout_from(element: Element, leftClass: AtomClass | null, rightClass: 
     return { element, leftClass, rightClass }
 }
 
+function cancel_layout_left_bin(layout: MathLayout): void {
+    if (layout.leftClass != 'mbin') return
+    layout.leftClass = 'mord'
+    if (layout.rightClass == 'mbin') {
+        layout.rightClass = 'mord'
+    }
+}
+
+function cancel_layout_right_bin(layout: MathLayout): void {
+    if (layout.rightClass != 'mbin') return
+    layout.rightClass = 'mord'
+    if (layout.leftClass == 'mbin') {
+        layout.leftClass = 'mord'
+    }
+}
+
+function cancel_binary_atoms(layouts0: MathLayout[]): MathLayout[] {
+    const layouts = layouts0.map(layout => ({ ...layout }))
+    let prevIndex: number | null = null
+
+    for (let i = 0; i < layouts.length; i++) {
+        const layout = layouts[i]
+        if (layout.leftClass == null && layout.rightClass == null) continue
+
+        if (prevIndex == null) {
+            // leftmost mbin becomes mord
+            cancel_layout_left_bin(layout)
+        } else if (layout.leftClass != null) {
+            const prev = layouts[prevIndex]
+
+            // mbin before (rel|close|punct|rightmost) becomes mord
+            if (prev.rightClass == 'mbin' && BIN_RIGHT_CANCELLER.has(layout.leftClass)) {
+                cancel_layout_right_bin(prev)
+            }
+
+            // mbin after (leftmost|mbin|open|rel|op|punct) becomes mord
+            const prevClass = prev.rightClass
+            if (layout.leftClass == 'mbin' && (prevClass == null || BIN_LEFT_CANCELLER.has(prevClass))) {
+                cancel_layout_left_bin(layout)
+            }
+        }
+
+        prevIndex = i
+    }
+
+    if (prevIndex != null) {
+        // rightmost mbin becomes mord
+        cancel_layout_right_bin(layouts[prevIndex])
+    }
+
+    return layouts
+}
+
 //
 // symbols and fonts
 //
 
-type FontFamily = 'KaTeX_Math' | 'KaTeX_Main'
+type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS'
 const FONTS: Record<SymbolMode, FontFamily> = {
     'math': 'KaTeX_Math',
     'text': 'KaTeX_Main',
 }
 
-const GROUP_CLASS: Record<string, AtomClass> = {
+const FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
     'mathord': 'mord',
     'textord': 'mord',
     'bin': 'mbin',
@@ -106,23 +163,26 @@ const GROUP_CLASS: Record<string, AtomClass> = {
     'inner': 'minner',
     'op-token': 'mop',
     'accent-token': 'mord',
+    'spacing': null,
 }
 
-function symbol_group_class(entry: SymbolEntry | null | undefined): AtomClass | null {
-    if (entry?.group == null) return 'mord'
-    if (entry.group === 'spacing') return null
-    return GROUP_CLASS[entry.group] ?? 'mord'
+function symbol_group_class(entry: SymbolEntry | null): AtomClass {
+    if (entry == null) return 'mord'
+    return FAMILY_CLASS[entry.family] ?? 'mord'
 }
 
 function get_symbol(mode: SymbolMode, text: string): SymbolEntry | null {
-    if (text in symbols[mode]) {
-        return symbols[mode][text]
-    }
+    if (text in symbols[mode]) return symbols[mode][text]
     return null
 }
 
-function make_span(text: string | null, attr: Attrs = {}): Span {
-    return new Span({ children: [ text ?? '' ], ...attr })
+function atom_font(entry: SymbolEntry | null): FontFamily {
+    if (entry?.font == 'ams') return 'KaTeX_AMS'
+    return 'KaTeX_Main'
+}
+
+function make_span(text: string, attr: Attrs = {}): Span {
+    return new Span({ children: [ text ], ...attr })
 }
 
 function make_symbol(mode: SymbolMode, text: string, args: Attrs = {}): MathLayout {
@@ -142,13 +202,13 @@ const ROW_PADDING = 0.05
 
 function layout_row(nodes: (Tree | TreeNode)[]): MathLayout {
     if (nodes.length == 0) return EMPTY_LAYOUT
+    const layouts = cancel_binary_atoms(nodes.map(node => convert_tree(node)))
     const children: Element[] = ROW_PADDING > 0 ? [ new Spacer({ aspect: ROW_PADDING }) ] : []
     let leftClass: AtomClass | null = null
     let rightClass: AtomClass | null = null
     let prevClass: AtomClass | null = null
 
-    for (const node of nodes) {
-        const layout = convert_tree(node)
+    for (const layout of layouts) {
         if (layout.leftClass && prevClass) {
             const gap = inter_atom_spacing(prevClass, layout.leftClass)
             if (gap > 0) {
@@ -168,7 +228,8 @@ function layout_row(nodes: (Tree | TreeNode)[]): MathLayout {
     }
 
     if (rightClass == null) rightClass = leftClass
-    return layout_from(new HStack({ children }), leftClass, rightClass)
+    const element = new HStack({ children })
+    return layout_from(element, leftClass, rightClass)
 }
 
 function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
@@ -184,13 +245,12 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const { mode, text } = tree
             return make_symbol(mode, text, { font_family: FONTS['text'] })
         } else if (type == 'atom') {
-            const { mode, text, family } = tree as { mode: SymbolMode, text: string, family?: string }
-            const sym = make_symbol(mode, text, { font_family: FONTS[mode] })
-            const child = sym.element.clone({ pos: [0.4, 0.57], rad: [0.45, 0.6], expand: true })
-            const aspect = child.spec.aspect ?? 1
-            const box = new Box({ children: [ child ], aspect: aspect * 1.2 })
-            const klass = family != null ? (GROUP_CLASS[family] ?? 'mord') : sym.leftClass
-            return layout_with(box, klass ?? 'mord')
+            const { mode, text, family } = tree
+            const entry = get_symbol(mode, text)
+            const font_family = atom_font(entry)
+            const { element, leftClass } = make_symbol(mode, text, { font_family })
+            const klass = family != null ? (FAMILY_CLASS[family] ?? 'mord') : leftClass
+            return layout_with(element, klass)
         } else if (type == 'ordgroup') {
             const { body } = tree
             return convert_tree(body)
@@ -198,7 +258,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const { mode, name } = tree
             const entry = get_symbol(mode, name)
             if (entry != null) {
-                const span = make_span(entry.replace ?? name, { font_family: FONTS[mode] })
+                const span = make_span(entry.replace ?? name)
                 return layout_with(span, 'mop')
             } else {
                 const name1 = name.slice(1)
@@ -224,7 +284,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const numer = convert_tree(numer0)
             const denom = convert_tree(denom0)
 
-            const line = new Rectangle({ fill: 'black', pos: [0.5, 0.62], rad: [0.5, 0.0075] })
+            const line = new Rectangle({ fill: black, pos: [0.5, 0.62], rad: [0.5, 0.0075] })
             const denom1 = new Box({ children: [ denom.element.clone({ pos: [0.5, 0.3] }) ] })
             const stack = new VStack({ children: [ numer.element, denom1 ], even: true, justify: 'center', spacing: 0.2, pos: [0.5, 0.6], rad: [0.5, 0.6], expand: true })
             const aspect = stack.spec.aspect ?? 1

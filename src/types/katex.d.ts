@@ -1,17 +1,18 @@
 declare module 'katex' {
     export type SymbolMode = 'math' | 'text'
-    export type SymbolFont = "main" | "ams"
-    export type SymbolGroup = "accent-token" | "bin" | "close" | "inner" | "mathord" | "op-token" | "open" | "punct" | "rel" | "spacing" | "textord"
+    export type SymbolFont = 'main' | 'ams'
+    export type SymbolFamily = 'accent-token' | 'bin' | 'close' | 'inner' | 'mathord' | 'op-token' | 'open' | 'punct' | 'rel' | 'spacing' | 'textord'
 
     export type SymbolEntry = {
         font: SymbolFont
-        group: SymbolGroup
+        family: SymbolFamily
         replace: string | null
     }
 
     export type TreeAtom = {
         type: 'atom'
         mode: SymbolMode
+        family: SymbolFamily | null
         text: string
     }
 
