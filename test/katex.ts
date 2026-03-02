@@ -1,7 +1,7 @@
 import { __parse as parse_tex } from 'katex'
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
 import symbols from './symbols'
-import { is_array, is_object, maximum, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
+import { is_array, is_object, black, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span, type Attrs } from '../src/gum'
 import { registerFont } from '../src/fonts/fonts'
 import { join, resolve } from 'path'
 
@@ -199,9 +199,33 @@ function make_symbol(mode: SymbolMode, text: string, args: Attrs = {}): MathLayo
 //
 
 const ROW_PADDING = 0.05
-const SCRIPT_SCALE = 0.9
+const SCRIPT_SCALE = 1.0
 const SCRIPT_SPACE = 0.05
 const SCRIPT_SHIFT = 0.05
+
+const FRAC_SCALE = 1.0
+const FRAC_PAD = 0.06
+const FRAC_RULE_SIZE = 0.015
+const FRAC_RULE_GAP = 0.05
+const FRAC_NO_RULE_GAP = 0.22
+const FRAC_DELIM_GAP = 0.04
+
+const STYLE_SCALE: Record<string, number> = {
+    display: 1,
+    text: 1,
+    script: SCRIPT_SCALE,
+    scriptscript: SCRIPT_SCALE * SCRIPT_SCALE,
+}
+
+function element_aspect(element: Element | null): number {
+    return element?.spec.aspect ?? 1
+}
+
+function scale_script(element: Element, scale: number = SCRIPT_SCALE): Element {
+    const ypad = (1 - scale) / 2
+    const child = element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
+    return new Group({ children: [ child ], aspect: element_aspect(element) * scale })
+}
 
 function make_supsub_side(sup: MathLayout | null, sub: MathLayout | null): Element {
     const supElem = sup ? sup.element : new Spacer()
@@ -217,6 +241,61 @@ function make_supsub_side(sup: MathLayout | null, sub: MathLayout | null): Eleme
         children: [ supBox, spacer, subBox ], justify: 'left', pos: [0.5, 0.5 + SCRIPT_SHIFT]
     })
     return new Box({ children: [ stack ] })
+}
+
+function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
+    if (delim == null || delim == '.') return null
+    const entry = get_symbol(mode, delim)
+    const font_family = atom_font(entry)
+    return make_symbol(mode, delim, { font_family }).element
+}
+
+function make_genfrac_core(numer: MathLayout, denom: MathLayout, hasBarLine: boolean): Element {
+    const numerElem = scale_script(numer.element, FRAC_SCALE)
+    const denomElem = scale_script(denom.element, FRAC_SCALE)
+    const coreAspect = Math.max(element_aspect(numerElem), element_aspect(denomElem)) + 2 * FRAC_PAD
+
+    const gapTop = hasBarLine ? FRAC_RULE_GAP : FRAC_NO_RULE_GAP / 2
+    const gapBot = hasBarLine ? FRAC_RULE_GAP : FRAC_NO_RULE_GAP / 2
+    const lineSize = hasBarLine ? FRAC_RULE_SIZE : 0
+    const sideSize = (1 - gapTop - gapBot - lineSize) / 2
+
+    const numerBox = new Box({
+        children: [ numerElem ],
+        aspect: coreAspect,
+        padding: [ FRAC_PAD, 0 ],
+        stack_size: sideSize,
+    })
+    const denomBox = new Box({
+        children: [ denomElem ],
+        aspect: coreAspect,
+        padding: [ FRAC_PAD, 0 ],
+        stack_size: sideSize,
+    })
+
+    const children: Element[] = [
+        numerBox,
+        new Spacer({ stack_size: gapTop }),
+    ]
+
+    if (hasBarLine) {
+        children.push(new Rectangle({ fill: black, stack_size: lineSize }))
+    }
+
+    children.push(
+        new Spacer({ stack_size: gapBot }),
+        denomBox,
+    )
+
+    return new VStack({ children, justify: 'center' })
+}
+
+function layout_styling(body: TreeNode[], style: string): MathLayout {
+    const layout = convert_tree(body)
+    const scale = STYLE_SCALE[style] ?? 1
+    if (scale == 1) return layout
+    const elem = scale_script(layout.element, scale)
+    return layout_from(elem, layout.leftClass, layout.rightClass)
 }
 
 function layout_row(nodes: (Tree | TreeNode)[]): MathLayout {
@@ -287,6 +366,9 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
         } else if (type == 'text') {
             const { body } = tree
             return convert_tree(body)
+        } else if (type == 'styling') {
+            const { body, style } = tree
+            return layout_styling(body, style)
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0)
@@ -297,16 +379,32 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): MathLayout {
             const row = new HStack({ children: [ base.element, supsub ] })
             return layout_from(row, base.leftClass, base.rightClass)
         } else if (type == 'genfrac') {
-            const { numer: numer0, denom: denom0 } = tree
+            const {
+                mode = 'math',
+                numer: numer0,
+                denom: denom0,
+                hasBarLine = true,
+                leftDelim = null,
+                rightDelim = null,
+            } = tree
             const numer = convert_tree(numer0)
             const denom = convert_tree(denom0)
 
-            const line = new Rectangle({ fill: black, pos: [0.5, 0.62], rad: [0.5, 0.0075] })
-            const denom1 = new Box({ children: [ denom.element.clone({ pos: [0.5, 0.3] }) ] })
-            const stack = new VStack({ children: [ numer.element, denom1 ], even: true, justify: 'center', spacing: 0.2, pos: [0.5, 0.6], rad: [0.5, 0.6], expand: true })
-            const aspect = stack.spec.aspect ?? 1
-            const frac = new Box({ children: [ stack, line ], aspect: aspect * 1.3 })
-            return layout_with(frac, 'mord')
+            const frac = make_genfrac_core(numer, denom, hasBarLine)
+            const left = make_delimiter(mode, leftDelim)
+            const right = make_delimiter(mode, rightDelim)
+            const children: Element[] = []
+
+            if (left != null) {
+                children.push(left, new Spacer({ aspect: FRAC_DELIM_GAP }))
+            }
+            children.push(frac)
+            if (right != null) {
+                children.push(new Spacer({ aspect: FRAC_DELIM_GAP }), right)
+            }
+
+            const element = children.length == 1 ? frac : new HStack({ children })
+            return layout_with(element, 'mord')
         }
     }
     return EMPTY_LAYOUT

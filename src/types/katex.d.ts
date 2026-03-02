@@ -46,15 +46,32 @@ declare module 'katex' {
 
     export type TreeSupSub = {
         type: 'supsub'
-        base: TreeNode
-        sup: TreeNode
-        sub: TreeNode
+        base: TreeNode | null
+        sup: TreeNode | null
+        sub: TreeNode | null
+    }
+
+    export type TreeStyling = {
+        type: 'styling'
+        style: 'display' | 'text' | 'script' | 'scriptscript'
+        body: TreeNode[]
+    }
+
+    export type Measurement = {
+        number: number
+        unit: string
     }
 
     export type TreeGenFrac = {
         type: 'genfrac'
+        mode: SymbolMode
         numer: TreeNode
         denom: TreeNode
+        continued: boolean
+        hasBarLine: boolean
+        leftDelim: string | null
+        rightDelim: string | null
+        barSize: Measurement | null
     }
 
     export type TreeNode =
@@ -64,6 +81,7 @@ declare module 'katex' {
         | TreeOrdGroup
         | TreeOp
         | TreeText
+        | TreeStyling
         | TreeSupSub
         | TreeGenFrac
 
