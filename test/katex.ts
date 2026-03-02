@@ -3,7 +3,7 @@ import { __parse as parse_tex } from 'katex'
 
 import { registerFont, is_array, is_object, Element, Group, Spacer } from '../src/gum'
 import symbols from './symbols'
-import { EMPTY_MATH, MathSpan, MathText, SupSub, Frac, Sqrt, get_math_classes, set_math_classes } from './math'
+import { EMPTY_MATH, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math_classes, set_math_classes } from './math'
 
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode, Measurement } from 'katex'
 import type { Attrs } from '../src/gum'
@@ -94,6 +94,21 @@ function element_aspect(element: Element | null): number {
     return element?.spec.aspect ?? 1
 }
 
+function scale_math_element(element: Element, scale: number): Element {
+    if (scale == 1) return element
+    const ypad = (1 - scale) / 2
+    const child = element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
+    const scaled = new Group({ children: [ child ], aspect: element_aspect(element) * scale })
+    const { leftClass, rightClass } = get_math_classes(element)
+    return set_math_classes(scaled, leftClass, rightClass)
+}
+
+function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right'): Element | null {
+    if (delim == null || delim == '.') return null
+    const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
+    return make_symbol(mode, delim, { font_family: OP_SYMBOL_FONT, klass })
+}
+
 const STYLE_SCALE: Record<string, number> = {
     display: 1,
     text: 1,
@@ -153,13 +168,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const { body, style } = tree
             const body_element = convert_tree(body)
             const scale = STYLE_SCALE[style] ?? 1
-            if (scale == 1) return body_element
-
-            const ypad = (1 - scale) / 2
-            const child = body_element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
-            const scaled = new Group({ children: [ child ], aspect: element_aspect(body_element) * scale })
-            const { leftClass, rightClass } = get_math_classes(body_element)
-            return set_math_classes(scaled, leftClass, rightClass)
+            return scale_math_element(body_element, scale)
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0)
@@ -198,6 +207,12 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
                 index,
                 radical_font: OP_SYMBOL_FONT,
             })
+        } else if (type == 'leftright') {
+            const { mode = 'math', body: body0, left: left0, right: right0 } = tree
+            const body = convert_tree(body0)
+            const left = make_auto_delimiter(mode, left0, 'left')
+            const right = make_auto_delimiter(mode, right0, 'right')
+            return new Bracket({ body, left, right })
         }
     }
 

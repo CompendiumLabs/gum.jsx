@@ -477,10 +477,38 @@ class Sqrt extends HStack {
     }
 }
 
+interface BracketArgs extends Attrs {
+    body: Element
+    left?: Element | null
+    right?: Element | null
+    gap?: number
+}
+
+class Bracket extends HStack {
+    constructor(args: BracketArgs) {
+        const {
+            body,
+            left = null,
+            right = null,
+            gap = 0.01,
+            ...attr
+        } = args
+
+        const children: Element[] = []
+        if (left != null) children.push(left, new Spacer({ aspect: gap }))
+        children.push(body)
+        if (right != null) children.push(new Spacer({ aspect: gap }), right)
+
+        super({ children, justify: 'left', ...attr })
+        this.args = args
+        set_math_classes(this, 'minner')
+    }
+}
+
 const Fraction = Frac
 
 export {
-    MathSpan, MathText, SupSub, Frac, Fraction, Sqrt,
+    MathSpan, MathText, SupSub, Frac, Fraction, Sqrt, Bracket,
     EMPTY_MATH,
     set_math_classes, get_math_classes,
 }

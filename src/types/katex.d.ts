@@ -90,6 +90,14 @@ declare module 'katex' {
         index: TreeNode | null
     }
 
+    export type TreeLeftRight = {
+        type: 'leftright'
+        mode: SymbolMode
+        body: TreeNode[]
+        left: string
+        right: string
+    }
+
     export type TreeNode =
         | TreeAtom
         | TreeTextOrd
@@ -102,6 +110,7 @@ declare module 'katex' {
         | TreeSupSub
         | TreeGenFrac
         | TreeSqrt
+        | TreeLeftRight
 
     export type Tree = TreeNode[]
 
