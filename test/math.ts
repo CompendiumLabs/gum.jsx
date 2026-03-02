@@ -358,7 +358,7 @@ class Frac extends HStack {
             has_bar = true,
             left = null,
             right = null,
-            bar_rounded = 0.025,
+            bar_rounded = 0,
             frac_scale = FRAC_SCALE,
             frac_pad = FRAC_PAD,
             rule_size = FRAC_RULE_SIZE,
@@ -449,11 +449,12 @@ class Sqrt extends HStack {
             rightClass: 'mopen',
         })
 
-        let radical: Element = radical0
-        if (index != null) {
-            const indexScaled = index.clone({ pos: index_pos, yrad: index_scale / 2, align: 'right' })
-            radical = new Box({ children: [ radical0, indexScaled ] })
-        }
+        const radical = (index != null) ? new Box({
+            children: [
+                radical0,
+                index.clone({ pos: index_pos, yrad: index_scale / 2, align: 'right' }),
+            ],
+        }) : radical0
 
         const bodyStack = new VStack({
             children: [
