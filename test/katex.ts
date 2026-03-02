@@ -199,7 +199,7 @@ function make_symbol(mode: SymbolMode, text: string, args: Attrs = {}): MathLayo
 //
 
 const ROW_PADDING = 0.05
-const SCRIPT_SCALE = 0.75
+const SCRIPT_SCALE = 0.9
 const SCRIPT_SPACE = 0.05
 const SCRIPT_SHIFT = 0.05
 
