@@ -175,7 +175,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const base = convert_tree(base0)
             const sup = sup0 ? convert_tree(sup0) : null
             const sub = sub0 ? convert_tree(sub0) : null
-            const element = new SupSub({ base, sup, sub })
+            const element = new SupSub({ children: [ base ], sup, sub })
             const { left, right } = get_math(base)
             return set_math(element, { left, right })
         } else if (type == 'genfrac') {

@@ -1,11 +1,13 @@
 import { black, vtext } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, maximum } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, ensure_singleton, maximum } from '../lib/utils'
 import { Element, Group, Rectangle, Spacer } from '../elems/core'
 import { HStack, VStack, Box } from '../elems/layout'
 import { Span } from '../elems/text'
 
 import type { Measurement } from 'katex'
 import type { Attrs, Padding } from '../lib/types'
+import type { BoxArgs, StackArgs } from '../elems/layout'
+import type { SpanArgs } from '../elems/text'
 
 //
 // types
@@ -168,29 +170,12 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
 // math text
 //
 
-interface MathTextArgs extends Attrs {
-    items?: MathItem | MathItem[]
-    children?: MathItem | MathItem[]
-    padding?: number
-}
-
-interface MathSpanArgs extends Attrs {
+interface MathSpanArgs extends SpanArgs {
     children?: any
     klass?: AtomClass | null
     left?: AtomClass | null
     right?: AtomClass | null
 }
-
-type MathItem =
-    | Element
-    | MathText
-    | MathSpan
-    | string
-    | number
-    | boolean
-    | null
-    | undefined
-    | MathItem[]
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
@@ -199,7 +184,7 @@ class MathSpan extends Span {
             klass = 'mord',
             left = klass,
             right = left,
-            font_family = null,
+            font_family,
             ...attr
         } = args
 
@@ -214,6 +199,17 @@ class MathSpan extends Span {
         set_math(this, { left, right })
     }
 }
+
+type MathItem =
+    | Element
+    | MathText
+    | MathSpan
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | MathItem[]
 
 function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     const children = is_array(children0) ? children0 : [ children0 ]
@@ -243,7 +239,7 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends HStack {
-    constructor(args: MathTextArgs = {}) {
+    constructor(args: StackArgs = {}) {
         const { children: children0, ...attr } = args
 
         // normalize children
@@ -286,17 +282,16 @@ class MathText extends HStack {
     }
 }
 
-interface SupSubArgs extends Attrs {
-    base: Element
+interface SupSubArgs extends StackArgs {
     sup?: Element | null
     sub?: Element | null
     script_size?: number
 }
 
 class SupSub extends HStack {
-    constructor(args: SupSubArgs) {
+    constructor(args: SupSubArgs = {}) {
         const {
-            base,
+            children,
             sup = null,
             sub = null,
             spacing = 0,
@@ -305,6 +300,7 @@ class SupSub extends HStack {
             sub_pos = 1,
             ...attr
         } = args
+        const base = ensure_singleton(children)
 
         // get side aspect
         const supAspect = sup?.spec.aspect
@@ -330,9 +326,9 @@ class SupSub extends HStack {
     }
 }
 
-interface FracArgs extends Attrs {
-    numer: Element
-    denom: Element
+interface FracArgs extends BoxArgs {
+    numer?: Element
+    denom?: Element
     has_bar?: boolean
     left?: Element | null
     right?: Element | null
@@ -342,7 +338,7 @@ interface FracArgs extends Attrs {
 }
 
 class Frac extends Box {
-    constructor(args: FracArgs) {
+    constructor(args: FracArgs = {}) {
         const {
             numer,
             denom,
@@ -373,8 +369,7 @@ class Frac extends Box {
     }
 }
 
-interface SqrtArgs extends Attrs {
-    body: Element
+interface SqrtArgs extends StackArgs {
     index?: Element | null
     padding?: Padding
     rule_pos?: number
@@ -384,9 +379,9 @@ interface SqrtArgs extends Attrs {
 }
 
 class Sqrt extends HStack {
-    constructor(args: SqrtArgs) {
+    constructor(args: SqrtArgs = {}) {
         const {
-            body,
+            children,
             index = null,
             padding = [0, 0.05, 0.2, 0],
             rule_pos = 0.1,
@@ -395,6 +390,7 @@ class Sqrt extends HStack {
             index_size = 0.5,
             ...attr
         } = args
+        const body = ensure_singleton(children)
 
         // build radical
         const SQRT = new MathSpan({ children: [ '√' ], font_family: OP_SYMBOL_FONT })
@@ -420,20 +416,20 @@ class Sqrt extends HStack {
     }
 }
 
-interface BracketArgs extends Attrs {
-    body: Element
+interface BracketArgs extends StackArgs {
     left?: Element | null
     right?: Element | null
 }
 
 class Bracket extends HStack {
-    constructor(args: BracketArgs) {
+    constructor(args: BracketArgs = {}) {
         const {
-            body,
-            left = null,
-            right = null,
+            children: children0,
+            left,
+            right,
             ...attr
         } = args
+        const body = ensure_singleton(children0)
 
         // build children
         const children: Element[] = []
