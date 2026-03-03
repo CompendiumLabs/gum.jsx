@@ -4,7 +4,7 @@ import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext } from '../lib/const'
 import { check_string, is_scalar, is_string, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
-import { textSizer, splitWords } from '../lib/text'
+import { textMetrics, splitWords } from '../lib/text'
 
 import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core'
 import type { ElementArgs, GroupArgs } from './core'
@@ -41,7 +41,9 @@ interface SpanArgs extends ElementArgs {
 // no wrapping at all, clobber newlines, mainly internal use
 class Span extends Element {
     text: string
-    voffset: number
+    vshift: number
+    vsize: number
+    vcenter: number
 
     constructor(args: SpanArgs = {}) {
         const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
@@ -51,15 +53,20 @@ class Span extends Element {
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
-        const advance = textSizer(text, font_attr)
+        const { advance, ascent, descent } = textMetrics(text, font_attr)
+        const vsize = Math.max(1, ascent - descent)
+        const vcenter = (ascent + descent) / (2 * vsize)
+        const aspect = advance / vsize
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...attr })
+        super({ tag: 'text', unary: false, aspect, fill: color, stroke, ...font_attr, ...attr })
         this.args = args
 
         // additional props
         this.text = escape_xml(text)
-        this.voffset = vshift
+        this.vshift = vshift
+        this.vsize = vsize
+        this.vcenter = vcenter
     }
 
     // because text will always be displayed upright,
@@ -67,14 +74,15 @@ class Span extends Element {
     // and then offset it by the given offset
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        const { voffset } = this
+        const { vshift, vsize, vcenter } = this
         const size = (this as any).size as number | undefined
         const { prect } = ctx
 
         // get position and size
         let [ x0, y0, _w0, h0 ] = rect_box(prect, true)
+        const voffset = (vsize > 1) ? vshift + (vcenter - 0.25) : vshift
         const yoff = voffset * h0
-        const h = size ?? h0
+        const h = size ?? (h0 / vsize)
 
         // get display position
         const [ x1, y1 ] = [ x0, y0 + h0 ]

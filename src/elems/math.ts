@@ -376,12 +376,11 @@ class Frac extends Box {
 interface SqrtArgs extends Attrs {
     body: Element
     index?: Element | null
-    bar_size?: number
-    bar_gap?: number
-    body_pad?: number
-    index_scale?: number
-    index_gap?: number
-    index_pos?: [number, number]
+    padding?: Padding
+    rule_pos?: number
+    rule_size?: number
+    index_pos?: number
+    index_size?: number
 }
 
 class Sqrt extends HStack {
@@ -389,10 +388,11 @@ class Sqrt extends HStack {
         const {
             body,
             index = null,
-            rule_size = 0.035,
             padding = [0, 0.05, 0.2, 0],
-            index_size = 0.5,
+            rule_pos = 0.1,
+            rule_size = 0.01,
             index_pos = [0.75, 0.25],
+            index_size = 0.5,
             ...attr
         } = args
 
@@ -406,10 +406,10 @@ class Sqrt extends HStack {
         }) : SQRT
 
         // build body stack
-        const bodyStack = new VStack({
+        const bodyStack = new Box({
             children: [
-                new Rectangle({ fill: black, stack_size: rule_size }),
                 new Box({ children: [ body ], padding }),
+                new Rectangle({ fill: black, rad: [0.5, rule_size], pos: [0.5, rule_pos] }),
             ],
         })
         const core = new HStack({ children: [ radical, bodyStack ] })

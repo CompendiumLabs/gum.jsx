@@ -69,7 +69,7 @@ function textSizer(text: string, { font_family = sans, calc_size = D.calc_size }
 function textVertical(text: string, { font_family = sans }: TextSizerArgs = {}): Limit {
     const font = FONTS[font_family]
     const glyphs = font.stringToGlyphs(text)
-    const [yMins, yMaxs] = zip(...glyphs.map(g => [ g.yMin, g.yMax ]))
+    const [yMins = [], yMaxs = []] = zip(...glyphs.map(g => [ g.yMin, g.yMax ]))
     const units = font.unitsPerEm ?? 1000
     const yMin = min(yMins) ?? 0
     const yMax = max(yMaxs) ?? units
