@@ -2,8 +2,8 @@
 
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
-import { none, bold, vtext, svgns } from '../lib/const'
-import { check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
+import { none, bold, vtext } from '../lib/const'
+import { check_string, is_scalar, is_string, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
 import { textSizer, splitWords } from '../lib/text'
 
 import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core'

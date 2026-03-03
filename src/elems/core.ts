@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul, maximum, minimum, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
 
 import type { Point, Rect, Limit, Size, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
@@ -30,7 +30,7 @@ function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, 
     const [ w0, h0 ] = size
     const [ aw, ah ] = [ abs(w0), abs(h0) ]
     const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
-    const agg = expand ? maximum : minimum
+    const agg = expand ? Math.max : Math.min
     const h = agg(aw / aspect, ah)
     const w = h * aspect
     return [ sw * w, sh * h ]
@@ -66,7 +66,7 @@ function rotate_rect(size: Size, rotate: number, { aspect, expand = false, invar
         const paspect = abs(w0 / h0)
         const TAN = abs(tan(theta))
         const COT = abs(cot(theta))
-        const [ TL, TH ] = [ minimum(TAN, COT), maximum(TAN, COT) ]
+        const [ TL, TH ] = [ Math.min(TAN, COT), Math.max(TAN, COT) ]
         if (paspect < TL) {
             w = w0 / (2 * COS)
             h = w0 / (2 * SIN)

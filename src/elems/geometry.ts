@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, minimum, maximum, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -335,7 +335,7 @@ class CornerCmd {
 
         // get corner point and fitted radius
         const [ cx, cy ] = diag ? [ x0, y1 ] : [ x1, y0 ]
-        const rad = minimum(dx, dy)
+        const rad = Math.min(dx, dy)
 
         // get the intra-radial points
         const sigx = right ? -1 :  1
@@ -432,14 +432,14 @@ class Spline extends Path {
         // compute tangent directions at each point (cardinal spline)
         const n = data.length
         const tans = range(n).map(i => {
-            const i1 = (closed && i == 0    ) ? n - 1 : maximum(0    , i - 1)
-            const i2 = (closed && i == n - 1) ? 0     : minimum(n - 1, i + 1)
+            const i1 = (closed && i == 0    ) ? n - 1 : Math.max(0    , i - 1)
+            const i2 = (closed && i == n - 1) ? 0     : Math.min(n - 1, i + 1)
             return squeeze_mpoint(sub_mpoint(data[i2], data[i1]))
         })
 
         // create path commands
         const move = new MoveCmd(data[0])
-        const num = maximum(0, closed ? n : n - 1)
+        const num = Math.max(0, closed ? n : n - 1)
         const splines = range(num).map(i => {
             const ip = (closed && i == num - 1) ? 0 : i + 1
             const d1 = (!closed && i == 0) ? dir1 : undefined

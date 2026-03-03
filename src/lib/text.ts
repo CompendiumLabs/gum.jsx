@@ -22,12 +22,6 @@ function arrayEquals(a: number[], b: number[]): boolean {
     return a.length == b.length && a.every((x, i) => x == b[i])
 }
 
-function splitSegments(text: string): string[] {
-    const segmenter = new Intl.Segmenter()
-    const segments = segmenter.segment(text)
-    return [...segments].map(s => s.segment)
-}
-
 function emojiSizer(text: string): number {
     // get emoji font
     const font = FONTS[moji]
