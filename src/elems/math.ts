@@ -299,7 +299,7 @@ class SupSub extends HStack {
             base,
             sup = null,
             sub = null,
-            spacing = 0.025,
+            spacing = 0,
             script_size = 0.5,
             sup_pos = 0.363,
             sub_pos = 1,

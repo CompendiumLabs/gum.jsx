@@ -5,7 +5,6 @@ import { THEME } from '../lib/theme'
 import { none, bold, vtext, svgns } from '../lib/const'
 import { check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
 import { textSizer, splitWords } from '../lib/text'
-import { mathjax } from '../lib/math'
 
 import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core'
 import type { ElementArgs, GroupArgs } from './core'
@@ -250,78 +249,8 @@ class Italic extends Text {
 }
 
 //
-// latex classes
-//
-
-interface LatexArgs extends ElementArgs {
-    display?: boolean
-    voffset?: number
-}
-
-// TODO: this is slow. can we get katex back somehow?
-class Latex extends Element {
-    math: string
-    vshift: number
-
-    constructor(args: LatexArgs = {}) {
-        const { children, display = false, voffset = vtext, ...attr } = THEME(args, 'Latex')
-        const tex = check_string(children)
-
-        // render with mathjax (or do nothing if mathjax is not available)
-        let math = ''
-        let vshift = 0
-        let svg_attr: Attrs = {}
-        if (mathjax != null) {
-            // render with mathjax
-            const { svg, viewBox, width, height, valign } = mathjax.render(tex, { display })
-            const aspect = width / height
-
-            // handle vertical offset
-            const vfactor = display ? 0.5 : 0.25
-            const vshift0 = voffset + valign + vfactor * (1 - height)
-
-            // immediate attributes
-            svg_attr = { viewBox, aspect, preserveAspectRatio: none, xmlns: svgns }
-
-            // store for rendering
-            math = svg
-            vshift = vshift0
-        } else {
-            math = tex
-        }
-
-        // pass to element
-        super({ tag: 'svg', unary: false, ...svg_attr, ...attr })
-        this.args = args
-
-        // additional props
-        this.math = math
-        this.vshift = vshift
-    }
-
-    props(ctx: Context): Attrs {
-        const attr = super.props(ctx)
-        const { prect } = ctx
-        const [ x, y0, w, h ] = rect_box(prect, true)
-        const y = y0 + this.vshift * h
-        return { x, y, width: w, height: h, ...attr }
-    }
-
-    inner(_ctx: Context): string {
-        return `\n${this.math}\n`
-    }
-}
-
-class Equation extends Latex {
-    constructor(args: LatexArgs = {}) {
-        const attr = THEME(args, 'Equation')
-        super({ display: true, ...attr })
-    }
-}
-
-//
 // exports
 //
 
-export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, Bold, Italic, Latex, Equation }
-export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, LatexArgs }
+export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, Bold, Italic }
+export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs }

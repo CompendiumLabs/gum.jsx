@@ -1,7 +1,7 @@
 import opentype from 'opentype.js'
 import type { Font } from 'opentype.js'
 
-import { sans, mono, moji } from '../lib/const'
+import { sans, mono } from '../lib/const'
 import { is_browser } from '../lib/utils'
 
 //
@@ -50,17 +50,6 @@ async function registerFont(name: string, path: string) {
     FONT_DATA[name] = await loadFont(path)
     FONTS[name] = opentype.parse(FONT_DATA[name])
 }
-
-//
-// try to load emoji font (obfuscated path excludes it from vite bundles)
-//
-
-try {
-    // @ts-ignore
-    const mojiFile = './' + 'NotoColorEmoji-Regular.ttf'
-    const { default: mojiPath } = await import(/* @vite-ignore */ mojiFile)
-    await registerFont(moji, mojiPath)
-} catch {}
 
 //
 // exports

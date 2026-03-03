@@ -55,12 +55,10 @@
     "typescript": "^5.9.3"
   },
   "optionalDependencies": {
-    "@mathjax/src": "^4.1.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@resvg/resvg-js": "^2.6.2",
     "commander": "^14.0.3",
     "express": "^5.2.1",
-    "mathjax": "^4.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

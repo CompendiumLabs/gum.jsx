@@ -2,7 +2,6 @@ import { __parse as parse_tex } from 'katex'
 
 import symbols from '../lib/symbols'
 import { THEME } from '../lib/theme'
-import { registerFont, FONTS as FONTS0 } from '../fonts/fonts'
 import { is_array, is_object, check_string } from '../lib/utils'
 import { Element, Spacer } from '../elems/core'
 import { Box } from '../elems/layout'
@@ -181,22 +180,12 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
 // katex parser and component
 //
 
-import KaTeX_Math_Italic from '../fonts/KaTeX_Math-Italic.ttf?url'
-import KaTeX_Main_Regular from '../fonts/KaTeX_Main-Regular.ttf?url'
-import KaTeX_AMS_Regular from '../fonts/KaTeX_AMS-Regular.ttf?url'
-import KaTeX_Size1_Regular from '../fonts/KaTeX_Size1-Regular.ttf?url'
-
-await registerFont('KaTeX_Math', KaTeX_Math_Italic)
-await registerFont('KaTeX_Main', KaTeX_Main_Regular)
-await registerFont('KaTeX_AMS', KaTeX_AMS_Regular)
-await registerFont('KaTeX_Size1', KaTeX_Size1_Regular)
-
 function parse_katex(tex: string): Element | null {
     const tree = parse_tex(tex)
     return convert_tree(tree)
 }
 
-class Katex extends Box {
+class Latex extends Box {
     constructor(args: ElementArgs = {}) {
         const { children, ...attr } = THEME(args, 'Katex')
         const tex = check_string(children)
@@ -206,4 +195,4 @@ class Katex extends Box {
     }
 }
 
-export { parse_katex, Katex }
+export { parse_katex, Latex }
