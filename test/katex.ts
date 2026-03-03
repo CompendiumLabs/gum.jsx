@@ -3,11 +3,11 @@ import { __parse as parse_tex } from 'katex'
 
 import { registerFont, is_array, is_object, Element, Group, Spacer } from '../src/gum'
 import symbols from './symbols'
-import { EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
+import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
 
 import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
 import type { Attrs } from '../src/gum'
-import type { AtomClass } from './math'
+import type { AtomClass, FontFamily } from './math'
 
 //
 // register katex fonts
@@ -23,12 +23,10 @@ await registerFont('KaTeX_Size1', join(fonts_dir, 'KaTeX_Size1-Regular.ttf'))
 // symbols and fonts
 //
 
-type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1'
 const FONTS: Record<SymbolMode, FontFamily> = {
     'math': 'KaTeX_Math',
     'text': 'KaTeX_Main',
 }
-const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
 
 const FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
     'mathord': 'mord',

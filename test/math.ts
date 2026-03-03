@@ -1,13 +1,14 @@
 import type { Measurement } from 'katex'
-import { black, is_array, is_scalar, is_string, minimum, maximum, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
+import { black, is_array, is_scalar, is_string, is_boolean, maximum, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
 import { vtext } from '../src/lib/const'
-import { textVertical } from '../src/lib/text'
 
 import type { Attrs, Padding } from '../src/gum'
 
 //
 // types
 //
+
+type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1'
 
 type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
 
@@ -19,6 +20,8 @@ type MathSpec = {
 type MathElement = Element & {
     math?: Partial<MathSpec>
 }
+
+const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
 
 const THINSPACE: Measurement = { number: 3, unit: 'mu' }
 const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
@@ -101,7 +104,7 @@ function unwrap_singleton(value: any): any {
 function scalar_text(value: any): string {
     const value0 = unwrap_singleton(value)
     if (value0 == null) return ''
-    if (is_scalar(value0) || typeof value0 == 'string' || typeof value0 == 'boolean') return String(value0)
+    if (is_scalar(value0) || is_string(value0) || is_boolean(value0)) return String(value0)
     return ''
 }
 
@@ -225,8 +228,8 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
         } else if (child instanceof Element) {
             out.push(child)
             continue
-        } else if (is_scalar(child) || is_string(child)) {
-            out.push(new MathSpan({ children: child }))
+        } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
+            out.push(new MathSpan({ children: [ child ] }))
             continue
         } else {
             throw new Error(`Unknown math child type: ${typeof child}`)
@@ -392,7 +395,7 @@ class Sqrt extends HStack {
         } = args
 
         // build radical
-        const SQRT = new MathSpan({ children: [ '√' ], font_family: 'KaTeX_Size1' })
+        const SQRT = new MathSpan({ children: [ '√' ], font_family: OP_SYMBOL_FONT })
         const radical = (index != null) ? new Box({
             children: [
                 SQRT,
@@ -444,7 +447,7 @@ class Bracket extends HStack {
 
 export {
     MathSpan, MathText, SupSub, Frac, Sqrt, Bracket,
-    EMPTY_MATH,
+    OP_SYMBOL_FONT, EMPTY_MATH,
     set_math, get_math, measurement_to_em,
 }
-export type { AtomClass, MathItem, MathSpec }
+export type { AtomClass, MathItem, MathSpec, FontFamily }
