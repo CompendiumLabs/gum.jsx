@@ -1,0 +1,209 @@
+import { __parse as parse_tex } from 'katex'
+
+import symbols from '../lib/symbols'
+import { THEME } from '../lib/theme'
+import { registerFont, FONTS as FONTS0 } from '../fonts/fonts'
+import { is_array, is_object, check_string } from '../lib/utils'
+import { Element, Spacer } from '../elems/core'
+import { Box } from '../elems/layout'
+import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
+
+import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
+import type { AtomClass, FontFamily } from './math'
+import type { Attrs } from '../lib/types'
+import type { ElementArgs } from './core'
+
+//
+// symbols and fonts
+//
+
+const FONTS: Record<SymbolMode, FontFamily> = {
+    'math': 'KaTeX_Math',
+    'text': 'KaTeX_Main',
+}
+
+const FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
+    'mathord': 'mord',
+    'textord': 'mord',
+    'bin': 'mbin',
+    'rel': 'mrel',
+    'open': 'mopen',
+    'close': 'mclose',
+    'punct': 'mpunct',
+    'inner': 'minner',
+    'op-token': 'mop',
+    'accent-token': 'mord',
+    'spacing': null,
+}
+
+function symbol_group_class(entry: SymbolEntry | null): AtomClass {
+    if (entry == null) return 'mord'
+    return FAMILY_CLASS[entry.family] ?? 'mord'
+}
+
+function get_symbol(mode: SymbolMode, text: string): SymbolEntry | null {
+    if (text in symbols[mode]) return symbols[mode][text]
+    return null
+}
+
+function atom_font(entry: SymbolEntry | null): FontFamily {
+    if (entry?.font == 'ams') return 'KaTeX_AMS'
+    return 'KaTeX_Main'
+}
+
+interface SymbolArgs extends Attrs {
+    fallback?: string | null
+    font_family?: FontFamily
+    klass?: AtomClass | null
+}
+
+function make_symbol(mode: SymbolMode, text: string, args: SymbolArgs = {}): Element {
+    const { fallback = null, font_family = FONTS[mode], klass: klass0 = null, ...attr } = args
+    const entry = get_symbol(mode, text)
+    const children = entry?.replace ?? fallback ?? text
+    const klass = klass0 ?? symbol_group_class(entry)
+    return new MathSpan({ children, font_family, left: klass, right: klass, ...attr })
+}
+
+function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
+    if (delim == null || delim == '.') return null
+    const entry = get_symbol(mode, delim)
+    const font_family = atom_font(entry)
+    return make_symbol(mode, delim, { font_family })
+}
+
+function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right'): Element | null {
+    if (delim == null || delim == '.') return null
+    const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
+    return make_symbol(mode, delim, { font_family: OP_SYMBOL_FONT, klass })
+}
+
+//
+// parse katex tree
+//
+
+function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
+    if (tree == null) return EMPTY_MATH
+
+    if (is_array(tree)) {
+        const row = new MathText({ children: tree.map(node => convert_tree(node)) })
+        return row.children.length > 0 ? row : EMPTY_MATH
+    }
+
+    if (is_object(tree)) {
+        const { type } = tree
+
+        if (type == 'mathord') {
+            const { mode, text } = tree
+            return make_symbol(mode, text, { font_family: FONTS['math'] })
+        } else if (type == 'textord') {
+            const { mode, text } = tree
+            return make_symbol(mode, text, { font_family: FONTS['text'] })
+        } else if (type == 'atom') {
+            const { mode, text, family } = tree
+            const entry = get_symbol(mode, text)
+            const font_family = atom_font(entry)
+            const element = make_symbol(mode, text, { font_family })
+            if (family != null) {
+                return set_math(element, { left: FAMILY_CLASS[family], right: FAMILY_CLASS[family] })
+            }
+            return element
+        } else if (type == 'ordgroup') {
+            const { body } = tree
+            return convert_tree(body)
+        } else if (type == 'op') {
+            const { mode, name } = tree
+            const entry = get_symbol(mode, name)
+            if (entry != null) {
+                return new MathSpan({ children: [ entry.replace ?? name ], left: 'mop', right: 'mop', font_family: OP_SYMBOL_FONT })
+            } else {
+                const name1 = name.slice(1)
+                return new MathSpan({ children: [ name1 ], left: 'mop', right: 'mop', font_family: FONTS['text'] })
+            }
+        } else if (type == 'text') {
+            const { body } = tree
+            return convert_tree(body)
+        } else if (type == 'kern') {
+            const { dimension } = tree
+            const em = measurement_to_em(dimension)
+            return new Spacer({ aspect: em })
+        } else if (type == 'supsub') {
+            const { base: base0, sup: sup0, sub: sub0 } = tree
+            const base = convert_tree(base0)
+            const sup = sup0 ? convert_tree(sup0) : null
+            const sub = sub0 ? convert_tree(sub0) : null
+            const element = new SupSub({ base, sup, sub })
+            const { left, right } = get_math(base)
+            return set_math(element, { left, right })
+        } else if (type == 'genfrac') {
+            const {
+                mode = 'math',
+                numer: numer0,
+                denom: denom0,
+                hasBarLine = true,
+                leftDelim = null,
+                rightDelim = null,
+            } = tree
+            const numer = convert_tree(numer0)
+            const denom = convert_tree(denom0)
+            const left = make_delimiter(mode, leftDelim)
+            const right = make_delimiter(mode, rightDelim)
+            const element = new Frac({
+                numer,
+                denom,
+                has_bar: hasBarLine,
+                left,
+                right,
+            })
+            return set_math(element, { left: 'mord', right: 'mord' })
+        } else if (type == 'sqrt') {
+            const { body: body0, index: index0 } = tree
+            const body = convert_tree(body0)
+            const index = index0 ? convert_tree(index0) : null
+            return new Sqrt({
+                body,
+                index,
+                radical_font: OP_SYMBOL_FONT,
+            })
+        } else if (type == 'leftright') {
+            const { mode = 'math', body: body0, left: left0, right: right0 } = tree
+            const body = convert_tree(body0)
+            const left = make_auto_delimiter(mode, left0, 'left')
+            const right = make_auto_delimiter(mode, right0, 'right')
+            return new Bracket({ body, left, right })
+        }
+    }
+
+    return EMPTY_MATH
+}
+
+//
+// katex parser and component
+//
+
+import KaTeX_Math_Italic from '../fonts/KaTeX_Math-Italic.ttf?url'
+import KaTeX_Main_Regular from '../fonts/KaTeX_Main-Regular.ttf?url'
+import KaTeX_AMS_Regular from '../fonts/KaTeX_AMS-Regular.ttf?url'
+import KaTeX_Size1_Regular from '../fonts/KaTeX_Size1-Regular.ttf?url'
+
+await registerFont('KaTeX_Math', KaTeX_Math_Italic)
+await registerFont('KaTeX_Main', KaTeX_Main_Regular)
+await registerFont('KaTeX_AMS', KaTeX_AMS_Regular)
+await registerFont('KaTeX_Size1', KaTeX_Size1_Regular)
+
+function parse_katex(tex: string): Element | null {
+    const tree = parse_tex(tex)
+    return convert_tree(tree)
+}
+
+class Katex extends Box {
+    constructor(args: ElementArgs = {}) {
+        const { children, ...attr } = THEME(args, 'Katex')
+        const tex = check_string(children)
+        const elem = parse_katex(tex)
+        super({ children: [ elem ], ...attr })
+        this.args = args
+    }
+}
+
+export { parse_katex, Katex }

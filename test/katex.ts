@@ -1,195 +1,109 @@
-import { join, resolve } from 'path'
-import { __parse as parse_tex } from 'katex'
+#! /usr/bin/env bun
 
-import { registerFont, is_array, is_object, Element, Group, Spacer } from '../src/gum'
-import symbols from './symbols'
-import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
+import { writeFileSync } from 'fs'
+import { dirname, join, resolve } from 'path'
+import { spawnSync } from 'child_process'
+import { fileURLToPath } from 'url'
+import { Command } from 'commander'
+import { Svg, Box } from '../src/gum'
+import { formatImage } from '../src/render'
+import { parse_katex } from '../src/elems/katex'
+import { registerFont } from '../src/fonts/fonts'
 
-import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
-import type { Attrs } from '../src/gum'
-import type { AtomClass, FontFamily } from './math'
+// get directories
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const PROJECT_DIR = resolve(__dirname, '..')
+const FONTS_DIR = join(PROJECT_DIR, 'node_modules', 'katex', 'dist', 'fonts')
 
-//
-// register katex fonts
-//
+// register math fonts
+await registerFont('KaTeX_Math', join(FONTS_DIR, 'KaTeX_Math-Italic.ttf'))
+await registerFont('KaTeX_Main', join(FONTS_DIR, 'KaTeX_Main-Regular.ttf'))
+await registerFont('KaTeX_AMS', join(FONTS_DIR, 'KaTeX_AMS-Regular.ttf'))
+await registerFont('KaTeX_Size1', join(FONTS_DIR, 'KaTeX_Size1-Regular.ttf'))
 
-const fonts_dir = resolve(__dirname, '../node_modules/katex/dist/fonts')
-await registerFont('KaTeX_Math', join(fonts_dir, 'KaTeX_Math-Italic.ttf'))
-await registerFont('KaTeX_Main', join(fonts_dir, 'KaTeX_Main-Regular.ttf'))
-await registerFont('KaTeX_AMS', join(fonts_dir, 'KaTeX_AMS-Regular.ttf'))
-await registerFont('KaTeX_Size1', join(fonts_dir, 'KaTeX_Size1-Regular.ttf'))
+// convert SVG to PNG
+function convertSvgToPng(svg: string, outputPath?: string): Buffer {
+    const args = [
+        '--use-fonts-dir',
+        FONTS_DIR,
+        '--resources-dir',
+        PROJECT_DIR,
+        '-',
+        outputPath ?? '-c',
+    ]
 
-//
-// symbols and fonts
-//
+    const result = spawnSync('resvg', args, {
+        input: svg,
+        stdio: outputPath ? ['pipe', 'inherit', 'inherit'] : ['pipe', 'pipe', 'inherit'],
+    })
 
-const FONTS: Record<SymbolMode, FontFamily> = {
-    'math': 'KaTeX_Math',
-    'text': 'KaTeX_Main',
-}
-
-const FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
-    'mathord': 'mord',
-    'textord': 'mord',
-    'bin': 'mbin',
-    'rel': 'mrel',
-    'open': 'mopen',
-    'close': 'mclose',
-    'punct': 'mpunct',
-    'inner': 'minner',
-    'op-token': 'mop',
-    'accent-token': 'mord',
-    'spacing': null,
-}
-
-function symbol_group_class(entry: SymbolEntry | null): AtomClass {
-    if (entry == null) return 'mord'
-    return FAMILY_CLASS[entry.family] ?? 'mord'
-}
-
-function get_symbol(mode: SymbolMode, text: string): SymbolEntry | null {
-    if (text in symbols[mode]) return symbols[mode][text]
-    return null
-}
-
-function atom_font(entry: SymbolEntry | null): FontFamily {
-    if (entry?.font == 'ams') return 'KaTeX_AMS'
-    return 'KaTeX_Main'
-}
-
-interface SymbolArgs extends Attrs {
-    fallback?: string | null
-    font_family?: FontFamily
-    klass?: AtomClass | null
-}
-
-function make_symbol(mode: SymbolMode, text: string, args: SymbolArgs = {}): Element {
-    const { fallback = null, font_family = FONTS[mode], klass: klass0 = null, ...attr } = args
-    const entry = get_symbol(mode, text)
-    const children = entry?.replace ?? fallback ?? text
-    const klass = klass0 ?? symbol_group_class(entry)
-    return new MathSpan({ children, font_family, left: klass, right: klass, ...attr })
-}
-
-function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
-    if (delim == null || delim == '.') return null
-    const entry = get_symbol(mode, delim)
-    const font_family = atom_font(entry)
-    return make_symbol(mode, delim, { font_family })
-}
-
-function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right'): Element | null {
-    if (delim == null || delim == '.') return null
-    const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
-    return make_symbol(mode, delim, { font_family: OP_SYMBOL_FONT, klass })
-}
-
-//
-// parse katex tree
-//
-
-function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
-    if (tree == null) return EMPTY_MATH
-
-    if (is_array(tree)) {
-        const row = new MathText({ children: tree.map(node => convert_tree(node)) })
-        return row.children.length > 0 ? row : EMPTY_MATH
+    if (result.error) {
+        throw result.error
     }
 
-    if (is_object(tree)) {
-        const { type } = tree
-
-        if (type == 'mathord') {
-            const { mode, text } = tree
-            return make_symbol(mode, text, { font_family: FONTS['math'] })
-        } else if (type == 'textord') {
-            const { mode, text } = tree
-            return make_symbol(mode, text, { font_family: FONTS['text'] })
-        } else if (type == 'atom') {
-            const { mode, text, family } = tree
-            const entry = get_symbol(mode, text)
-            const font_family = atom_font(entry)
-            const element = make_symbol(mode, text, { font_family })
-            if (family != null) {
-                return set_math(element, { left: FAMILY_CLASS[family], right: FAMILY_CLASS[family] })
-            }
-            return element
-        } else if (type == 'ordgroup') {
-            const { body } = tree
-            return convert_tree(body)
-        } else if (type == 'op') {
-            const { mode, name } = tree
-            const entry = get_symbol(mode, name)
-            if (entry != null) {
-                return new MathSpan({ children: [ entry.replace ?? name ], left: 'mop', right: 'mop', font_family: OP_SYMBOL_FONT })
-            } else {
-                const name1 = name.slice(1)
-                return new MathSpan({ children: [ name1 ], left: 'mop', right: 'mop', font_family: FONTS['text'] })
-            }
-        } else if (type == 'text') {
-            const { body } = tree
-            return convert_tree(body)
-        } else if (type == 'kern') {
-            const { dimension } = tree
-            const em = measurement_to_em(dimension)
-            return new Spacer({ aspect: em })
-        } else if (type == 'supsub') {
-            const { base: base0, sup: sup0, sub: sub0 } = tree
-            const base = convert_tree(base0)
-            const sup = sup0 ? convert_tree(sup0) : null
-            const sub = sub0 ? convert_tree(sub0) : null
-            const element = new SupSub({ base, sup, sub })
-            const { left, right } = get_math(base)
-            return set_math(element, { left, right })
-        } else if (type == 'genfrac') {
-            const {
-                mode = 'math',
-                numer: numer0,
-                denom: denom0,
-                hasBarLine = true,
-                leftDelim = null,
-                rightDelim = null,
-            } = tree
-            const numer = convert_tree(numer0)
-            const denom = convert_tree(denom0)
-            const left = make_delimiter(mode, leftDelim)
-            const right = make_delimiter(mode, rightDelim)
-            const element = new Frac({
-                numer,
-                denom,
-                has_bar: hasBarLine,
-                left,
-                right,
-            })
-            return set_math(element, { left: 'mord', right: 'mord' })
-        } else if (type == 'sqrt') {
-            const { body: body0, index: index0 } = tree
-            const body = convert_tree(body0)
-            const index = index0 ? convert_tree(index0) : null
-            return new Sqrt({
-                body,
-                index,
-                radical_font: OP_SYMBOL_FONT,
-            })
-        } else if (type == 'leftright') {
-            const { mode = 'math', body: body0, left: left0, right: right0 } = tree
-            const body = convert_tree(body0)
-            const left = make_auto_delimiter(mode, left0, 'left')
-            const right = make_auto_delimiter(mode, right0, 'right')
-            return new Bracket({ body, left, right })
-        }
+    if (result.status !== 0) {
+        throw new Error(`resvg exited with status ${result.status}`)
     }
 
-    return EMPTY_MATH
+    if (!outputPath) {
+        return result.stdout instanceof Buffer ? result.stdout : Buffer.alloc(0)
+    }
+
+    return Buffer.alloc(0)
 }
 
-//
-// main function
-//
-
-function parse_katex(tex: string): Element | null {
-    const tree = parse_tex(tex)
-    return convert_tree(tree)
+// read full stdin as utf-8
+async function read_stdin(): Promise<string> {
+    const chunks: Buffer[] = []
+    for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+    }
+    return Buffer.concat(chunks).toString('utf-8')
 }
 
-export { parse_katex }
+// parse cli args
+const program = new Command()
+program
+    .name('katex-test')
+    .description('Render TeX from stdin using test/katex.ts and output SVG/PNG')
+    .option('-o, --output <output>', 'output file; defaults to stdout')
+    .option('-p, --png', 'emit PNG (via resvg) instead of SVG')
+    .option('-b, --background <color>', 'background color (PNG)', 'white')
+    .option('-m, --margin <margin>', 'margin in px', (value) => parseFloat(value), 0.1)
+    .option('-s, --size <size>', 'svg size in px', (value) => parseInt(value), 500)
+    .parse(process.argv)
+const { output, png, size, background, margin } = program.opts<{ output?: string, png?: boolean, size: number, background?: string, margin?: number }>()
+
+// read stdin
+const stdoutIsTTY = process.stdout.isTTY === true
+const tex = await read_stdin()
+
+// bail on empty input
+if (tex.trim().length == 0) {
+    throw new Error('No TeX input found on stdin')
+}
+
+// parse TeX input
+const elem = parse_katex(tex)
+if (elem == null) {
+    throw new Error('Failed to parse TeX input')
+}
+
+// make box with margin and background
+const box = new Box({ children: [ elem ], padding: margin, rounded: 0.1, fill: background, clip: true })
+const out = new Svg({ children: [ box ], size }).svg()
+
+// convert for output
+if (png) {
+    const pngBuffer = convertSvgToPng(out, output)
+    if (!output) {
+        const outputData = stdoutIsTTY ? (formatImage(pngBuffer) + '\n') : pngBuffer
+        process.stdout.write(outputData)
+    }
+} else {
+    if (output) {
+        writeFileSync(output, out)
+    } else {
+        process.stdout.write(out)
+    }
+}

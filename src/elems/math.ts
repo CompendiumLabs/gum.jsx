@@ -1,8 +1,11 @@
-import type { Measurement } from 'katex'
-import { black, is_array, is_scalar, is_string, is_boolean, maximum, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
-import { vtext } from '../src/lib/const'
+import { black, vtext } from '../lib/const'
+import { is_array, is_scalar, is_string, is_boolean, maximum } from '../lib/utils'
+import { Element, Group, Rectangle, Spacer } from '../elems/core'
+import { HStack, VStack, Box } from '../elems/layout'
+import { Span } from '../elems/text'
 
-import type { Attrs, Padding } from '../src/gum'
+import type { Measurement } from 'katex'
+import type { Attrs, Padding } from '../lib/types'
 
 //
 // types
