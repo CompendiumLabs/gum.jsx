@@ -2,7 +2,7 @@ import { __parse as parse_tex } from 'katex'
 
 import symbols from '../lib/symbols'
 import { THEME } from '../lib/theme'
-import { is_array, is_object, check_string } from '../lib/utils'
+import { is_array, is_object, check_string, maximum } from '../lib/utils'
 import { Element, Spacer } from '../elems/core'
 import { Box } from '../elems/layout'
 import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
@@ -71,10 +71,54 @@ function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Ele
     return make_symbol(mode, delim, { font_family })
 }
 
-function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right'): Element | null {
+// quick delimiter-sizing heuristic based on parse subtree shape
+function delimiter_size(tree: Tree | TreeNode | null | undefined): number {
+    if (tree == null) return 1
+
+    if (is_array(tree)) {
+        const size = tree.reduce((acc, node) => Math.max(acc, delimiter_size(node)), 1)
+        return Math.max(1, Math.min(4, size))
+    }
+
+    if (is_object(tree)) {
+        const { type } = tree
+        if (type == 'genfrac') {
+            return 3
+        } else if (type == 'supsub') {
+            const { base, sup, sub } = tree
+            return Math.max(2, maximum(delimiter_size(base), delimiter_size(sup), delimiter_size(sub)) ?? 1)
+        } else if (type == 'sqrt') {
+            const { body, index } = tree
+            return Math.max(2, maximum(delimiter_size(body), delimiter_size(index)) ?? 1)
+        } else if (type == 'leftright') {
+            const { body } = tree
+            return delimiter_size(body)
+        } else if (type == 'styling') {
+            const { body, style } = tree
+            const size = delimiter_size(body)
+            return (style == 'display') ? Math.min(4, size + 1) : size
+        } else if (type == 'ordgroup' || type == 'text') {
+            const { body } = tree
+            return delimiter_size(body)
+        }
+    }
+
+    return 1
+}
+
+function delimiter_font(size: number): FontFamily {
+    if (size >= 5) return 'KaTeX_Size4'
+    if (size == 4) return 'KaTeX_Size3'
+    if (size == 3) return 'KaTeX_Size2'
+    if (size == 2) return 'KaTeX_Size1'
+    return 'KaTeX_Main'
+}
+
+function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right', size: number): Element | null {
     if (delim == null || delim == '.') return null
     const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
-    return make_symbol(mode, delim, { font_family: OP_SYMBOL_FONT, klass })
+    const font_family = delimiter_font(size)
+    return make_symbol(mode, delim, { font_family, klass })
 }
 
 //
@@ -167,8 +211,9 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
         } else if (type == 'leftright') {
             const { mode = 'math', body: body0, left: left0, right: right0 } = tree
             const body = convert_tree(body0)
-            const left = make_auto_delimiter(mode, left0, 'left')
-            const right = make_auto_delimiter(mode, right0, 'right')
+            const size = delimiter_size(body0)
+            const left = make_auto_delimiter(mode, left0, 'left', size)
+            const right = make_auto_delimiter(mode, right0, 'right', size)
             return new Bracket({ body, left, right })
         }
     }

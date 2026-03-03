@@ -20,6 +20,9 @@ await registerFont('KaTeX_Math', join(FONTS_DIR, 'KaTeX_Math-Italic.ttf'))
 await registerFont('KaTeX_Main', join(FONTS_DIR, 'KaTeX_Main-Regular.ttf'))
 await registerFont('KaTeX_AMS', join(FONTS_DIR, 'KaTeX_AMS-Regular.ttf'))
 await registerFont('KaTeX_Size1', join(FONTS_DIR, 'KaTeX_Size1-Regular.ttf'))
+await registerFont('KaTeX_Size2', join(FONTS_DIR, 'KaTeX_Size2-Regular.ttf'))
+await registerFont('KaTeX_Size3', join(FONTS_DIR, 'KaTeX_Size3-Regular.ttf'))
+await registerFont('KaTeX_Size4', join(FONTS_DIR, 'KaTeX_Size4-Regular.ttf'))
 
 // convert SVG to PNG
 function convertSvgToPng(svg: string, outputPath?: string): Buffer {
