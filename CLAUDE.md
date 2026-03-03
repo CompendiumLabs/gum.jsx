@@ -6,7 +6,15 @@
 
 ### Running the CLI
 
+To test the output of a particular `gum.jsx` snippet or file, you can pipe it to the `gum` command. If you have vision capabilities, this can be useful for see the actual output of the code, either in SVG or PNG format.
+
 ```bash
+# Generate SVG from a gum.jsx snippet
+echo '<Rectangle rounded fill={blue} />' | bun run cli -f svg > output.svg
+
+# Generate PNG from a gum.jsx snippet
+echo '<Rectangle rounded fill={blue} />' | bun run cli -f png > output.png
+
 # Generate SVG from a .jsx file
 cat test.jsx | bun run cli -f svg > output.svg
 
@@ -138,18 +146,19 @@ Key functions for rect manipulation:
 - `plot.js` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
 - `network.js` - `ArrowSpline`, `Node`, `Edge`, `Network`
 - `symbolic.js` - `SymPoints`, `SymLine`, `SymSpline`, `SymShape`, `SymFill`, `SymField`
+- `math.js` - `MathSpan`, `MathText`, `SupSub`, `Frac`, `Sqrt`, `Bracket`
+- `katex.js` - `Latex`
+- `image.js` - `Image`
 - `slide.js` - `TitleBox`, `TitleFrame`, `Slide`
 
 **Library modules (`src/lib/`):**
 - `utils.js` - Math utilities, array/vector ops, rect manipulation, color handling
 - `text.js` - Text measurement and wrapping using opentype.js
-- `math.js` - LaTeX rendering via MathJax
 - `parse.js` - JSX parser (Acorn) and AST walker
 - `meta.js` - Documentation metadata loading
 - `term.js` - Terminal utilities (stdin, Kitty protocol)
 
 **Other:**
-- `src/fonts/fonts.js` - Font data for text measurement
 - `scripts/test.js` - Runs all `docs/code/` and `docs/gala/` examples as a test suite
 - `docs/code/` - Component examples (one per element type)
 - `docs/text/` - Text documentation

@@ -338,12 +338,10 @@ interface FracArgs extends Attrs {
     right?: Element | null
     padding?: Padding
     rule_size?: number
-    rule_gap?: number
-    no_rule_gap?: number
-    delim_gap?: number
+    vshift?: number
 }
 
-class Frac extends HStack {
+class Frac extends Box {
     constructor(args: FracArgs) {
         const {
             numer,
@@ -353,6 +351,7 @@ class Frac extends HStack {
             right = null,
             padding = [0.05, 0.1],
             rule_size = 0.015,
+            vshift = 0.1,
             ...attr
         } = args
 
@@ -366,9 +365,9 @@ class Frac extends HStack {
         children.push(numerBox.clone({ stack_size: elemSize }))
         if (has_bar) children.push(new Rectangle({ fill: black, stack_size: rule_size }))
         children.push(denomBox.clone({ stack_size: elemSize }))
-        const stack = new VStack({ children, justify: 'center' })
+        const stack = new VStack({ children, justify: 'center', pos: [0.5, 0.5 + vshift] })
 
-        // pass to HStack
+        // pass to Box
         super({ children: [ stack ], ...attr })
         this.args = args
     }
