@@ -1,17 +1,23 @@
-import { black, is_array, is_scalar, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
+import type { Measurement } from 'katex'
+import { black, is_array, is_scalar, is_string, minimum, maximum, Element, Group, HStack, VStack, Box, Spacer, Rectangle, Span } from '../src/gum'
+import { vtext } from '../src/lib/const'
+import { textVertical } from '../src/lib/text'
 
 import type { Attrs, Padding } from '../src/gum'
 
+//
+// types
+//
+
 type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
 
-type MathClassedElement = Element & {
-    leftClass?: AtomClass | null
-    rightClass?: AtomClass | null
+type MathSpec = {
+    left: AtomClass | null
+    right: AtomClass | null
 }
 
-type Measurement = {
-    number: number
-    unit: 'mu'
+type MathElement = Element & {
+    math?: Partial<MathSpec>
 }
 
 const THINSPACE: Measurement = { number: 3, unit: 'mu' }
@@ -46,39 +52,38 @@ const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
     },
 }
 
-const BIN_LEFT_CANCELLER = new Set<AtomClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
-const BIN_RIGHT_CANCELLER = new Set<AtomClass>(['mrel', 'mclose', 'mpunct'])
+//
+// math metrics
+//
 
-function set_math_classes(element: Element, leftClass: AtomClass | null, rightClass: AtomClass | null = leftClass): Element {
-    const math = element as MathClassedElement
-    math.leftClass = leftClass
-    math.rightClass = rightClass
-    return element
+function set_math(element: Element, updates: Partial<MathSpec>): Element {
+    const e = element as MathElement
+    const { left, right } = updates
+    if (e.math == null) e.math = {}
+    if (left != null) e.math.left = left
+    if (right != null) e.math.right = right
+    return e
 }
 
-function get_math_classes(element: Element, fallbackClass: AtomClass | null = null): {
-    leftClass: AtomClass | null
-    rightClass: AtomClass | null
-} {
-    const math = element as MathClassedElement
-    const leftClass = math.leftClass ?? fallbackClass
-    const rightClass = math.rightClass ?? leftClass
-    return { leftClass, rightClass }
+function get_math(element: Element | null): MathSpec {
+    const { left = null, right = null } = (element as MathElement)?.math ?? {}
+    return { left, right }
 }
 
-function ensure_math_classes(element: Element, fallbackClass: AtomClass | null = null): Element {
-    const { leftClass, rightClass } = get_math_classes(element, fallbackClass)
-    return set_math_classes(element, leftClass, rightClass)
-}
+const EMPTY_MATH = new Spacer()
 
-function empty_math(): Element {
-    return set_math_classes(new Spacer(), null, null)
-}
+//
+// measurement conversion
+//
 
-const EMPTY_MATH = empty_math()
-
-function measurement_to_em(m: Measurement): number {
-    return m.number / 18
+function measurement_to_em(d: Measurement): number {
+    const scale: Record<string, number> = {
+        mu: 1 / 18,
+        em: 1,
+        pt: 1 / 10,
+        ex: 0.431,
+    }
+    return d.number * (scale[d.unit] ?? 0)
 }
 
 function inter_atom_spacing(prev: AtomClass | null, next: AtomClass | null): number {
@@ -89,20 +94,33 @@ function inter_atom_spacing(prev: AtomClass | null, next: AtomClass | null): num
     return measurement_to_em(measurement)
 }
 
-function element_aspect(element: Element | null): number {
-    return element?.spec.aspect ?? 1
+function unwrap_singleton(value: any): any {
+    return (is_array(value) && value.length == 1) ? value[0] : value
 }
+
+function scalar_text(value: any): string {
+    const value0 = unwrap_singleton(value)
+    if (value0 == null) return ''
+    if (is_scalar(value0) || typeof value0 == 'string' || typeof value0 == 'boolean') return String(value0)
+    return ''
+}
+
+//
+// binary atom cancellation
+//
+
+const BIN_LEFT_CANCELLER = new Set<AtomClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
+const BIN_RIGHT_CANCELLER = new Set<AtomClass>(['mrel', 'mclose', 'mpunct'])
 
 function cancel_element_left_bin(element: Element): void {
-    const { leftClass, rightClass } = get_math_classes(element)
-    if (leftClass != 'mbin') return
-    set_math_classes(element, 'mord', rightClass == 'mbin' ? 'mord' : rightClass)
+    const { left, right } = get_math(element)
+    if (left != 'mbin') return
+    set_math(element, { left: 'mord', right: right == 'mbin' ? 'mord' : right })
 }
-
 function cancel_element_right_bin(element: Element): void {
-    const { leftClass, rightClass } = get_math_classes(element)
-    if (rightClass != 'mbin') return
-    set_math_classes(element, leftClass == 'mbin' ? 'mord' : leftClass, 'mord')
+    const { left, right } = get_math(element)
+    if (right != 'mbin') return
+    set_math(element, { left: left == 'mbin' ? 'mord' : left, right: 'mord' })
 }
 
 function cancel_binary_atoms(items0: Element[]): Element[] {
@@ -111,21 +129,21 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
 
     for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        const { leftClass, rightClass } = get_math_classes(item)
-        if (leftClass == null && rightClass == null) continue
+        const { left, right } = get_math(item)
+        if (left == null && right == null) continue
 
         if (prevIndex == null) {
             cancel_element_left_bin(item)
-        } else if (leftClass != null) {
+        } else if (left != null) {
             const prev = items[prevIndex]
-            const { rightClass: prevRight } = get_math_classes(prev)
+            const { right: prevRight } = get_math(prev)
 
-            if (prevRight == 'mbin' && BIN_RIGHT_CANCELLER.has(leftClass)) {
+            if (prevRight == 'mbin' && BIN_RIGHT_CANCELLER.has(left)) {
                 cancel_element_right_bin(prev)
             }
 
-            const prevClass = get_math_classes(prev).rightClass
-            if (leftClass == 'mbin' && (prevClass == null || BIN_LEFT_CANCELLER.has(prevClass))) {
+            const { right: prevClass } = get_math(prev)
+            if (left == 'mbin' && (prevClass == null || BIN_LEFT_CANCELLER.has(prevClass))) {
                 cancel_element_left_bin(item)
             }
         }
@@ -140,18 +158,21 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
     return items
 }
 
+//
+// math text
+//
+
 interface MathTextArgs extends Attrs {
     items?: MathItem | MathItem[]
     children?: MathItem | MathItem[]
     padding?: number
-    defaultClass?: AtomClass | null
 }
 
 interface MathSpanArgs extends Attrs {
     children?: any
     klass?: AtomClass | null
-    leftClass?: AtomClass | null
-    rightClass?: AtomClass | null
+    left?: AtomClass | null
+    right?: AtomClass | null
 }
 
 type MathItem =
@@ -166,54 +187,49 @@ type MathItem =
     | MathItem[]
 
 class MathSpan extends Span {
-    leftClass: AtomClass | null
-    rightClass: AtomClass | null
-
     constructor(args: MathSpanArgs = {}) {
         const {
             children: children0 = '',
             klass = 'mord',
-            leftClass = klass,
-            rightClass = leftClass,
+            left = klass,
+            right = left,
+            font_family = null,
             ...attr
         } = args
 
-        super({ children: children0, ...attr })
+        // convert children to text
+        const text = scalar_text(children0)
+
+        // pass to Span
+        super({ children: [ text ], font_family, ...attr })
         this.args = args
-        this.leftClass = leftClass
-        this.rightClass = rightClass
+
+        // set math metrics
+        set_math(this, { left, right })
     }
 }
 
-function normalize_math_children(children0: MathItem | MathItem[], defaultClass: AtomClass | null): Element[] {
+function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     const children = is_array(children0) ? children0 : [ children0 ]
     const out: Element[] = []
 
     for (const child of children) {
-        if (child == null) continue
-
-        if (is_array(child)) {
-            out.push(...normalize_math_children(child, defaultClass))
+        if (child == null) {
             continue
-        }
-
-        if (child instanceof MathText) {
-            out.push(...child.items)
+        } else if (is_array(child)) {
+            out.push(...normalize_math_children(child))
             continue
-        }
-
-        if (child instanceof MathSpan) {
-            out.push(ensure_math_classes(child, defaultClass))
+        } else if (child instanceof MathText) {
+            out.push(...child.children)
             continue
-        }
-
-        if (child instanceof Element) {
-            out.push(ensure_math_classes(child, defaultClass))
+        } else if (child instanceof Element) {
+            out.push(child)
             continue
-        }
-
-        if (is_scalar(child) || typeof child == 'string') {
-            out.push(new MathSpan({ children: child, klass: defaultClass }))
+        } else if (is_scalar(child) || is_string(child)) {
+            out.push(new MathSpan({ children: child }))
+            continue
+        } else {
+            throw new Error(`Unknown math child type: ${typeof child}`)
         }
     }
 
@@ -221,32 +237,22 @@ function normalize_math_children(children0: MathItem | MathItem[], defaultClass:
 }
 
 class MathText extends HStack {
-    leftClass: AtomClass | null
-    rightClass: AtomClass | null
-    items: Element[]
-
     constructor(args: MathTextArgs = {}) {
-        const {
-            items: items0,
-            children: children0 = [],
-            padding = 0.05,
-            defaultClass = 'mord',
-            ...attr
-        } = args
-        const rawItems = normalize_math_children(items0 ?? children0, defaultClass)
+        const { children: children0, ...attr } = args
+
+        // normalize children
+        const rawItems = normalize_math_children(children0)
         const items = cancel_binary_atoms(rawItems)
         const children: Element[] = []
-        const itemElements: Element[] = []
-        let leftClass: AtomClass | null = null
-        let rightClass: AtomClass | null = null
+
+        // accumulate math metrics
+        let left: AtomClass | null = null
+        let right: AtomClass | null = null
         let prevClass: AtomClass | null = null
 
-        if (padding > 0 && items.length > 0) {
-            children.push(new Spacer({ aspect: padding }))
-        }
-
+        // process items
         for (const item of items) {
-            const { leftClass: itemLeft, rightClass: itemRight } = get_math_classes(item, defaultClass)
+            let { left: itemLeft, right: itemRight } = get_math(item)
 
             if (itemLeft && prevClass) {
                 const gap = inter_atom_spacing(prevClass, itemLeft)
@@ -254,28 +260,23 @@ class MathText extends HStack {
             }
 
             children.push(item)
-            itemElements.push(item)
 
-            if (leftClass == null) leftClass = itemLeft
+            if (left == null) left = itemLeft
             if (itemRight != null) {
                 prevClass = itemRight
-                rightClass = itemRight
+                right = itemRight
             }
         }
 
-        if (padding > 0 && items.length > 0) {
-            children.push(new Spacer({ aspect: padding }))
-        }
+        // set default right
+        if (right == null) right = left
 
-        if (rightClass == null) rightClass = leftClass
-
+        // pass to HStack
         super({ children, ...attr })
         this.args = args
-        this.leftClass = leftClass
-        this.rightClass = rightClass
-        this.items = itemElements
 
-        set_math_classes(this, leftClass, rightClass)
+        // compute combined math metrics
+        set_math(this, { left, right })
     }
 }
 
@@ -283,9 +284,7 @@ interface SupSubArgs extends Attrs {
     base: Element
     sup?: Element | null
     sub?: Element | null
-    script_scale?: number
-    script_space?: number
-    script_shift?: number
+    script_size?: number
 }
 
 class SupSub extends HStack {
@@ -294,25 +293,34 @@ class SupSub extends HStack {
             base,
             sup = null,
             sub = null,
-            script_spacing = 0.05,
-            script_shift = 0.075,
+            spacing = 0.025,
+            script_size = 0.5,
+            sup_pos = 0.363,
+            sub_pos = 1,
             ...attr
         } = args
 
-        const supElem = sup ?? new Spacer()
-        const subElem = sub ?? new Spacer()
+        // get side aspect
+        const supAspect = sup?.spec.aspect
+        const subAspect = sub?.spec.aspect
+        const maxAspect = maximum(supAspect, subAspect)
+        const sideAspect = maxAspect != null ? maxAspect * script_size : undefined
 
-        const stack = new VStack({
-            children: [ supElem, subElem ],
-            pos: [ 0.5, 0.5 + script_shift],
-            justify: 'left',
-            even: true,
-            spacing: script_spacing,
-        })
-        const side = new Box({ children: [ stack ] })
+        // get sup/sub offsets
+        const supOffset = 0.363 + vtext
+        const subOffset = 1 + vtext
 
-        super({ children: [ base, side ], ...attr })
+        // make side group
+        const supElem = sup?.clone({ pos: [ 0, supOffset ], yrad: script_size / 2, align: 'left' })
+        const subElem = sub?.clone({ pos: [ 0, subOffset ], yrad: script_size / 2, align: 'left' })
+        const side = new Group({ children: [ supElem, subElem ], aspect: sideAspect })
+
+        // pass to HStack
+        super({ children: [ base, side ], spacing, ...attr })
         this.args = args
+
+        // compute combined math metrics
+        set_math(this, get_math(base))
     }
 }
 
@@ -342,16 +350,19 @@ class Frac extends HStack {
             ...attr
         } = args
 
+        // build numer and denom boxes
         const elemSize = (1 - rule_size) / 2
         const numerBox = new Box({ children: [ numer ], padding })
         const denomBox = new Box({ children: [ denom ], padding })
 
+        // build children
         const children: Element[] = []
         children.push(numerBox.clone({ stack_size: elemSize }))
         if (has_bar) children.push(new Rectangle({ fill: black, stack_size: rule_size }))
         children.push(denomBox.clone({ stack_size: elemSize }))
         const stack = new VStack({ children, justify: 'center' })
 
+        // pass to HStack
         super({ children: [ stack ], ...attr })
         this.args = args
     }
@@ -360,7 +371,6 @@ class Frac extends HStack {
 interface SqrtArgs extends Attrs {
     body: Element
     index?: Element | null
-    radical_font?: string
     bar_size?: number
     bar_gap?: number
     body_pad?: number
@@ -374,40 +384,34 @@ class Sqrt extends HStack {
         const {
             body,
             index = null,
-            radical_font = 'KaTeX_Size1',
             rule_size = 0.035,
-            padding = [0, 0.05, 0.1, 0],
+            padding = [0, 0.05, 0.2, 0],
             index_size = 0.5,
             index_pos = [0.75, 0.25],
             ...attr
         } = args
 
-        const radical0 = new MathSpan({
-            children: [ '√' ],
-            font_family: radical_font,
-            leftClass: 'mopen',
-            rightClass: 'mopen',
-        })
-
+        // build radical
+        const SQRT = new MathSpan({ children: [ '√' ], font_family: 'KaTeX_Size1' })
         const radical = (index != null) ? new Box({
             children: [
-                radical0,
+                SQRT,
                 index.clone({ pos: index_pos, yrad: index_size / 2, align: 'right' }),
             ],
-        }) : radical0
+        }) : SQRT
 
+        // build body stack
         const bodyStack = new VStack({
             children: [
                 new Rectangle({ fill: black, stack_size: rule_size }),
                 new Box({ children: [ body ], padding }),
             ],
         })
-
         const core = new HStack({ children: [ radical, bodyStack ] })
-        super({ children: [ core ], ...attr })
 
+        // pass to HStack
+        super({ children: [ core ], ...attr })
         this.args = args
-        set_math_classes(this, 'mord')
     }
 }
 
@@ -426,20 +430,21 @@ class Bracket extends HStack {
             ...attr
         } = args
 
+        // build children
         const children: Element[] = []
         if (left != null) children.push(left)
         children.push(body)
         if (right != null) children.push(right)
 
+        // pass to HStack
         super({ children, justify: 'left', ...attr })
         this.args = args
-        set_math_classes(this, 'minner')
     }
 }
 
 export {
     MathSpan, MathText, SupSub, Frac, Sqrt, Bracket,
     EMPTY_MATH,
-    set_math_classes, get_math_classes,
+    set_math, get_math, measurement_to_em,
 }
-export type { AtomClass, MathItem }
+export type { AtomClass, MathItem, MathSpec }

@@ -208,7 +208,7 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
     // S_exp is the same but constrained so the sums are less than 1
     // should satisfy: s * F_total * L_target = a
     const S_exp0 = sum(expo.map(c => c.aspect / (F_total * L_target)))
-    const S_exp = minimum(S_exp0, 1 - S_sum)
+    const S_exp = Math.min(S_exp0, 1 - S_sum)
     const scale = S_exp / S_exp0 // this is 1 in the unconstrained case
     for (const c of expo) c.size = c.aspect / (F_total * L_target) * scale
 
@@ -241,7 +241,7 @@ class Stack extends Group {
         const { children: children0, direc = 'v', spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = THEME(args, 'Stack')
 
         // compute layout
-        const spacing1 = (spacing as number) / maximum(children0.length - 1, 1)
+        const spacing1 = (spacing as number) / Math.max(children0.length - 1, 1)
         const { ranges, aspect } = computeStackLayout(direc, children0, { spacing: spacing1, even, aspect: aspect0 as number | undefined })
 
         // assign child rects

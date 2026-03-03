@@ -4,9 +4,11 @@ import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 
 import { DEFAULTS as D, sans, moji } from './const.js'
-import { is_string, compress_whitespace, sum } from './utils.js'
+import { is_string, compress_whitespace, sum, zip, max, min } from './utils.js'
 import { wrapWidths } from './wrap.js'
 import { FONTS } from '../fonts/fonts.js'
+
+import type { Limit } from './types.js'
 
 //
 // create text sizer
@@ -63,19 +65,37 @@ type TextSizerArgs = {
 }
 
 // TODO: handle font_weight
-function textSizer0(text: string, { font_family = sans, calc_size = D.calc_size }: TextSizerArgs = {}): number {
+function textSizer(text: string, { font_family = sans, calc_size = D.calc_size }: TextSizerArgs = {}): number {
     if (is_emoji(text)) return emojiSizer(text)
     const font = FONTS[font_family]
     const width = font.getAdvanceWidth(text, calc_size)
     return width / calc_size
 }
 
-function textSizer(text: string, args: TextSizerArgs = {}): number | undefined {
-    if (text == '\n') return
+function textVertical(text: string, { font_family = sans }: TextSizerArgs = {}): Limit {
+    const font = FONTS[font_family]
+    const glyphs = font.stringToGlyphs(text)
+    const [yMins, yMaxs] = zip(...glyphs.map(g => [ g.yMin, g.yMax ]))
+    const units = font.unitsPerEm ?? 1000
+    const yMin = min(yMins) ?? 0
+    const yMax = max(yMaxs) ?? units
+    const ascent = yMax / units
+    const descent = yMin / units
+    return [ ascent, descent ]
+}
+
+type TextMetrics = {
+    advance: number
+    ascent: number
+    descent: number
+}
+
+function textMetrics(text: string, args: TextSizerArgs = {}): TextMetrics {
+    if (text == '\n') return { advance: 0, ascent: 1, descent: 0 }
     const text1 = compress_whitespace(text)
-    const segments = splitSegments(text1)
-    const widths = segments.map(s => textSizer0(s, args))
-    return sum(widths)
+    const advance = textSizer(text1, args)
+    const [ ascent, descent ] = textVertical(text1, args)
+    return { advance, ascent, descent }
 }
 
 //
@@ -105,7 +125,7 @@ function splitWords(text: string): string[] {
 
 // compress whitespace, since that's what SVG does
 function wrapText(text: string, maxWidth: number | undefined, args: TextSizerArgs = {}): { rows: string[][], widths: number[] } {
-    const chunks = splitWords(text.replace(/\s+/g, ' '))
+    const chunks = splitWords(compress_whitespace(text))
     const measure = (c: string) => textSizer(c, args)
     return wrapWidths(chunks, measure, maxWidth)
 }
@@ -134,4 +154,4 @@ function mergeStrings(items: any[]): any[] {
 // exports
 //
 
-export { is_emoji, textSizer, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
+export { is_emoji, textMetrics, textSizer, textVertical, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }

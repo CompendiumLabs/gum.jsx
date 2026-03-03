@@ -3,9 +3,9 @@ import { __parse as parse_tex } from 'katex'
 
 import { registerFont, is_array, is_object, Element, Group, Spacer } from '../src/gum'
 import symbols from './symbols'
-import { EMPTY_MATH, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math_classes, set_math_classes } from './math'
+import { EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
 
-import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode, Measurement } from 'katex'
+import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
 import type { Attrs } from '../src/gum'
 import type { AtomClass } from './math'
 
@@ -70,7 +70,7 @@ function make_symbol(mode: SymbolMode, text: string, args: SymbolArgs = {}): Ele
     const entry = get_symbol(mode, text)
     const children = entry?.replace ?? fallback ?? text
     const klass = klass0 ?? symbol_group_class(entry)
-    return new MathSpan({ children, font_family, leftClass: klass, rightClass: klass, ...attr })
+    return new MathSpan({ children, font_family, left: klass, right: klass, ...attr })
 }
 
 function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
@@ -80,40 +80,10 @@ function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Ele
     return make_symbol(mode, delim, { font_family })
 }
 
-function measurement_to_em(d: Measurement): number {
-    const scale: Record<string, number> = {
-        mu: 1 / 18,
-        em: 1,
-        pt: 1 / 10,
-        ex: 0.431,
-    }
-    return d.number * (scale[d.unit] ?? 0)
-}
-
-function element_aspect(element: Element | null): number {
-    return element?.spec.aspect ?? 1
-}
-
-function scale_math_element(element: Element, scale: number): Element {
-    if (scale == 1) return element
-    const ypad = (1 - scale) / 2
-    const child = element.clone({ rect: [ 0, ypad, 1, 1 - ypad ] })
-    const scaled = new Group({ children: [ child ], aspect: element_aspect(element) * scale })
-    const { leftClass, rightClass } = get_math_classes(element)
-    return set_math_classes(scaled, leftClass, rightClass)
-}
-
 function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right'): Element | null {
     if (delim == null || delim == '.') return null
     const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
     return make_symbol(mode, delim, { font_family: OP_SYMBOL_FONT, klass })
-}
-
-const STYLE_SCALE: Record<string, number> = {
-    display: 1,
-    text: 1,
-    script: 1,
-    scriptscript: 1,
 }
 
 //
@@ -124,8 +94,8 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
     if (tree == null) return EMPTY_MATH
 
     if (is_array(tree)) {
-        const row = new MathText({ items: tree.map(node => convert_tree(node)) })
-        return row.items.length > 0 ? row : EMPTY_MATH
+        const row = new MathText({ children: tree.map(node => convert_tree(node)) })
+        return row.children.length > 0 ? row : EMPTY_MATH
     }
 
     if (is_object(tree)) {
@@ -143,7 +113,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const font_family = atom_font(entry)
             const element = make_symbol(mode, text, { font_family })
             if (family != null) {
-                return set_math_classes(element, FAMILY_CLASS[family])
+                return set_math(element, { left: FAMILY_CLASS[family], right: FAMILY_CLASS[family] })
             }
             return element
         } else if (type == 'ordgroup') {
@@ -153,30 +123,26 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const { mode, name } = tree
             const entry = get_symbol(mode, name)
             if (entry != null) {
-                return new MathSpan({ children: [ entry.replace ?? name ], leftClass: 'mop', font_family: OP_SYMBOL_FONT })
+                return new MathSpan({ children: [ entry.replace ?? name ], left: 'mop', right: 'mop', font_family: OP_SYMBOL_FONT })
             } else {
                 const name1 = name.slice(1)
-                return new MathSpan({ children: [ name1 ], leftClass: 'mop', font_family: FONTS['text'] })
+                return new MathSpan({ children: [ name1 ], left: 'mop', right: 'mop', font_family: FONTS['text'] })
             }
         } else if (type == 'text') {
             const { body } = tree
             return convert_tree(body)
         } else if (type == 'kern') {
-            const em = measurement_to_em(tree.dimension)
-            return set_math_classes(new Spacer({ aspect: em }), null)
-        } else if (type == 'styling') {
-            const { body, style } = tree
-            const body_element = convert_tree(body)
-            const scale = STYLE_SCALE[style] ?? 1
-            return scale_math_element(body_element, scale)
+            const { dimension } = tree
+            const em = measurement_to_em(dimension)
+            return new Spacer({ aspect: em })
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0)
             const sup = sup0 ? convert_tree(sup0) : null
             const sub = sub0 ? convert_tree(sub0) : null
             const element = new SupSub({ base, sup, sub })
-            const { leftClass, rightClass } = get_math_classes(base)
-            return set_math_classes(element, leftClass, rightClass)
+            const { left, right } = get_math(base)
+            return set_math(element, { left, right })
         } else if (type == 'genfrac') {
             const {
                 mode = 'math',
@@ -197,7 +163,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
                 left,
                 right,
             })
-            return set_math_classes(element, 'mord')
+            return set_math(element, { left: 'mord', right: 'mord' })
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
             const body = convert_tree(body0)

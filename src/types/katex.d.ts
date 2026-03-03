@@ -68,7 +68,7 @@ declare module 'katex' {
 
     export type Measurement = {
         number: number
-        unit: string
+        unit: 'mu' | 'em' | 'pt' | 'ex'
     }
 
     export type TreeGenFrac = {

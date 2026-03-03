@@ -2,9 +2,9 @@
 
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
-import { vtext, none, bold, svgns } from '../lib/const'
+import { none, bold, vtext, svgns } from '../lib/const'
 import { check_string, is_scalar, is_string, compress_whitespace, sum, max, rect_box, check_singleton } from '../lib/utils'
-import { textSizer, wrapText, splitWords } from '../lib/text'
+import { textSizer, splitWords } from '../lib/text'
 import { mathjax } from '../lib/math'
 
 import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core'
@@ -32,8 +32,8 @@ function ensure_tail(text: string): string {
 interface SpanArgs extends ElementArgs {
     children?: any
     color?: string
-    voffset?: number
     stroke?: string
+    vshift?: number
     font_family?: string
     font_weight?: number
     font_style?: string
@@ -45,22 +45,22 @@ class Span extends Element {
     voffset: number
 
     constructor(args: SpanArgs = {}) {
-        const { children: children0, color, voffset = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
+        const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
         const text0 = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
-        const width = textSizer(text, font_attr)
+        const advance = textSizer(text, font_attr)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect: width, fill: color, stroke, ...font_attr, ...attr })
+        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...attr })
         this.args = args
 
         // additional props
         this.text = escape_xml(text)
-        this.voffset = voffset
+        this.voffset = vshift
     }
 
     // because text will always be displayed upright,
@@ -235,103 +235,6 @@ class TextFrame extends TextBox {
     }
 }
 
-//
-// text flex class
-//
-
-// TODO: This isn't perfect. Need to handle impossible cases.
-// calculate font-size within box, iterative but still BlooP!
-function get_font_size(text: string, w: number, h: number, spacing: number, fargs: Attrs): number | undefined {
-    // best guess font size
-    const tw = textSizer(text, fargs)
-    const lw = ( tw! * h ) / w
-    const { rows } = wrapText(text, lw, fargs)
-    const nmin = rows.length
-    const nmax = sum(rows.map(l => l.length))
-
-    // account for ragged newlines
-    for (let n = nmin; n <= nmax; n++) {
-        const fs = h / ( n + (n - 1) * spacing )
-        const lw = w / fs
-        const { widths } = wrapText(text, lw, fargs)
-        if (widths.length <= n) {
-            const mw = max(widths) ?? 0
-            return fs * mw < w ? fs : w / mw
-        }
-    }
-}
-
-interface TextFlexArgs extends ElementArgs {
-    children?: any
-    font_scale?: number
-    font_size?: number
-    spacing?: number
-    color?: string
-    voffset?: number
-}
-
-// text fits outer shape
-// font_scale is proportionally scaled
-// font_size is absolutely scaled
-class TextFlex extends Element {
-    text: string
-    voffset: number
-    spacing: number
-    font_scale: number | undefined
-    font_size: number | undefined
-    font_args: Attrs
-
-    constructor(args: TextFlexArgs = {}) {
-        const { children, font_scale, font_size, spacing = 0.1, color, voffset = vtext, ...attr0 } = THEME(args, 'TextFlex')
-        const text = check_string(children)
-        const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
-        const font_attr = prefix_join('font', font_attr0)
-
-        // pass to Element
-        super({ tag: 'g', unary: false, stroke: color, fill: color, ...attr })
-        this.args = args
-
-        // additional props
-        this.text = text
-        this.voffset = voffset
-        this.spacing = spacing
-        this.font_scale = font_scale
-        this.font_size = font_size
-        this.font_args = font_attr
-    }
-
-    props(ctx: Context): Attrs {
-        const attr = super.props(ctx)
-        return { ...this.font_args, ...attr }
-    }
-
-    inner(ctx: Context): string {
-        const { prect } = ctx
-        const [ x, y, w, h ] = rect_box(prect)
-
-        // handle font size specification
-        let fs: number | undefined = undefined
-        if (this.font_size != null) {
-            fs = this.font_size
-        } else if (this.font_scale != null) {
-            fs = this.font_scale * h
-        } else {
-            fs = get_font_size(this.text, w, h, this.spacing, this.font_args)
-        }
-        const lh = fs! * ( 1 + this.spacing )
-
-        // compute wrapped rows
-        const mw = w / fs!
-        const { rows } = wrapText(this.text, mw, this.font_args)
-        const lines = rows.map((r: string[]) => r.join(' '))
-
-        // map line indices to positions
-        const y1 = y + ( 1 + this.voffset ) * fs!
-        const elems = lines.map((r: string, i: number) => `<tspan x="${x}" y="${y1 + i * lh}">${r}</tspan>`)
-        return `<text font-size="${fs}">\n${elems.join('\n')}\n</text>`
-    }
-}
-
 class Bold extends Text {
     constructor(args: TextArgs = {}) {
         const attr = THEME(args, 'Bold')
@@ -420,5 +323,5 @@ class Equation extends Latex {
 // exports
 //
 
-export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, TextFlex, Bold, Italic, Latex, Equation }
-export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, TextFlexArgs, LatexArgs }
+export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, Bold, Italic, Latex, Equation }
+export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, LatexArgs }

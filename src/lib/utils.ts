@@ -354,8 +354,15 @@ const isNan = Number.isNaN
 const isInf = (x: number): boolean => !Number.isFinite(x)
 
 // follows numpy naming conventions
-const minimum = Math.min
-const maximum = Math.max
+function minimum(...vals: (number | undefined)[]): number | undefined {
+    const vals1 = vals.filter(v => v != null) as number[]
+    return (vals1.length > 0) ? Math.min(...vals1) : undefined
+}
+
+function maximum(...vals: (number | undefined)[]): number | undefined {
+    const vals1 = vals.filter(v => v != null) as number[]
+    return (vals1.length > 0) ? Math.max(...vals1) : undefined
+}
 
 function heavisign(x: number): number {
     return x >= 0 ? 1 : -1
@@ -381,7 +388,7 @@ function max(vals: any[]): number | undefined {
 
 function clamp(x: number, lim: Limit): number {
     const [ lo, hi ] = lim
-    return maximum(lo, minimum(x, hi))
+    return Math.max(lo, Math.min(x, hi))
 }
 
 function rescale(x: number, lim: Limit): number {
@@ -538,7 +545,7 @@ function rect_box(rect: Rect, absolute: boolean = false): Rect {
     const [ x1, y1, x2, y2 ] = rect
     const [ w, h ] = [ x2 - x1, y2 - y1 ]
     if (absolute) {
-        return [ minimum(x1, x2), minimum(y1, y2), abs(w), abs(h) ]
+        return [ Math.min(x1, x2), Math.min(y1, y2), abs(w), abs(h) ]
     } else {
         return [ x1, y1, w, h ]
     }
@@ -614,8 +621,8 @@ function upright_rect(rect: Rect | undefined): Rect | undefined {
     if (rect == null) return
     const [ x1, y1, x2, y2 ] = rect
     return [
-        minimum(x1, x2), minimum(y1, y2),
-        maximum(x1, x2), maximum(y1, y2),
+        Math.min(x1, x2), Math.min(y1, y2),
+        Math.max(x1, x2), Math.max(y1, y2),
     ]
 }
 
