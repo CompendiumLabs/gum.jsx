@@ -9,11 +9,11 @@ function splitOuterSvg(svg: string): { attrsText: string, inner: string } {
     // find first <svg> tag
     const openStart = svg.indexOf('<svg')
     if (openStart < 0) {
-        throw new Error('SvgImage expected an outer <svg> tag')
+        throw new Error('SvgImage expected an <svg> start tag opening')
     }
     const openStop = svg.indexOf('>', openStart)
     if (openStop < 0) {
-        throw new Error('SvgImage expected an outer <svg> tag')
+        throw new Error('SvgImage expected an <svg> start tag closing')
     }
 
     // get attributes text
@@ -31,7 +31,7 @@ function splitOuterSvg(svg: string): { attrsText: string, inner: string } {
     // find last </svg> tag
     const closeStart = svg.lastIndexOf('</svg>')
     if (closeStart < 0 || closeStart < openStop) {
-        throw new Error('SvgImage expected an outer <svg> tag')
+        throw new Error('SvgImage expected an <svg> end tag')
     }
     const inner = svg.slice(openStop + 1, closeStart)
 
@@ -40,8 +40,10 @@ function splitOuterSvg(svg: string): { attrsText: string, inner: string } {
 }
 
 function parseSvgAttrs(attrsText: string): Attrs {
-    const pairs = attrsText.matchAll(/(\w[\w:-]*)(?:\s*=\s*(?:"[^"]*"|'[^']*'))?/g)
-    return Object.fromEntries(pairs)
+    const pairs = attrsText.matchAll(/(\w[\w:-]*)(?:\s*=\s*("[^"]*"|'[^']*'))?/g)
+    return Object.fromEntries(pairs.map(([ _, key, val0 ]) =>
+        [ key, val0 ? val0.slice(1, -1) : true ]
+    ))
 }
 
 function getSvgAspect(attr: Attrs): number | undefined {
