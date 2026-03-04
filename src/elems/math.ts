@@ -5,7 +5,7 @@ import { HStack, VStack, Box } from '../elems/layout'
 import { Span } from '../elems/text'
 
 import type { Measurement } from 'katex'
-import type { Attrs, Padding } from '../lib/types'
+import type { Attrs, Padding, Size } from '../lib/types'
 import type { BoxArgs, StackArgs } from '../elems/layout'
 import type { SpanArgs } from '../elems/text'
 
@@ -372,9 +372,9 @@ class Frac extends Box {
 interface SqrtArgs extends StackArgs {
     index?: Element | null
     padding?: Padding
-    rule_pos?: number
-    rule_size?: number
-    index_pos?: number
+    rule_pos?: Size
+    rule_size?: Size
+    index_pos?: Size
     index_size?: number
 }
 
@@ -384,8 +384,8 @@ class Sqrt extends HStack {
             children,
             index = null,
             padding = [0, 0.05, 0.2, 0],
-            rule_pos = 0.1,
-            rule_size = 0.01,
+            rule_pos = [0.49, 0.116],
+            rule_size = [0.5, 0.015],
             index_pos = [0.75, 0.25],
             index_size = 0.5,
             ...attr
@@ -405,7 +405,7 @@ class Sqrt extends HStack {
         const bodyStack = new Box({
             children: [
                 new Box({ children: [ body ], padding }),
-                new Rectangle({ fill: black, rad: [0.5, rule_size], pos: [0.5, rule_pos] }),
+                new Rectangle({ fill: black, rad: rule_size, pos: rule_pos }),
             ],
         })
         const core = new HStack({ children: [ radical, bodyStack ] })

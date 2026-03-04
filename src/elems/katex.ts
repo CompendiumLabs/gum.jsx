@@ -204,7 +204,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const body = convert_tree(body0)
             const index = index0 ? convert_tree(index0) : null
             return new Sqrt({
-                body,
+                children: [ body ],
                 index,
                 radical_font: OP_SYMBOL_FONT,
             })
@@ -214,7 +214,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const size = delimiter_size(body0)
             const left = make_auto_delimiter(mode, left0, 'left', size)
             const right = make_auto_delimiter(mode, right0, 'right', size)
-            return new Bracket({ body, left, right })
+            return new Bracket({ children: [ body ], left, right })
         }
     }
 
