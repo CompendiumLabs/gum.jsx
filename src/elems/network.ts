@@ -55,7 +55,6 @@ interface ArrowSplineArgs extends GroupArgs {
     stroke_width?: number
     stroke_linecap?: string
     fill?: string
-    coord?: Rect
 }
 
 class ArrowSpline extends Group {
