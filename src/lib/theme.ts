@@ -99,6 +99,10 @@ const THEME_DARK: ThemeLayer = {
     Legend: {
         fill: '#333',
     },
+
+    Sqrt: {
+        color: white,
+    },
 }
 
 const THEMES: Record<string, ThemeLayer> = {

@@ -9,8 +9,8 @@ import { FONT_PATHS, FONT_DATA } from './fonts/fonts'
 
 // differs between browser WASM and node
 const fontArgs = is_browser() ?
-  { fontBuffers: [FONT_DATA.sans, FONT_DATA.mono] } :
-  { fontFiles: [FONT_PATHS.sans, FONT_PATHS.mono] }
+  { fontBuffers: Object.values(FONT_DATA) } :
+  { fontFiles: Object.values(FONT_PATHS) }
 
 // store font arguments for resvg conversion
 const font = {

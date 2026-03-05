@@ -1,3 +1,6 @@
+// math components
+
+import { THEME } from '../lib/theme'
 import { black, vtext } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, ensure_singleton, maximum } from '../lib/utils'
 import { Element, Group, Rectangle, Spacer } from '../elems/core'
@@ -179,14 +182,7 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const {
-            children: children0 = '',
-            klass = 'mord',
-            left = klass,
-            right = left,
-            font_family,
-            ...attr
-        } = args
+        const { children: children0 = '', klass = 'mord', left = klass, right = left, font_family, ...attr } = THEME(args, 'MathSpan')
 
         // convert children to text
         const text = scalar_text(children0)
@@ -240,7 +236,7 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 
 class MathText extends HStack {
     constructor(args: StackArgs = {}) {
-        const { children: children0, ...attr } = args
+        const { children: children0, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -290,16 +286,7 @@ interface SupSubArgs extends StackArgs {
 
 class SupSub extends HStack {
     constructor(args: SupSubArgs = {}) {
-        const {
-            children,
-            sup = null,
-            sub = null,
-            spacing = 0,
-            script_size = 0.5,
-            sup_pos = 0.363,
-            sub_pos = 1,
-            ...attr
-        } = args
+        const { children, sup = null, sub = null, spacing = 0, script_size = 0.5, sup_pos = 0.363, sub_pos = 1, ...attr } = THEME(args, 'SupSub')
         const base = ensure_singleton(children)
 
         // get side aspect
@@ -339,17 +326,7 @@ interface FracArgs extends BoxArgs {
 
 class Frac extends Box {
     constructor(args: FracArgs = {}) {
-        const {
-            numer,
-            denom,
-            has_bar = true,
-            left = null,
-            right = null,
-            padding = [0.05, 0.1],
-            rule_size = 0.015,
-            vshift = 0.1,
-            ...attr
-        } = args
+        const { numer, denom, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.015, vshift = 0.1, ...attr } = THEME(args, 'Frac')
 
         // build numer and denom boxes
         const elemSize = (1 - rule_size) / 2
@@ -380,16 +357,7 @@ interface SqrtArgs extends StackArgs {
 
 class Sqrt extends HStack {
     constructor(args: SqrtArgs = {}) {
-        const {
-            children,
-            index = null,
-            padding = [0, 0.05, 0.2, 0],
-            rule_pos = [0.49, 0.116],
-            rule_size = [0.5, 0.015],
-            index_pos = [0.75, 0.25],
-            index_size = 0.5,
-            ...attr
-        } = args
+        const { children, index = null, color = black, padding = [0, 0.05, 0.2, 0], rule_pos = [0.49, 0.116], rule_size = [0.5, 0.015], index_pos = [0.75, 0.25], index_size = 0.5, ...attr } = THEME(args, 'Sqrt')
         const body = ensure_singleton(children)
 
         // build radical
@@ -405,7 +373,7 @@ class Sqrt extends HStack {
         const bodyStack = new Box({
             children: [
                 new Box({ children: [ body ], padding }),
-                new Rectangle({ fill: black, rad: rule_size, pos: rule_pos }),
+                new Rectangle({ rad: rule_size, pos: rule_pos, fill: color, stroke: color }),
             ],
         })
         const core = new HStack({ children: [ radical, bodyStack ] })

@@ -670,7 +670,7 @@ class Plot extends Box {
         // create graph from core elements
         const bg_graph = new Graph({ children: bg_elems, coord, aspect: undefined })
         const fg_graph = new Graph({ children: fg_elems, coord, aspect: undefined })
-        const el_graph = new Graph({ children: children0, coord, aspect: undefined, clip })
+        const el_graph = new Graph({ children: children0, coord, aspect: undefined, clip, debug })
         const children: Element[] = [ bg_graph, el_graph, fg_graph ]
 
         // optional xaxis label

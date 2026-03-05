@@ -288,13 +288,23 @@ function lingrid(xlim: Limit, ylim: Limit, N: number | Point): Point[] {
 // object utils
 //
 
-function map_object(obj: Record<string, any>, fn: (k: string, v: any) => any): Record<string, any> {
+function map_object<T, U>(obj: Record<string, T>, fn: (k: string, v: T) => U): Record<string, U> {
     return Object.fromEntries(
         Object.entries(obj).map(([ k, v ]) => [ k, fn(k, v) ])
     )
 }
 
-function filter_object(obj: Record<string, any>, fn: (k: string, v: any) => boolean): Record<string, any> {
+async function map_object_async<T, U>(obj: Record<string, T>, fn: (k: string, v: T) => Promise<U>): Promise<Record<string, U>> {
+    return Object.fromEntries(
+        await Promise.all(
+            Object.entries(obj).map(
+                async ([ k, v ]) => [ k, await fn(k, v) ]
+            )
+        )
+    )
+}
+
+function filter_object<T>(obj: Record<string, T>, fn: (k: string, v: T) => boolean): Record<string, T> {
     return Object.fromEntries(
         Object.entries(obj).filter(([ k, v ]) => fn(k, v))
     )
@@ -824,4 +834,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
