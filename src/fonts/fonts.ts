@@ -1,5 +1,6 @@
 import { parse as parseFont, type Font } from 'opentype.js'
 import { is_browser, map_object, map_object_async } from '../lib/utils'
+import { sans, mono } from '../lib/const'
 
 //
 // load font data as arraybuffer
@@ -23,9 +24,9 @@ async function loadFont(path: string): Promise<ArrayBuffer> {
 
 const FONT_PATHS: Record<string, string> = {
     // @ts-ignore
-    sans: (await import('./IBMPlexSans-Variable.ttf')).default,
+    [sans]: (await import('./IBMPlexSans-Variable.ttf')).default,
     // @ts-ignore
-    mono: (await import('./IBMPlexMono-Regular.ttf')).default,
+    [mono]: (await import('./IBMPlexMono-Regular.ttf')).default,
     // @ts-ignore
     'KaTeX_Math': (await import('katex/dist/fonts/KaTeX_Math-Italic.ttf')).default,
     // @ts-ignore
