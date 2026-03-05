@@ -137,9 +137,6 @@ class Node extends Frame {
         // pass to Frame
         super({ children: [ inner ], yrad, rounded, padding, ...frame_attr })
         this.args = args
-
-        // additional props
-        this.id = id
     }
 }
 
@@ -223,8 +220,8 @@ class Network extends Group {
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
 
         // process nodes and make label map
-        const nodes = children0.filter((c: any) => c instanceof Node).map((n: any) => n.clone({ ...node_attr, ...n.args }))
-        const nmap = new Map(nodes.map((n: any) => [ n.id, n ]))
+        const nodes = children0.filter((c: Element) => c.args.id != null).map((n: Element) => n.clone({ ...node_attr, ...n.args }))
+        const nmap = new Map(nodes.map((n: Element) => [ n.args.id, n ]))
 
         // process children in original order
         const children = children0.map((c: any) => {
@@ -235,7 +232,7 @@ class Network extends Group {
                 return c.clone({ ...edge_attr, ...c.args, from: n1, to: n2, coord })
             } else if (c instanceof Node) {
                 // return the already processed node from the map
-                return nmap.get(c.id)
+                return nmap.get(c.args.id)
             } else {
                 // other elements pass through unchanged
                 return c
