@@ -4,11 +4,15 @@ import { THEME } from '../lib/theme'
 import { is_array, is_object, check_string, maximum } from '../lib/utils'
 import { Element, Spacer } from '../elems/core'
 import { Box } from '../elems/layout'
-import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, get_symbol_entry, get_math, set_math } from './math'
+import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, get_symbol_entry } from './math'
 
 import type { SymbolMode, Tree, TreeNode } from 'katex'
 import type { AtomClass, FontFamily } from './math'
 import type { ElementArgs } from './core'
+
+//
+// auto delimiter
+//
 
 function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
     if (delim == null || delim == '.') return null
@@ -113,39 +117,19 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const base = convert_tree(base0)
             const sup = sup0 ? convert_tree(sup0) : null
             const sub = sub0 ? convert_tree(sub0) : null
-            const element = new SupSub({ children: [ base ], sup, sub })
-            const { left, right } = get_math(base)
-            return set_math(element, { left, right })
+            return new SupSub({ children: [ base ], sup, sub })
         } else if (type == 'genfrac') {
-            const {
-                mode = 'math',
-                numer: numer0,
-                denom: denom0,
-                hasBarLine = true,
-                leftDelim = null,
-                rightDelim = null,
-            } = tree
+            const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim = null, rightDelim = null } = tree
             const numer = convert_tree(numer0)
             const denom = convert_tree(denom0)
             const left = make_delimiter(mode, leftDelim)
             const right = make_delimiter(mode, rightDelim)
-            const element = new Frac({
-                children: [ numer, denom ],
-                has_bar: hasBarLine,
-                vshift: 0.1,
-                left,
-                right,
-            })
-            return set_math(element, { left: 'mord', right: 'mord' })
+            return new Frac({ children: [ numer, denom ], has_bar: hasBarLine, vshift: 0.1, left, right })
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
             const body = convert_tree(body0)
             const index = index0 ? convert_tree(index0) : null
-            return new Sqrt({
-                children: [ body ],
-                index,
-                radical_font: OP_SYMBOL_FONT,
-            })
+            return new Sqrt({ children: [ body ], index })
         } else if (type == 'leftright') {
             const { mode = 'math', body: body0, left: left0, right: right0 } = tree
             const body = convert_tree(body0)
