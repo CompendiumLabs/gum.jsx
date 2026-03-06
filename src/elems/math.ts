@@ -2,12 +2,13 @@
 
 import { THEME } from '../lib/theme'
 import { black, vtext } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, ensure_singleton, maximum } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, ensure_singleton, check_array, maximum } from '../lib/utils'
+import symbols from '../lib/symbols'
 import { Element, Group, Rectangle, Spacer } from '../elems/core'
 import { HStack, VStack, Box } from '../elems/layout'
 import { Span } from '../elems/text'
 
-import type { Measurement } from 'katex'
+import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry } from 'katex'
 import type { Attrs, Padding, Size } from '../lib/types'
 import type { BoxArgs, StackArgs } from '../elems/layout'
 import type { SpanArgs } from '../elems/text'
@@ -30,6 +31,25 @@ type MathElement = Element & {
 }
 
 const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
+
+const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
+    math: 'KaTeX_Math',
+    text: 'KaTeX_Main',
+}
+
+const SYMBOL_FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
+    mathord: 'mord',
+    textord: 'mord',
+    bin: 'mbin',
+    rel: 'mrel',
+    open: 'mopen',
+    close: 'mclose',
+    punct: 'mpunct',
+    inner: 'minner',
+    'op-token': 'mop',
+    'accent-token': 'mord',
+    spacing: null,
+}
 
 const THINSPACE: Measurement = { number: 3, unit: 'mu' }
 const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
@@ -82,6 +102,21 @@ function get_math(element: Element | null): MathSpec {
 }
 
 const EMPTY_MATH = new Spacer()
+
+//
+// symbol lookup
+//
+
+function get_symbol_entry(mode: SymbolMode, text: string): SymbolEntry | null {
+    if (text in symbols[mode]) return symbols[mode][text]
+    return null
+}
+
+function get_font_family(mode: SymbolMode, font: SymbolFont, family: SymbolFamily): FontFamily {
+    return font == 'ams' ? 'KaTeX_AMS' :
+           family == 'mathord' ? SYMBOL_MODE_FONT[mode] :
+           'KaTeX_Main'
+}
 
 //
 // measurement conversion
@@ -174,7 +209,6 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
 //
 
 interface MathSpanArgs extends SpanArgs {
-    children?: any
     klass?: AtomClass | null
     left?: AtomClass | null
     right?: AtomClass | null
@@ -182,17 +216,39 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children: children0 = '', klass = 'mord', left = klass, right = left, font_family, ...attr } = THEME(args, 'MathSpan')
-
-        // convert children to text
-        const text = scalar_text(children0)
+        const { children, klass = 'mord', left = klass, right = left, ...attr } = THEME(args, 'MathSpan')
+        const text = scalar_text(children)
 
         // pass to Span
-        super({ children: [ text ], font_family, ...attr })
+        super({ children: [ text ], ...attr })
         this.args = args
 
         // set math metrics
         set_math(this, { left, right })
+    }
+}
+
+interface MathSymbolArgs extends MathSpanArgs {
+    mode?: SymbolMode
+}
+
+class MathSymbol extends MathSpan {
+    constructor(args: MathSymbolArgs = {}) {
+        const { children: children0, mode = 'math', ...attr } = THEME(args, 'MathSymbol')
+        const text = scalar_text(children0)
+
+        // try to get symbol entry
+        const { font, family, replace } = get_symbol_entry(mode, text) ??
+            { font: 'main', family: 'mathord', replace: text }
+
+        // font family and spacing class
+        const children = [ replace ?? text ]
+        const font_family = get_font_family(mode, font, family)
+        const klass = SYMBOL_FAMILY_CLASS[family]
+
+        // pass to MathSpan
+        super({ children, font_family, klass, ...attr })
+        this.args = args
     }
 }
 
@@ -326,7 +382,8 @@ interface FracArgs extends BoxArgs {
 
 class Frac extends Box {
     constructor(args: FracArgs = {}) {
-        const { numer, denom, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.015, vshift = 0.1, ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.015, vshift = 0, ...attr } = THEME(args, 'Frac')
+        const [ numer, denom ] = check_array(children0, 2)
 
         // build numer and denom boxes
         const elemSize = (1 - rule_size) / 2
@@ -412,8 +469,8 @@ class Bracket extends HStack {
 }
 
 export {
-    MathSpan, MathText, SupSub, Frac, Sqrt, Bracket,
-    OP_SYMBOL_FONT, EMPTY_MATH,
-    set_math, get_math, measurement_to_em,
+    MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket,
+    OP_SYMBOL_FONT, EMPTY_MATH, SYMBOL_MODE_FONT,
+    set_math, get_math, measurement_to_em, get_symbol_entry,
 }
-export type { AtomClass, MathItem, MathSpec, FontFamily }
+export type { AtomClass, MathItem, MathSpec, FontFamily, MathSymbolArgs }

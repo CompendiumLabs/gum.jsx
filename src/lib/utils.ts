@@ -95,8 +95,9 @@ function check_singleton(children: any): any {
     return ensure_singleton(children)
 }
 
-function check_array(x: any): any[] {
+function check_array(x: any, n?: number): any[] {
     if (!is_array(x)) throw new Error('Must be an array')
+    if (n != null && x.length != n) throw new Error(`Must have ${n} elements`)
     return x
 }
 

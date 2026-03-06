@@ -1,74 +1,18 @@
 import { __parse as parse_tex } from 'katex'
 
-import symbols from '../lib/symbols'
 import { THEME } from '../lib/theme'
 import { is_array, is_object, check_string, maximum } from '../lib/utils'
 import { Element, Spacer } from '../elems/core'
 import { Box } from '../elems/layout'
-import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSpan, MathText, SupSub, Frac, Sqrt, Bracket, get_math, set_math } from './math'
+import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, get_symbol_entry, get_math, set_math } from './math'
 
-import type { SymbolMode, SymbolFamily, SymbolEntry, Tree, TreeNode } from 'katex'
+import type { SymbolMode, Tree, TreeNode } from 'katex'
 import type { AtomClass, FontFamily } from './math'
-import type { Attrs } from '../lib/types'
 import type { ElementArgs } from './core'
-
-//
-// symbols and fonts
-//
-
-const FONTS: Record<SymbolMode, FontFamily> = {
-    'math': 'KaTeX_Math',
-    'text': 'KaTeX_Main',
-}
-
-const FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
-    'mathord': 'mord',
-    'textord': 'mord',
-    'bin': 'mbin',
-    'rel': 'mrel',
-    'open': 'mopen',
-    'close': 'mclose',
-    'punct': 'mpunct',
-    'inner': 'minner',
-    'op-token': 'mop',
-    'accent-token': 'mord',
-    'spacing': null,
-}
-
-function symbol_group_class(entry: SymbolEntry | null): AtomClass {
-    if (entry == null) return 'mord'
-    return FAMILY_CLASS[entry.family] ?? 'mord'
-}
-
-function get_symbol(mode: SymbolMode, text: string): SymbolEntry | null {
-    if (text in symbols[mode]) return symbols[mode][text]
-    return null
-}
-
-function atom_font(entry: SymbolEntry | null): FontFamily {
-    if (entry?.font == 'ams') return 'KaTeX_AMS'
-    return 'KaTeX_Main'
-}
-
-interface SymbolArgs extends Attrs {
-    fallback?: string | null
-    font_family?: FontFamily
-    klass?: AtomClass | null
-}
-
-function make_symbol(mode: SymbolMode, text: string, args: SymbolArgs = {}): Element {
-    const { fallback = null, font_family = FONTS[mode], klass: klass0 = null, ...attr } = args
-    const entry = get_symbol(mode, text)
-    const children = entry?.replace ?? fallback ?? text
-    const klass = klass0 ?? symbol_group_class(entry)
-    return new MathSpan({ children, font_family, left: klass, right: klass, ...attr })
-}
 
 function make_delimiter(mode: SymbolMode, delim: string | null | undefined): Element | null {
     if (delim == null || delim == '.') return null
-    const entry = get_symbol(mode, delim)
-    const font_family = atom_font(entry)
-    return make_symbol(mode, delim, { font_family })
+    return new MathSymbol({ mode, text: delim })
 }
 
 // quick delimiter-sizing heuristic based on parse subtree shape
@@ -118,7 +62,7 @@ function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined,
     if (delim == null || delim == '.') return null
     const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
     const font_family = delimiter_font(size)
-    return make_symbol(mode, delim, { font_family, klass })
+    return new MathSymbol({ mode, text: delim, font_family, klass })
 }
 
 //
@@ -138,30 +82,24 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
 
         if (type == 'mathord') {
             const { mode, text } = tree
-            return make_symbol(mode, text, { font_family: FONTS['math'] })
+            return new MathSymbol({ children: [ text ], mode })
         } else if (type == 'textord') {
             const { mode, text } = tree
-            return make_symbol(mode, text, { font_family: FONTS['text'] })
+            return new MathSymbol({ children: [ text ], mode })
         } else if (type == 'atom') {
             const { mode, text, family } = tree
-            const entry = get_symbol(mode, text)
-            const font_family = atom_font(entry)
-            const element = make_symbol(mode, text, { font_family })
-            if (family != null) {
-                return set_math(element, { left: FAMILY_CLASS[family], right: FAMILY_CLASS[family] })
-            }
-            return element
+            return new MathSymbol({ children: [ text ], mode, family })
         } else if (type == 'ordgroup') {
             const { body } = tree
             return convert_tree(body)
         } else if (type == 'op') {
             const { mode, name } = tree
-            const entry = get_symbol(mode, name)
+            const entry = get_symbol_entry(mode, name)
             if (entry != null) {
-                return new MathSpan({ children: [ entry.replace ?? name ], left: 'mop', right: 'mop', font_family: OP_SYMBOL_FONT })
+                return new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family: OP_SYMBOL_FONT })
             } else {
                 const name1 = name.slice(1)
-                return new MathSpan({ children: [ name1 ], left: 'mop', right: 'mop', font_family: FONTS['text'] })
+                return new MathSymbol({ children: [ name1 ], mode: 'text', klass: 'mop' })
             }
         } else if (type == 'text') {
             const { body } = tree
@@ -192,9 +130,9 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const left = make_delimiter(mode, leftDelim)
             const right = make_delimiter(mode, rightDelim)
             const element = new Frac({
-                numer,
-                denom,
+                children: [ numer, denom ],
                 has_bar: hasBarLine,
+                vshift: 0.1,
                 left,
                 right,
             })
