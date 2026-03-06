@@ -400,6 +400,9 @@ class Frac extends Box {
         // pass to Box
         super({ children: [ stack ], ...attr })
         this.args = args
+
+        // set math metrics
+        set_math(this, { left: 'mord', right: 'mord' })
     }
 }
 
@@ -438,6 +441,9 @@ class Sqrt extends HStack {
         // pass to HStack
         super({ children: [ core ], ...attr })
         this.args = args
+
+        // set math metrics
+        set_math(this, { left: 'mord', right: 'mord' })
     }
 }
 
@@ -465,6 +471,9 @@ class Bracket extends HStack {
         // pass to HStack
         super({ children, justify: 'left', ...attr })
         this.args = args
+
+        // set math metrics
+        set_math(this, { left: 'mord', right: 'mord' })
     }
 }
 
