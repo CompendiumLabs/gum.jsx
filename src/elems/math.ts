@@ -608,7 +608,11 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const numer = convert_tree(numer0)
             const denom = convert_tree(denom0)
             const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine })
-            return (leftDelim != null || rightDelim != null) ? new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, size: delimiter_size(tree) }) : frac
+            if (leftDelim != null || rightDelim != null) {
+                const size = delimiter_size(tree)
+                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, size })
+            }
+            return frac
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
             const body = convert_tree(body0)
