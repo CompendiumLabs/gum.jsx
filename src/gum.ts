@@ -18,7 +18,7 @@ import { SymPoints, SymLine, SymSpline, SymShape, SymFill, Field, SymField } fro
 import { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend } from './elems/plot'
 import { TitleBox, TitleFrame, Slide } from './elems/slide'
 import { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket } from './elems/math'
-import { Latex } from './elems/katex'
+import { Latex } from './elems/math'
 import { PngImage, SvgImage } from './elems/image'
 
 const Rect = Rectangle

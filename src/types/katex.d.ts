@@ -78,9 +78,9 @@ declare module 'katex' {
         denom: TreeNode
         continued: boolean
         hasBarLine: boolean
-        leftDelim: string | null
-        rightDelim: string | null
-        barSize: Measurement | null
+        leftDelim?: string
+        rightDelim?: string
+        barSize?: Measurement
     }
 
     export type TreeSqrt = {
