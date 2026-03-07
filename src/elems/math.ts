@@ -4,14 +4,16 @@ import { THEME } from '../lib/theme'
 import { black, vtext } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, ensure_singleton, check_array, maximum } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Element, Group, Rectangle, Spacer } from '../elems/core'
+import { Element, Group, Rectangle, Spacer, is_element, prefix_split } from '../elems/core'
 import { HStack, VStack, Box } from '../elems/layout'
 import { Span } from '../elems/text'
 
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry } from 'katex'
-import type { Attrs, Padding, Size } from '../lib/types'
+import type { Padding, Size } from '../lib/types'
 import type { BoxArgs, StackArgs } from '../elems/layout'
 import type { SpanArgs } from '../elems/text'
+
+const MATH_VSHIFT = -0.2
 
 //
 // types
@@ -216,11 +218,11 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left = klass, right = left, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, vshift = MATH_VSHIFT, ...attr } = THEME(args, 'MathSpan')
         const text = scalar_text(children)
 
         // pass to Span
-        super({ children: [ text ], ...attr })
+        super({ children: [ text ], vshift, ...attr })
         this.args = args
 
         // set math metrics
@@ -382,7 +384,7 @@ interface FracArgs extends BoxArgs {
 
 class Frac extends Box {
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.015, vshift = 0, ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.015, vshift = MATH_VSHIFT + 0.25, ...attr } = THEME(args, 'Frac')
         const [ numer, denom ] = check_array(children0, 2)
 
         // build numer and denom boxes
@@ -447,20 +449,58 @@ class Sqrt extends HStack {
     }
 }
 
+type DelimType = 'round' | 'square' | 'curly' | 'angle'
+
+interface DelimArgs {
+    mode?: SymbolMode
+    size?: number
+    vshift?: number
+}
+
+function delimiter_font(size: number): FontFamily {
+    if (size >= 5) return 'KaTeX_Size4'
+    if (size == 4) return 'KaTeX_Size3'
+    if (size == 3) return 'KaTeX_Size2'
+    if (size == 2) return 'KaTeX_Size1'
+    return 'KaTeX_Main'
+}
+
+function build_delim(delim: Element | string | undefined, side: 'left' | 'right', { mode = 'math', size = 1, vshift = 0 }: DelimArgs): Element | undefined {
+    if (delim == null) return
+    if (is_element(delim)) return delim
+    const klass = side == 'left' ? 'mopen' : 'mclose'
+    const font_family = size != null ? delimiter_font(size) : undefined
+    return new MathSymbol({ children: [ delim ], mode, klass, font_family, vshift })
+}
+
+function build_delims({ delim = 'round', left_delim: left_delim0, right_delim: right_delim0, ...args }: { delim?: DelimType, left_delim?: Element | string, right_delim?: Element | string } & DelimArgs): [ Element | undefined, Element | undefined ] {
+    const [ left_delim, right_delim ] =
+        delim == 'round' ? [ '(', ')' ] :
+        delim == 'square' ? [ '[', ']' ] :
+        delim == 'curly' ? [ '{', '}' ] :
+        delim == 'angle' ? [ '<', '>' ] :
+        [ left_delim0, right_delim0 ]
+    return [
+        build_delim(left_delim, 'left', args),
+        build_delim(right_delim, 'right', args),
+    ]
+}
+
 interface BracketArgs extends StackArgs {
-    left?: Element | null
-    right?: Element | null
+    delim?: DelimType
+    left_delim?: Element | string
+    right_delim?: Element | string
+    mode?: SymbolMode
+    size?: number
+    vshift?: number
 }
 
 class Bracket extends HStack {
     constructor(args: BracketArgs = {}) {
-        const {
-            children: children0,
-            left,
-            right,
-            ...attr
-        } = args
+        const { children: children0, delim, left_delim, right_delim, mode, size, vshift = MATH_VSHIFT, ...attr0 } = THEME(args, 'Bracket')
         const body = ensure_singleton(children0)
+        const [ delim_attr, attr ] = prefix_split([ 'delim' ], attr0)
+        const [ left, right ] = build_delims({ delim, left_delim, right_delim, mode, size, vshift, ...delim_attr })
 
         // build children
         const children: Element[] = []

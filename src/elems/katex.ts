@@ -7,7 +7,6 @@ import { Box } from '../elems/layout'
 import { OP_SYMBOL_FONT, EMPTY_MATH, measurement_to_em, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, get_symbol_entry } from './math'
 
 import type { SymbolMode, Tree, TreeNode } from 'katex'
-import type { AtomClass, FontFamily } from './math'
 import type { ElementArgs } from './core'
 
 //
@@ -52,21 +51,6 @@ function delimiter_size(tree: Tree | TreeNode | null | undefined): number {
     }
 
     return 1
-}
-
-function delimiter_font(size: number): FontFamily {
-    if (size >= 5) return 'KaTeX_Size4'
-    if (size == 4) return 'KaTeX_Size3'
-    if (size == 3) return 'KaTeX_Size2'
-    if (size == 2) return 'KaTeX_Size1'
-    return 'KaTeX_Main'
-}
-
-function make_auto_delimiter(mode: SymbolMode, delim: string | null | undefined, side: 'left' | 'right', size: number): Element | null {
-    if (delim == null || delim == '.') return null
-    const klass: AtomClass = side == 'left' ? 'mopen' : 'mclose'
-    const font_family = delimiter_font(size)
-    return new MathSymbol({ mode, text: delim, font_family, klass })
 }
 
 //
@@ -119,24 +103,22 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const sub = sub0 ? convert_tree(sub0) : null
             return new SupSub({ children: [ base ], sup, sub })
         } else if (type == 'genfrac') {
-            const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim = null, rightDelim = null } = tree
+            const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
             const numer = convert_tree(numer0)
             const denom = convert_tree(denom0)
             const left = make_delimiter(mode, leftDelim)
             const right = make_delimiter(mode, rightDelim)
-            return new Frac({ children: [ numer, denom ], has_bar: hasBarLine, vshift: 0.1, left, right })
+            return new Frac({ children: [ numer, denom ], has_bar: hasBarLine, left, right })
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
             const body = convert_tree(body0)
             const index = index0 ? convert_tree(index0) : null
             return new Sqrt({ children: [ body ], index })
         } else if (type == 'leftright') {
-            const { mode = 'math', body: body0, left: left0, right: right0 } = tree
+            const { mode, body: body0, left, right } = tree
             const body = convert_tree(body0)
             const size = delimiter_size(body0)
-            const left = make_auto_delimiter(mode, left0, 'left', size)
-            const right = make_auto_delimiter(mode, right0, 'right', size)
-            return new Bracket({ children: [ body ], left, right })
+            return new Bracket({ children: [ body ], left, right, mode, size })
         }
     }
 
