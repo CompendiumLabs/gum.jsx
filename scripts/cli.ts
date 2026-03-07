@@ -4,16 +4,7 @@ import { program } from 'commander'
 import { readFileSync, writeFileSync } from 'fs'
 
 import { evaluateGum } from '../src/eval'
-import { rasterizeSvg, formatImage } from '../src/render'
-
-// read from stdin
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = []
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk)
-  }
-  return Buffer.concat(chunks).toString('utf-8')
-}
+import { rasterizeSvg, formatImage, readStdin } from '../src/render'
 
 // set up commander
 program.name('gum')

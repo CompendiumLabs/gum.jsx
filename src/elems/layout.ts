@@ -5,7 +5,7 @@ import { DEFAULTS as D, none } from '../lib/const'
 import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
-import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac } from './core'
+import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac, ensure_children } from './core'
 import { RoundedRect, Dot } from './geometry'
 
 import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types'
@@ -87,8 +87,9 @@ interface BoxArgs extends GroupArgs {
 
 class Box extends Group {
     constructor(args: BoxArgs = {}) {
-        const { children, padding, margin, border, fill, shape: shape0, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
+        const { children: children0, padding, margin, border, fill, shape: shape0, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
+        const children = ensure_children(children0)
 
         // ensure shape is a function
         const shape = shape0 ?? maybe_rounded_rect(rounded)
@@ -97,7 +98,7 @@ class Box extends Group {
         const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, aspect: aspect as number | undefined, adjust })
 
         // make framing elements
-        const rect_cl = clip ? shape : false
+        const rect_cl = clip ? shape : undefined
         const rect_bg = fill != null ? shape.clone({ fill, stroke: none, ...fill_attr }) : null
         const rect_fg = border != null ? shape.clone({ stroke_width: border, ...border_attr }) : null
 
@@ -239,20 +240,21 @@ interface StackArgs extends GroupArgs {
 class Stack extends Group {
     constructor(args: StackArgs = {}) {
         const { children: children0, direc = 'v', spacing = 0, justify = 'center', aspect: aspect0, even = false, ...attr } = THEME(args, 'Stack')
+        const children = ensure_children(children0)
 
         // compute layout
-        const spacing1 = (spacing as number) / Math.max(children0.length - 1, 1)
-        const { ranges, aspect } = computeStackLayout(direc, children0, { spacing: spacing1, even, aspect: aspect0 as number | undefined })
+        const spacing1 = (spacing as number) / Math.max(children.length - 1, 1)
+        const { ranges, aspect } = computeStackLayout(direc, children, { spacing: spacing1, even, aspect: aspect0 as number | undefined })
 
         // assign child rects
-        const children = children0.length > 0 ? zip(children0, ranges).map(([c, b]) => {
+        const items = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
             const align = c.spec.align ?? justify
             return c.clone({ rect, align })
         }) : []
 
         // pass to Group
-        super({ children, aspect, ...attr })
+        super({ children: items, aspect, ...attr })
         this.args = args
     }
 }
@@ -286,7 +288,8 @@ interface HWrapArgs extends StackArgs {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args: HWrapArgs = {}) {
-        const { children, spacing = 0, padding = 0, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, spacing = 0, padding = 0, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
+        const children = ensure_children(children0)
         const measure = measure0 ?? default_measure
 
         // make HStack rows
@@ -362,10 +365,11 @@ interface GridArgs extends GroupArgs {
 class Grid extends Group {
     constructor(args: GridArgs = {}) {
         const { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect: aspect0, ...attr } = THEME(args, 'Grid')
+        const children = ensure_children(children0)
 
         // reshape children to grid
-        const { rows, cols } = computeGridSize(children0.length, rows0, cols0)
-        let grid = reshape(children0, [rows, cols])
+        const { rows, cols } = computeGridSize(children.length, rows0, cols0)
+        let grid = reshape(children, [rows, cols])
 
         // fill in missing rows and columns
         const spacer = new Spacer()
@@ -381,12 +385,12 @@ class Grid extends Group {
         const rects = meshgrid(rranges, cranges).map(([ ylim, xlim ]) =>
             join_limits({ h: xlim, v: ylim })
         )
-        const children = zip(children0, rects).map(([ child, rect ]) =>
+        const items = zip(children, rects).map(([ child, rect ]) =>
             child.clone({ rect })
         )
 
         // pass to Group
-        super({ children, aspect, ...attr })
+        super({ children: items, aspect, ...attr })
         this.args = args
     }
 }
@@ -469,6 +473,7 @@ class Attach extends Group {
 }
 
 interface AbsoluteArgs extends ElementArgs {
+    children?: (Element | null)[]
     size?: number | Point
 }
 

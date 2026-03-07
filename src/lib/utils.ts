@@ -63,7 +63,7 @@ function is_singleton(x: any): boolean {
 // type conversions
 //
 
-function ensure_vector(x: any, n: number): any[] {
+function ensure_vector<T>(x: T | T[], n: number): T[] {
     if (!is_array(x)) {
         return range(n).map(_i => x)
     } else {
@@ -71,7 +71,8 @@ function ensure_vector(x: any, n: number): any[] {
     }
 }
 
-function ensure_singleton(x: any): any {
+function ensure_singleton<T>(x: T[] | undefined): T | null {
+    if (x == null) return null
     return is_array(x) ? x[0] : x
 }
 
@@ -88,11 +89,11 @@ function ensure_function(x: any): any | undefined {
 // type checks
 //
 
-function check_singleton(children: any): any {
-    if (is_array(children) && children.length > 1) {
-        throw new Error('Must have exactly one child')
-    }
-    return ensure_singleton(children)
+function check_singleton<T>(children: (T | null)[] | undefined): T {
+    if (children == null || !is_array(children) || children.length > 1) throw new Error('Must have exactly one child')
+    const child = ensure_singleton(children)
+    if (child == null) throw new Error('Must have exactly one child')
+    return child
 }
 
 function check_array(x: any, n?: number): any[] {

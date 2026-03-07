@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { black, vtext } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, ensure_singleton, check_array, check_string, maximum } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, maximum } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Rectangle, Spacer, is_element, prefix_split } from './core'
 import { HStack, VStack, Box } from './layout'
@@ -15,7 +15,11 @@ import type { SpanArgs } from './text'
 import type { ElementArgs } from './core'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
 
-const MATH_VSHIFT = -0.2
+//
+// constants
+//
+
+const MATH_VSHIFT = -0.25
 
 //
 // types
@@ -209,7 +213,7 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
 }
 
 //
-// math text
+// math span
 //
 
 interface MathSpanArgs extends SpanArgs {
@@ -236,6 +240,10 @@ interface MathSymbolArgs extends MathSpanArgs {
     mode?: SymbolMode
 }
 
+//
+// math symbol
+//
+
 class MathSymbol extends MathSpan {
     constructor(args: MathSymbolArgs = {}) {
         const { children: children0, mode = 'math', ...attr } = THEME(args, 'MathSymbol')
@@ -255,6 +263,10 @@ class MathSymbol extends MathSpan {
         this.args = args
     }
 }
+
+//
+// math text
+//
 
 type MathItem =
     | Element
@@ -338,6 +350,10 @@ class MathText extends HStack {
     }
 }
 
+//
+// sup/sub
+//
+
 interface SupSubArgs extends StackArgs {
     sup?: Element | null
     sub?: Element | null
@@ -360,8 +376,8 @@ class SupSub extends HStack {
         const subOffset = 1 + vtext
 
         // make side group
-        const supElem = sup?.clone({ pos: [ 0, supOffset ], yrad: script_size / 2, align: 'left' })
-        const subElem = sub?.clone({ pos: [ 0, subOffset ], yrad: script_size / 2, align: 'left' })
+        const supElem = sup ? sup.clone({ pos: [ 0, supOffset ], yrad: script_size / 2, align: 'left' }) : null
+        const subElem = sub ? sub.clone({ pos: [ 0, subOffset ], yrad: script_size / 2, align: 'left' }) : null
         const side = new Group({ children: [ supElem, subElem ], aspect: sideAspect })
 
         // pass to HStack
@@ -372,6 +388,10 @@ class SupSub extends HStack {
         set_math(this, get_math(base))
     }
 }
+
+//
+// frac
+//
 
 interface FracArgs extends BoxArgs {
     numer?: Element
@@ -409,6 +429,10 @@ class Frac extends Box {
         set_math(this, { left: 'mord', right: 'mord' })
     }
 }
+
+//
+// sqrt
+//
 
 interface SqrtArgs extends StackArgs {
     index?: Element | null
@@ -451,13 +475,9 @@ class Sqrt extends HStack {
     }
 }
 
-type DelimType = 'round' | 'square' | 'curly' | 'angle'
-
-interface DelimArgs {
-    mode?: SymbolMode
-    size?: number
-    vshift?: number
-}
+//
+// bracket
+//
 
 function delimiter_font(size: number): FontFamily {
     if (size >= 5) return 'KaTeX_Size4'
@@ -465,6 +485,14 @@ function delimiter_font(size: number): FontFamily {
     if (size == 3) return 'KaTeX_Size2'
     if (size == 2) return 'KaTeX_Size1'
     return 'KaTeX_Main'
+}
+
+type DelimType = 'round' | 'square' | 'curly' | 'angle'
+
+interface DelimArgs {
+    mode?: SymbolMode
+    size?: number
+    vshift?: number
 }
 
 function build_delim(delim: Element | string | undefined, side: 'left' | 'right', { mode = 'math', size = 1, vshift = 0 }: DelimArgs): Element | undefined {
@@ -499,9 +527,11 @@ interface BracketArgs extends StackArgs {
 
 class Bracket extends HStack {
     constructor(args: BracketArgs = {}) {
-        const { children: children0, delim, left_delim, right_delim, mode, size, vshift = MATH_VSHIFT, ...attr0 } = THEME(args, 'Bracket')
-        const body = ensure_singleton(children0)
+        const { children: children0, delim, left_delim, right_delim, mode, size = 3, vshift = MATH_VSHIFT, ...attr0 } = THEME(args, 'Bracket')
+        const body = check_singleton(children0)
         const [ delim_attr, attr ] = prefix_split([ 'delim' ], attr0)
+
+        // auto-detect delimiter size
         const [ left, right ] = build_delims({ delim, left_delim, right_delim, mode, size, vshift, ...delim_attr })
 
         // build children
@@ -522,41 +552,6 @@ class Bracket extends HStack {
 //
 // parse katex tree
 //
-
-// quick delimiter-sizing heuristic based on parse subtree shape
-function delimiter_size(tree: Tree | TreeNode | null | undefined): number {
-    if (tree == null) return 1
-
-    if (is_array(tree)) {
-        const size = tree.reduce((acc, node) => Math.max(acc, delimiter_size(node)), 1)
-        return Math.max(1, Math.min(4, size))
-    }
-
-    if (is_object(tree)) {
-        const { type } = tree
-        if (type == 'genfrac') {
-            return 3
-        } else if (type == 'supsub') {
-            const { base, sup, sub } = tree
-            return Math.max(2, maximum(delimiter_size(base), delimiter_size(sup), delimiter_size(sub)) ?? 1)
-        } else if (type == 'sqrt') {
-            const { body, index } = tree
-            return Math.max(2, maximum(delimiter_size(body), delimiter_size(index)) ?? 1)
-        } else if (type == 'leftright') {
-            const { body } = tree
-            return delimiter_size(body)
-        } else if (type == 'styling') {
-            const { body, style } = tree
-            const size = delimiter_size(body)
-            return (style == 'display') ? Math.min(4, size + 1) : size
-        } else if (type == 'ordgroup' || type == 'text') {
-            const { body } = tree
-            return delimiter_size(body)
-        }
-    }
-
-    return 1
-}
 
 function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
     if (tree == null) return EMPTY_MATH
@@ -609,8 +604,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
             const denom = convert_tree(denom0)
             const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine })
             if (leftDelim != null || rightDelim != null) {
-                const size = delimiter_size(tree)
-                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, size })
+                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode })
             }
             return frac
         } else if (type == 'sqrt') {
@@ -621,8 +615,7 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
             const body = convert_tree(body0)
-            const size = delimiter_size(body0)
-            return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode, size })
+            return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode })
         }
     }
 
@@ -647,6 +640,10 @@ class Latex extends Box {
         this.args = args
     }
 }
+
+//
+// exports
+//
 
 export {
     MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex,

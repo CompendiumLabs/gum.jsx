@@ -435,21 +435,26 @@ function children_aspect(children: Element[]): number | undefined {
 // group class
 //
 
+function ensure_children(children: any): Element[] {
+    return (children ?? []).filter((c: Element) => c != null)
+}
+
 function makeUID(prefix: string): string {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 interface GroupArgs extends ElementArgs {
-    clip?: boolean | Element
-    mask?: boolean | Element
+    children?: (Element | null)[]
+    clip?: true | Element
+    mask?: Element
 }
 
 class Group extends Element {
     children: Element[]
 
     constructor(args: GroupArgs = {}) {
-        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0 = false, mask: mask0 = false, debug = false, tag = 'g', ...attr } = args
-        const children = children0.filter((c: any) => c != null)
+        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0, mask: mask0, debug = false, tag = 'g', ...attr } = args
+        const children = ensure_children(children0)
 
         // handle boolean args
         const clip = clip0 === true ? new Rectangle() : clip0
@@ -468,7 +473,7 @@ class Group extends Element {
 
         // make actual clip mask
         let clip_path: string | undefined
-        if (clip != false) {
+        if (clip != null) {
             const clip_id = makeUID('clip')
             clip_path = `url(#${clip_id})`
             const mask = new ClipPath({ children: [ clip ], id: clip_id })
@@ -477,7 +482,7 @@ class Group extends Element {
 
         // handle mask
         let mask: string | undefined
-        if (mask0 != false) {
+        if (mask0 != null) {
             const mask_id = makeUID('mask')
             mask = `url(#${mask_id})`
             const mask_elem = new Mask({ children: [ mask0 ], id: mask_id })
@@ -602,7 +607,8 @@ class Svg extends Group {
     prec: number
 
     constructor(args: SvgArgs = {}) {
-        const { children, size : size0 = D.size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const children = ensure_children(children0)
         const size_base = ensure_point(size0)
 
         // precompute aspect info
@@ -733,5 +739,5 @@ class Spacer extends Element {
 // exports
 //
 
-export { Context, Element, Group, Svg, Rectangle, Spacer, is_element, prefix_split, prefix_join, spec_split, align_frac }
+export { Context, Element, Group, Svg, Rectangle, Spacer, is_element, ensure_children, prefix_split, prefix_join, spec_split, align_frac }
 export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }

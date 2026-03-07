@@ -3,7 +3,7 @@
 import { THEME } from '../lib/theme'
 import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils'
 
-import { Context, Element, Group, prefix_split } from './core'
+import { Context, Element, Group, prefix_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Frame } from './layout'
 import { ArrowHead, Spline } from './geometry'
@@ -114,7 +114,7 @@ class ArrowSpline extends Group {
 // node class
 //
 
-interface NodeArgs extends ElementArgs {
+interface NodeArgs extends GroupArgs {
     id?: string
     yrad?: number
     rounded?: number
@@ -218,13 +218,14 @@ class Network extends Group {
         const { children: children0, xlim, ylim, coord: coord0, ...attr0 } = THEME(args, 'Network')
         const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
+        const children = ensure_children(children0)
 
         // process nodes and make label map
-        const nodes = children0.filter((c: Element) => c.args.id != null).map((n: Element) => n.clone({ ...node_attr, ...n.args }))
+        const nodes = children.filter((c: Element) => c.args.id != null).map((n: Element) => n.clone({ ...node_attr, ...n.args }))
         const nmap = new Map(nodes.map((n: Element) => [ n.args.id, n ]))
 
         // process children in original order
-        const children = children0.map((c: any) => {
+        const items = children.map((c: any) => {
             if (c instanceof Edge) {
                 // create arrow path from edge
                 const n1 = nmap.get(c.args.from)
@@ -240,7 +241,7 @@ class Network extends Group {
         })
 
         // pass to Group
-        super({ children, coord, ...attr })
+        super({ children: items, coord, ...attr })
         this.args = args
     }
 }
