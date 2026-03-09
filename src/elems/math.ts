@@ -553,7 +553,7 @@ class Bracket extends HStack {
 // parse katex tree
 //
 
-function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
+function convert_tree(tree: Tree | TreeNode | null): Element {
     if (tree == null) return EMPTY_MATH
 
     if (is_array(tree)) {
@@ -626,16 +626,16 @@ function convert_tree(tree: Tree | TreeNode | null | undefined): Element {
 // katex parser and component
 //
 
-function parse_katex(tex: string): Element | null {
+function parse_katex(tex: string): Element {
     const tree = parse_tex(tex)
     return convert_tree(tree)
 }
 
 class Latex extends Box {
     constructor(args: ElementArgs = {}) {
-        const { children, ...attr } = THEME(args, 'Katex')
+        const { children, vshift = 0.1, ...attr } = THEME(args, 'Katex')
         const tex = check_string(children)
-        const elem = parse_katex(tex)
+        const elem = parse_katex(tex).clone({ pos: [ 0.5, 0.5 + vshift ] })
         super({ children: [ elem ], ...attr })
         this.args = args
     }
