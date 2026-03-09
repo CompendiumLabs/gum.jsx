@@ -70,10 +70,10 @@ class Bars extends Group {
         // handle data array case
         const bars = data != null ?
           data.map((size: any) => new Bar({ direc, size, ...attr })) :
-          children0
+          children
 
         // make rects from sizes
-        const items = children.map((child: any, i: number) => {
+        const items = bars.map((child: any, i: number) => {
             const { loc = i, size } = child.attr
             const rect = join_limits({
                 [direc]: [ zero, size ],
