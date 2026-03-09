@@ -146,7 +146,7 @@ Key functions for rect manipulation:
 - `plot.js` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
 - `network.js` - `ArrowSpline`, `Node`, `Edge`, `Network`
 - `symbolic.js` - `SymPoints`, `SymLine`, `SymSpline`, `SymShape`, `SymFill`, `SymField`
-- `math.js` - `MathSpan`, `MathText`, `SupSub`, `Frac`, `Sqrt`, `Bracket`
+- `math.js` - `MathSpan`, `MathText`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
 - `katex.js` - `Latex`
 - `image.js` - `Image`
 - `slide.js` - `TitleBox`, `TitleFrame`, `Slide`
@@ -222,18 +222,27 @@ class Plot extends Group {
 // Usage: <Plot xaxis_stroke="red" yaxis_size={2} fill="blue" />
 ```
 
-### Reserved Keys
+## Element Specification
 
-Layout/spec keys: `rect`, `aspect`, `expand`, `align`, `rotate`, `invar`, `coord`
-Convenience keys: `pos`, `rad`, `xlim`, `ylim`, `flex`, `spin`, `hflip`, `vflip`, `xrad`, `yrad`
+Element specification keys:
+- `aspect`: Width/height ratio
+- `rect`: A rectangle `[x1, y1, x2, y2]` in coordinate space
+- `coord`: The coordinate system for children `[xmin, ymin, xmax, ymax]`
+- `expand`: Whether to expand (true) or shrink (false) when fitting aspect
+- `align`: How to align content ('left'/'center'/'right' or 'top'/'middle'/'bottom', or numeric 0-1)
+- `rotate`: Rotation in degrees
+- `invar`: Rotation-invariant (apply rotation after layout, not before)
 
-## Key Terminology
+Convenience keys (these map into the above keys):
+- `flex`: Override to set `aspect = null`
+- `pos/rad`: Center position and radius of the child's rectangle
+- `xrad/yrad`: Specifies one dimension of `rad` and applies `expand`
+- `xlim/ylim`: Specify the coordinate limits for a specific dimension
+- `spin`: Specifies a `rotate` value and applies `invar`
+- `hflip/vflip`: Flip the child horizontally or vertically
 
-- **rect**: A rectangle `[x1, y1, x2, y2]` in coordinate space
-- **prect**: A rectangle in pixel space (post-mapping)
-- **coord**: The coordinate system for children `[xmin, ymin, xmax, ymax]`
-- **aspect**: Width/height ratio
-- **expand**: Whether to expand (true) or shrink (false) when fitting aspect
-- **align**: How to align content ('left'/'center'/'right' or 'top'/'middle'/'bottom', or numeric 0-1)
-- **rotate**: Rotation in degrees
-- **invar**: Rotation-invariant (apply rotation after layout, not before)
+## Math Elements
+
+We use `katex` to parse LaTeX strings into an AST. This is then converted into gum.jsx elements and rendered to SVG. The `Latex` element is a wrapper that parses the LaTeX string and positions the element at the center of the rectangle.
+
+The goal is not always perfectly replicating what LaTeX/KaTeX do. We want the implementation to be simple and easy to understand, and to be able to use the full power of gum.jsx to create complex layouts.

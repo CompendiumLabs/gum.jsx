@@ -159,6 +159,24 @@ function scalar_text(value: any): string {
     return ''
 }
 
+function has_math_metrics(element: Element): boolean {
+    const { left, right } = get_math(element)
+    return left != null || right != null
+}
+
+function inter_item_spacing(prev: Element | null, next: Element | null, spacing: number): number {
+    if (prev == null || next == null) return 0
+    if (prev instanceof Spacer || next instanceof Spacer) return 0
+
+    const { right: prevRight } = get_math(prev)
+    const { left: nextLeft } = get_math(next)
+    const prevIsMath = has_math_metrics(prev)
+    const nextIsMath = has_math_metrics(next)
+
+    if (prevIsMath && nextIsMath) return inter_atom_spacing(prevRight, nextLeft)
+    return spacing
+}
+
 //
 // binary atom cancellation
 //
@@ -279,6 +297,11 @@ type MathItem =
     | undefined
     | MathItem[]
 
+interface MathTextArgs extends Omit<StackArgs, 'children'> {
+    children?: MathItem | MathItem[]
+    spacing?: number
+}
+
 function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     const children = is_array(children0) ? children0 : [ children0 ]
     const out: Element[] = []
@@ -307,8 +330,8 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends HStack {
-    constructor(args: StackArgs = {}) {
-        const { children: children0, ...attr } = THEME(args, 'MathText')
+    constructor(args: MathTextArgs = {}) {
+        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -318,24 +341,21 @@ class MathText extends HStack {
         // accumulate math metrics
         let left: AtomClass | null = null
         let right: AtomClass | null = null
-        let prevClass: AtomClass | null = null
+        let prevItem: Element | null = null
 
         // process items
         for (const item of items) {
-            let { left: itemLeft, right: itemRight } = get_math(item)
-
-            if (itemLeft && prevClass) {
-                const gap = inter_atom_spacing(prevClass, itemLeft)
-                if (gap > 0) children.push(new Spacer({ aspect: gap }))
-            }
+            const { left: itemLeft, right: itemRight } = get_math(item)
+            const gap = inter_item_spacing(prevItem, item, spacing)
+            if (gap > 0) children.push(new Spacer({ aspect: gap }))
 
             children.push(item)
 
             if (left == null) left = itemLeft
             if (itemRight != null) {
-                prevClass = itemRight
                 right = itemRight
             }
+            prevItem = item
         }
 
         // set default right
@@ -626,17 +646,13 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
 // katex parser and component
 //
 
-function parse_katex(tex: string): Element {
-    const tree = parse_tex(tex)
-    return convert_tree(tree)
-}
-
-class Latex extends Box {
+class Latex extends MathText {
     constructor(args: ElementArgs = {}) {
-        const { children, vshift = 0.1, ...attr } = THEME(args, 'Katex')
+        const { children, ...attr } = THEME(args, 'Katex')
         const tex = check_string(children)
-        const elem = parse_katex(tex).clone({ pos: [ 0.5, 0.5 + vshift ] })
-        super({ children: [ elem ], ...attr })
+        const items = parse_tex(tex)
+        const elems = items.map(convert_tree)
+        super({ children: elems, ...attr })
         this.args = args
     }
 }
@@ -645,9 +661,5 @@ class Latex extends Box {
 // exports
 //
 
-export {
-    MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex,
-    OP_SYMBOL_FONT, EMPTY_MATH, SYMBOL_MODE_FONT,
-    set_math, get_math, measurement_to_em, get_symbol_entry, parse_katex,
-}
-export type { AtomClass, MathItem, MathSpec, FontFamily, MathSymbolArgs }
+export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex }
+export type { AtomClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
