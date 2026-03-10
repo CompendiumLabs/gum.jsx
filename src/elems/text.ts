@@ -116,7 +116,7 @@ class ElemSpan extends Group {
 // text class
 //
 
-function compress_spans(children: (Element | null)[], font_args: Attrs = {}): any[] {
+function compress_spans(children: Element[], font_args: Attrs = {}): any[] {
     return children.flatMap((child: any, i: number) => {
         const first_child = i == 0
         const last_child = i == children.length - 1
@@ -124,13 +124,16 @@ function compress_spans(children: (Element | null)[], font_args: Attrs = {}): an
         // convert scalars to strings
         if (is_scalar(child)) child = child.toString()
 
-        // process strings into Span
+        // process strings into Span's
         // process Text into Span's
+        // process Spans into Span's (with args)
+        // process Elements into ElemSpan's
         if (is_string(child)) {
-            if (first_child) child = child.trimStart()
-            if (!last_child) child = ensure_tail(child)
-            if (last_child) child = child.trimEnd()
-            const words = splitWords(child)
+            let text = compress_whitespace(child)
+            if (first_child) text = text.trimStart()
+            if (!last_child) text = ensure_tail(text)
+            if (last_child) text = text.trimEnd()
+            const words = splitWords(text)
             return words.map((w: string) => new Span({ children: [ w ], ...font_args }))
         } else if (child instanceof Text) {
             return child.spans.map((s: any, i: number) => {
@@ -166,11 +169,12 @@ class Text extends HWrap {
     spans: any[]
 
     constructor(args: TextArgs = {}) {
-        const { children, wrap, spacing = 0.1, padding = 0, justify = 'left', debug, ...attr0 } = THEME(args, 'Text')
+        const { children: children0, wrap, spacing, padding, justify, debug, ...attr0 } = THEME(args, 'Text')
+        const children = ensure_children(children0)
     	const [ spec, attr ] = spec_split(attr0)
 
         // split into words and elements
-        const spans = compress_spans(children ?? [], attr)
+        const spans = compress_spans(children, attr)
 
         // pass to HWrap
         super({ children: spans, spacing, padding, justify, wrap, debug, ...spec })

@@ -288,7 +288,7 @@ interface HWrapArgs extends StackArgs {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args: HWrapArgs = {}) {
-        const { children: children0, spacing = 0, padding = 0, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, spacing, padding, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
         const children = ensure_children(children0)
         const measure = measure0 ?? default_measure
 

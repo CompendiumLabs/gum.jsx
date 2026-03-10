@@ -337,8 +337,7 @@ class MathText extends HStack {
     vshift: number
 
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, inline = false, vshift: vshift0, ...attr } = THEME(args, 'MathText')
-        const vshift = vshift0 ?? (inline ? 0.1 : 0)
+        const { children: children0, spacing = 0.25, vshift = 0.1, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -400,7 +399,7 @@ interface SupSubArgs extends StackArgs {
 
 class SupSub extends HStack {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0, vspacing = 0.1, vshift = 0.025, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, vshift = 0.025, ...attr } = THEME(args, 'SupSub')
         const base = ensure_singleton(children)
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
@@ -684,17 +683,9 @@ class Latex extends MathText {
     }
 }
 
-class Tex extends Latex {
-    constructor(args: ElementArgs = {}) {
-        const { inline = true, ...attr } = THEME(args, 'Tex')
-        super({ inline, ...attr })
-        this.args = args
-    }
-}
-
 //
 // exports
 //
 
-export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex }
 export type { AtomClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
