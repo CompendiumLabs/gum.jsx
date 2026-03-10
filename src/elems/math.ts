@@ -1,10 +1,10 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { black, vtext, red } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, maximum } from '../lib/utils'
+import { black, red } from '../lib/const'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Element, Group, Rectangle, Spacer, is_element, prefix_split } from './core'
+import { Context, Element, Rectangle, Spacer, is_element, prefix_split } from './core'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
@@ -334,8 +334,11 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends HStack {
+    vshift: number
+
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
+        const { children: children0, spacing = 0.25, inline = false, vshift: vshift0, ...attr } = THEME(args, 'MathText')
+        const vshift = vshift0 ?? (inline ? 0.1 : 0)
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -371,6 +374,18 @@ class MathText extends HStack {
 
         // compute combined math metrics
         set_math(this, { left, right })
+        this.vshift = vshift
+    }
+
+    // TODO: this could be yet another spec property?
+    // `shift` and `scale` to modify one's own prect
+    svg(ctx: Context): string {
+        const { prect } = ctx
+        const [ x, y, w, h ] = rect_box(prect)
+        const y1 = y + this.vshift * h
+        const prect1 = box_rect([x, y1, w, h])
+        const ctx1 = ctx.clone({ prect: prect1 })
+        return super.svg(ctx1)
     }
 }
 
@@ -428,7 +443,7 @@ interface FracArgs extends BoxArgs {
 
 class Frac extends Box {
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.005, ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, left = null, right = null, padding = 0.1, rule_size = 0.005, ...attr } = THEME(args, 'Frac')
         const [ numer, denom ] = check_array(children0, 2)
 
         // build numer and denom boxes
@@ -649,7 +664,7 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
 
 class Latex extends MathText {
     constructor(args: ElementArgs = {}) {
-        const { children, ...attr } = THEME(args, 'Katex')
+        const { children, ...attr } = THEME(args, 'Latex')
         const tex = check_string(children)
 
         // parse to AST
@@ -669,9 +684,17 @@ class Latex extends MathText {
     }
 }
 
+class Tex extends Latex {
+    constructor(args: ElementArgs = {}) {
+        const { inline = true, ...attr } = THEME(args, 'Tex')
+        super({ inline, ...attr })
+        this.args = args
+    }
+}
+
 //
 // exports
 //
 
-export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex }
+export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
 export type { AtomClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
