@@ -41,9 +41,10 @@ function splitOuterSvg(svg: string): { attrsText: string, inner: string } {
 
 function parseSvgAttrs(attrsText: string): Attrs {
     const pairs = attrsText.matchAll(/(\w[\w:-]*)(?:\s*=\s*("[^"]*"|'[^']*'))?/g)
-    return Object.fromEntries(pairs.map(([ _, key, val0 ]) =>
-        [ key, val0 ? val0.slice(1, -1) : true ]
-    ))
+    const entries = Array.from(pairs,
+        ([ _, key, val0 ]) => [ key, val0 ? val0.slice(1, -1) : true ] as [ string, string | boolean ]
+    )
+    return Object.fromEntries(entries)
 }
 
 function getSvgAspect(attr: Attrs): number | undefined {
