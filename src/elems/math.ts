@@ -613,7 +613,6 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
         } else if (type == 'op') {
             const { mode, name } = tree
             const entry = get_symbol_entry(mode, name)
-            console.log(mode, name, entry)
             if (entry != null) {
                 return new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family: OP_SYMBOL_FONT })
             } else {
