@@ -296,7 +296,20 @@ interface MathTextArgs extends Omit<StackArgs, 'children'> {
     spacing?: number
 }
 
-type MathLeaf = Element | string | number | boolean | null | undefined
+type MathLeaf = Element | string | number | boolean | null
+
+function normalize_math_leaf(child: MathLeaf): Element | null {
+    if (child == null) {
+        return null
+    } else if (child instanceof Element) {
+        return child
+    } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
+        const text = scalar_text(child)
+        return new MathSymbol({ children: [ text ] })
+    } else {
+        throw new Error(`Unknown math leaf type: ${typeof child}`)
+    }
+}
 
 function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     const children = is_array(children0) ? children0 : [ children0 ]
@@ -311,32 +324,13 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
         } else if (child instanceof MathText) {
             out.push(...child.children)
             continue
-        } else if (child instanceof Element) {
-            out.push(child)
-            continue
-        } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
-            const text = scalar_text(child)
-            out.push(new MathSpan({ children: [ text ] }))
-            continue
         } else {
-            throw new Error(`Unknown math child type: ${typeof child}`)
+            const elem = normalize_math_leaf(child)
+            if (elem != null) out.push(elem)
         }
     }
 
     return out
-}
-
-function normalize_math_leaf(child: MathLeaf): Element | null {
-    if (child == null) {
-        return null
-    } else if (child instanceof Element) {
-        return child
-    } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
-        const text = scalar_text(child)
-        return new MathSymbol({ children: [ text ] })
-    } else {
-        throw new Error(`Unknown math leaf type: ${typeof child}`)
-    }
 }
 
 class MathText extends HStack {
@@ -387,33 +381,29 @@ class MathText extends HStack {
 interface SupSubArgs extends StackArgs {
     sup?: MathLeaf
     sub?: MathLeaf
-    script_size?: number
 }
 
 class SupSub extends HStack {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0 = null, sub: sub0 = null, spacing = 0, script_size = 0.5, sup_pos = 0.363, sub_pos = 1, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0, vspacing = 0.1, vshift = 0.025, ...attr } = THEME(args, 'SupSub')
         const base = ensure_singleton(children)
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
 
-        // get side aspect
-        const supAspect = sup?.spec.aspect
-        const subAspect = sub?.spec.aspect
-        const maxAspect = maximum(supAspect, subAspect)
-        const sideAspect = maxAspect != null ? maxAspect * script_size : undefined
+        // handle missing sup/sub
+        const supElem = sup != null ? sup : new Spacer()
+        const subElem = sub != null ? sub : new Spacer()
 
-        // get sup/sub offsets
-        const supOffset = 0.363 + vtext
-        const subOffset = 1 + vtext
-
-        // make side group
-        const supElem = sup ? sup.clone({ pos: [ 0, supOffset ], yrad: script_size / 2, align: 'left' }) : null
-        const subElem = sub ? sub.clone({ pos: [ 0, subOffset ], yrad: script_size / 2, align: 'left' }) : null
-        const side = new Group({ children: [ supElem, subElem ], aspect: sideAspect })
+        // make side stack
+        const side = new VStack({
+            children: [ supElem, subElem ],
+            even: true, spacing: vspacing,
+            justify: 'left', pos: [ 0.5, 0.5 + vshift ]
+        })
+        const sideBox = new Box({ children: [ side ] })
 
         // pass to HStack
-        super({ children: [ base, side ], spacing, ...attr })
+        super({ children: [ base, sideBox ], spacing: hspacing, ...attr })
         this.args = args
 
         // compute combined math metrics
