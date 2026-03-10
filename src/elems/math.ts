@@ -1,7 +1,7 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { black, vtext } from '../lib/const'
+import { black, vtext, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, maximum } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Rectangle, Spacer, is_element, prefix_split } from './core'
@@ -14,12 +14,6 @@ import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs } from './core'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
-
-//
-// constants
-//
-
-const MATH_VSHIFT = -0.25
 
 //
 // types
@@ -242,7 +236,7 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left = klass, right = left, vshift = MATH_VSHIFT, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
         const text = scalar_text(children)
 
         // pass to Span
@@ -426,7 +420,7 @@ interface FracArgs extends BoxArgs {
 
 class Frac extends Box {
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.015, vshift = MATH_VSHIFT + 0.25, ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, left = null, right = null, padding = [0.05, 0.1], rule_size = 0.005, ...attr } = THEME(args, 'Frac')
         const [ numer, denom ] = check_array(children0, 2)
 
         // build numer and denom boxes
@@ -434,15 +428,13 @@ class Frac extends Box {
         const numerBox = new Box({ children: [ numer ], padding })
         const denomBox = new Box({ children: [ denom ], padding })
 
-        // build children
-        const children: Element[] = []
-        children.push(numerBox.clone({ stack_size: elemSize }))
-        if (has_bar) children.push(new Rectangle({ fill: black, stack_size: rule_size }))
-        children.push(denomBox.clone({ stack_size: elemSize }))
-        const stack = new VStack({ children, justify: 'center', pos: [0.5, 0.5 + vshift] })
+        // build stack and bar
+        const elems = [ numerBox.clone({ stack_size: elemSize }), denomBox.clone({ stack_size: elemSize }) ]
+        const stack = new VStack({ children: elems, justify: 'center' })
+        const bar = has_bar ? new Rectangle({ fill: black, rad: [ 0.5, rule_size ] }) : null
 
         // pass to Box
-        super({ children: [ stack ], ...attr })
+        super({ children: [ stack, bar ], ...attr })
         this.args = args
 
         // set math metrics
@@ -547,7 +539,7 @@ interface BracketArgs extends StackArgs {
 
 class Bracket extends HStack {
     constructor(args: BracketArgs = {}) {
-        const { children: children0, delim, left_delim, right_delim, mode, size = 3, vshift = MATH_VSHIFT, ...attr0 } = THEME(args, 'Bracket')
+        const { children: children0, delim = 'round', left_delim, right_delim, mode, size = 3, vshift = -0.25, ...attr0 } = THEME(args, 'Bracket')
         const body = check_singleton(children0)
         const [ delim_attr, attr ] = prefix_split([ 'delim' ], attr0)
 
@@ -599,6 +591,7 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
         } else if (type == 'op') {
             const { mode, name } = tree
             const entry = get_symbol_entry(mode, name)
+            console.log(mode, name, entry)
             if (entry != null) {
                 return new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family: OP_SYMBOL_FONT })
             } else {
@@ -650,8 +643,19 @@ class Latex extends MathText {
     constructor(args: ElementArgs = {}) {
         const { children, ...attr } = THEME(args, 'Katex')
         const tex = check_string(children)
-        const items = parse_tex(tex)
-        const elems = items.map(convert_tree)
+
+        // parse to AST
+        const elems: Element[] = []
+        try {
+            const tree = parse_tex(tex)
+            const items = tree.map(convert_tree)
+            elems.push(...items)
+        } catch (e) {
+            const error = new MathSpan({ children: [ tex ], color: red })
+            elems.push(error)
+        }
+
+        // pass to MathText
         super({ children: elems, ...attr })
         this.args = args
     }
