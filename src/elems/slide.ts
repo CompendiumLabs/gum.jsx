@@ -2,11 +2,12 @@
 
 import { THEME } from '../lib/theme'
 
-import { prefix_split, spec_split } from './core'
+import { prefix_split, spec_split, is_element } from './core'
 import { Box } from './layout'
-import { TextFrame, TextStack } from './text'
+import { Span, TextFrame, TextStack } from './text'
 
 import type { AlignValue, Padding, Rounded, Point, Size } from '../lib/types'
+import type { Element } from './core'
 import type { BoxArgs } from './layout'
 
 //
@@ -14,7 +15,7 @@ import type { BoxArgs } from './layout'
 //
 
 interface TitleBoxArgs extends BoxArgs {
-    title?: string
+    title?: Element | string
     title_size?: number
     title_fill?: string
     title_offset?: number
@@ -37,7 +38,8 @@ class TitleBox extends Box {
         if (title != null) {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
             const title_rad: Size = [ 0.5, title_size ]
-            title_box = new TextFrame({ children: [ title ], pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
+            const title_span = is_element(title) ? title : new Span({ children: [ title ] })
+            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
         }
 
         // pass to Box for margin

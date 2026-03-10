@@ -6,7 +6,7 @@ import { none, bold, vtext } from '../lib/const'
 import { check_string, is_scalar, is_string, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 
-import { Context, Element, Group, prefix_split, prefix_join, spec_split } from './core'
+import { Context, Element, Group, prefix_split, prefix_join, spec_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HWrap, VStack } from './layout'
 import type { BoxArgs, HWrapArgs, StackArgs } from './layout'
@@ -29,7 +29,7 @@ function ensure_tail(text: string): string {
 }
 
 interface SpanArgs extends ElementArgs {
-    children?: any
+    children?: string[]
     color?: string
     stroke?: string
     vshift?: number
@@ -116,7 +116,7 @@ class ElemSpan extends Group {
 // text class
 //
 
-function compress_spans(children: any[], font_args: Attrs = {}): any[] {
+function compress_spans(children: (Element | null)[], font_args: Attrs = {}): any[] {
     return children.flatMap((child: any, i: number) => {
         const first_child = i == 0
         const last_child = i == children.length - 1
@@ -170,7 +170,7 @@ class Text extends HWrap {
     	const [ spec, attr ] = spec_split(attr0)
 
         // split into words and elements
-        const spans = compress_spans(children, attr)
+        const spans = compress_spans(children ?? [], attr)
 
         // pass to HWrap
         super({ children: spans, spacing, padding, justify, wrap, debug, ...spec })
@@ -198,14 +198,15 @@ class TextStack extends VStack {
         const { children: children0, wrap = null, justify = 'left', ...attr0 } = THEME(args, 'TextStack')
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
+        const children = ensure_children(children0)
 
         // apply wrap to children
-        const children = children0.map((c: Element) =>
+        const elems = children.map((c: Element) =>
             c.clone({ ...font_attr, ...text_attr, wrap, justify })
         )
 
         // pass to VStack
-        super({ children, ...attr })
+        super({ children: elems, ...attr })
         this.args = args
     }
 }

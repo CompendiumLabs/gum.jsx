@@ -339,6 +339,7 @@ class VAxis extends Axis {
 }
 
 interface BoxLabelArgs extends ElementArgs {
+    children?: (Element | string)[]
     size?: number
     offset?: number
     side?: Side
@@ -451,7 +452,7 @@ function ensure_legendbadge(c: any, attr: Attrs = {}): Element {
 function ensure_legendlabel(label: any, attr: Attrs = {}): Element {
     if (is_element(label)) return label
     if (is_string(label)) {
-        return new Span({ children: label, ...attr })
+        return new Span({ children: [ label ], ...attr })
     } else {
         throw new Error(`Unrecognized legend label specification: ${label}`)
     }

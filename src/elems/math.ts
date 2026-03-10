@@ -296,6 +296,8 @@ interface MathTextArgs extends Omit<StackArgs, 'children'> {
     spacing?: number
 }
 
+type MathLeaf = Element | string | number | boolean | null | undefined
+
 function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     const children = is_array(children0) ? children0 : [ children0 ]
     const out: Element[] = []
@@ -313,7 +315,8 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
             out.push(child)
             continue
         } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
-            out.push(new MathSpan({ children: [ child ] }))
+            const text = scalar_text(child)
+            out.push(new MathSpan({ children: [ text ] }))
             continue
         } else {
             throw new Error(`Unknown math child type: ${typeof child}`)
@@ -321,6 +324,19 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     }
 
     return out
+}
+
+function normalize_math_leaf(child: MathLeaf): Element | null {
+    if (child == null) {
+        return null
+    } else if (child instanceof Element) {
+        return child
+    } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
+        const text = scalar_text(child)
+        return new MathSymbol({ children: [ text ] })
+    } else {
+        throw new Error(`Unknown math leaf type: ${typeof child}`)
+    }
 }
 
 class MathText extends HStack {
@@ -369,15 +385,17 @@ class MathText extends HStack {
 //
 
 interface SupSubArgs extends StackArgs {
-    sup?: Element | null
-    sub?: Element | null
+    sup?: MathLeaf
+    sub?: MathLeaf
     script_size?: number
 }
 
 class SupSub extends HStack {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup = null, sub = null, spacing = 0, script_size = 0.5, sup_pos = 0.363, sub_pos = 1, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0 = null, sub: sub0 = null, spacing = 0, script_size = 0.5, sup_pos = 0.363, sub_pos = 1, ...attr } = THEME(args, 'SupSub')
         const base = ensure_singleton(children)
+        const sup = normalize_math_leaf(sup0)
+        const sub = normalize_math_leaf(sub0)
 
         // get side aspect
         const supAspect = sup?.spec.aspect

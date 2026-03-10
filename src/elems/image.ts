@@ -1,9 +1,9 @@
 // pixel images
 
 import { Element, Context, type ElementArgs } from './core'
-import { is_scalar, is_string, rect_box } from '../lib/utils'
+import { rect_box } from '../lib/utils'
 import { THEME } from '../lib/theme'
-import { type Attrs, type Size } from '../lib/types'
+import { type Attrs } from '../lib/types'
 
 function splitOuterSvg(svg: string): { attrsText: string, inner: string } {
     // find first <svg> tag

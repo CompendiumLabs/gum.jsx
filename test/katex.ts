@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 import { Command } from 'commander'
 import { Svg, Box } from '../src/gum'
 import { formatImage } from '../src/render'
-import { parse_katex } from '../src/elems/katex'
+import { Latex } from '../src/elems/math'
 import { registerFont } from '../src/fonts/fonts'
 
 // get directories
@@ -87,7 +87,7 @@ if (tex.trim().length == 0) {
 }
 
 // parse TeX input
-const elem = parse_katex(tex)
+const elem = new Latex({ children: [ tex ] })
 if (elem == null) {
     throw new Error('Failed to parse TeX input')
 }
