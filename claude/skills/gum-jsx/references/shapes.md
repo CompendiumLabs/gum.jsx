@@ -49,7 +49,7 @@ There are specialized variants for vertical and horizontal lines called **VLine*
 For smooth curves through points, use **Spline** instead.
 
 Parameters:
-- `children` — array of point coordinates (minimum of 2 required)
+- `data` — array of point coordinates (minimum of 2 required)
 
 **Example**
 
@@ -58,16 +58,16 @@ Prompt: draw a diagonal line in blue and a cup shaped line in red
 Generated code:
 ```jsx
 <Group>
-  <Line stroke={blue}>{[
+  <Line stroke={blue} data={[
     [0.2, 0.2],
     [0.8, 0.8],
-  ]}</Line>
-  <Line stroke={red}>{[
+  ]} />
+  <Line stroke={red} data={[
     [0.3, 0.3],
     [0.3, 0.7],
     [0.7, 0.7],
     [0.7, 0.3],
-  ]}</Line>
+  ]} />
 </Group>
 ```
 
@@ -80,7 +80,7 @@ The `Shape` element draws a closed polygon through a series of points. It accept
 For open multiple-segment paths, use **Line** instead.
 
 Parameters:
-- `children` — array of point coordinates (minimum of 2 required)
+- `data` — array of point coordinates (minimum of 2 required)
 
 **Example**
 
@@ -89,17 +89,17 @@ Prompt: draw a blue triangle with a semi-transparent green square overlaid on to
 Generated code:
 ```jsx
 <Group>
-  <Shape fill={blue} stroke={none}>{[
+  <Shape fill={blue} stroke={none} data={[
     [0.5, 0.2],
     [0.8, 0.8],
     [0.2, 0.8]
-  ]}</Shape>
-  <Shape fill={green} stroke={none} opacity={0.5}>{[
+  ]} />
+  <Shape fill={green} stroke={none} opacity={0.5} data={[
     [0.3, 0.3],
     [0.7, 0.3],
     [0.7, 0.7],
     [0.3, 0.7]
-  ]}</Shape>
+  ]} />
 </Group>
 ```
 
@@ -112,7 +112,7 @@ This creates a smooth cardinal spline curve through a series of points. The tang
 The `curve` parameter controls the tension of the spline. Lower values (e.g., 0.5) create tighter curves with less overshoot, while higher values (e.g., 1.5) create looser, more flowing curves. The default value of 0.5 produces the canonical *Catmull-Rom* spline.
 
 Parameters:
-- `children` — array of point coordinates (minimum of 2 required)
+- `data` — array of point coordinates (minimum of 2 required)
 - `curve` = `0.5` — tension parameter that scales the tangent vectors
 - `closed` = `false` — toggles whether to make it a closed loop
 - `tan1`/`tan2` — the tangent vectors at the first and last points
@@ -131,8 +131,8 @@ const points = [
   [0.50, 0.50],
 ]
 return <Frame rounded margin>
-  <Spline closed stroke={blue} fill={gray}>{points}</Spline>
-  <Shape stroke={red}>{points}</Shape>
-  <Points size={0.0075}>{points}</Points>
+  <Spline closed stroke={blue} fill={gray} data={points} />
+  <Shape stroke={red} data={points} />
+  <Points size={0.0075} data={points} />
 </Frame>
 ```

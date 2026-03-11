@@ -37,11 +37,11 @@ ${intro}
 
 ${docs}
 
-${pages['element']}
+${pages['Element']}
 
-${pages['group']}
+${pages['Group']}
 
-${pages['box']}
+${pages['Box']}
 
 ${refs}
 `.trim()

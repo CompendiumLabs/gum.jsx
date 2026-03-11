@@ -9,4 +9,4 @@ There are specialized variants for vertical and horizontal lines called **VLine*
 For smooth curves through points, use [Spline](/docs/Spline) instead.
 
 Parameters:
-- `children` — array of point coordinates (minimum of 2 required)
+- `data` — array of point coordinates (minimum of 2 required)

@@ -107,7 +107,7 @@ Generated code:
 Place copies of a common shape at various points. The radius can be specified by the `size` keyword and overridden for particular children. The default shape is a black dot.
 
 Keyword arguments:
-- `children` — a list of points, where each point is either an `[x,y]` pair
+- `data` — a list of points, where each point is either an `[x,y]` pair
 - `shape` = `Dot` — the default shape to use for children
 - `size` = `0.025` — the default radius to use for children
 - `...` = `{}` — additional attributes are passed to the default shape (like `stroke` or `fill`)
@@ -119,10 +119,9 @@ Prompt: A plot of three different increasing curves of varying steepness and mul
 Generated code:
 ```jsx
 <Plot xlim={[-1, 1]} ylim={[-1, 1]} grid margin={0.3} aspect xlabel="time (seconds)" ylabel="space (meters)" title="Spacetime Vibes">
-  <Points size={0.02}>{[
+  <Points size={0.02} data={[
     [0, 0.5], [0.5, 0], [-0.5, 0], [0, -0.5]
-  ]}
-  </Points>
+  ]} />
   <Rectangle pos={[0.5, 0.5]} rad={0.1} />
   <Circle pos={[-0.5, -0.5]} rad={0.1} />
   {[0.5, 0.9, 1.5].map(a =>

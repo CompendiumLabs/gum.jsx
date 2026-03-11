@@ -7,4 +7,5 @@ The `Shape` element draws a closed polygon through a series of points. It accept
 For open multiple-segment paths, use [Line](/docs/Line) instead.
 
 Parameters:
-- `children` — array of point coordinates (minimum of 2 required)
+- `data` — array of point coordinates (minimum of 2 required)
+
