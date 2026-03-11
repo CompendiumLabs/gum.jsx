@@ -3,7 +3,7 @@
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext } from '../lib/const'
-import { check_string, is_scalar, is_string, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
+import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 
 import { Context, Element, Group, prefix_split, prefix_join, spec_split, ensure_children } from './core'
@@ -98,13 +98,14 @@ class Span extends Element {
 }
 
 interface ElemSpanArgs extends GroupArgs {
-    spacing?: number
+    spacing?: boolean | number
 }
 
 class ElemSpan extends Group {
     constructor(args: ElemSpanArgs = {}) {
-        const { children: children0, spacing = 0.25, ...attr } = args
+        const { children: children0, spacing: spacing0 = true, ...attr } = args
         const child0 = check_singleton(children0)
+        const spacing = is_boolean(spacing0) ? (spacing0 ? 0.25 : 0) : spacing0
         const aspect0 = child0.spec.aspect ?? 1
         const aspect = aspect0 + spacing
         const child = child0.clone({ align: 'left' })
@@ -151,9 +152,10 @@ function compress_spans(children: Element[], font_args: Attrs = {}): any[] {
             if (last_child) text = text.trimEnd()
             const child1 = child.clone({ children: [ text ], ...font_args })
             return [ child1 ]
+        } else if (child instanceof ElemSpan) {
+            return child.clone({ spacing: !last_child })
         } else {
-            const child1 = (child instanceof ElemSpan) ? child : new ElemSpan({ children: [ child ] })
-            return [ child1 ]
+            return [ new ElemSpan({ children: [ child ], spacing: !last_child }) ]
         }
     })
 }
@@ -218,10 +220,6 @@ class TextStack extends VStack {
 interface TextBoxArgs extends BoxArgs {
     justify?: AlignValue
     wrap?: number
-    font_family?: string
-    font_weight?: number
-    text_wrap?: number
-    text_justify?: string
 }
 
 class TextBox extends Box {
