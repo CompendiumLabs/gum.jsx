@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Rectangle, Spacer, is_element, prefix_split } from './core'
+import { Context, Element, Rectangle, Spacer, prefix_split } from './core'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
@@ -134,28 +134,17 @@ function measurement_to_em(d: Measurement): number {
     return d.number * (scale[d.unit] ?? 0)
 }
 
+function has_math_metrics(element: Element): boolean {
+    const { left, right } = get_math(element)
+    return left != null || right != null
+}
+
 function inter_atom_spacing(prev: AtomClass | null, next: AtomClass | null): number {
     if (prev == null || next == null) return 0
     const table = SPACING_TABLE[prev]
     const measurement = table?.[next]
     if (measurement == null) return 0
     return measurement_to_em(measurement)
-}
-
-function unwrap_singleton(value: any): any {
-    return (is_array(value) && value.length == 1) ? value[0] : value
-}
-
-function scalar_text(value: any): string {
-    const value0 = unwrap_singleton(value)
-    if (value0 == null) return ''
-    if (is_scalar(value0) || is_string(value0) || is_boolean(value0)) return String(value0)
-    return ''
-}
-
-function has_math_metrics(element: Element): boolean {
-    const { left, right } = get_math(element)
-    return left != null || right != null
 }
 
 function inter_item_spacing(prev: Element | null, next: Element | null, spacing: number): number {
@@ -237,7 +226,7 @@ interface MathSpanArgs extends SpanArgs {
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
         const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
-        const text = scalar_text(children)
+        const text = check_string(children)
 
         // pass to Span
         super({ children: [ text ], vshift, ...attr })
@@ -259,7 +248,7 @@ interface MathSymbolArgs extends MathSpanArgs {
 class MathSymbol extends MathSpan {
     constructor(args: MathSymbolArgs = {}) {
         const { children: children0, mode = 'math', ...attr } = THEME(args, 'MathSymbol')
-        const text = scalar_text(children0)
+        const text = check_string(children0)
 
         // try to get symbol entry
         const { font, family, replace } = get_symbol_entry(mode, text) ??
@@ -304,7 +293,7 @@ function normalize_math_leaf(child: MathLeaf): Element | null {
     } else if (child instanceof Element) {
         return child
     } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
-        const text = scalar_text(child)
+        const text = String(child)
         return new MathSymbol({ children: [ text ] })
     } else {
         throw new Error(`Unknown math leaf type: ${typeof child}`)
@@ -513,6 +502,8 @@ class Sqrt extends HStack {
 // bracket
 //
 
+type DelimType = 'round' | 'square' | 'curly' | 'angle'
+
 function delimiter_font(size: number): FontFamily {
     if (size >= 5) return 'KaTeX_Size4'
     if (size == 4) return 'KaTeX_Size3'
@@ -521,61 +512,56 @@ function delimiter_font(size: number): FontFamily {
     return 'KaTeX_Main'
 }
 
-type DelimType = 'round' | 'square' | 'curly' | 'angle'
+function get_delim_text(delim: string | undefined, side: 'left' | 'right'): string {
+    if (side == 'left') {
+        return delim == 'round' ? '(' :
+               delim == 'square' ? '[' :
+               delim == 'curly' ? '{' :
+               delim == 'angle' ? '<' :
+               delim ?? ''
+    } else {
+        return delim == 'round' ? ')' :
+               delim == 'square' ? ']' :
+               delim == 'curly' ? '}' :
+               delim == 'angle' ? '>' :
+               delim ?? ''
+    }
+}
 
-interface DelimArgs {
+interface DelimArgs extends MathSymbolArgs {
+    delim?: string
+    side?: 'left' | 'right'
     mode?: SymbolMode
     size?: number
-    vshift?: number
 }
 
-function build_delim(delim: Element | string | undefined, side: 'left' | 'right', { mode = 'math', size = 1, vshift = 0 }: DelimArgs): Element | undefined {
-    if (delim == null) return
-    if (is_element(delim)) return delim
-    const klass = side == 'left' ? 'mopen' : 'mclose'
-    const font_family = size != null ? delimiter_font(size) : undefined
-    return new MathSymbol({ children: [ delim ], mode, klass, font_family, vshift })
-}
-
-function build_delims({ delim, left_delim: left_delim0, right_delim: right_delim0, ...args }: { delim?: DelimType, left_delim?: Element | string, right_delim?: Element | string } & DelimArgs): [ Element | undefined, Element | undefined ] {
-    const [ left_delim, right_delim ] =
-        delim == 'round' ? [ '(', ')' ] :
-        delim == 'square' ? [ '[', ']' ] :
-        delim == 'curly' ? [ '{', '}' ] :
-        delim == 'angle' ? [ '<', '>' ] :
-        [ left_delim0, right_delim0 ]
-    return [
-        build_delim(left_delim, 'left', args),
-        build_delim(right_delim, 'right', args),
-    ]
+class Delim extends MathSymbol {
+    constructor(args: DelimArgs = {}) {
+        const { delim, side = 'left', mode = 'math', size = 3, vshift = -0.25, ...attr } = THEME(args, 'Delim')
+        const text = get_delim_text(delim, side)
+        const font_family = delimiter_font(size)
+        const klass = side == 'left' ? 'mopen' : 'mclose'
+        super({ children: [ text ], mode, klass, font_family, vshift, ...attr })
+    }
 }
 
 interface BracketArgs extends StackArgs {
-    delim?: DelimType
-    left_delim?: Element | string
-    right_delim?: Element | string
-    mode?: SymbolMode
-    size?: number
-    vshift?: number
+    delim?: DelimType | [ DelimType, DelimType ]
 }
 
 class Bracket extends HStack {
     constructor(args: BracketArgs = {}) {
-        const { children: children0, delim = 'round', left_delim, right_delim, mode, size = 3, vshift = -0.25, ...attr0 } = THEME(args, 'Bracket')
+        const { children: children0, delim: delim0 = 'round', ...attr0 } = THEME(args, 'Bracket')
         const body = check_singleton(children0)
+        const [ left_delim, right_delim ] = ensure_vector(delim0, 2)
         const [ delim_attr, attr ] = prefix_split([ 'delim' ], attr0)
 
         // auto-detect delimiter size
-        const [ left, right ] = build_delims({ delim, left_delim, right_delim, mode, size, vshift, ...delim_attr })
-
-        // build children
-        const children: Element[] = []
-        if (left != null) children.push(left)
-        children.push(body)
-        if (right != null) children.push(right)
+        const left = left_delim != null ? new Delim({ delim: left_delim, side: 'left', ...delim_attr }) : null
+        const right = right_delim != null ? new Delim({ delim: right_delim, side: 'right', ...delim_attr }) : null
 
         // pass to HStack
-        super({ children, justify: 'left', ...attr })
+        super({ children: [ left, body, right ], ...attr })
         this.args = args
 
         // set math metrics

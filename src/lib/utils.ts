@@ -105,7 +105,7 @@ function check_array(x: any, n?: number): any[] {
 function check_string(children: any): string {
     const child = check_singleton(children)
     if (child == null) return ''
-    if (is_scalar(child)) return child.toString()
+    if (is_scalar(child) || is_boolean(child)) return String(child)
     if (!is_string(child)) throw new Error('Child must be a string')
     return child
 }

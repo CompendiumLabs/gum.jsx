@@ -80,8 +80,6 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, ...args
     return new Svg({ children: [ result ], ...args })
   }
 
-  console.log(result)
-
   // return result
   return result
 }
