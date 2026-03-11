@@ -1,50 +1,50 @@
 {
     "core": [
-        "gum",
-        "element",
-        "group",
-        "context"
+        "Gum",
+        "Element",
+        "Group",
+        "Context"
     ],
     "layout": [
-        "box",
-        "stack",
-        "grid",
-        "points"
+        "Box",
+        "Stack",
+        "Grid",
+        "Points"
     ],
     "shapes": [
-        "rect",
-        "ellipse",
-        "line",
-        "shape",
-        "spline"
+        "Rect",
+        "Ellipse",
+        "Line",
+        "Shape",
+        "Spline"
     ],
     "text": [
-        "text",
-        "latex",
-        "titleframe",
-        "slide"
+        "Text",
+        "Latex",
+        "TitleFrame",
+        "Slide"
     ],
     "symbolic": [
-        "sympoints",
-        "symline",
-        "symshape",
-        "symspline",
-        "symfill"
+        "SymPoints",
+        "SymLine",
+        "SymShape",
+        "SymSpline",
+        "SymFill"
     ],
     "plotting": [
-        "graph",
-        "plot",
-        "axis",
-        "barplot"
+        "Graph",
+        "Plot",
+        "Axis",
+        "BarPlot"
     ],
     "networks": [
-        "node",
-        "edge",
-        "network"
+        "Node",
+        "Edge",
+        "Network"
     ],
     "utilities": [
-        "math",
-        "arrays",
-        "colors"
+        "Math",
+        "Arrays",
+        "Colors"
     ]
 }
