@@ -20,9 +20,15 @@
     ],
     "text": [
         "Text",
-        "Latex",
         "TitleFrame",
         "Slide"
+    ],
+    "math": [
+        "Latex",
+        "MathText",
+        "SupSub",
+        "Frac",
+        "Bracket"
     ],
     "symbolic": [
         "SymPoints",

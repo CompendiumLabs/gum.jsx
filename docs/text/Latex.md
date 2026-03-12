@@ -1,9 +1,9 @@
 # Latex
 
-*Inherits*: [Text](/docs/Text) > [Element](/docs/Element)
+*Inherits*: [MathText](/docs/MathText) > [HStack](/docs/HStack) > [Group](/docs/Group) > [Element](/docs/Element)
 
-Creates a new `Math` math element from LaTeX source. Uses `MathJax` when available to render in SVG and calculate aspect ratio. As seen in the example, you will probably need to wrap the LaTeX in `{"..."}` to prevent syntax errors.
+Parses a LaTeX string with KaTeX and converts it into gum math elements such as [Frac](/docs/Frac), radical layouts, and [Bracket](/docs/Bracket). If parsing fails, the raw source is displayed in red so the error is visible in the output.
 
 Parameters:
-- `offset` — the position of the center of the element
-- `scale` — the proportional size of the element
+- `children` — the LaTeX source string
+- any [MathText](/docs/MathText) layout parameters are also accepted
