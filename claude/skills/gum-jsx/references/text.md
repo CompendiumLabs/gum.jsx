@@ -4,7 +4,7 @@
 
 *Inherits*: **VStack** > **Element**
 
-Displays text and other elements. Uses built-in browser facilities when available to calculate font size and aspect ratio. Note that you will typically not set the font size of the text here, as this will fill the entire space with the provided text.
+Displays text and other elements. Note that you will typically not set the font size of the text here, as this will fill the entire space with the provided text. To set the text color, use `color` instead of `fill` or `stroke`.
 
 If `wrap` is specified, the text will be wrapped to the specified width. In either case, single newlines will be respected, though whitespace will be compressed. There are two wrapper elements related to text:
 
@@ -29,32 +29,6 @@ Generated code:
 <TextFrame rounded wrap={10}>
   Hello World! You can mix text and <Square rounded fill={blue} /> other elements together.
 </TextFrame>
-```
-
-## Latex
-
-*Inherits*: **Text** > **Element**
-
-Creates a new `Math` math element from LaTeX source. Uses `MathJax` when available to render in SVG and calculate aspect ratio. As seen in the example, you will probably need to wrap the LaTeX in `{"..."}` to prevent syntax errors.
-
-Parameters:
-- `offset` — the position of the center of the element
-- `scale` — the proportional size of the element
-
-**Example**
-
-Prompt: There are two latex equations framed by rounded borders arranged vertically. The top one shows a Gaussian integral and the bottom one shows a trigonometric identity. They are framed by a square with the title "Facts".
-
-Generated code:
-```jsx
-<VStack spacing>
-  <TextFrame rounded>
-    <Latex>{"\\int_0^{\\infty} \\exp(-x^2) dx = \\sqrt{\\pi}"}</Latex>
-  </TextFrame>
-  <TextFrame rounded>
-    <Latex>{"\\sin^2(\\theta) + \\cos^2(\\theta) = 1"}</Latex>
-  </TextFrame>
-</VStack>
 ```
 
 ## TitleFrame

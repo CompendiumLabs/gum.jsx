@@ -136,3 +136,37 @@ return <Frame rounded margin>
   <Points size={0.0075} data={points} />
 </Frame>
 ```
+
+## Arrow
+
+*Inherits*: **Group** > **Element**
+
+Draws an arrowhead, optionally with a tail line extending behind it. The arrow is centered on its local origin and points in the direction specified by `direc` in degrees.
+
+The head and tail can be styled separately using prefixed parameters. The head is built from **ArrowHead**-style geometry, while the tail is a simple **Line**.
+
+For curved paths between different points, see the more user-friendly **ArrowSpline**, which is used for **Network** diagrams.
+
+Parameters:
+- `direc` = `0` — the arrow direction in degrees
+- `head` = `0.25` — size of the arrowhead
+- `tail` = `1` — length of the tail segment behind the head
+
+Subunit names:
+- `head` — forwarded to the arrowhead
+- `tail` — forwarded to the tail line
+
+**Example**
+
+Prompt: the text "Blue Square" on the left with an arrow pointing to a blue square on the right
+
+Generated code:
+```jsx
+<Frame rounded>
+  <Group aspect={2}>
+    <Text pos={[0.2, 0.5]} yrad={0.1} wrap={4} justify="center">Blue Square</Text>
+    <Arrow pos={[0.6, 0.5]} yrad={0.05} tail={6} />
+    <Square pos={[0.75, 0.5]} yrad={0.25} rounded fill={blue} />
+  </Group>
+</Frame>
+```

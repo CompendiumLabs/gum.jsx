@@ -41,7 +41,7 @@ function anchor_point(rect: Rect, direc: Cardinal): Point {
 // arrow spline class
 //
 
-interface ArrowPathArgs extends GroupArgs {
+interface ArrowSplineArgs extends GroupArgs {
     from?: Point
     to?: Point
     from_dir?: Direc
@@ -53,9 +53,9 @@ interface ArrowPathArgs extends GroupArgs {
     curve?: number
 }
 
-class ArrowPath extends Group {
-    constructor(args: ArrowPathArgs = {}) {
-        const { children: children0, from, to, from_dir, to_dir, arrow, from_arrow: from_arrow0, to_arrow: to_arrow0, arrow_size = 0.04, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
+class ArrowSpline extends Group {
+    constructor(args: ArrowSplineArgs = {}) {
+        const { children: children0, from, to, from_dir, to_dir, arrow, from_arrow: from_arrow0, to_arrow: to_arrow0, arrow_size = 0.04, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
         const [ spline_attr0, arrow_attr0, from_attr0, to_attr0, attr ] = prefix_split(
             [ 'spline', 'arrow', 'from', 'to' ], attr0
         )
@@ -195,8 +195,8 @@ class Edge extends Element {
         const from_dir = cardinal_direc(direc_from!)
         const to_dir = mul(cardinal_direc(direc_to!), -1)
 
-        const arrowpath = new ArrowPath({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
-        return arrowpath.svg(ctx)
+        const path = new ArrowSpline({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
+        return path.svg(ctx)
     }
 }
 
@@ -246,5 +246,5 @@ class Network extends Group {
 // exports
 //
 
-export { ArrowPath, Node, Edge, Network }
-export type { ArrowPathArgs, NodeArgs, EdgeArgs, NetworkArgs }
+export { ArrowSpline, Node, Edge, Network }
+export type { ArrowSplineArgs, NodeArgs, EdgeArgs, NetworkArgs }

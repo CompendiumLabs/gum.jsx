@@ -45,7 +45,7 @@
         "BarPlot"
     ],
     "networks": [
-        "ArrowPath",
+        "ArrowSpline",
         "Node",
         "Edge",
         "Network"

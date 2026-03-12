@@ -6,7 +6,7 @@ Draws an arrowhead, optionally with a tail line extending behind it. The arrow i
 
 The head and tail can be styled separately using prefixed parameters. The head is built from **ArrowHead**-style geometry, while the tail is a simple [Line](/docs/Line).
 
-For curved paths between different points, see the more user-friendly [ArrowPath](/docs/ArrowPath), which is used for **Network** diagrams.
+For curved paths between different points, see the more user-friendly [ArrowSpline](/docs/ArrowSpline), which is used for **Network** diagrams.
 
 Parameters:
 - `direc` = `0` — the arrow direction in degrees

@@ -1,4 +1,4 @@
-# ArrowPath
+# ArrowSpline
 
 *Inherits*: [Group](/docs/Group) > [Element](/docs/Element)
 

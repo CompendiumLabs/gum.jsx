@@ -573,27 +573,20 @@ class Arrow extends Group {
         const soff = 0.5 * (stroke_width ?? 1)
         const unit_vec = unit_direc(-direc)
 
-        // create children
-        const children: Element[] = []
-
         // create tail element
-        if (tail != null) {
-            const tail_vec = unit_vec.map(z => -tail * z)
-            const tail_off = mul(unit_vec, -soff)
-            const tail_children = [
-                zip(D.pos, tail_off),
-                add(D.pos, tail_vec)
-            ]
-            const tail_elem = new Line({ data: tail_children, stroke_width, ...tail_attr })
-            children.push(tail_elem)
-        }
+        const tail_vec = unit_vec.map(z => -tail * z)
+        const tail_off = mul(unit_vec, -soff)
+        const tail_data = [
+            zip(D.pos, tail_off),
+            add(D.pos, tail_vec)
+        ]
 
-        // create head element
+        // create sub-element
+        const tail_elem = new Line({ data: tail_data, stroke_width, ...tail_attr })
         const head_elem = new ArrowHead({ direc, rad: head, stroke_width, ...head_attr })
-        children.push(head_elem)
 
         // pass to Group
-        super({ children, aspect, ...attr })
+        super({ children: [ tail_elem, head_elem ], aspect, ...attr })
         this.args = args
     }
 }

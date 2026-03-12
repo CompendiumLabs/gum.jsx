@@ -1,5 +1,5 @@
 // a cartoon looking arrow meandering from the bottom left to the top right
-<ArrowPath
+<ArrowSpline
   arrow
   from={[0.2, 0.75]}
   to={[0.8, 0.25]}

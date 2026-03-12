@@ -296,6 +296,7 @@ For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of
 - *Line*/*Shape*: a piecewise linear path (possibly closed)
 - *Spline*: a multi-segment Bézier spline (possibly closed)
 - *UnitLine*/*VLine*/*HLine*: a single unit line
+- *Arrow*: an arrowhead and line tail
 
 ## Text
 
@@ -312,7 +313,19 @@ These are components that can be used to create text elements. `Text` is a fairl
 - *TextStack*: a stack of text elements
 - *TitleFrame*: a frame with a title
 - *Slide*: a slide with a title and content
-- *Latex*: a single LaTeX equation
+
+## Math
+
+**File**: [math](references/math.md)
+
+These are components for creating mathematical expressions. By far the most common usage is to pass a LaTeX style math expression to the `Latex` component. However, you can get very fine grained control over the layout of mathematical expressions with `MathText` as your outer wrapper and the `SupSub`, `Frac`, and `Bracket` components.
+
+**Components**:
+- *Latex*: a single LaTeX equation from a string
+- *MathText*: display a list of math components
+- *SupSub*: a superscript and/or subscript
+- *Frac*: a fraction (numerator/denominator)
+- *Bracket*: auto-sized brackets (round, square, curly, angle, or custom)
 
 ## Symbolic
 
@@ -351,6 +364,7 @@ These are components for creating network diagrams. The core element is `Network
 The `Edge` element has a `dir1` and `dir2` parameter to specify the direction of the arrowhead for the source and destination nodes, respectively. You can also toggle arrowheads on either side with `arrow`/`from-arrow`/`to-arrow` or specify the `curve` parameter to control the curvature of the edge.
 
 **Components**:
+- *ArrowSpline*: a curved path with optional arrowheads at either or both ends
 - *Node*: a node in a network
 - *Edge*: an edge in a network
 - *Network*: a network containing nodes and edges
