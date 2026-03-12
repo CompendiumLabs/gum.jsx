@@ -2,17 +2,16 @@
 
 *Inherits*: [Group](/docs/Group) > [Element](/docs/Element)
 
-Draws an arrowhead, optionally with a tail line extending behind it. The arrow is centered on its local origin and points in the direction specified by `direc` in degrees.
+Draws a straight arrow between two points. This is the straight-line counterpart to [ArrowSpline](/docs/ArrowSpline): it uses `from` and `to` endpoints, but renders a simple [Line](/docs/Line) shaft instead of a curved spline.
 
-The head and tail can be styled separately using prefixed parameters. The head is built from **ArrowHead**-style geometry, while the tail is a simple [Line](/docs/Line).
+The line and arrowhead can be styled separately using prefixed parameters. The head is built from **ArrowHead**-style geometry, while the shaft is a simple [Line](/docs/Line).
 
-For curved paths between different points, see the more user-friendly [ArrowSpline](/docs/ArrowSpline), which is used for **Network** diagrams.
+The arrow direction is inferred automatically from `from` to `to`.
 
 Parameters:
-- `direc` = `0` — the arrow direction in degrees
-- `head` = `0.25` — size of the arrowhead
-- `tail` = `1` — length of the tail segment behind the head
+- `from` / `to` — the start and end points of the arrow shaft
+- `arrow_size` = `0.5` — size of the arrowhead
 
 Subunit names:
-- `head` — forwarded to the arrowhead
-- `tail` — forwarded to the tail line
+- `line` — forwarded to the shaft line
+- `arrow` — forwarded to the arrowhead

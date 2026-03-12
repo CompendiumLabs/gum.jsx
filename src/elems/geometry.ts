@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc, vector_angle } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -560,33 +560,39 @@ class ArrowHead extends Path {
 }
 
 interface ArrowArgs extends GroupArgs {
-    direc?: number
-    tail?: number
+    from?: Point
+    to?: Point
+    arrow_size?: number
 }
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { direc = 0, head = 0.5, tail = 1, aspect = 1, stroke_width, ...attr0 } = THEME(args, 'Arrow')
-        const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
+        const { from, to, arrow_size = 0.04, stroke_width, stroke_linecap, fill, ...attr0 } = THEME(args, 'Arrow')
+        const [ line_attr0, arrow_attr0, head_attr0, tail_attr0, attr ] = prefix_split([ 'line', 'arrow', 'head', 'tail' ], attr0)
 
-        // sort out head direction and offset
+        // accumulate style prefixes
+        const stroke_attr = { stroke_width, stroke_linecap }
+        const line_attr = { ...stroke_attr, ...tail_attr0, ...line_attr0 }
+        const arrow_attr = { fill, ...stroke_attr, ...head_attr0, ...arrow_attr0 }
+
+        // check for points
+        if (from == null || to == null) throw new Error('Both `from` and `to` must be provided')
+
+        // infer the arrow direction from the endpoint vector
+        const direc = sub(to, from)
+        const unit_vec = unit_direc(direc)
+        const head_direc = -vector_angle(unit_vec)
+
+        // shorten the line slightly so the stroke meets the arrowhead cleanly
         const soff = 0.5 * (stroke_width ?? 1)
-        const unit_vec = unit_direc(-direc)
+        const line_to = zip(to, mul(unit_vec, -soff))
 
-        // create tail element
-        const tail_vec = unit_vec.map(z => -tail * z)
-        const tail_off = mul(unit_vec, -soff)
-        const tail_data = [
-            zip(D.pos, tail_off),
-            add(D.pos, tail_vec)
-        ]
-
-        // create sub-element
-        const tail_elem = new Line({ data: tail_data, stroke_width, ...tail_attr })
-        const head_elem = new ArrowHead({ direc, rad: head, stroke_width, ...head_attr })
+        // create sub-elements
+        const line_elem = new Line({ data: [ from, line_to ], ...line_attr })
+        const head_elem = new ArrowHead({ direc: head_direc, pos: to, rad: arrow_size, ...arrow_attr })
 
         // pass to Group
-        super({ children: [ tail_elem, head_elem ], aspect, ...attr })
+        super({ children: [ line_elem, head_elem ], ...attr })
         this.args = args
     }
 }

@@ -282,7 +282,7 @@ class SymFill extends Shape {
 
 function default_arrow(direc: number | Point): Box {
     const theta = is_scalar(direc) ? direc : vector_angle(direc)
-    const arrow = new Arrow({ pos: [1, 0.5], direc: 0, tail: 1 })
+    const arrow = new Arrow({ from: [0, 0.5], to: [1, 0.5] })
     return new Box({ children: [ arrow ], spin: theta })
 }
 
@@ -290,15 +290,15 @@ interface FieldArgs extends GroupArgs {
     data?: Point[]
     shape?: Element
     size?: number
-    tail?: number
+    arrow_size?: number
 }
 
 class Field extends Group {
     constructor(args: FieldArgs = {}) {
-        const { data: data0, shape: shape0, size = D.point, tail = 1, ...attr0 } = THEME(args, 'Field')
+        const { data: data0, shape: shape0, size = D.point, arrow_size = 0.5, ...attr0 } = THEME(args, 'Field')
         const [ spec, attr ] = spec_split(attr0)
         const data = check_array(data0)
-        const shape = shape0 ?? new Arrow({ tail })
+        const shape = shape0 ?? new Arrow({ from: [0, 0.5], to: [1, 0.5], arrow_size })
 
         // create children
         const children = data.map(([ p, d ]) =>

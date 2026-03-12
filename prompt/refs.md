@@ -34,7 +34,7 @@ For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of
 - *Line*/*Shape*: a piecewise linear path (possibly closed)
 - *Spline*: a multi-segment Bézier spline (possibly closed)
 - *UnitLine*/*VLine*/*HLine*: a single unit line
-- *Arrow*: an arrowhead and line tail
+- *Arrow*: a straight line arrow between two points
 
 ## Text
 
