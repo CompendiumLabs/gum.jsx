@@ -2,7 +2,7 @@
 
 *Inherits*: [VStack](/docs/VStack) > [Element](/docs/Element)
 
-Displays text and other elements. Uses built-in browser facilities when available to calculate font size and aspect ratio. Note that you will typically not set the font size of the text here, as this will fill the entire space with the provided text.
+Displays text and other elements. Note that you will typically not set the font size of the text here, as this will fill the entire space with the provided text. To set the text color, use `color` instead of `fill` or `stroke`.
 
 If `wrap` is specified, the text will be wrapped to the specified width. In either case, single newlines will be respected, though whitespace will be compressed. There are two wrapper elements related to text:
 

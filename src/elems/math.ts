@@ -639,6 +639,8 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
         }
     }
 
+    // fallback
+    console.error('Unknown katex tree type:', tree)
     return EMPTY_MATH
 }
 
