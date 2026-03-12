@@ -15,19 +15,6 @@ import type { BoxArgs, HWrapArgs, StackArgs } from './layout'
 // span class
 //
 
-function escape_xml(text: string): string {
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;')
-}
-
-function ensure_tail(text: string): string {
-    return `${text.trimEnd()} `
-}
-
 interface SpanArgs extends ElementArgs {
     children?: string[]
     color?: string
@@ -63,7 +50,7 @@ class Span extends Element {
         this.args = args
 
         // additional props
-        this.text = escape_xml(text)
+        this.text = text
         this.vshift = vshift
         this.vsize = vsize
         this.vcenter = vcenter
@@ -116,6 +103,10 @@ class ElemSpan extends Group {
 //
 // text class
 //
+
+function ensure_tail(text: string): string {
+    return `${text.trimEnd()} `
+}
 
 function compress_spans(children: Element[], font_args: Attrs = {}): any[] {
     return children.flatMap((child: any, i: number) => {

@@ -52,6 +52,7 @@ Child parameters:
 Parameters:
 - `direc` — the direction of stacking: `v` or `h`
 - `spacing` = `0` — total amount of space to add between child elements
+- `even` = `false` — whether to distribute sizes evenly (`stack-size = 1 / n`)
 
 **Example**
 

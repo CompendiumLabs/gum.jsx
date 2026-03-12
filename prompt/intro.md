@@ -1,10 +1,10 @@
 # Introduction
 
-The `gum.jsx` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax, but it does not actually use React internally. When interpreted, it produces pure SVG of a specified size. It is a library of `Element` derived components such as `Circle`, `Stack`, `Plot`, `Network`, and many more. Some of these map closely to standard SVG objects, while others are higher level abstractions and layout containers. You can add standard SVG attributes (like `fill`, `stroke`, `stroke-width`, `opacity`, etc.) to any `Element` component and they will be applied to the resulting SVG.
+The `gum.jsx` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax. When interpreted, it produces pure SVG of a specified size. It is a library of `Element` derived components such as `Circle`, `Stack`, `Plot`, `Network`, and many more. Some of these map closely to standard SVG objects, while others are higher level abstractions and layout containers. You can add standard SVG attributes (like `fill`, `stroke`, `stroke-width`, `opacity`, etc.) to any `Element` component and they will be applied to the resulting SVG.
 
-*Proportional values*: In most cases, values are passed in proportional floating point terms. So to place an object in the center of its parent, you would specify a position of `[0.5, 0.5]`. When dealing with inherently absolute concepts like `stroke-width`, standard SVG units are used, and numerical values assumed to be specified in pixels. Most `Element` objects fill the standard coordinate space `[0, 0, 1, 1]` by default. To reposition them, either pass the appropriate internal arguments (such as `pos` or `rad`) or use a layout component such as `Box` or `Stack` to arrange them.
+*Proportional values*: In most cases, values are passed in proportional floating point terms. So to place an object in the center of its parent, you would specify `pos = [0.5, 0.5]`, with the size specified by `rad`. When dealing with inherently absolute concepts like `stroke-width`, standard SVG units are used, and numerical values assumed to be specified in pixels. Most `Element` objects fill the standard coordinate space `[0, 0, 1, 1]` by default. To reposition them, either pass the appropriate internal arguments (such as `pos` or `rad`) or use a layout component such as `Box` or `Stack` to arrange them.
 
-*Aspect ratio*: Any `Element` object can have an aspect ratio `aspect`. If `aspect` is not defined, it will stretch to fit any box, while if `aspect` is defined it will be sized so as to fit within the specified rectangle while maintaining its aspect ratio. However, when `expand` is set to `true`, the element will be resized so as to instead cover the specified rectangle, while maintaining its aspect ratio.
+*Aspect ratio*: Any `Element` object can have an aspect ratio `aspect`. If `aspect` is not defined, it will stretch to fit any box, while if `aspect` is defined it will be sized so as to fit within the specified rectangle while maintaining its aspect ratio. However, when `expand` is set to `true`, the element will be sized to cover the specified rectangle, while maintaining its aspect ratio.
 
 *Subunit arguments*: For compound elements that inherit `Group`, some keyword arguments are passed down to the constituent parts. For instance, in [Plot](/docs/Plot), one can specify arguments intended for the `XAxis` unit by prefixing them with `xaxis-`. For example, setting the `stroke-width` for this subunit can be achieved with `xaxis-stroke-width`.
 
@@ -19,46 +19,96 @@ The `gum.jsx` language allows for the elegant and concise creation of SVG visual
 
 # Examples
 
-Below are some examples of user prompts and code output.
+Below are some examples of user prompts and code output. In these examples, we try to highlight the most common use cases for the library, as well as some of the common pitfalls that one might encounter.
 
-**Example 1: Basic Circle**
+**Example 1: Basic Frame**
 
-Prompt: Create a blue circle that is enclosed in a rounded box. It should mostly fill the box, but not completely.
+Let's start with a very simple example that creates a blue circle (`aspect = 1`) and encloses it in a rounded frame. In general, `Box` is an extremely useful component, as its child class `Frame`, which simply adds a default `border = 1`. This closely mirrors the behavior of a typical HTML element with Tailwind-like syntax.
 
-Generated code:
+*Prompt*: Create a blue circle that is enclosed in a rounded box. It should mostly fill the box, but not completely.
+
+*Generated code*:
 ```jsx
 <Frame padding margin rounded>
   <Circle fill={blue} />
 </Frame>
 ```
 
-*Notes*: We used boolean defaults for `padding`, `margin`, and `rounded`. These will get mapped to `padding={0.1}`, `margin={0.1}`, and `rounded={0.1}` respectively. This adds a little bit of a Tailwind-like flavor and is used throughout the library. Adding a `margin` on the outside is usually good so things like borders don't get clipped.
+Here we used boolean defaults for `padding`, `margin`, and `rounded`. These will get mapped to `padding={0.1}`, `margin={0.1}`, and `rounded={0.1}` respectively. This adds a little bit of a Tailwind-like flavor and is used throughout the library. Adding a `margin` on the outside is usually good so things like borders don't get clipped.
 
 **Example 2: Symbolic Plot**
 
-Prompt: Create a simple plot of a sine wave titled "Sine Wave" with dashed grid lines.
+Now let's do a more complex example that uses a higher level component that is not a standard SVG element. In this case, we use `Plot`, which is a `Graph` subclass that adds axes (with `Axis`/`HAxis`/`VAxis`), labels, and other plot-specific features.
 
-Generated code:
+*Prompt*: Create a simple plot of a sine wave titled "Sine Wave" with dashed grid lines.
+
+*Generated code*:
 ```jsx
 <Plot aspect={2} margin={0.2} ylim={[-1.5, 1.5]} title="Sine Wave" grid grid-stroke-dasharray={4}>
   <SymLine fy={sin} xlim={[0, 2*pi]} />
 </Plot>
 ```
 
+Notice how we can pass arguments to sub-components using prefixing. Here we set the `stroke-dasharray` for the grid lines to `4`. For convenience, `Plot` accepts `Box` arguments such as `margin`, `border`, etc.
+
 **Example 3: Custom Component**
 
-Prompt: Create two rounded boxes side by side. Left one should be blue, right one should be red.
+Creating custom components is a powerful way to avoid code duplication and to make your code more readable and maintainable. Here we create a `Squire` component that is a `Square` with a default `rounded` border. Then we use this component to create two squares side by side.
 
-Generated code:
+*Prompt*: Create two rounded boxes side by side. Left one should be blue, right one should be red.
+
+*Generated code*:
 ```jsx
-const Squire = attr => <Square rounded {...attr} />
+const Squire = (attr) => <Square rounded {...attr} />
 return <HStack spacing>
   <Squire fill={blue} />
   <Squire fill={red} />
 </HStack>
 ```
 
-Note: Because this is two squares (unit aspect ratio) stacked side by side, the `HStack` will have an aspect ratio of 2.
+Note: Because this is two squares (`aspect = 1`) stacked side by side, the `HStack` will have an aspect ratio of `2`. You can also use the `VStack` component to stack elements vertically. If you wish to override aspect-based sizing, you can use the `stack-size` argument to specify the size of the child elements.
+
+**Example 4: Modular Approach**
+
+Now let's cover a VERY IMPORTANT method of using custom components. We want to create modular and parameterizable components that can be reused in a variety of ways. Here we create a `Star` component that specifies its `Spline` path in internal coordinates, and we then pass the `pos`/`rad` arguments to the component to position and scale the star.
+
+*Prompt*: Create a semi-random starfield with about 10 yellow stars.
+
+*Generated code*:
+```jsx
+const aster = [
+  [0.5, 0], [0.65, 0.35],
+  [1, 0.5], [0.65, 0.65],
+  [0.5, 1], [0.35, 0.65],
+  [0, 0.5], [0.35, 0.35],
+]
+const points = [
+  [0.15, 0.20], [0.72, 0.12], [0.45, 0.55],
+  [0.88, 0.68], [0.30, 0.80], [0.60, 0.35],
+  [0.10, 0.58], [0.82, 0.42], [0.50, 0.90],
+  [0.25, 0.10],
+]
+const Star = (attr) =>
+  <Spline rad={0.03} aspect closed data={aster} {...attr} />
+return <Box border rounded fill={gray}>
+  {points.map(p => <Star pos={p} fill={yellow} />)}
+</Box>
+```
+
+Note: By creating a reusable `Star` component that accepts `pos`/`rad` arguments, we can easily create a starfield by mapping over `points`. This offloads the logic of adding and scaling the spline coordinates in `aster` to the positions listed in `points`.
+
+**Example 5: Stacking Layouts**
+
+Stacking components can be tricky. If all your children have well-defined aspect ratios, it's often quite straightforward. But even in that case, you may want to override the default aspect-based sizing. Let's look at the case of a wide figure with a short text label underneath it.
+
+```jsx
+<VStack spacing={0.05}>
+  <Rect rounded aspect={5} fill={blue} />
+  <Text stack-size={0.2}>Hello World!</Text>
+</VStack>
+```
+
+Without specifying `stack-size`, the `Text` element would be quite large (it has an aspect ratio of around `6`). By specifying `stack-size`, we can force the text to be smaller. Because it will be thinner than its assigned rectangle, we need to take a stance on how to justify it. By default it will be centered, but this can be overridden with the `justify` argument.
 
 # Utilities
 
