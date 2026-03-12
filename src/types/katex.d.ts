@@ -60,6 +60,15 @@ declare module 'katex' {
         sub: TreeNode | null
     }
 
+    export type TreeAccent = {
+        type: 'accent'
+        mode: SymbolMode
+        label: string
+        isStretchy: boolean
+        isShifty: boolean
+        base: TreeNode
+    }
+
     export type TreeStyling = {
         type: 'styling'
         style: 'display' | 'text' | 'script' | 'scriptscript'
@@ -107,6 +116,7 @@ declare module 'katex' {
         | TreeKern
         | TreeText
         | TreeStyling
+        | TreeAccent
         | TreeSupSub
         | TreeGenFrac
         | TreeSqrt

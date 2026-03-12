@@ -16,7 +16,8 @@
         "Ellipse",
         "Line",
         "Shape",
-        "Spline"
+        "Spline",
+        "Arrow"
     ],
     "text": [
         "Text",
@@ -44,6 +45,7 @@
         "BarPlot"
     ],
     "networks": [
+        "ArrowPath",
         "Node",
         "Edge",
         "Network"

@@ -222,11 +222,15 @@ class Triangle extends Shape {
 // path classes
 //
 
+interface PathArgs extends ElementArgs {
+    children?: Command[]
+}
+
 class Path extends Element {
     cmds: Command[]
 
-    constructor(args: ElementArgs = {}) {
-        const { children, ...attr } = THEME(args, 'Path')
+    constructor(args: PathArgs = {}) {
+        const { children = [], ...attr } = THEME(args, 'Path')
         super({ tag: 'path', unary: true, ...attr })
         this.args = args
         this.cmds = children
@@ -527,15 +531,11 @@ interface ArrowHeadArgs extends ElementArgs {
     arc?: number
     base?: boolean
     exact?: boolean
-    fill?: string
-    stroke_width?: number
-    stroke_linecap?: string
-    stroke_linejoin?: string
 }
 
 class ArrowHead extends Path {
     constructor(args: ArrowHeadArgs = {}) {
-        const { direc = 0, arc = 75, base: base0, exact = true, aspect, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { direc = 0, arc = 75, base: base0, exact = true, aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
         const base = base0 ?? (fill != null)
 
         // get arc positions
@@ -562,17 +562,18 @@ class ArrowHead extends Path {
 interface ArrowArgs extends GroupArgs {
     direc?: number
     tail?: number
-    stroke_width?: number
 }
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { direc = 0, tail, stroke_width, ...attr0 } = THEME(args, 'Arrow')
+        const { direc = 0, head = 0.5, tail = 1, aspect = 1, stroke_width, ...attr0 } = THEME(args, 'Arrow')
         const [ head_attr, tail_attr, attr ] = prefix_split([ 'head', 'tail' ], attr0)
 
-        // sort out direction
+        // sort out head direction and offset
         const soff = 0.5 * (stroke_width ?? 1)
         const unit_vec = unit_direc(-direc)
+
+        // create children
         const children: Element[] = []
 
         // create tail element
@@ -588,11 +589,11 @@ class Arrow extends Group {
         }
 
         // create head element
-        const head_elem = new ArrowHead({ direc, stroke_width, ...head_attr })
+        const head_elem = new ArrowHead({ direc, rad: head, stroke_width, ...head_attr })
         children.push(head_elem)
 
         // pass to Group
-        super({ children, ...attr })
+        super({ children, aspect, ...attr })
         this.args = args
     }
 }

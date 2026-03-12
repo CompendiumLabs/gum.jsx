@@ -83,7 +83,7 @@ The library is built around a class hierarchy split across element modules:
 - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
 
 **Network elements** (`src/elems/network.js`):
-- `ArrowSpline`, `Node`, `Edge`, `Network`
+- `ArrowPath`, `Node`, `Edge`, `Network`
 
 **Symbolic elements** (`src/elems/symbolic.js`):
 - `SymPoints`, `SymLine`, `SymSpline`, `SymShape`, `SymFill`, `SymField`
@@ -144,7 +144,7 @@ Key functions for rect manipulation:
 - `geometry.js` - `Line`, `UnitLine`, `Square`, `Ellipse`, `Circle`, `Dot`, `Ray`, `Shape`, `Triangle`, `Path`, `Spline`, `Arc`, `RoundedRect`, `ArrowHead`, `Arrow`
 - `text.js` - `Span`, `Text`, `TextStack`, `TextBox`, `TextFrame`, `TextFlex`, `Bold`, `Italic`, `Latex`, `Equation`
 - `plot.js` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
-- `network.js` - `ArrowSpline`, `Node`, `Edge`, `Network`
+- `network.js` - `ArrowPath`, `Node`, `Edge`, `Network`
 - `symbolic.js` - `SymPoints`, `SymLine`, `SymSpline`, `SymShape`, `SymFill`, `SymField`
 - `math.js` - `MathSpan`, `MathText`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
 - `katex.js` - `Latex`

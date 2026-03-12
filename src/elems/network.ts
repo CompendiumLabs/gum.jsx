@@ -41,7 +41,7 @@ function anchor_point(rect: Rect, direc: Cardinal): Point {
 // arrow spline class
 //
 
-interface ArrowSplineArgs extends GroupArgs {
+interface ArrowPathArgs extends GroupArgs {
     from?: Point
     to?: Point
     from_dir?: Direc
@@ -50,28 +50,24 @@ interface ArrowSplineArgs extends GroupArgs {
     from_arrow?: boolean
     to_arrow?: boolean
     arrow_size?: number
-    arrow_aspect?: number
     curve?: number
-    stroke_width?: number
-    stroke_linecap?: string
-    fill?: string
 }
 
-class ArrowSpline extends Group {
-    constructor(args: ArrowSplineArgs = {}) {
-        let { children: children0, from, to, from_dir, to_dir, arrow, from_arrow, to_arrow, arrow_size = 0.03, arrow_aspect = 1, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
-        let [ spline_attr, arrow_attr, from_attr, to_attr, attr ] = prefix_split(
+class ArrowPath extends Group {
+    constructor(args: ArrowPathArgs = {}) {
+        const { children: children0, from, to, from_dir, to_dir, arrow, from_arrow: from_arrow0, to_arrow: to_arrow0, arrow_size = 0.04, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowPath')
+        const [ spline_attr0, arrow_attr0, from_attr0, to_attr0, attr ] = prefix_split(
             [ 'spline', 'arrow', 'from', 'to' ], attr0
         )
-        from_arrow = arrow ?? from_arrow ?? false
-        to_arrow   = arrow ?? to_arrow   ?? true
+        const from_arrow = arrow ?? from_arrow0 ?? false
+        const to_arrow   = arrow ?? to_arrow0   ?? true
 
         // accumulate arguments
         const stroke_attr = { stroke_linecap, stroke_width }
-        spline_attr = { ...stroke_attr, ...spline_attr }
-        arrow_attr = { aspect: arrow_aspect, ...arrow_attr }
-        from_attr = { fill, ...stroke_attr, ...arrow_attr, ...from_attr }
-        to_attr   = { fill, ...stroke_attr, ...arrow_attr, ...to_attr   }
+        const spline_attr = { ...stroke_attr, ...spline_attr0 }
+        const arrow_attr = { fill, ...stroke_attr, ...arrow_attr0 }
+        const from_attr = { ...arrow_attr, ...from_attr0 }
+        const to_attr   = { ...arrow_attr, ...to_attr0   }
 
         // check for points
         if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
@@ -199,7 +195,7 @@ class Edge extends Element {
         const from_dir = cardinal_direc(direc_from!)
         const to_dir = mul(cardinal_direc(direc_to!), -1)
 
-        const arrowpath = new ArrowSpline({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
+        const arrowpath = new ArrowPath({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
         return arrowpath.svg(ctx)
     }
 }
@@ -250,5 +246,5 @@ class Network extends Group {
 // exports
 //
 
-export { ArrowSpline, Node, Edge, Network }
-export type { ArrowSplineArgs, NodeArgs, EdgeArgs, NetworkArgs }
+export { ArrowPath, Node, Edge, Network }
+export type { ArrowPathArgs, NodeArgs, EdgeArgs, NetworkArgs }

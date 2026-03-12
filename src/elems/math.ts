@@ -4,7 +4,7 @@ import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Rectangle, Spacer, prefix_split } from './core'
+import { Context, Element, Group, Rectangle, Spacer, prefix_split } from './core'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
@@ -12,7 +12,7 @@ import { __parse as parse_tex } from 'katex'
 import type { Padding, Size } from '../lib/types'
 import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
-import type { ElementArgs } from './core'
+import type { ElementArgs, GroupArgs } from './core'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
 
 //
@@ -499,6 +499,52 @@ class Sqrt extends HStack {
 }
 
 //
+// accent
+//
+
+const ACCENT_LABEL_FALLBACK: Record<string, string> = {
+    '\\widehat': '\\hat',
+    '\\widecheck': '\\check',
+    '\\widetilde': '\\tilde',
+    '\\utilde': '\\tilde',
+}
+
+const ACCENT_TEXT_FALLBACK: Record<string, string> = {
+    '\\vec': '→',
+}
+
+function build_accent_symbol(label: string): Element {
+    const label1 = ACCENT_LABEL_FALLBACK[label] ?? label
+    if (label1 in ACCENT_TEXT_FALLBACK) {
+        return new MathSpan({ children: [ ACCENT_TEXT_FALLBACK[label1] ] })
+    }
+    return new MathSymbol({ children: [ label1 ] })
+}
+
+interface AccentArgs extends GroupArgs {
+    label?: string
+    accent_height?: number
+    body_top?: number
+}
+
+class Accent extends Box {
+    constructor(args: AccentArgs = {}) {
+        const { children, label = '', body_top = 0.5, ...attr } = THEME(args, 'Accent')
+        const base = check_singleton(children)
+
+        // build accent symbol
+        const accent = build_accent_symbol(label)
+
+        // pass to Box
+        super({ children: [ base, accent ], ...attr })
+        this.args = args
+
+        // set math metrics
+        set_math(this, get_math(base))
+    }
+}
+
+//
 // bracket
 //
 
@@ -608,6 +654,10 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
         } else if (type == 'text') {
             const { body } = tree
             return convert_tree(body)
+        } else if (type == 'accent') {
+            const { label, base: base0 } = tree
+            const base = convert_tree(base0)
+            return new Accent({ children: [ base ], label })
         } else if (type == 'kern') {
             const { dimension } = tree
             const em = measurement_to_em(dimension)
