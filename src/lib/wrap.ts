@@ -20,9 +20,12 @@ function wrapWidths<T>(objects: T[], measure: (obj: T) => number | undefined, ma
             buffer = []
             width = 0
         } else if (maxWidth != null && width + size > maxWidth) {
-            // start a new line
-            rows.push(buffer)
-            widths.push(width)
+            // start a new line, but avoid emitting an empty row
+            // when the first token is itself wider than maxWidth
+            if (buffer.length > 0) {
+                rows.push(buffer)
+                widths.push(width)
+            }
             buffer = [ object ]
             width = size
         } else {

@@ -105,21 +105,17 @@ class ElemSpan extends Group {
 // text class
 //
 
-type TextToken = Element | '\n'
-const LINE_BREAK = '\n'
-
 function ensure_tail(text: string): string {
     return `${text.trimEnd()} `
 }
 
-function compress_whitespace(text: string): string {
-    return text
-        .replace(/[^\S\n]+/g, ' ')
-        .replace(/ *\n */g, '\n')
-        .trimStart()
+function split_span(child: Span, text: string, font_args: Attrs = {}): Element[] {
+    return splitWords(text).map((w: string) =>
+        child.clone({ children: [ w ], ...font_args })
+    )
 }
 
-function compress_spans(children: any[], font_args: Attrs = {}): TextToken[] {
+function compress_spans(children: any[], font_args: Attrs = {}): Element[] {
     return children.flatMap((child: any, i: number) => {
         const first_child = i == 0
         const last_child = i == children.length - 1
@@ -136,27 +132,25 @@ function compress_spans(children: any[], font_args: Attrs = {}): TextToken[] {
             if (first_child) text = text.trimStart()
             if (!last_child) text = ensure_tail(text)
             if (last_child) text = text.trimEnd()
-            const words = splitWords(text)
-            return words.map((w: string) =>
-                w == LINE_BREAK ? LINE_BREAK : new Span({ children: [ w ], ...font_args })
+            return splitWords(text).map((w: string) =>
+                new Span({ children: [ w ], ...font_args })
             )
         } else if (child instanceof Text) {
-            return child.spans.map((s: TextToken, i: number) => {
-                if (s == LINE_BREAK) return s
+            return child.spans.map((s: Element, i: number) => {
                 if (!(s instanceof Span)) return s
                 let { text } = s
                 if (i == 0 && first_child) text = text.trimStart()
                 if (i == child.spans.length - 1 && !last_child) text = ensure_tail(text)
                 if (i == child.spans.length - 1 && last_child) text = text.trimEnd()
-                return s.clone({ children: [ text ], ...font_args })
+                return split_span(s, text, font_args)
             })
+            .flat()
         } else if (child instanceof Span) {
             let { text } = child
             if (first_child) text = text.trimStart()
             if (!last_child) text = ensure_tail(text)
             if (last_child) text = text.trimEnd()
-            const child1 = child.clone({ children: [ text ], ...font_args })
-            return [ child1 ]
+            return split_span(child, text, font_args)
         } else if (child instanceof ElemSpan) {
             return child.clone({ spacing: !last_child })
         } else {
@@ -165,10 +159,10 @@ function compress_spans(children: any[], font_args: Attrs = {}): TextToken[] {
     })
 }
 
-function trim_line_end(child: Element): Element {
+function trim_line_end(child: Element): Element | null {
     if (child instanceof Span) {
         const text = child.text.trimEnd()
-        return child.clone({ children: [ text ] })
+        return text.length > 0 ? child.clone({ children: [ text ] }) : null
     }
     if (child instanceof ElemSpan) {
         return child.clone({ spacing: false })
@@ -176,11 +170,13 @@ function trim_line_end(child: Element): Element {
     return child
 }
 
-function normalize_line(tokens: TextToken[]): Element[] {
-    const elems = tokens.filter((span: TextToken) => span != LINE_BREAK) as Element[]
-    if (elems.length == 0) return []
-    const last = elems[elems.length - 1]
-    return [ ...elems.slice(0, -1), trim_line_end(last) ]
+function normalize_line(children: Element[]): Element[] {
+    for (let i = children.length - 1; i >= 0; i--) {
+        const child = trim_line_end(children[i])
+        if (child == null) continue
+        return [ ...children.slice(0, i), child ]
+    }
+    return []
 }
 
 interface TextLineArgs extends GroupArgs {
@@ -207,7 +203,7 @@ interface TextArgs extends HWrapArgs {
 
 // wrap text or elements to multiple lines with fixed line height
 class Text extends VStack {
-    spans: TextToken[]
+    spans: Element[]
 
     constructor(args: TextArgs = {}) {
         const { children: children0, wrap, spacing, padding, justify, debug, ...attr0 } = THEME(args, 'Text')
@@ -218,7 +214,7 @@ class Text extends VStack {
         const spans = compress_spans(children, attr)
 
         // wrap text to line widths
-        const measure = (span: TextToken) => span == LINE_BREAK ? undefined : span.spec.aspect ?? 1
+        const measure = (span: Element) => span.spec.aspect ?? 1
         const { rows } = wrapWidths(spans, measure, wrap)
 
         // construct text lines
