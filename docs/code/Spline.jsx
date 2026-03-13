@@ -7,7 +7,7 @@ const points = [
   [0.50, 0.50],
 ]
 return <Frame rounded margin>
-  <Spline closed stroke={blue} fill={gray} data={points} />
-  <Shape stroke={red} data={points} />
-  <Points size={0.0075} data={points} />
+  <Spline closed stroke={blue} fill={gray} points={points} />
+  <Shape stroke={red} points={points} />
+  <Points size={0.0075} points={points} />
 </Frame>

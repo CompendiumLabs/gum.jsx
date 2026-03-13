@@ -22,7 +22,8 @@ type Align = AlignValue | [AlignValue, AlignValue]
 
 // direction: horizontal/vertical, cardinal, angle in degrees, or unit vector
 type Orient = 'h' | 'v'
-type Side = 'left' | 'right' | 'top' | 'bottom' | 'l' | 'r' | 't' | 'b' | 'north' | 'south' | 'east' | 'west' | 'n' | 's' | 'e' | 'w'
+type Side0 = 't' | 'b' | 'l' | 'r'
+type Side = Side0 | 'left' | 'right' | 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west' | 'n' | 's' | 'e' | 'w'
 type Angle = number
 type Direc = Side | Angle | Grad
 
@@ -50,4 +51,4 @@ type Spec = {
     rotate_adjust?: boolean
 }
 
-export type { Point, Rect, Limit, Size, Grad, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+export type { Point, Rect, Limit, Size, Grad, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Side0, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }

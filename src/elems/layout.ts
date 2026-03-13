@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
-import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, div_point, join_limits, radial_rect } from '../lib/utils'
+import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, div_point, join_limits, radial_rect, norm_side } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
 import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac, ensure_children } from './core'
@@ -400,18 +400,18 @@ class Grid extends Group {
 //
 
 interface PointsArgs extends GroupArgs {
-    data?: Point[]
+    points?: Point[]
     size?: number
     shape?: Element
 }
 
 class Points extends Group {
     constructor(args: PointsArgs = {}) {
-        const { data: data0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const { points: points0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
         const [ spec, attr ] = spec_split(attr0)
-        const data = check_array(data0)
+        const points = check_array(points0)
         const shape = shape0 ?? new Dot(attr)
-        const children = data.map((pos: Point) => shape.clone({ pos, rad: size })) ?? []
+        const children = points.map((pos: Point) => shape.clone({ pos, rad: size })) ?? []
         super({ children, ...spec })
         this.args = args
     }
@@ -450,14 +450,15 @@ interface AttachArgs extends GroupArgs {
 
 class Attach extends Group {
     constructor(args: AttachArgs = {}) {
-        const { children: children0, offset = 0, size = 1, align = 'center', side = 'top', ...attr } = THEME(args, 'Attach')
+        const { children: children0, offset = 0, size = 1, align = 'center', side: side0 = 'top', ...attr } = THEME(args, 'Attach')
         const child0 = check_singleton(children0)
+        const side = norm_side(side0)
 
         // get extent and map
         const extent = size + offset
         const rmap = {
-            'left': [ -extent, 0, -offset, 1 ], 'right' : [ 1+offset, 0, 1+extent, 1 ],
-            'top' : [ 0, -extent, 1, -offset ], 'bottom': [ 0, 1+offset, 1, 1+extent ],
+            'l': [ -extent, 0, -offset, 1 ], 'r' : [ 1+offset, 0, 1+extent, 1 ],
+            't' : [ 0, -extent, 1, -offset ], 'b': [ 0, 1+offset, 1, 1+extent ],
         }
 
         // assign spec to child
