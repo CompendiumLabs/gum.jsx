@@ -56,8 +56,6 @@ There are a number of functions designed to make working with arrays easier. The
 - `sum(arr)` — sum the elements of array `arr`
 - `all(arr)` — check if all elements of array `arr` are true
 - `any(arr)` — check if any element of array `arr` is true
-- `add(arr1, arr2)` — add arrays `arr1` and `arr2` element-wise
-- `mul(arr1, arr2)` — multiply arrays `arr1` and `arr2` element-wise
 - `cumsum(arr, first=true)` — compute the cumulative sum of array `arr` with the option to start at zero
 - `norm(arr, degree=1)` — compute the `degree`-norm of array `arr`
 - `normalize(arr, degree=1)` — normalize array `arr` to have `degree`-norm one

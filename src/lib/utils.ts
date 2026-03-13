@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal, Size } from './types'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal, Size, Pair } from './types'
 
 //
 // environment tests
@@ -51,7 +51,7 @@ function is_function(x: any): x is Function {
     return typeof(x) == 'function'
 }
 
-function is_array(x: any): x is any[] {
+function is_array<T>(x: T | T[]): x is T[] {
     return Array.isArray(x)
 }
 
@@ -114,22 +114,25 @@ function check_string(children: any): string {
 // array utils
 //
 
-function* gzip(...iterables: Iterable<any>[]): Generator<any[]> {
+type ZipArgs = readonly ReadonlyArray<unknown>[]
+type ZipRow<T extends ZipArgs> = { [K in keyof T]: T[K] extends ReadonlyArray<infer U> ? U : never }
+
+function* gzip<T extends ZipArgs>(...iterables: T): Generator<ZipRow<T>> {
     if (iterables.length == 0) {
         return
     }
-    const iterators = iterables.map(i => i[Symbol.iterator]())
+    const iterators = iterables.map(i => i[Symbol.iterator]()) as { [K in keyof T]: Iterator<ZipRow<T>[K]> }
     while (true) {
-        const results = iterators.map(iter => iter.next())
+        const results = iterators.map(iter => iter.next()) as { [K in keyof T]: IteratorResult<ZipRow<T>[K]> }
         if (results.some(res => res.done)) {
             return
         } else {
-            yield results.map(res => res.value)
+            yield results.map(res => res.value) as ZipRow<T>
         }
     }
 }
 
-function zip(...iterables: Iterable<any>[]): any[][] {
+function zip<T extends ZipArgs>(...iterables: T): ZipRow<T>[] {
     return [...gzip(...iterables)]
 }
 
@@ -188,40 +191,6 @@ function all(arr: any[]): boolean {
 
 function any(arr: any[]): boolean {
     return arr.reduce((a, b) => a || b, false)
-}
-
-//
-// vector ops
-//
-
-function broadcast_tuple(x: any, y: any): [any, any] {
-    const xa = is_array(x)
-    const ya = is_array(y)
-    if (xa == ya) return [ x, y ]
-    if (!xa) x = [ x, x, x, x ]
-    if (!ya) y = [ y, y, y, y ]
-    return [ x, y ]
-}
-
-function broadcastFunc(f: (a: number, b: number) => number): (x: any, y: any) => any {
-    return (x0, y0) => {
-        const [ x, y] = broadcast_tuple(x0, y0)
-        if (is_scalar(x) && is_scalar(y)) return f(x, y)
-        else return zip(x, y).map(([ a, b ]) => f(a, b))
-    }
-}
-
-function add(x: any, y: any): any {
-    return broadcastFunc((a, b) => a + b)(x, y)
-}
-function sub(x: any, y: any): any {
-    return broadcastFunc((a, b) => a - b)(x, y)
-}
-function mul(x: any, y: any): any {
-    return broadcastFunc((a, b) => a * b)(x, y)
-}
-function div(x: any, y: any): any {
-    return broadcastFunc((a, b) => a / b)(x, y)
 }
 
 //
@@ -455,12 +424,40 @@ function normal(mean?: number, stdv?: number): Point {
 }
 
 //
-// metaposition arithmetic
+// pair arithmetic
 //
 
-function ensure_point(p: Point | number): Point {
+function ensure_point(p: number | Point): Point {
     return is_scalar(p) ? [ p, p ] as Point : p
 }
+
+function add_point(p0: number | Pair, p1: number | Pair): Pair {
+    const [ x0, y0 ] = ensure_point(p0)
+    const [ x1, y1 ] = ensure_point(p1)
+    return [ x0 + x1, y0 + y1 ]
+}
+
+function sub_point(p0: number | Pair, p1: number | Pair): Pair {
+    const [ x0, y0 ] = ensure_point(p0)
+    const [ x1, y1 ] = ensure_point(p1)
+    return [ x0 - x1, y0 - y1 ]
+}
+
+function mul_point(p0: number | Pair, p1: number | Pair): Pair {
+    const [ x0, y0 ] = ensure_point(p0)
+    const [ x1, y1 ] = ensure_point(p1)
+    return [ x0 * x1, y0 * y1 ]
+}
+
+function div_point(p0: number | Pair, p1: number | Pair): Pair {
+    const [ x0, y0 ] = ensure_point(p0)
+    const [ x1, y1 ] = ensure_point(p1)
+    return [ x0 / x1, y0 / y1 ]
+}
+
+//
+// metaposition arithmetic
+//
 
 function ensure_mnumber(p: MNumber | number): MNumber {
     return is_scalar(p) ? [ p, 0 ] as MNumber : p
@@ -474,6 +471,12 @@ function ensure_mpoint(p: [MNumber | number, MNumber | number]): MPoint {
 function squeeze_mnumber(p: MNumber): number {
     const [ x, _ ] = p
     return x
+}
+
+function make_mpoint(p: Point, off: Point): MPoint {
+    const [ x, y ] = p
+    const [ ox, oy ] = off
+    return [ [ x, ox ], [ y, oy ] ]
 }
 
 function squeeze_mpoint(p: MPoint): Point {
@@ -815,22 +818,28 @@ function rgba_repr(rgba: RGBA): string {
     return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a})`
 }
 
+function lerp_rgba(start: RGBA, stop: RGBA, x: number): RGBA {
+    return [
+        start[0] + (stop[0] - start[0]) * x,
+        start[1] + (stop[1] - start[1]) * x,
+        start[2] + (stop[2] - start[2]) * x,
+        start[3] + (stop[3] - start[3]) * x,
+    ]
+}
+
 function interp(start0: string, stop0: string, x: number): string {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
-    const slope = sub(stop, start)
-    const color = add(start, mul(slope, x))
-    return rgba_repr(color)
+    return rgba_repr(lerp_rgba(start, stop, x))
 }
 
 function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number) => string {
     const start = hexToRgba(start0)
     const stop = hexToRgba(stop0)
-    const slope = sub(stop, start)
     const scale = rescaler(lim, D.lim)
     function gradient(x: number): string {
         const x1 = scale(x)
-        const c = add(start, mul(slope, x1))
+        const c = lerp_rgba(start, stop, x1)
         return rgba_repr(c)
     }
     return gradient
@@ -840,4 +849,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, add, sub, mul, div, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add_point, sub_point, mul_point, div_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }

@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, sub_mpoint, squeeze_mpoint, mul, div, add, sub, zip, range, unit_direc, vector_angle } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, add_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, unit_direc, vector_angle } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -14,12 +14,12 @@ import type { ElementArgs, GroupArgs, RectArgs } from './core'
 //
 
 interface LineArgs extends ElementArgs {
-    data?: Point[]
+    data?: (Point | MPoint)[]
     closed?: boolean
 }
 
 class Line extends Element {
-    data: Point[]
+    data: (Point | MPoint)[]
     poly: boolean
 
     constructor(args: LineArgs = {}) {
@@ -397,13 +397,14 @@ class CubicSplineCmd extends Command {
 
     args(ctx: Context): string {
         // use dir if provided, otherwise use tan
-        const dist = squeeze_mpoint(sub_mpoint(this.pos2, this.pos1)).map(abs)
-        const tan1 = this.dir1 != null ? mul(this.dir1, dist) : this.tan1
-        const tan2 = this.dir2 != null ? mul(this.dir2, dist) : this.tan2
+        const dist = squeeze_mpoint(sub_mpoint(this.pos2, this.pos1)).map(abs) as Point
+        const tan1 = this.dir1 != null ? mul_point(this.dir1, dist) : this.tan1
+        const tan2 = this.dir2 != null ? mul_point(this.dir2, dist) : this.tan2
+        if (tan1 == null || tan2 == null) throw new Error('Spline tangent must be defined')
 
         // compute scaled tangents
-        const stan1 = mul(tan1, this.curve)
-        const stan2 = mul(tan2, this.curve)
+        const stan1 = mul_point(tan1, this.curve)
+        const stan2 = mul_point(tan2, this.curve)
 
         // get mapped points and tangents
         const ppos1 = ctx.mapPoint(this.pos1)
@@ -412,8 +413,8 @@ class CubicSplineCmd extends Command {
         const ptan2 = ctx.mapSize(stan2)
 
         // convert to Bernstein form
-        const pcon1 = add(ppos1, div(ptan1, 3))
-        const pcon2 = sub(ppos2, div(ptan2, 3))
+        const pcon1 = add_point(ppos1, div_point(ptan1, 3))
+        const pcon2 = sub_point(ppos2, div_point(ptan2, 3))
 
         // make a path command
         return pointstring([pcon1, pcon2, ppos2], ctx.prec)
@@ -543,9 +544,10 @@ class ArrowHead extends Path {
         const [ dir0, dir1, dir2 ] = [ arc0, arc1, arc2 ].map(unit_direc)
 
         // get vertex positions
-        const off = exact ? mul(dir0, -0.5 * stroke_width) : [ 0, 0 ]
-        const [ fra0, fra1, fra2 ] = [ [0, 0], dir1, dir2 ].map(d => add(mul(d, -0.5), D.pos) as Point)
-        const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => zip(f, off) as MPoint)
+        const off: Point = exact ? mul_point(dir0, -0.5 * stroke_width) : [ 0, 0 ]
+        const fracs: Point[] = [ [0, 0], dir1, dir2 ]
+        const [ fra0, fra1, fra2 ] = fracs.map(d => add_point(mul_point(d, -0.5), D.pos))
+        const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => make_mpoint(f, off))
 
         // make command path
         const commands = fill == null ?
@@ -579,13 +581,13 @@ class Arrow extends Group {
         if (from == null || to == null) throw new Error('Both `from` and `to` must be provided')
 
         // infer the arrow direction from the endpoint vector
-        const direc = sub(to, from)
+        const direc = sub_point(to, from)
         const unit_vec = unit_direc(direc)
         const head_direc = -vector_angle(unit_vec)
 
         // shorten the line slightly so the stroke meets the arrowhead cleanly
         const soff = 0.5 * (stroke_width ?? 1)
-        const line_to = zip(to, mul(unit_vec, -soff))
+        const line_to = make_mpoint(to, mul_point(unit_vec, -soff))
 
         // create sub-elements
         const line_elem = new Line({ data: [ from, line_to ], ...line_attr })

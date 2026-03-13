@@ -1,7 +1,7 @@
 // network elements
 
 import { THEME } from '../lib/theme'
-import { sub, abs, mul, zip, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils'
+import { make_mpoint, sub_point, abs, mul_point, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils'
 
 import { Context, Element, Group, prefix_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
@@ -16,7 +16,7 @@ import type { AlignValue, Cardinal, Direc, Limit, Point, Rect, MPoint } from '..
 //
 
 function get_direction(p1: Point, p2: Point): Cardinal {
-    const [ dx, dy ] = sub(p2, p1)
+    const [ dx, dy ] = sub_point(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
     const direc = (dy <= -ax) ? 'n' :
                   (dy >=  ax) ? 's' :
@@ -73,14 +73,14 @@ class ArrowSpline extends Group {
         if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
 
         // set default directions (gets normalized later)
-        const direc = sub(to, from)
+        const direc = sub_point(to, from)
         const dir1 = unit_direc(from_dir ?? direc)
         const dir2 = unit_direc(to_dir   ?? direc)
 
         // get arrow offsets
         const soff = 0.5 * (stroke_width ?? 1)
-        const pos1 = from_arrow ? zip(from, mul(dir1,  soff)) as MPoint : from
-        const pos2 = to_arrow   ? zip(to  , mul(dir2, -soff)) as MPoint : to
+        const pos1 = from_arrow ? make_mpoint(from, mul_point(dir1,  soff)) : from
+        const pos2 = to_arrow   ? make_mpoint(to  , mul_point(dir2, -soff)) : to
 
         // make cubic spline shaft
         const spline = new Spline({ data: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
@@ -193,7 +193,7 @@ class Edge extends Element {
         const from = anchor_point(rect_from, direc_from!)
         const to = anchor_point(rect_to, direc_to!)
         const from_dir = cardinal_direc(direc_from!)
-        const to_dir = mul(cardinal_direc(direc_to!), -1)
+        const to_dir = mul_point(cardinal_direc(direc_to!), -1)
 
         const path = new ArrowSpline({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
         return path.svg(ctx)

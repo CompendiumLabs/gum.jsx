@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
-import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, div, join_limits, radial_rect } from '../lib/utils'
+import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, div_point, join_limits, radial_rect } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
 import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac, ensure_children } from './core'
@@ -500,8 +500,8 @@ class Absolute extends Element {
         // get relative size from absolute size
         const pcent = rect_center(prect)
         const pradi = rect_radius(prect)
-        const psize = ensure_vector(this.size, 2)
-        const rect = radial_rect(pcent, div(psize, pradi))
+        const psize = ensure_vector(this.size, 2) as Point
+        const rect = radial_rect(pcent, div_point(psize, pradi))
 
         // render child element
         const ctx1 = ctx.map({ ...this.child.spec, rect })

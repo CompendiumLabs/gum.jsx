@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
 
 import type { Point, Rect, Limit, Size, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
@@ -709,7 +709,7 @@ class Rectangle extends Element {
             if (is_scalar(this.rounded)) {
                 rx = s * this.rounded
             } else {
-                [ rx, ry ] = mul(this.rounded, s)
+                [ rx, ry ] = mul_point(this.rounded, s)
             }
         }
 
