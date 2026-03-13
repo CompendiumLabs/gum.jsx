@@ -76,7 +76,7 @@ function ensure_singleton<T>(x: T[] | undefined): T | null {
     return is_array(x) ? x[0] : x
 }
 
-function ensure_function(x: any): any | undefined {
+function ensure_function(x: any): any {
     if (x == null) return
     if (is_function(x)) {
         return x
@@ -96,13 +96,13 @@ function check_singleton<T>(children: (T | null)[] | undefined): T {
     return child
 }
 
-function check_array(x: any, n?: number): any[] {
+function check_array<T>(x: T[] | undefined, n?: number): T[] {
     if (!is_array(x)) throw new Error('Must be an array')
     if (n != null && x.length != n) throw new Error(`Must have ${n} elements`)
     return x
 }
 
-function check_string(children: any): string {
+function check_string<T>(children: T[] | undefined): string {
     const child = check_singleton(children)
     if (child == null) return ''
     if (is_scalar(child) || is_boolean(child)) return String(child)
@@ -136,34 +136,34 @@ function zip<T extends ZipArgs>(...iterables: T): ZipRow<T>[] {
     return [...gzip(...iterables)]
 }
 
-function reshape(arr: any[], shape: [number, number]): any[][] {
+function reshape<T>(arr: T[], shape: [number, number]): T[][] {
     const [n, m] = shape
-    const ret: any[][] = []
+    const ret: T[][] = []
     for (let i = 0; i < n; i++) {
         ret.push(arr.slice(i*m, (i+1)*m))
     }
     return ret
 }
 
-function split(arr: any[], len: number): any[][] {
+function split<T>(arr: T[], len: number): T[][] {
     const n = Math.ceil(arr.length / len)
     return reshape(arr, [n, len])
 }
 
-function concat(arrs: any[][]): any[] {
+function concat<T>(arrs: T[][]): T[] {
     return arrs.flat()
 }
 
-function squeeze(x: any): any {
+function squeeze<T>(x: T | T[]): T | T[] {
     return is_array(x) && x.length == 1 ? x[0] : x
 }
 
-function slice(arr: any[], i0: number, i1: number, step: number = 1): any[] {
+function slice<T>(arr: T[], i0: number, i1: number, step: number = 1): T[] {
     const idx = range(i0, i1, step)
     return arr.filter((_, i) => idx.includes(i))
 }
 
-function intersperse(items: any[], spacer: any): any[] {
+function intersperse<T>(items: T[], spacer: T): T[] {
     return items.flatMap((item, i) => i > 0 ? [ spacer, item ] : [ item ])
 }
 
@@ -171,25 +171,25 @@ function intersperse(items: any[], spacer: any): any[] {
 // array reducers
 //
 
-function sum(arr: any[]): number {
-    arr = arr.filter(v => v != null)
-    return arr.reduce((a: number, b: number) => a + b, 0)
+function sum(arr: (number | undefined)[]): number {
+    return arr.filter(v => v != null)
+              .reduce((a: number, b: number) => a + b, 0)
 }
 
-function prod(arr: any[]): number {
-    arr = arr.filter(v => v != null)
-    return arr.reduce((a: number, b: number) => a * b, 1)
+function prod(arr: (number | undefined)[]): number {
+    return arr.filter(v => v != null)
+              .reduce((a: number, b: number) => a * b, 1)
 }
 
 function mean(arr: number[]): number {
     return sum(arr) / arr.length
 }
 
-function all(arr: any[]): boolean {
+function all(arr: boolean[]): boolean {
     return arr.reduce((a, b) => a && b, true)
 }
 
-function any(arr: any[]): boolean {
+function any(arr: boolean[]): boolean {
     return arr.reduce((a, b) => a || b, false)
 }
 
@@ -228,7 +228,7 @@ function linspace(x0: number, x1: number, n: number): number[] {
     return [...Array(n).keys()].map(i => x0 + step * i)
 }
 
-function enumerate(x: any[]): any[][] {
+function enumerate<T>(x: T[]): [number, T][] {
     const n = x.length
     const idx = range(n)
     return zip(idx, x)
@@ -238,7 +238,7 @@ function repeat<T>(x: T, n: number): T[] {
     return Array(n).fill(x)
 }
 
-function padvec(vec: any[], len: number, val: any): any[] {
+function padvec<T>(vec: T[], len: number, val: T): T[] {
     if (vec.length >= len) return vec
     const m = len - vec.length
     return [...vec, ...repeat(val, m)]
@@ -289,7 +289,7 @@ function filter_object<T>(obj: Record<string, T>, fn: (k: string, v: T) => boole
 // string utils
 //
 
-function rounder(x: any, prec?: number): string {
+function rounder(x: number | string, prec?: number): string {
     prec = prec ?? D.prec
 
     let suf: string
@@ -300,7 +300,7 @@ function rounder(x: any, prec?: number): string {
         suf = ''
     }
 
-    let ret: any
+    let ret: string
     if (is_scalar(x)) {
         ret = x.toFixed(prec)
         ret = ret.replace(/(\.[0-9]*?)0+$/, '$1').replace(/\.$/, '')
@@ -362,13 +362,13 @@ function abs_max(x: number, y: number): number {
 }
 
 // null on empty
-function min(vals: any[]): number | undefined {
-    vals = vals.filter(v => v != null)
-    return (vals.length > 0) ? Math.min(...vals) : undefined
+function min(vals: (number | undefined)[]): number | undefined {
+    const vals1 = vals.filter(v => v != null) as number[]
+    return (vals1.length > 0) ? Math.min(...vals1) : undefined
 }
-function max(vals: any[]): number | undefined {
-    vals = vals.filter(v => v != null)
-    return (vals.length > 0) ? Math.max(...vals) : undefined
+function max(vals: (number | undefined)[]): number | undefined {
+    const vals1 = vals.filter(v => v != null) as number[]
+    return (vals1.length > 0) ? Math.max(...vals1) : undefined
 }
 
 function clamp(x: number, lim: Limit): number {
@@ -395,7 +395,7 @@ function smoothstep(x: number, lim?: Limit): number {
     return t * t * (3 - 2 * t)
 }
 
-function identity(x: any): any {
+function identity<T>(x: T): T {
     return x
 }
 
@@ -623,7 +623,7 @@ function expand_limits(lim: Limit | undefined, fact: number): Limit | undefined 
     return [ lo - ex, hi + ex ]
 }
 
-function expand_rect(rect: Rect | undefined, expand: any): Rect | undefined {
+function expand_rect(rect: Rect | undefined, expand: number | Size): Rect | undefined {
     if (rect == null) return
     const [ xexp, yexp ] = ensure_vector(expand, 2)
     const [ x1, y1, x2, y2 ] = rect
@@ -734,11 +734,11 @@ function remap_rect(rect: Rect, coord_in: Rect, coord_out: Rect): Rect {
     ]
 }
 
-function rescaler(lim_in: Limit, lim_out: Limit): (x0: any, offset?: boolean) => number {
+function rescaler(lim_in: Limit, lim_out: Limit): (x0: number | Pair, offset?: boolean) => number {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
-    return (x0: any, offset: boolean = true) => {
+    return (x0: number | Pair, offset: boolean = true) => {
         const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
         const f = (x - in_lo) / in_len
         const x1 = out_lo + f * out_len
@@ -746,12 +746,12 @@ function rescaler(lim_in: Limit, lim_out: Limit): (x0: any, offset?: boolean) =>
     }
 }
 
-function resizer(lim_in: Limit, lim_out: Limit): (x0: any, offset?: boolean) => number {
+function resizer(lim_in: Limit, lim_out: Limit): (x0: number | Pair, offset?: boolean) => number {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
     const ratio = out_len / in_len
-    return (x0: any, offset: boolean = true) => {
+    return (x0: number | Pair, offset: boolean = true) => {
         const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
         const x1 = x * ratio
         return offset ? x1 + c : x1
