@@ -7,7 +7,7 @@ This creates a smooth cardinal spline curve through a series of points. The tang
 The `curve` parameter controls the tension of the spline. Lower values (e.g., 0.5) create tighter curves with less overshoot, while higher values (e.g., 1.5) create looser, more flowing curves. The default value of 0.5 produces the canonical *Catmull-Rom* spline.
 
 Parameters:
-- `data` — array of point coordinates (minimum of 2 required)
+- `points` — array of point coordinates (minimum of 2 required)
 - `curve` = `0.5` — tension parameter that scales the tangent vectors
 - `closed` = `false` — toggles whether to make it a closed loop
 - `tan1`/`tan2` — the tangent vectors at the first and last points

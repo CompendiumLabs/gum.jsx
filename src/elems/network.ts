@@ -65,16 +65,18 @@ interface EdgeArgs extends ElementArgs {
     end?: Node | string
     start_dir?: Side
     end_dir?: Side
+    points?: Point[]
 }
 
 class Edge extends Element {
     start: Node | string
     end: Node | string
-    start_dir: Side | undefined
-    end_dir: Side | undefined
+    start_dir?: Side
+    end_dir?: Side
+    points: Point[]
 
     constructor(args: EdgeArgs = {}) {
-        const { start, end, start_dir, end_dir, curve = 2, ...attr } = THEME(args, 'Edge')
+        const { start, end, start_dir, end_dir, points = [], curve = 2, ...attr } = THEME(args, 'Edge')
 
         // check for nodes
         if (start == null || end == null) throw new Error('Both `start` or `end` must be provided')
@@ -88,6 +90,7 @@ class Edge extends Element {
         this.end = end
         this.start_dir = start_dir
         this.end_dir = end_dir
+        this.points = points
     }
 
     svg(ctx: Context): string {
@@ -117,7 +120,7 @@ class Edge extends Element {
         const start_dir = side_direc(start_direc)
         const end_dir = mul_point(side_direc(end_direc), -1)
 
-        const path = new Arrow({ points: [ start, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, ...attr })
+        const path = new Arrow({ points: [ start, ...this.points, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, ...attr })
         return path.svg(ctx)
     }
 }

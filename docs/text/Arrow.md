@@ -9,9 +9,13 @@ The line and arrowhead can be styled separately using prefixed parameters. The h
 The arrow direction is inferred automatically from `from` to `to`.
 
 Parameters:
-- `from` / `to` — the start and end points of the arrow shaft
-- `arrow_size` = `0.5` — size of the arrowhead
+- `points` — the points to draw the arrow between (can include intermediate points)
+- `start_dir` / `end_dir` — the direction of the arrowheads at the start and end
+- `arrow` / `arrow_start` / `arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_start`, meaning a directed graph edge
+- `arrow_size` = `0.04` — size of the arrowhead
+- `curve` = `null` — curvature factor forwarded to the spline (`null` or zero means straight line)
 
 Subunit names:
 - `line` — forwarded to the shaft line
 - `arrow` — forwarded to the arrowhead
+- `start` / `end` — forwarded to the start and end arrowheads respectively
