@@ -5,10 +5,11 @@ import { THEME } from '../lib/theme'
 import { none, bold, vtext } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
+import { wrapWidths } from '../lib/wrap'
 
 import { Context, Element, Group, prefix_split, prefix_join, spec_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
-import { Box, HWrap, VStack } from './layout'
+import { Box, HStack, VStack } from './layout'
 import type { BoxArgs, HWrapArgs, StackArgs } from './layout'
 
 //
@@ -104,11 +105,21 @@ class ElemSpan extends Group {
 // text class
 //
 
+type TextToken = Element | '\n'
+const LINE_BREAK = '\n'
+
 function ensure_tail(text: string): string {
     return `${text.trimEnd()} `
 }
 
-function compress_spans(children: Element[], font_args: Attrs = {}): any[] {
+function compress_whitespace(text: string): string {
+    return text
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/ *\n */g, '\n')
+        .trimStart()
+}
+
+function compress_spans(children: any[], font_args: Attrs = {}): TextToken[] {
     return children.flatMap((child: any, i: number) => {
         const first_child = i == 0
         const last_child = i == children.length - 1
@@ -126,9 +137,12 @@ function compress_spans(children: Element[], font_args: Attrs = {}): any[] {
             if (!last_child) text = ensure_tail(text)
             if (last_child) text = text.trimEnd()
             const words = splitWords(text)
-            return words.map((w: string) => new Span({ children: [ w ], ...font_args }))
+            return words.map((w: string) =>
+                w == LINE_BREAK ? LINE_BREAK : new Span({ children: [ w ], ...font_args })
+            )
         } else if (child instanceof Text) {
-            return child.spans.map((s: any, i: number) => {
+            return child.spans.map((s: TextToken, i: number) => {
+                if (s == LINE_BREAK) return s
                 if (!(s instanceof Span)) return s
                 let { text } = s
                 if (i == 0 && first_child) text = text.trimStart()
@@ -151,6 +165,40 @@ function compress_spans(children: Element[], font_args: Attrs = {}): any[] {
     })
 }
 
+function trim_line_end(child: Element): Element {
+    if (child instanceof Span) {
+        const text = child.text.trimEnd()
+        return child.clone({ children: [ text ] })
+    }
+    if (child instanceof ElemSpan) {
+        return child.clone({ spacing: false })
+    }
+    return child
+}
+
+function normalize_line(tokens: TextToken[]): Element[] {
+    const elems = tokens.filter((span: TextToken) => span != LINE_BREAK) as Element[]
+    if (elems.length == 0) return []
+    const last = elems[elems.length - 1]
+    return [ ...elems.slice(0, -1), trim_line_end(last) ]
+}
+
+interface TextLineArgs extends GroupArgs {
+    padding?: number
+    justify?: AlignValue
+    wrap?: number
+}
+
+class TextLine extends Group {
+    constructor(args: TextLineArgs = {}) {
+        const { children: children0, padding, justify = 'left', wrap, debug, ...attr } = THEME(args, 'TextLine')
+        const children = ensure_children(children0)
+        const line = new HStack({ children, spacing: padding, align: justify, debug })
+        super({ children: [ line ], aspect: wrap ?? line.spec.aspect, ...attr })
+        this.args = args
+    }
+}
+
 interface TextArgs extends HWrapArgs {
     font_family?: string
     font_weight?: number
@@ -158,8 +206,8 @@ interface TextArgs extends HWrapArgs {
 }
 
 // wrap text or elements to multiple lines with fixed line height
-class Text extends HWrap {
-    spans: any[]
+class Text extends VStack {
+    spans: TextToken[]
 
     constructor(args: TextArgs = {}) {
         const { children: children0, wrap, spacing, padding, justify, debug, ...attr0 } = THEME(args, 'Text')
@@ -169,8 +217,17 @@ class Text extends HWrap {
         // split into words and elements
         const spans = compress_spans(children, attr)
 
-        // pass to HWrap
-        super({ children: spans, spacing, padding, justify, wrap, debug, ...spec })
+        // wrap text to line widths
+        const measure = (span: TextToken) => span == LINE_BREAK ? undefined : span.spec.aspect ?? 1
+        const { rows } = wrapWidths(spans, measure, wrap)
+
+        // construct text lines
+        const lines = rows.map(row =>
+            new TextLine({ children: normalize_line(row), padding, justify, wrap, debug })
+        )
+
+        // pass to VStack
+        super({ children: lines, spacing, even: true, debug, ...spec })
         this.args = args
 
         // additional props
@@ -254,5 +311,5 @@ class Italic extends Text {
 // exports
 //
 
-export { Span, ElemSpan, Text, TextStack, TextBox, TextFrame, Bold, Italic }
-export type { SpanArgs, ElemSpanArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs }
+export { Span, ElemSpan, TextLine, Text, TextStack, TextBox, TextFrame, Bold, Italic }
+export type { SpanArgs, ElemSpanArgs, TextLineArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs }
