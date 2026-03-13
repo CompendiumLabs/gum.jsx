@@ -2,5 +2,5 @@
 <Network aspect node-fill={gray} edge-arrow>
   <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
   <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge from="hello" to="world" from-fill={red} to-fill={blue} />
+  <Edge start="hello" end="world" start-fill={red} end-fill={blue} />
 </Network>

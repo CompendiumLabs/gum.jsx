@@ -163,7 +163,7 @@ class SymLine extends Line {
         })
 
         // get valid point pairs
-        const data = zip(xvals1, yvals1).filter(
+        const points = zip(xvals1, yvals1).filter(
             ([ x, y ]: number[]) => (x != null) && (y != null)
         ) as Point[]
 
@@ -171,7 +171,7 @@ class SymLine extends Line {
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Line
-        super({ data, coord, ...attr })
+        super({ points, coord, ...attr })
         this.args = args
     }
 }
@@ -194,7 +194,7 @@ class SymSpline extends Spline {
         })
 
         // get valid point pairs
-        const data = zip(xvals1, yvals1).filter(
+        const points = zip(xvals1, yvals1).filter(
             ([ x, y ]: number[]) => (x != null) && (y != null)
         ) as Point[]
 
@@ -202,7 +202,7 @@ class SymSpline extends Spline {
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Spline
-        super({ data, coord, curve, ...attr })
+        super({ points, coord, curve, ...attr })
         this.args = args
     }
 }
@@ -225,7 +225,7 @@ class SymShape extends Shape {
         })
 
         // get valid point pairs
-        const data = zip(xvals1, yvals1).filter(
+        const points = zip(xvals1, yvals1).filter(
             ([x, y]: number[]) => (x != null) && (y != null)
         ) as Point[]
 
@@ -233,7 +233,7 @@ class SymShape extends Shape {
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Shape
-        super({ data, coord, ...attr })
+        super({ points, coord, ...attr })
         this.args = args
     }
 }
@@ -263,7 +263,7 @@ class SymFill extends Shape {
         })
 
         // get valid point pairs
-        const data = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
+        const points = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
             ([x, y]: number[]) => (x != null) && (y != null)
         ) as Point[]
 
@@ -271,7 +271,7 @@ class SymFill extends Shape {
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Shape
-        super({ data, stroke, fill, coord, ...attr })
+        super({ points, stroke, fill, coord, ...attr })
         this.args = args
     }
 }
@@ -282,12 +282,12 @@ class SymFill extends Shape {
 
 function default_arrow(direc: number | Point): Box {
     const theta = is_scalar(direc) ? direc : vector_angle(direc)
-    const arrow = new Arrow({ data: [ [0, 0.5], [1, 0.5] ] })
+    const arrow = new Arrow({ points: [ [0, 0.5], [1, 0.5] ] })
     return new Box({ children: [ arrow ], spin: theta })
 }
 
 interface FieldArgs extends GroupArgs {
-    data?: Point[]
+    points?: Point[]
     shape?: Element
     size?: number
     arrow_size?: number
@@ -295,13 +295,13 @@ interface FieldArgs extends GroupArgs {
 
 class Field extends Group {
     constructor(args: FieldArgs = {}) {
-        const { data: data0, shape: shape0, size = D.point, arrow_size = 0.5, ...attr0 } = THEME(args, 'Field')
+        const { points: points0, shape: shape0, size = D.point, arrow_size = 0.5, ...attr0 } = THEME(args, 'Field')
         const [ spec, attr ] = spec_split(attr0)
-        const data = check_array(data0)
-        const shape = shape0 ?? new Arrow({ data: [ [0, 0.5], [1, 0.5] ], arrow_size })
+        const points = check_array(points0)
+        const shape = shape0 ?? new Arrow({ points: [ [0, 0.5], [1, 0.5] ], arrow_size })
 
         // create children
-        const children = data.map(([ p, d ]) =>
+        const children = points.map(([ p, d ]) =>
             shape.clone({ pos: p, rad: size, spin: d, ...attr })
         )
 

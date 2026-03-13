@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
 
-import type { Point, Rect, Limit, Size, AlignValue, Align, Attrs, MPoint, MNumber, Spec } from '../lib/types'
+import type { Point, Rect, Limit, Size, AlignValue, Align, Side, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
 //
 // rect embedding
@@ -22,6 +22,20 @@ function align_frac(align: AlignValue): number {
     } else{
         throw new Error(`Unrecognized alignment specification: ${align}`)
     }
+}
+
+function anchor_point(rect: Rect, side: Side): Point {
+    const [ xmin, ymin, xmax, ymax] = rect
+    const [ xmid, ymid ] = rect_center(rect)
+    if (side == 'top' || side == 't') return [ xmid, ymin ]
+    if (side == 'bottom' || side == 'b') return [ xmid, ymax ]
+    if (side == 'right' || side == 'r') return [ xmax, ymid ]
+    if (side == 'left' || side == 'l') return [ xmin, ymid ]
+    if (side == 'north' || side == 'n') return [ xmid, ymin ]
+    if (side == 'south' || side == 's') return [ xmid, ymax ]
+    if (side == 'east' || side == 'e') return [ xmax, ymid ]
+    if (side == 'west' || side == 'w') return [ xmin, ymid ]
+    throw new Error(`Unrecognized side: ${side}`)
 }
 
 // embed a rect of given `aspect` into rect of given `size`
@@ -360,18 +374,16 @@ class Element {
         return new (this.constructor as any)({ ...this.args, ...args })
     }
 
-    // why not just compute with ctx.prect=ctx.coord? then it won't get the true aspect right
-    // there might be a better way to do this, but this works for now
     rect(ctx: Context): Rect {
         const { prect } = ctx.map(this.spec)
         return remap_rect(prect, ctx.prect, ctx.coord)
     }
 
-    // all this does is pass the
-    //
-    //
-    //
-    //  to children (so they also rotate)
+    anchor(ctx: Context, side: Side): Point {
+        const prect = this.rect(ctx)
+        return anchor_point(prect, side)
+    }
+
     props(ctx: Context): Attrs {
         const { transform } = ctx
         if (transform == null) return this.attr

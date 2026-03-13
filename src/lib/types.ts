@@ -17,14 +17,14 @@ type MPoint = [MNumber, MNumber]
 
 // alignment: named position or fractional 0-1
 type Zone = 'inner' | 'outer'
-type Side = 'left' | 'right' | 'top' | 'bottom'
 type AlignValue = Side | 'center' | 'middle' | number
 type Align = AlignValue | [AlignValue, AlignValue]
 
 // direction: horizontal/vertical, cardinal, angle in degrees, or unit vector
 type Orient = 'h' | 'v'
-type Cardinal = 'n' | 'e' | 'w' | 's'
-type Direc = Cardinal | number | Point
+type Side = 'left' | 'right' | 'top' | 'bottom' | 'l' | 'r' | 't' | 'b' | 'north' | 'south' | 'east' | 'west' | 'n' | 's' | 'e' | 'w'
+type Angle = number
+type Direc = Side | Angle | Grad
 
 // padding/margin: number, point, or [p0, p1, p2, p3]
 type PaddingValue = number | Point
@@ -50,4 +50,4 @@ type Spec = {
     rotate_adjust?: boolean
 }
 
-export type { Point, Rect, Limit, Size, Grad, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Cardinal, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+export type { Point, Rect, Limit, Size, Grad, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }

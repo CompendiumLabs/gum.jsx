@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Direc, Orient, Cardinal, Size, Pair } from './types'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Angle, Direc, Size, Pair, Grad } from './types'
 
 //
 // environment tests
@@ -677,10 +677,10 @@ function detect_coords(xvals: number[], yvals: number[], xlim: Limit | undefined
     })
 }
 
-function invert_orient(direc: Orient): Orient {
-    return direc == 'v' ? 'h' :
-           direc == 'h' ? 'v' :
-           direc
+function invert_orient(orient: Orient): Orient {
+    if (orient == 'v') return 'h'
+    if (orient == 'h') return 'v'
+    throw new Error(`Invalid orient: ${orient}`)
 }
 
 //
@@ -773,25 +773,26 @@ function vector_angle(vector: Point): number {
     return r2d * Math.atan2(y, x)
 }
 
-const CARDINAL_DIREC: Record<Cardinal, Point> = {
-    n: [ 0, -1 ],
-    e: [ 1, 0 ],
-    w: [ -1, 0 ],
-    s: [ 0, 1 ],
-}
-
-function cardinal_direc(direc: Cardinal): Point {
-    return CARDINAL_DIREC[direc]
-}
-
-function angle_vector(angle: number): Point {
+function angle_direc(angle: Angle): Point {
     return [ cos(d2r * angle), sin(d2r * angle) ]
 }
 
+function side_direc(side: Side): Point {
+    if (side == 'top' || side == 't') return [ 0, -1 ]
+    if (side == 'bottom' || side == 'b') return [ 0, 1 ]
+    if (side == 'left' || side == 'l') return [ -1, 0 ]
+    if (side == 'right' || side == 'r') return [ 1, 0 ]
+    if (side == 'north' || side == 'n') return [ 0, -1 ]
+    if (side == 'south' || side == 's') return [ 0, 1 ]
+    if (side == 'east' || side == 'e') return [ 1, 0 ]
+    if (side == 'west' || side == 'w') return [ -1, 0 ]
+    throw new Error(`Invalid side: ${side}`)
+}
+
 function unit_direc(direc: Direc): Point {
-    if (is_string(direc)) return cardinal_direc(direc)
-    if (is_scalar(direc)) return angle_vector(direc as number)
-    if (is_array(direc) && direc.length == 2) return normalize(direc, 2) as Point
+    if (is_string(direc)) return side_direc(direc as Side)
+    if (is_scalar(direc)) return angle_direc(direc as number)
+    if (is_array(direc) && direc.length == 2) return normalize(direc, 2) as Grad
     throw new Error(`Invalid direction: ${direc}`)
 }
 
@@ -849,4 +850,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add_point, sub_point, mul_point, div_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, cardinal_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add_point, sub_point, mul_point, div_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, side_direc, unit_direc, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }

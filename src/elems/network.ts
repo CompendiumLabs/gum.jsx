@@ -1,7 +1,7 @@
 // network elements
 
 import { THEME } from '../lib/theme'
-import { sub_point, abs, mul_point, check_singleton, is_string, cardinal_direc, rect_center, join_limits } from '../lib/utils'
+import { sub_point, abs, mul_point, check_singleton, is_string, rect_center, join_limits, side_direc } from '../lib/utils'
 
 import { Context, Element, Group, prefix_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
@@ -9,32 +9,21 @@ import { Frame } from './layout'
 import { Arrow } from './geometry'
 import { Text } from './text'
 
-import type { AlignValue, Cardinal, Limit, Point, Rect } from '../lib/types'
+import type { AlignValue, Limit, Point, Side } from '../lib/types'
 
 //
 // cardinal direction utils
 //
 
-function get_direction(p1: Point, p2: Point): Cardinal {
+function get_side(p1: Point, p2: Point): Side {
     const [ dx, dy ] = sub_point(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
-    const direc = (dy <= -ax) ? 'n' :
-                  (dy >=  ax) ? 's' :
-                  (dx >=  ay) ? 'e' :
-                  (dx <= -ay) ? 'w' :
+    const direc = (dy <= -ax) ? 't' :
+                  (dy >=  ax) ? 'b' :
+                  (dx <= -ay) ? 'l' :
+                  (dx >=  ay) ? 'r' :
                   undefined // should never happen
-    return direc as Cardinal
-}
-
-function anchor_point(rect: Rect, direc: Cardinal): Point {
-    const [ xmin, ymin, xmax, ymax] = rect
-    const [ xmid, ymid ] = rect_center(rect)
-    const point = (direc == 'n') ? [ xmid, ymin ] :
-                  (direc == 's') ? [ xmid, ymax ] :
-                  (direc == 'e') ? [ xmax, ymid ] :
-                  (direc == 'w') ? [ xmin, ymid ] :
-                  undefined // should never happen
-    return point as Point
+    return direc as Side
 }
 
 //
@@ -72,61 +61,63 @@ class Node extends Frame {
 //
 
 interface EdgeArgs extends ElementArgs {
-    from?: Node | string
-    to?: Node | string
-    from_dir?: Cardinal
-    to_dir?: Cardinal
+    start?: Node | string
+    end?: Node | string
+    start_dir?: Side
+    end_dir?: Side
 }
 
 class Edge extends Element {
-    from: Node | string
-    to: Node | string
-    from_dir: Cardinal | undefined
-    to_dir: Cardinal | undefined
+    start: Node | string
+    end: Node | string
+    start_dir: Side | undefined
+    end_dir: Side | undefined
 
     constructor(args: EdgeArgs = {}) {
-        const { from, to, from_dir, to_dir, curve = 2, ...attr } = THEME(args, 'Edge')
+        const { start, end, start_dir, end_dir, curve = 2, ...attr } = THEME(args, 'Edge')
 
         // check for nodes
-        if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
+        if (start == null || end == null) throw new Error('Both `start` or `end` must be provided')
 
         // pass to Element
         super({ tag: 'g', unary: false, curve, ...attr })
         this.args = args
 
         // additional props
-        this.from = from
-        this.to = to
-        this.from_dir = from_dir
-        this.to_dir = to_dir
+        this.start = start
+        this.end = end
+        this.start_dir = start_dir
+        this.end_dir = end_dir
     }
 
     svg(ctx: Context): string {
         // check for nodes
-        if (is_string(this.from) || is_string(this.to)) throw new Error('Trying to render edge with node IDs')
+        if (is_string(this.start) || is_string(this.end)) throw new Error('Trying to render edge with node IDs')
 
         // get core attributes
         const attr = super.props(ctx)
 
         // get mapped node rects
-        const rect_from = this.from.rect(ctx)
-        const rect_to = this.to.rect(ctx)
+        const start_rect = this.start.rect(ctx)
+        const end_rect = this.end.rect(ctx)
+
+        // get mapped node centers
+        const start_center = rect_center(start_rect)
+        const end_center = rect_center(end_rect)
+        const pstart_center = ctx.mapPoint(start_center)
+        const pend_center = ctx.mapPoint(end_center)
 
         // get emanation directions
-        const center_from = rect_center(rect_from)
-        const center_to = rect_center(rect_to)
-        const pcenter_from = ctx.mapPoint(center_from)
-        const pcenter_to = ctx.mapPoint(center_to)
-        const direc_from = this.from_dir ?? get_direction(pcenter_from, pcenter_to)
-        const direc_to = this.to_dir ?? get_direction(pcenter_to, pcenter_from)
+        const start_direc = this.start_dir ?? get_side(pstart_center, pend_center)
+        const end_direc = this.end_dir ?? get_side(pend_center, pstart_center)
 
         // get anchor points and tangent vectors
-        const from = anchor_point(rect_from, direc_from)
-        const to = anchor_point(rect_to, direc_to)
-        const from_dir = cardinal_direc(direc_from)
-        const to_dir = mul_point(cardinal_direc(direc_to), -1)
+        const start = this.start.anchor(ctx, start_direc)
+        const end = this.end.anchor(ctx, end_direc)
+        const start_dir = side_direc(start_direc)
+        const end_dir = mul_point(side_direc(end_direc), -1)
 
-        const path = new Arrow({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
+        const path = new Arrow({ points: [ start, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, ...attr })
         return path.svg(ctx)
     }
 }
@@ -155,9 +146,9 @@ class Network extends Group {
         const items = children.map((c: any) => {
             if (c instanceof Edge) {
                 // create arrow path from edge
-                const n1 = nmap.get(c.args.from)
-                const n2 = nmap.get(c.args.to)
-                return c.clone({ ...edge_attr, ...c.args, from: n1, to: n2, coord })
+                const n1 = nmap.get(c.args.start)
+                const n2 = nmap.get(c.args.end)
+                return c.clone({ ...edge_attr, ...c.args, start: n1, end: n2, coord })
             } else if (c instanceof Node) {
                 // return the already processed node from the map
                 return nmap.get(c.args.id)

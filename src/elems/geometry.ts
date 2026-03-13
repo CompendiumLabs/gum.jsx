@@ -2,11 +2,11 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, unit_direc, vector_angle } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
-import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded } from '../lib/types'
+import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
@@ -14,39 +14,39 @@ import type { ElementArgs, GroupArgs, RectArgs } from './core'
 //
 
 interface LineArgs extends ElementArgs {
-    data?: (Point | MPoint)[]
+    points?: (Point | MPoint)[]
     closed?: boolean
 }
 
 class Line extends Element {
-    data: (Point | MPoint)[]
+    points: (Point | MPoint)[]
     poly: boolean
 
     constructor(args: LineArgs = {}) {
-        const { data: data0, closed = false, ...attr } = THEME(args, 'Line')
-        const data = check_array(data0)
+        const { points: points0, closed = false, ...attr } = THEME(args, 'Line')
+        const points = check_array(points0)
 
         // use line tag for 2 points, polyline for more
-        const poly = closed || data.length > 2
+        const poly = closed || points.length > 2
         const tag = closed ? 'polygon' : (poly ? 'polyline' : 'line')
 
         super({ tag, unary: true, ...attr })
         this.args = args
 
         // additional props
-        this.data = data
+        this.points = points
         this.poly = poly
     }
 
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        if (this.data.length < 2) return attr
+        if (this.points.length < 2) return attr
         if (this.poly) {
-            const pixels = this.data.map(p => ctx.mapPoint(p))
+            const pixels = this.points.map(p => ctx.mapPoint(p))
             const points = pointstring(pixels, ctx.prec)
             return { points, ...attr }
         } else {
-            const [ p1, p2 ] = this.data
+            const [ p1, p2 ] = this.points
             const [ x1, y1 ] = ctx.mapPoint(p1)
             const [ x2, y2 ] = ctx.mapPoint(p2)
             return { x1, y1, x2, y2, ...attr }
@@ -66,12 +66,12 @@ class UnitLine extends Line {
 
         // construct line positions
         const [ lo, hi ] = lim
-        const data: Point[] = (direc == 'v') ?
+        const points: Point[] = (direc == 'v') ?
             [ [ loc, lo ], [ loc, hi ] ] :
             [ [ lo, loc ], [ hi, loc ] ]
 
         // pass to Line
-        super({ data, ...attr })
+        super({ points, ...attr })
         this.args = args
     }
 }
@@ -175,27 +175,27 @@ function pointstring(pixels: Point[], prec: number = D.prec): string {
 }
 
 interface PointstringArgs extends ElementArgs {
-    data?: Point[]
+    points?: Point[]
 }
 
 class Pointstring extends Element {
-    data: Point[]
+    points: Point[]
 
     constructor(args: PointstringArgs = {}) {
-        const { tag, data: data0, ...attr } = THEME(args, 'Pointstring')
-        const data = check_array(data0)
+        const { tag, points: points0, ...attr } = THEME(args, 'Pointstring')
+        const points = check_array(points0)
 
         // pass to Element
         super({ tag, unary: true, ...attr })
         this.args = args
 
         // additional props
-        this.data = data
+        this.points = points
     }
 
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        const pixels = this.data.map(p => ctx.mapPoint(p))
+        const pixels = this.points.map(p => ctx.mapPoint(p))
         const points = pointstring(pixels, ctx.prec)
         return { points, ...attr }
     }
@@ -212,8 +212,8 @@ class Shape extends Pointstring {
 class Triangle extends Shape {
     constructor(args: ElementArgs = {}) {
         const attr = THEME(args, 'Triangle')
-        const data: Point[] = [[0.5, 0], [1, 1], [0, 1]]
-        super({ data, ...attr })
+        const points: Point[] = [[0.5, 0], [1, 1], [0, 1]]
+        super({ points, ...attr })
         this.args = args
     }
 }
@@ -422,7 +422,7 @@ class CubicSplineCmd extends Command {
 }
 
 interface SplineArgs extends ElementArgs {
-    data?: (MPoint | Point)[]
+    points?: (MPoint | Point)[]
     dir1?: Grad
     dir2?: Grad
     curve?: number
@@ -431,28 +431,28 @@ interface SplineArgs extends ElementArgs {
 
 class Spline extends Path {
     constructor(args: SplineArgs = {}) {
-        const { data: data0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
-        const data = check_array(data0)
+        const { points: points0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
+        const points = check_array(points0)
 
         // compute tangent directions at each point (cardinal spline)
-        const n = data.length
+        const n = points.length
         const tans = range(n).map(i => {
             const i1 = (closed && i == 0    ) ? n - 1 : Math.max(0    , i - 1)
             const i2 = (closed && i == n - 1) ? 0     : Math.min(n - 1, i + 1)
-            return squeeze_mpoint(sub_mpoint(data[i2], data[i1]))
+            return squeeze_mpoint(sub_mpoint(points[i2], points[i1]))
         })
 
         // create path commands
-        const move = new MoveCmd(data[0])
+        const move = new MoveCmd(points[0])
         const num = Math.max(0, closed ? n : n - 1)
         const splines = range(num).map(i => {
             const ip = (closed && i == num - 1) ? 0 : i + 1
             const d1 = (!closed && i == 0) ? dir1 : undefined
             const d2 = (!closed && i == num - 1) ? dir2 : undefined
             return new CubicSplineCmd({
-                pos1: data[i], pos2: data[ip],
+                pos1: points[i], pos2: points[ip],
                 tan1: tans[i], tan2: tans[ip],
-                dir1: d1, dir2: d2, curve
+                dir1: d1, dir2: d2, curve,
             })
         })
 
@@ -541,7 +541,7 @@ class ArrowHead extends Path {
 
         // orient the head pointing right
         const [ arc0, arc1, arc2 ] = [ 0, -arc / 2, arc / 2 ]
-        const [ dir0, dir1, dir2 ] = [ arc0, arc1, arc2 ].map(unit_direc)
+        const [ dir0, dir1, dir2 ] = [ arc0, arc1, arc2 ].map(angle_direc)
 
         // get vertex positions
         const off: Point = exact ? mul_point(dir0, -0.5 * stroke_width) : [ 0, 0 ]
@@ -562,61 +562,66 @@ class ArrowHead extends Path {
 }
 
 interface ArrowArgs extends GroupArgs {
-    data?: Point[]
-    from?: Point
-    to?: Point
-    from_dir?: Grad
-    to_dir?: Grad
+    points?: Point[]
+    start?: Point
+    end?: Point
+    start_dir?: Direc
+    end_dir?: Direc
+    arrow?: boolean
+    arrow_start?: boolean
+    arrow_end?: boolean
     arrow_size?: number
+    curve?: number
 }
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { data: data0, from: from0, to: to0, from_dir, to_dir, arrow_size = 0.04, arrow, from_arrow: from_arrow0 = false, to_arrow: to_arrow0 = true, curve, stroke_width = 1, stroke_linecap, fill, ...attr0 } = THEME(args, 'Arrow')
-        const [ line_attr0, arrow_attr0, from_attr0, to_attr0, attr ] = prefix_split([ 'line', 'arrow', 'from', 'to' ], attr0)
+        const { points, start_dir, end_dir, arrow_size = 0.04, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, stroke_width = 1, stroke_linecap, fill, ...attr0 } = THEME(args, 'Arrow')
+        const [ line_attr0, arrow_attr0, start_attr0, end_attr0, attr ] = prefix_split([ 'line', 'arrow', 'start', 'end' ], attr0)
 
         // arrow defaults
-        const from_arrow = arrow ?? from_arrow0
-        const to_arrow   = arrow ?? to_arrow0
+        const arrow_start = arrow ?? arrow_start0
+        const arrow_end   = arrow ?? arrow_end0
 
         // accumulate arguments
         const stroke_attr = { stroke_width, stroke_linecap }
         const line_attr = { ...stroke_attr, ...line_attr0 }
         const arrow_attr = { fill, ...stroke_attr, ...arrow_attr0 }
-        const from_attr = { ...arrow_attr, ...from_attr0 }
-        const to_attr = { ...arrow_attr, ...to_attr0 }
+        const start_attr = { ...arrow_attr, ...start_attr0 }
+        const end_attr = { ...arrow_attr, ...end_attr0 }
 
         // check for points
-        const data = data0 ?? [ from0, to0 ] as [ Point, Point ]
-        console.log(data)
-        const [ from, from_pre, to_pre, to ] = [ data[0], data[1], data[data.length-2], data[data.length-1] ]
-        if (from == null || to == null) throw new Error('Must provide both `from` and `to` points')
+        if (points == null) throw new Error('Must provide `points`')
+
+        // check for points
+        const [ start, start_pre, end_pre, end ] = [ points[0], points[1], points[points.length-2], points[points.length-1] ]
+        if (start == null || end == null) throw new Error('Must provide both `start` and `end` points')
 
         // get the stroke offset
         const stroke_offset = 0.5 * stroke_width
 
         // infer the from arrow direction
-        const from_direc = from_dir ?? unit_direc(sub_point(from_pre, from))
-        const from_angle = 180 - vector_angle(from_direc)
-        const from_pos = make_mpoint(from, mul_point(from_direc, stroke_offset))
+        const start_direc = unit_direc(start_dir ?? sub_point(start_pre, start))
+        const start_angle = 180 - vector_angle(start_direc)
+        const start_pos = make_mpoint(start, mul_point(start_direc, stroke_offset))
 
         // infer the to arrow direction
-        const to_direc = to_dir ?? unit_direc(sub_point(to, to_pre))
-        const to_angle = -vector_angle(to_direc)
-        const to_pos = make_mpoint(to, mul_point(to_direc, -stroke_offset))
+        const end_direc = unit_direc(end_dir ?? sub_point(end, end_pre))
+        const end_angle = -vector_angle(end_direc)
+        const end_pos = make_mpoint(end, mul_point(end_direc, -stroke_offset))
 
         // make line path
-        const data_adj = [ from_pos, ...data.slice(1, -1), to_pos ]
+        const points_adj = [ start_pos, ...points.slice(1, -1), end_pos ]
         const line_elem = curve ?
-            new Spline({ data: data_adj, dir1: from_direc, dir2: to_direc, curve, ...line_attr }) :
-            new Line({ data: data_adj, ...line_attr })
+            new Spline({ points: points_adj, dir1: start_direc, dir2: end_direc, curve, ...line_attr }) :
+            new Line({ points: points_adj, ...line_attr })
 
         // make arrowheads
-        const to_elem = to_arrow ? new ArrowHead({ angle: to_angle, pos: to, rad: arrow_size, ...to_attr }) : null
-        const from_elem = from_arrow ? new ArrowHead({ angle: from_angle, pos: from, rad: arrow_size, ...from_attr }) : null
+        const start_elem = arrow_start ? new ArrowHead({ angle: start_angle, pos: start, rad: arrow_size, ...start_attr }) : null
+        const end_elem = arrow_end ? new ArrowHead({ angle: end_angle, pos: end, rad: arrow_size, ...end_attr }) : null
 
         // pass to Group
-        super({ children: [ line_elem, to_elem, from_elem ], ...attr })
+        super({ children: [ line_elem, start_elem, end_elem ], ...attr })
         this.args = args
     }
 }
