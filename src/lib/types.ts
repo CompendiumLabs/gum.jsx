@@ -5,7 +5,8 @@ type Point = [number, number]
 type Rect = [number, number, number, number]
 type Limit = [number, number]
 type Size = [number, number]
-type Pair = Point | Size
+type Grad = [number, number]
+type Pair = Point | Size | Limit | Grad
 
 // color
 type RGBA = [number, number, number, number]
@@ -45,7 +46,8 @@ type Spec = {
     expand?: boolean
     align?: Align
     rotate?: number
-    invar?: boolean
+    rotate_invar?: boolean
+    rotate_adjust?: boolean
 }
 
-export type { Point, Rect, Limit, Size, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Cardinal, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+export type { Point, Rect, Limit, Size, Grad, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Orient, Cardinal, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }

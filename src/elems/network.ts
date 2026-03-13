@@ -1,15 +1,15 @@
 // network elements
 
 import { THEME } from '../lib/theme'
-import { make_mpoint, sub_point, abs, mul_point, check_singleton, is_string, unit_direc, vector_angle, cardinal_direc, rect_center, join_limits } from '../lib/utils'
+import { sub_point, abs, mul_point, check_singleton, is_string, cardinal_direc, rect_center, join_limits } from '../lib/utils'
 
 import { Context, Element, Group, prefix_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Frame } from './layout'
-import { ArrowHead, Spline } from './geometry'
+import { Arrow } from './geometry'
 import { Text } from './text'
 
-import type { AlignValue, Cardinal, Direc, Limit, Point, Rect, MPoint } from '../lib/types'
+import type { AlignValue, Cardinal, Limit, Point, Rect, Grad } from '../lib/types'
 
 //
 // cardinal direction utils
@@ -35,75 +35,6 @@ function anchor_point(rect: Rect, direc: Cardinal): Point {
                   (direc == 'w') ? [ xmin, ymid ] :
                   undefined // should never happen
     return point as Point
-}
-
-//
-// arrow spline class
-//
-
-interface ArrowSplineArgs extends GroupArgs {
-    from?: Point
-    to?: Point
-    from_dir?: Direc
-    to_dir?: Direc
-    arrow?: boolean
-    from_arrow?: boolean
-    to_arrow?: boolean
-    arrow_size?: number
-    curve?: number
-}
-
-class ArrowSpline extends Group {
-    constructor(args: ArrowSplineArgs = {}) {
-        const { children: children0, from, to, from_dir, to_dir, arrow, from_arrow: from_arrow0, to_arrow: to_arrow0, arrow_size = 0.04, curve = 2, stroke_width, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'ArrowSpline')
-        const [ spline_attr0, arrow_attr0, from_attr0, to_attr0, attr ] = prefix_split(
-            [ 'spline', 'arrow', 'from', 'to' ], attr0
-        )
-        const from_arrow = arrow ?? from_arrow0 ?? false
-        const to_arrow   = arrow ?? to_arrow0   ?? true
-
-        // accumulate arguments
-        const stroke_attr = { stroke_linecap, stroke_width }
-        const spline_attr = { ...stroke_attr, ...spline_attr0 }
-        const arrow_attr = { fill, ...stroke_attr, ...arrow_attr0 }
-        const from_attr = { ...arrow_attr, ...from_attr0 }
-        const to_attr   = { ...arrow_attr, ...to_attr0   }
-
-        // check for points
-        if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
-
-        // set default directions (gets normalized later)
-        const direc = sub_point(to, from)
-        const dir1 = unit_direc(from_dir ?? direc)
-        const dir2 = unit_direc(to_dir   ?? direc)
-
-        // get arrow offsets
-        const soff = 0.5 * (stroke_width ?? 1)
-        const pos1 = from_arrow ? make_mpoint(from, mul_point(dir1,  soff)) : from
-        const pos2 = to_arrow   ? make_mpoint(to  , mul_point(dir2, -soff)) : to
-
-        // make cubic spline shaft
-        const spline = new Spline({ data: [ pos1, pos2 ], dir1, dir2, curve, coord, ...spline_attr })
-        const children: Element[] = [ spline ]
-
-        // make start arrowhead
-        if (from_arrow) {
-            const ang1 = vector_angle(dir1)
-            const head_beg = new ArrowHead({ direc: 180 - ang1, pos: from, rad: arrow_size, ...from_attr })
-            children.push(head_beg)
-        }
-
-        // make end arrowhead
-        if (to_arrow) {
-            const ang2 = vector_angle(dir2)
-            const head_end = new ArrowHead({ direc: -ang2, pos: to, rad: arrow_size, ...to_attr })
-            children.push(head_end)
-        }
-
-        // pass to Group
-        super({ children, coord, ...attr })
-        this.args = args
-    }
 }
 
 //
@@ -154,13 +85,13 @@ class Edge extends Element {
     to_dir: Cardinal | undefined
 
     constructor(args: EdgeArgs = {}) {
-        const { from, to, from_dir, to_dir, ...attr } = THEME(args, 'Edge')
+        const { from, to, from_dir, to_dir, curve = 2, ...attr } = THEME(args, 'Edge')
 
         // check for nodes
         if (from == null || to == null) throw new Error('Both `from` or `to` must be provided')
 
         // pass to Element
-        super({ tag: 'g', unary: false, ...attr })
+        super({ tag: 'g', unary: false, curve, ...attr })
         this.args = args
 
         // additional props
@@ -190,12 +121,12 @@ class Edge extends Element {
         const direc_to = this.to_dir ?? get_direction(pcenter_to, pcenter_from)
 
         // get anchor points and tangent vectors
-        const from = anchor_point(rect_from, direc_from!)
-        const to = anchor_point(rect_to, direc_to!)
-        const from_dir = cardinal_direc(direc_from!)
-        const to_dir = mul_point(cardinal_direc(direc_to!), -1)
+        const from = anchor_point(rect_from, direc_from)
+        const to = anchor_point(rect_to, direc_to)
+        const from_dir = cardinal_direc(direc_from)
+        const to_dir = mul_point(cardinal_direc(direc_to), -1)
 
-        const path = new ArrowSpline({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
+        const path = new Arrow({ from, to, from_dir, to_dir, coord: ctx.coord, ...attr })
         return path.svg(ctx)
     }
 }
@@ -246,5 +177,5 @@ class Network extends Group {
 // exports
 //
 
-export { ArrowSpline, Node, Edge, Network }
-export type { ArrowSplineArgs, NodeArgs, EdgeArgs, NetworkArgs }
+export { Node, Edge, Network }
+export type { NodeArgs, EdgeArgs, NetworkArgs }

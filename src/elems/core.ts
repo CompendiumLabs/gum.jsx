@@ -37,9 +37,9 @@ function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, 
 }
 
 // get the size of an `aspect` rect that will fit in `size` after `rotate`
-function rotate_rect(size: Size, rotate: number, { aspect, expand = false, invar = false, tol = 0.001 }: { aspect?: number, expand?: boolean, invar?: boolean, tol?: number } = {}): Size {
+function rotate_rect(size: Size, rotate: number, { aspect, expand = false, rotate_invar = false, tol = 0.001 }: { aspect?: number, expand?: boolean, rotate_invar?: boolean, tol?: number } = {}): Size {
     // knock out easy case
-    if (rotate == 0 || invar) return embed_size(size, { aspect, expand })
+    if (rotate == 0 || rotate_invar) return embed_size(size, { aspect, expand })
 
     // unpack inputs
     const [ w0, h0 ] = size
@@ -93,6 +93,19 @@ function rotate_rect(size: Size, rotate: number, { aspect, expand = false, invar
 function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string {
     const [ x, y ] = pos
     return `rotate(${rounder(rotate, prec)}, ${rounder(x, prec)}, ${rounder(y, prec)})`
+}
+
+function adjust_rotate(rotate: number, prect: Rect, coord: Rect): number {
+    if (rotate == 0) return rotate
+    const theta = d2r * rotate
+    const [ cx1, cy1, cx2, cy2 ] = coord
+    const [ px1, py1, px2, py2 ] = prect
+    const [ sx, sy ] = [
+        (px2 - px1) / (cx2 - cx1),
+        (py2 - py1) / (cy2 - cy1),
+    ]
+    const [ vx, vy ] = [ cos(theta) * sx, sin(theta) * sy ]
+    return Math.atan2(vy, vx) / d2r
 }
 
 //
@@ -177,14 +190,17 @@ class Context {
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect0: aspect, expand = false, align = 'center' as Align, rotate = 0, invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
+    map({ rect, aspect0: aspect, expand = false, align = 'center' as Align, rotate = 0, rotate_adjust = false, rotate_invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
         // get true pixel rect (default to parent coord)
         const prect0 = this.mapRect(rect ?? this.coord, offset)
         const [ x0, y0, w0, h0 ] = rect_cbox(prect0)
 
+        // possibly adjust rotate for aspect ratio
+        const rotate1 = rotate_adjust ? adjust_rotate(rotate, prect0, coord) : rotate
+
         // rotate rect inside
-        const [ w, h ] = rotate_rect([ w0, h0 ], rotate, { aspect, expand, invar })
-        const transform = (rotate != null && rotate != 0) ? rotate_repr(rotate, [ x0, y0 ], this.prec) : undefined
+        const [ w, h ] = rotate_rect([ w0, h0 ], rotate1, { aspect, expand, rotate_invar })
+        const transform = rotate1 ? rotate_repr(rotate1, [ x0, y0 ], this.prec) : undefined
 
         // broadcast align into [ halign, valign ] components
         const [ hafrac, vafrac ] = ensure_vector(align, 2).map(align_frac)
@@ -215,7 +231,7 @@ function props_repr(d: Attrs, prec: number): string {
 }
 
 // reserved keys
-const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'invar', 'coord' ]
+const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
 const HELP_KEYS = [ 'pos', 'rad', 'xlim', 'ylim', 'flex', 'spin', 'hflip', 'vflip', 'xrad', 'yrad' ]
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
@@ -266,7 +282,8 @@ interface SpecArgs {
     expand?: boolean
     align?: Align
     rotate?: number
-    invar?: boolean
+    rotate_invar?: boolean
+    rotate_adjust?: boolean
 }
 
 // TODO: children should be Element[] | string
@@ -284,6 +301,7 @@ interface ElementArgs extends SpecArgs {
     yrect?: Limit
     flex?: boolean
     spin?: number
+    orient?: number
     hflip?: boolean
     vflip?: boolean
     debug?: boolean
@@ -299,7 +317,7 @@ class Element {
     attr: Attrs
 
     constructor(args: ElementArgs = {}) {
-        const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, xrect, yrect, flex, spin, hflip, vflip, ...attr0 } = args
+        const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, xrect, yrect, flex, spin, orient, hflip, vflip, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
@@ -324,14 +342,15 @@ class Element {
         }
 
         // various convenience conversions
-        if (spin != null) { this.spec.rotate = spin; this.spec.invar = true }
+        if (spin != null) { this.spec.rotate = spin; this.spec.rotate_invar = true }
+        if (orient != null) { this.spec.rotate = orient; this.spec.rotate_adjust = true }
         if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
         if (vflip === true) this.spec.coord = flip_rect(this.spec.coord, true)
         if (flex === true) this.spec.aspect = undefined
 
         // adjust aspect for rotation
         this.spec.aspect0 = this.spec.aspect
-        this.spec.aspect = this.spec.invar ? this.spec.aspect0 : rotate_aspect(this.spec.aspect, this.spec.rotate)
+        this.spec.aspect = this.spec.rotate_invar ? this.spec.aspect0 : rotate_aspect(this.spec.aspect, this.spec.rotate)
 
         // warn if children are passed
         if (children != null) console.error(`Got children in ${this.constructor.name}`)
@@ -415,8 +434,12 @@ function children_rect(children: Element[], offset: boolean = false): Rect | und
     // get post-rotated vertices of children
     const ctx = new Context()
     const verts = children.flatMap(c => {
-        const { prect } = ctx.map({ ...c.spec, offset })
-        const rot = c.spec.invar ? 0 : c.spec.rotate
+        const spec = { ...c.spec, offset }
+        const { prect } = ctx.map(spec)
+        const prect0 = ctx.mapRect(c.spec.rect ?? ctx.coord, offset)
+        const rot0 = c.spec.rotate ?? 0
+        const rot1 = c.spec.rotate_adjust ? adjust_rotate(rot0, prect0, c.spec.coord ?? D.coord) : rot0
+        const rot = c.spec.rotate_invar ? 0 : rot1
         return rotated_vertices(prect, rot)
     })
 

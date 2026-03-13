@@ -6,7 +6,7 @@ import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_arr
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
-import type { Point, Limit, Attrs, MPoint, Orient, Rounded } from '../lib/types'
+import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
@@ -423,8 +423,8 @@ class CubicSplineCmd extends Command {
 
 interface SplineArgs extends ElementArgs {
     data?: (MPoint | Point)[]
-    dir1?: Point
-    dir2?: Point
+    dir1?: Grad
+    dir2?: Grad
     curve?: number
     closed?: boolean
 }
@@ -536,11 +536,11 @@ interface ArrowHeadArgs extends ElementArgs {
 
 class ArrowHead extends Path {
     constructor(args: ArrowHeadArgs = {}) {
-        const { direc = 0, arc = 75, base: base0, exact = true, aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', ...attr } = THEME(args, 'ArrowHead')
+        const { angle = 0, arc = 75, base: base0, exact = true, aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', rotate: _rotate, spin: _spin, invar: _invar, rotate_adjust: _rotate_adjust, ...attr } = THEME(args, 'ArrowHead')
         const base = base0 ?? (fill != null)
 
-        // get arc positions
-        const [ arc0, arc1, arc2 ] = [ -direc, -direc - arc / 2, -direc + arc / 2 ]
+        // orient the head pointing right
+        const [ arc0, arc1, arc2 ] = [ 0, -arc / 2, arc / 2 ]
         const [ dir0, dir1, dir2 ] = [ arc0, arc1, arc2 ].map(unit_direc)
 
         // get vertex positions
@@ -556,45 +556,67 @@ class ArrowHead extends Path {
         if (base) commands.push(new MoveCmd(pos1), new LineCmd(pos2))
 
         // pass to element
-        super({ children: commands, aspect, fill, stroke_width, stroke_linecap, stroke_linejoin, ...attr })
+        super({ children: commands, aspect, fill, stroke_width, stroke_linecap, stroke_linejoin, orient: -angle, ...attr })
         this.args = args
     }
 }
 
 interface ArrowArgs extends GroupArgs {
+    data?: Point[]
     from?: Point
     to?: Point
+    from_dir?: Grad
+    to_dir?: Grad
     arrow_size?: number
 }
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { from, to, arrow_size = 0.04, stroke_width, stroke_linecap, fill, ...attr0 } = THEME(args, 'Arrow')
-        const [ line_attr0, arrow_attr0, head_attr0, tail_attr0, attr ] = prefix_split([ 'line', 'arrow', 'head', 'tail' ], attr0)
+        const { data: data0, from: from0, to: to0, from_dir, to_dir, arrow_size = 0.04, arrow, from_arrow: from_arrow0 = false, to_arrow: to_arrow0 = true, curve, stroke_width = 1, stroke_linecap, fill, ...attr0 } = THEME(args, 'Arrow')
+        const [ line_attr0, arrow_attr0, from_attr0, to_attr0, attr ] = prefix_split([ 'line', 'arrow', 'from', 'to' ], attr0)
 
-        // accumulate style prefixes
+        // arrow defaults
+        const from_arrow = arrow ?? from_arrow0
+        const to_arrow   = arrow ?? to_arrow0
+
+        // accumulate arguments
         const stroke_attr = { stroke_width, stroke_linecap }
-        const line_attr = { ...stroke_attr, ...tail_attr0, ...line_attr0 }
-        const arrow_attr = { fill, ...stroke_attr, ...head_attr0, ...arrow_attr0 }
+        const line_attr = { ...stroke_attr, ...line_attr0 }
+        const arrow_attr = { fill, ...stroke_attr, ...arrow_attr0 }
+        const from_attr = { ...arrow_attr, ...from_attr0 }
+        const to_attr = { ...arrow_attr, ...to_attr0 }
 
         // check for points
-        if (from == null || to == null) throw new Error('Both `from` and `to` must be provided')
+        const data = data0 ?? [ from0, to0 ] as [ Point, Point ]
+        console.log(data)
+        const [ from, from_pre, to_pre, to ] = [ data[0], data[1], data[data.length-2], data[data.length-1] ]
+        if (from == null || to == null) throw new Error('Must provide both `from` and `to` points')
 
-        // infer the arrow direction from the endpoint vector
-        const direc = sub_point(to, from)
-        const unit_vec = unit_direc(direc)
-        const head_direc = -vector_angle(unit_vec)
+        // get the stroke offset
+        const stroke_offset = 0.5 * stroke_width
 
-        // shorten the line slightly so the stroke meets the arrowhead cleanly
-        const soff = 0.5 * (stroke_width ?? 1)
-        const line_to = make_mpoint(to, mul_point(unit_vec, -soff))
+        // infer the from arrow direction
+        const from_direc = from_dir ?? unit_direc(sub_point(from_pre, from))
+        const from_angle = 180 - vector_angle(from_direc)
+        const from_pos = make_mpoint(from, mul_point(from_direc, stroke_offset))
 
-        // create sub-elements
-        const line_elem = new Line({ data: [ from, line_to ], ...line_attr })
-        const head_elem = new ArrowHead({ direc: head_direc, pos: to, rad: arrow_size, ...arrow_attr })
+        // infer the to arrow direction
+        const to_direc = to_dir ?? unit_direc(sub_point(to, to_pre))
+        const to_angle = -vector_angle(to_direc)
+        const to_pos = make_mpoint(to, mul_point(to_direc, -stroke_offset))
+
+        // make line path
+        const data_adj = [ from_pos, ...data.slice(1, -1), to_pos ]
+        const line_elem = curve ?
+            new Spline({ data: data_adj, dir1: from_direc, dir2: to_direc, curve, ...line_attr }) :
+            new Line({ data: data_adj, ...line_attr })
+
+        // make arrowheads
+        const to_elem = to_arrow ? new ArrowHead({ angle: to_angle, pos: to, rad: arrow_size, ...to_attr }) : null
+        const from_elem = from_arrow ? new ArrowHead({ angle: from_angle, pos: from, rad: arrow_size, ...from_attr }) : null
 
         // pass to Group
-        super({ children: [ line_elem, head_elem ], ...attr })
+        super({ children: [ line_elem, to_elem, from_elem ], ...attr })
         this.args = args
     }
 }
