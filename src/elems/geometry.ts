@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, add_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, unit_direc, vector_angle } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, unit_direc, vector_angle } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 

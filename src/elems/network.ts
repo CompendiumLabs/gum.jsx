@@ -9,7 +9,7 @@ import { Frame } from './layout'
 import { Arrow } from './geometry'
 import { Text } from './text'
 
-import type { AlignValue, Cardinal, Limit, Point, Rect, Grad } from '../lib/types'
+import type { AlignValue, Cardinal, Limit, Point, Rect } from '../lib/types'
 
 //
 // cardinal direction utils
