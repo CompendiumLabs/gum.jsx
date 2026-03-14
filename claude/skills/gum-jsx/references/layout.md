@@ -93,7 +93,7 @@ Generated code:
     { linspace(0, 360, 10).slice(0, 9).map(th =>
       <Frame padding rounded fill>
         <Group aspect={1} spin={th}>
-          <Arrow direc={0} tail={1} pos={[1, 0.5]} rad={0.5} />
+          <Arrow points={[[0, 0.5], [1, 0.5]]} arrow-size={0.2} />
         </Group>
       </Frame>
     ) }
@@ -108,7 +108,7 @@ Generated code:
 Place copies of a common shape at various points. The radius can be specified by the `size` keyword and overridden for particular children. The default shape is a black dot.
 
 Keyword arguments:
-- `data` — a list of points, where each point is either an `[x,y]` pair
+- `points` — a list of points, where each point is either an `[x, y]` pair
 - `shape` = `Dot` — the default shape to use for children
 - `size` = `0.025` — the default radius to use for children
 - `...` = `{}` — additional attributes are passed to the default shape (like `stroke` or `fill`)
@@ -120,7 +120,7 @@ Prompt: A plot of three different increasing curves of varying steepness and mul
 Generated code:
 ```jsx
 <Plot xlim={[-1, 1]} ylim={[-1, 1]} grid margin={0.3} aspect xlabel="time (seconds)" ylabel="space (meters)" title="Spacetime Vibes">
-  <Points size={0.02} data={[
+  <Points size={0.02} points={[
     [0, 0.5], [0.5, 0], [-0.5, 0], [0, -0.5]
   ]} />
   <Rectangle pos={[0.5, 0.5]} rad={0.1} />

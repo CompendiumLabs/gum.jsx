@@ -49,7 +49,7 @@ There are specialized variants for vertical and horizontal lines called **VLine*
 For smooth curves through points, use **Spline** instead.
 
 Parameters:
-- `data` — array of point coordinates (minimum of 2 required)
+- `points` — array of point coordinates (minimum of 2 required)
 
 **Example**
 
@@ -58,11 +58,11 @@ Prompt: draw a diagonal line in blue and a cup shaped line in red
 Generated code:
 ```jsx
 <Group>
-  <Line stroke={blue} data={[
+  <Line stroke={blue} points={[
     [0.2, 0.2],
     [0.8, 0.8],
   ]} />
-  <Line stroke={red} data={[
+  <Line stroke={red} points={[
     [0.3, 0.3],
     [0.3, 0.7],
     [0.7, 0.7],
@@ -80,7 +80,7 @@ The `Shape` element draws a closed polygon through a series of points. It accept
 For open multiple-segment paths, use **Line** instead.
 
 Parameters:
-- `data` — array of point coordinates (minimum of 2 required)
+- `points` — array of point coordinates (minimum of 2 required)
 
 **Example**
 
@@ -89,12 +89,12 @@ Prompt: draw a blue triangle with a semi-transparent green square overlaid on to
 Generated code:
 ```jsx
 <Group>
-  <Shape fill={blue} stroke={none} data={[
+  <Shape fill={blue} stroke={none} points={[
     [0.5, 0.2],
     [0.8, 0.8],
     [0.2, 0.8]
   ]} />
-  <Shape fill={green} stroke={none} opacity={0.5} data={[
+  <Shape fill={green} stroke={none} opacity={0.5} points={[
     [0.3, 0.3],
     [0.7, 0.3],
     [0.7, 0.7],
@@ -112,7 +112,7 @@ This creates a smooth cardinal spline curve through a series of points. The tang
 The `curve` parameter controls the tension of the spline. Lower values (e.g., 0.5) create tighter curves with less overshoot, while higher values (e.g., 1.5) create looser, more flowing curves. The default value of 0.5 produces the canonical *Catmull-Rom* spline.
 
 Parameters:
-- `data` — array of point coordinates (minimum of 2 required)
+- `points` — array of point coordinates (minimum of 2 required)
 - `curve` = `0.5` — tension parameter that scales the tangent vectors
 - `closed` = `false` — toggles whether to make it a closed loop
 - `tan1`/`tan2` — the tangent vectors at the first and last points
@@ -131,9 +131,9 @@ const points = [
   [0.50, 0.50],
 ]
 return <Frame rounded margin>
-  <Spline closed stroke={blue} fill={gray} data={points} />
-  <Shape stroke={red} data={points} />
-  <Points size={0.0075} data={points} />
+  <Spline closed stroke={blue} fill={gray} points={points} />
+  <Shape stroke={red} points={points} />
+  <Points size={0.0075} points={points} />
 </Frame>
 ```
 
@@ -141,20 +141,23 @@ return <Frame rounded margin>
 
 *Inherits*: **Group** > **Element**
 
-Draws an arrowhead, optionally with a tail line extending behind it. The arrow is centered on its local origin and points in the direction specified by `direc` in degrees.
+Draws a straight arrow between two points. This is the straight-line counterpart to **ArrowSpline**: it uses `from` and `to` endpoints, but renders a simple **Line** shaft instead of a curved spline.
 
-The head and tail can be styled separately using prefixed parameters. The head is built from **ArrowHead**-style geometry, while the tail is a simple **Line**.
+The line and arrowhead can be styled separately using prefixed parameters. The head is built from **ArrowHead**-style geometry, while the shaft is a simple **Line**.
 
-For curved paths between different points, see the more user-friendly **ArrowSpline**, which is used for **Network** diagrams.
+The arrow direction is inferred automatically from `from` to `to`.
 
 Parameters:
-- `direc` = `0` — the arrow direction in degrees
-- `head` = `0.25` — size of the arrowhead
-- `tail` = `1` — length of the tail segment behind the head
+- `points` — the points to draw the arrow between (can include intermediate points)
+- `start_dir` / `end_dir` — the direction of the arrowheads at the start and end
+- `arrow` / `arrow_start` / `arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_start`, meaning a directed graph edge
+- `arrow_size` = `0.04` — size of the arrowhead
+- `curve` = `null` — curvature factor forwarded to the spline (`null` or zero means straight line)
 
 Subunit names:
-- `head` — forwarded to the arrowhead
-- `tail` — forwarded to the tail line
+- `line` — forwarded to the shaft line
+- `arrow` — forwarded to the arrowhead
+- `start` / `end` — forwarded to the start and end arrowheads respectively
 
 **Example**
 
@@ -165,7 +168,7 @@ Generated code:
 <Frame rounded>
   <Group aspect={2}>
     <Text pos={[0.2, 0.5]} yrad={0.1} wrap={4} justify="center">Blue Square</Text>
-    <Arrow pos={[0.6, 0.5]} yrad={0.05} tail={6} />
+    <Arrow points={[[0.3, 0.5], [0.6, 0.5]]} />
     <Square pos={[0.75, 0.5]} yrad={0.25} rounded fill={blue} />
   </Group>
 </Frame>

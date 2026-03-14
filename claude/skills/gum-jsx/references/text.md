@@ -26,7 +26,7 @@ Prompt: The text "Hello World! You can mix text and other elements together." wi
 
 Generated code:
 ```jsx
-<TextFrame rounded wrap={10}>
+<TextFrame rounded wrap={10} justify="center">
   Hello World! You can mix text and <Square rounded fill={blue} /> other elements together.
 </TextFrame>
 ```

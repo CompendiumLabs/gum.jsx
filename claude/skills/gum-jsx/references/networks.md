@@ -1,43 +1,5 @@
 # Networks Elements
 
-## ArrowSpline
-
-*Inherits*: **Group** > **Element**
-
-Draws a curved path between two points with optional arrowheads at either or both ends. This is the low-level path primitive used by **Edge** inside **Network**, but it can also be used on its own when you already know the endpoint coordinates.
-
-The spline direction is controlled by `from-dir` and `to-dir`. If those are omitted, they default to the direction from `from` to `to`.
-
-Parameters:
-- `from` / `to` — the starting and ending points of the edge path
-- `from-dir` / `to-dir` — tangent directions at the start and end, either cardinal strings or direction vectors
-- `arrow` / `from-arrow` / `to-arrow` — toggles whether arrowheads are included. `arrow` applies to both ends.
-- `arrow-size` = `0.03` — arrowhead size
-- `curve` = `2` — curvature factor forwarded to the spline
-
-Subunit names:
-- `spline` — forwarded to the spline shaft, for example `spline_stroke`
-- `arrow` — forwarded to both arrowheads
-- `from` / `to` — forwarded to the start and end arrowheads respectively
-
-**Example**
-
-Prompt: a cartoon looking arrow meandering from the bottom left to the top right
-
-Generated code:
-```jsx
-<ArrowSpline
-  arrow
-  from={[0.2, 0.75]}
-  to={[0.8, 0.25]}
-  from_dir="e"
-  to_dir="e"
-  arrow_size={0.1}
-  stroke_width={20}
-  curve={4}
-/>
-```
-
 ## Node
 
 *Inherits*: **Frame** > **Element**
@@ -63,26 +25,23 @@ Generated code:
 <Network aspect node-fill={gray}>
   <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
   <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge from="hello" to="world" />
+  <Edge start="hello" end="world" />
 </Network>
 ```
 
 ## Edge
 
-*Inherits*: **Group** > **Element**
+*Inherits*: **Arrow** > **Group** > **Element**
 
-This creates a cubic spline path from one point to another with optional arrowheads at either or both ends. It is named **Edge** because of its usage in network diagrams with **Network**. The emanation directions are automatically inferred from the relative point positions but can be overriden as well.
+This creates a cubic spline path from one point to another with optional arrowheads at either or both ends. It is named **Edge** because of its usage in network diagrams with **Network**. The emanation directions are automatically inferred from the relative point positions but can be overriden as well. See **Arrow** for more details on the paths and arrowheads.
 
 Parameters:
-- `from`/`to` — the beginning and ending **Node** for the path and where the optional arrowheads are placed, or a `[node, direc]` pair where `direc` specifies the emanation direction
-- `from-dir`/`to-dir` — the emanation directions of the arrowheads, either `'n'`/`'s'`/`'e'`/`'w'` or a `[dx, dy]` pair
-- `arrow`/`from-arrow`/`to-arrow` — toggles whether the respective arrowheads are included. Defaults to `true` for `to-arrow` and `false` for `from-arrow`, meaning a directed graph edge
-- `arrow-size` = `0.03` — the arrowhead size to use for both arrows
-- `arrow-base` = `false` — toggles whether the arrowhead base is included
-
-Subunits:
-- `arrow`/`from`/`to` — the respective arrowheads, with `arrow` being applied to both
-- `spline` — the cubic spline path element
+- `start`/`end` — the beginning and ending **Node** for the path and where the optional arrowheads are placed, or a `[node, direc]` pair where `direc` specifies the emanation direction
+- `start_dir`/`end_dir` — the emanation directions of the arrowheads (cardinal strings or direction vectors)
+- `points` — the intermediate points to draw the spline between
+- `arrow` / `arrow_start` / `arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_start`, meaning a directed graph edge
+- `arrow_size` = `0.04` — the arrowhead size to use for both arrows
+- `curve` = `2` — curvature factor forwarded to the spline
 
 **Example**
 
@@ -93,7 +52,7 @@ Generated code:
 <Network aspect node-fill={gray} edge-arrow>
   <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
   <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge from="hello" to="world" from-fill={red} to-fill={blue} />
+  <Edge start="hello" end="world" start-fill={red} end-fill={blue} />
 </Network>
 ```
 
@@ -122,7 +81,7 @@ Generated code:
   <Node id="hello" pos={[0.25, 0.5]} wrap={3}>Hello world</Node>
   <Node id="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</Node>
   <Node id="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>
-  <Edge from="hello" to="test" />
-  <Edge from="hello" to="ball" from-dir="s" curve={3} />
+  <Edge start="hello" end="test" />
+  <Edge start="hello" end="ball" start-dir="s" curve={3} />
 </Network>
 ```
