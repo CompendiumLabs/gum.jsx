@@ -10,8 +10,8 @@ return <Frame border={2} rounded={0.03} fill={darkgray} padding={0.03} margin>
       {range(0, n*m).map(i => <Rectangle rounded={0.2} fill={pal(i%m)} /> )}
     </Grid>
     <Group stroke-linecap="round">
-      <Spline curve={0.65} stroke={gray} stroke-width={15} opacity={0.25} data={pts} />
-      <Spline curve={0.65} stroke={gray} stroke-width={5} data={pts} />
+      <Spline curve={0.65} stroke={gray} stroke-width={15} opacity={0.25} points={pts} />
+      <Spline curve={0.65} stroke={gray} stroke-width={5} points={pts} />
     </Group>
   </Frame>
 </Frame>

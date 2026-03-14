@@ -11,8 +11,9 @@ const theta1 = theta0.map(t => t + pi / n)
 const polar = (r, t) => [ r * cos(t), r * sin(t) ]
 const points0 = theta0.map(t => polar(1, t))
 const points1 = theta1.map(t => polar(R, t))
+const points = zip(points0, points1).flat()
 
 // return full spline
 return <Frame aspect margin padding rounded fill={gray}>
-  <Spline closed fill={blue} curve={c} coord={[-1, -1, 1, 1]} data={zip(points0, points1).flat()} />
+  <Spline closed fill={blue} curve={c} coord={[-1, -1, 1, 1]} points={points} />
 </Frame>
