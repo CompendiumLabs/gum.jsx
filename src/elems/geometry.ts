@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r, none } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar, sign, rect_size, rect_radius, rect_center, heavisign, heaviside } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar, heavisign, heaviside } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -295,74 +295,38 @@ class LineCmd extends Command {
 class ArcCmd extends Command {
     pos: Point
     rad: Point
-    large: number
-    sweep: number
+    large: boolean
+    sweep: boolean
 
-    constructor(pos: Point, rad: Point, large: number, sweep: number) {
+    constructor(pos: Point, rad: number | Point, sweep: boolean = true, large: boolean = false) {
         super('A')
         this.pos = pos
-        this.rad = rad
+        this.rad = ensure_vector(rad, 2) as Point
         this.large = large
         this.sweep = sweep
     }
 
     args(ctx: Context): string {
         const [ x1, y1 ] = ctx.mapPoint(this.pos)
-        const [ rx, ry ] = ctx.mapSize(this.rad)
-        return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large} ${this.sweep} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
+        const [ rx, ry ] = ctx.mapSize(this.rad).map(abs)
+        return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large ? 1 : 0} ${this.sweep ? 1 : 0} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
     }
 }
 
 interface ArcArgs extends ElementArgs {
-    degrees?: Limit
+    start?: number
+    end?: number
 }
 
-class Arc extends Element {
-    degrees: Limit
-
+class Arc extends Path {
     constructor(args: ArcArgs = {}) {
-        const { degrees = [ 0, 360 ], ...attr } = THEME(args, 'Arc')
-        super({ tag: 'path', unary: true, ...attr })
+        const { start = 0, end = 360, upright = true, ...attr } = THEME(args, 'Arc')
+        const [ theta0, theta1 ] = upright_limits([ start, end ])
+        const large = (theta1 - theta0) > 180
+        const [ point0, point1 ] = [ theta0, theta1 ].map(t => polar([0.5, t], [0.5, 0.5]))
+        const children = [ new MoveCmd(point0), new ArcCmd(point1, 0.5, true, large) ]
+        super({ children, upright, ...attr })
         this.args = args
-        this.degrees = degrees
-    }
-
-    props(ctx: Context): Attrs {
-        const attr = super.props(ctx)
-
-        // get center and radius
-        const pcent = rect_center(ctx.prect)
-        const prad = rect_radius(ctx.prect).map(abs) as Size
-
-        // get proper sweep direction
-        const [ sw, sh ] = rect_size(ctx.coord).map(sign)
-        const [ start, stop ] = this.degrees
-        const delta = stop - start
-        const sweep = heaviside(delta * sw * sh)
-
-        // arc point mapper
-        const size: Size = mul_point([ sw, sh ], prad)
-        const point = (angle: number): Point => polar([size, angle], pcent)
-
-        // make commands
-        const cmds: Command[] = [ new MoveCmd(point(start)) ]
-
-        // possibly two arcs
-        let angle = start
-        let remain = abs(delta)
-        const direc = heavisign(delta)
-        for (let i = 0; i < 2; i++) {
-            if (remain <= 0) break
-            const span = Math.min(remain, 180)
-            angle += direc * span
-            cmds.push(new ArcCmd(point(angle), prad, 0, sweep))
-            remain -= span
-        }
-
-        // join commands
-        const ctx1 = ctx.clone({ coord: ctx.prect, transform: undefined })
-        const d = cmds.map(c => c.data(ctx1)).join(' ')
-        return { d, ...attr }
     }
 }
 

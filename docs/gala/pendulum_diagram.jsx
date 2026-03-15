@@ -32,7 +32,7 @@ return <Box margin={0.06}>
     <Text stack-size={0.1} color={navy}>Simple Pendulum</Text>
 
     {/* Diagram */}
-    <Frame rounded={0.025} fill={cream} clip border={2}><Group aspect={1.25}>
+    <Frame rounded={0.02} fill={cream} clip border={2}><Group aspect={1.25}>
       {/* Mesh background */}
       <Mesh2D xlocs={25} ylocs={20} stroke={navy} stroke-opacity={0.05} />
 
@@ -40,7 +40,7 @@ return <Box margin={0.06}>
       <RoundedRect pos={[0.5, 0]} rad={[0.3, 0.08]} fill={sand} stroke={navy} stroke-width={1.5} rounded={0.1} />
 
       {/* Angle arc */}
-      <Arc pos={[pivotX, pivotY]} rad={arcR} degrees={[90, 90 - angle]} stroke={dustyRose} stroke-width={2} />
+      <Arc pos={[pivotX, pivotY]} rad={arcR} start={90} end={90 - angle} stroke={dustyRose} stroke-width={2} />
       <Latex pos={[pivotX + 0.04, pivotY + 0.18]} yrad={0.05} color={dustyRose}>\theta</Latex>
 
       {/* Dashed equilibrium line */}
@@ -69,6 +69,6 @@ return <Box margin={0.06}>
     </Group></Frame>
 
     {/* Equation of motion */}
-    <Latex stack-size={0.1} color={navy}>{"\\ddot{\\theta} + \\frac{g}{\\ell}\\sin(\\theta) \\approx 0"}</Latex>
+    <Latex stack-size={0.1} color={navy}>{"\\ddot{\\theta} = - (g/\\ell) \\sin(\\theta)"}</Latex>
   </VStack>
 </Box>

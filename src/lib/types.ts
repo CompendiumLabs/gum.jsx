@@ -47,6 +47,7 @@ type Spec = {
     aspect0?: number
     expand?: boolean
     align?: Align
+    upright?: boolean
     rotate?: number
     rotate_invar?: boolean
     rotate_adjust?: boolean

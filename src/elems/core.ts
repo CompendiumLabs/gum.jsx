@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r, pi } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, div_point, vector_angle, polar } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, div_point, vector_angle, polar, upright_rect } from '../lib/utils'
 
 import type { Point, Rect, Limit, Size, AlignValue, Align, Side, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
@@ -200,7 +200,7 @@ class Context {
     }
 
     // NOTE: this is the main mapping function! be very careful when changing it!
-    map({ rect, aspect0: aspect, expand = false, align = 'center' as Align, rotate = 0, rotate_adjust = false, rotate_invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
+    map({ rect, aspect0: aspect, expand = false, align = 'center' as Align, upright = false, rotate = 0, rotate_adjust = false, rotate_invar = false, offset = true, coord = D.coord } = {} as Spec & MapArgs): Context {
         // get true pixel rect (default to parent coord)
         const prect0 = this.mapRect(rect ?? this.coord, offset)
         const [ x0, y0, w0, h0 ] = rect_cbox(prect0)
@@ -220,7 +220,8 @@ class Context {
         ]
 
         // return new context
-        const prect = cbox_rect([ x, y, w, h ])
+        const prect1 = cbox_rect([ x, y, w, h ])
+        const prect = upright ? upright_rect(prect1)! : prect1
         return new Context({ prect, coord, transform, prec: this.prec, meta: this.meta })
     }
 }
@@ -241,7 +242,7 @@ function props_repr(d: Attrs, prec: number): string {
 }
 
 // reserved keys
-const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
+const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'upright', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
 const HELP_KEYS = [ 'pos', 'rad', 'xlim', 'ylim', 'flex', 'spin', 'hflip', 'vflip', 'xrad', 'yrad' ]
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
@@ -291,6 +292,7 @@ interface SpecArgs {
     aspect?: number | 'auto'
     expand?: boolean
     align?: Align
+    upright?: boolean
     rotate?: number
     rotate_invar?: boolean
     rotate_adjust?: boolean
