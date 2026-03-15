@@ -356,10 +356,6 @@ class CornerCmd {
     }
 }
 
-//
-// spline class
-//
-
 interface CubicSplineCmdArgs {
     pos1?: Point | MPoint
     pos2?: Point | MPoint
@@ -373,10 +369,10 @@ interface CubicSplineCmdArgs {
 class CubicSplineCmd extends Command {
     pos1: Point | MPoint
     pos2: Point | MPoint
-    dir1: Point | undefined
-    dir2: Point | undefined
-    tan1: Point | undefined
-    tan2: Point | undefined
+    dir1?: Point
+    dir2?: Point
+    tan1?: Point
+    tan2?: Point
     curve: number
 
     constructor(args: CubicSplineCmdArgs = {}) {
@@ -420,6 +416,10 @@ class CubicSplineCmd extends Command {
         return pointstring([pcon1, pcon2, ppos2], ctx.prec)
     }
 }
+
+//
+// spline class
+//
 
 interface SplineArgs extends ElementArgs {
     points?: (MPoint | Point)[]
