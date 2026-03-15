@@ -2,11 +2,11 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r, none } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar, sign, rect_size, rect_radius, rect_center, heavisign, heaviside } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
-import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
+import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc, Size } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
@@ -122,55 +122,6 @@ class Ellipse extends Element {
 interface ArcArgs extends ElementArgs {
     degrees?: Limit
     range?: Limit
-}
-
-class Arc extends Element {
-    degrees: Limit
-
-    constructor(args: ArcArgs = {}) {
-        const { range, degrees = range ?? [ 0, 360 ], fill = none, ...attr } = THEME(args, 'Arc')
-        super({ tag: 'path', unary: true, fill, ...attr })
-        this.args = args
-        this.degrees = degrees
-    }
-
-    data(ctx: Context): string {
-        const [ cx, cy, rx, ry ] = rect_radial(ctx.prect, true)
-        const [ x0, y0, x1, y1 ] = ctx.coord
-        const [ sx, sy ] = [ Math.sign(x1 - x0) || 1, Math.sign(y1 - y0) || 1 ]
-        const [ start, stop ] = this.degrees
-        const delta = stop - start
-        const sweep = delta * sx * sy >= 0 ? 1 : 0
-
-        const point = (angle: number): Point => {
-            const theta = d2r * angle
-            return [ cx + sx * rx * cos(theta), cy + sy * ry * sin(theta) ]
-        }
-
-        const [ xstart, ystart ] = point(start)
-        const parts = [ `M ${rounder(xstart, ctx.prec)},${rounder(ystart, ctx.prec)}` ]
-
-        let angle = start
-        let remain = abs(delta)
-        const sign = delta >= 0 ? 1 : -1
-        while (remain > 0) {
-            const span = Math.min(remain, 180)
-            angle += sign * span
-            remain -= span
-            const [ x, y ] = point(angle)
-            parts.push(
-                `A ${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 0 ${sweep} ${rounder(x, ctx.prec)},${rounder(y, ctx.prec)}`
-            )
-        }
-
-        return parts.join(' ')
-    }
-
-    props(ctx: Context): Attrs {
-        const attr = super.props(ctx)
-        const d = this.data(ctx)
-        return { d, ...attr }
-    }
 }
 
 class Circle extends Ellipse {
@@ -364,6 +315,51 @@ class ArcCmd extends Command {
         const [ x1, y1 ] = ctx.mapPoint(this.pos)
         const [ rx, ry ] = ctx.mapSize(this.rad)
         return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large} ${this.sweep} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
+    }
+}
+
+class Arc extends Path {
+    degrees: Limit
+
+    constructor(args: ArcArgs = {}) {
+        const { range, degrees = range ?? [ 0, 360 ], fill = none, ...attr } = THEME(args, 'Arc')
+        super({ children: [], fill, ...attr })
+        this.args = args
+        this.degrees = degrees
+    }
+
+    commands(ctx: Context): Command[] {
+        const pcent = rect_center(ctx.prect)
+        const prad = rect_radius(ctx.prect).map(abs) as Size
+        const [ sw, sh ] = rect_size(ctx.coord).map(sign)
+        const [ start, stop ] = this.degrees
+        const delta = stop - start
+        const sweep = heaviside(delta * sw * sh)
+
+        const size: Size = mul_point([ sw, sh ], prad)
+        const point = (angle: number): Point => polar([size, angle], pcent)
+
+        const cmds: Command[] = [ new MoveCmd(point(start)) ]
+
+        let angle = start
+        let remain = abs(delta)
+        const direc = heavisign(delta)
+        for (let i = 0; i < 2; i++) {
+            if (remain <= 0) break
+            const span = Math.min(remain, 180)
+            angle += direc * span
+            cmds.push(new ArcCmd(point(angle), prad, 0, sweep))
+            remain -= span
+        }
+
+        return cmds
+    }
+
+    data(ctx: Context): string {
+        const ctx1 = ctx.clone({ prect: ctx.prect, coord: ctx.prect, transform: undefined })
+        return this.commands(ctx)
+            .map(c => c.data(ctx1))
+            .join(' ')
     }
 }
 
