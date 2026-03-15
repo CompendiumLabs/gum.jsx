@@ -119,11 +119,6 @@ class Ellipse extends Element {
     }
 }
 
-interface ArcArgs extends ElementArgs {
-    degrees?: Limit
-    range?: Limit
-}
-
 class Circle extends Ellipse {
     constructor(args: ElementArgs = {}) {
         const { ...attr } = THEME(args, 'Circle')
@@ -318,29 +313,41 @@ class ArcCmd extends Command {
     }
 }
 
-class Arc extends Path {
+interface ArcArgs extends ElementArgs {
+    degrees?: Limit
+}
+
+class Arc extends Element {
     degrees: Limit
 
     constructor(args: ArcArgs = {}) {
-        const { range, degrees = range ?? [ 0, 360 ], fill = none, ...attr } = THEME(args, 'Arc')
-        super({ children: [], fill, ...attr })
+        const { degrees = [ 0, 360 ], ...attr } = THEME(args, 'Arc')
+        super({ tag: 'path', unary: true, ...attr })
         this.args = args
         this.degrees = degrees
     }
 
-    commands(ctx: Context): Command[] {
+    props(ctx: Context): Attrs {
+        const attr = super.props(ctx)
+
+        // get center and radius
         const pcent = rect_center(ctx.prect)
         const prad = rect_radius(ctx.prect).map(abs) as Size
+
+        // get proper sweep direction
         const [ sw, sh ] = rect_size(ctx.coord).map(sign)
         const [ start, stop ] = this.degrees
         const delta = stop - start
         const sweep = heaviside(delta * sw * sh)
 
+        // arc point mapper
         const size: Size = mul_point([ sw, sh ], prad)
         const point = (angle: number): Point => polar([size, angle], pcent)
 
+        // make commands
         const cmds: Command[] = [ new MoveCmd(point(start)) ]
 
+        // possibly two arcs
         let angle = start
         let remain = abs(delta)
         const direc = heavisign(delta)
@@ -352,14 +359,10 @@ class Arc extends Path {
             remain -= span
         }
 
-        return cmds
-    }
-
-    data(ctx: Context): string {
-        const ctx1 = ctx.clone({ prect: ctx.prect, coord: ctx.prect, transform: undefined })
-        return this.commands(ctx)
-            .map(c => c.data(ctx1))
-            .join(' ')
+        // join commands
+        const ctx1 = ctx.clone({ coord: ctx.prect, transform: undefined })
+        const d = cmds.map(c => c.data(ctx1)).join(' ')
+        return { d, ...attr }
     }
 }
 
