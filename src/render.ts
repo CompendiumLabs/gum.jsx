@@ -44,6 +44,14 @@ interface RasterizeArgs {
   background?: string
 }
 
+interface FormatImageArgs {
+  imageId?: number | null
+  chunkSize?: number
+  columns?: number
+  rows?: number
+  cursorMovement?: boolean
+}
+
 // build fitTo object from width/height options
 function buildFitTo(width?: number, height?: number): FitTo {
   if (height != null && width != null) {
@@ -74,9 +82,17 @@ function rasterizeSvg(svg: string | Buffer, { size, width, height, background }:
 }
 
 // kitty image protocol
-function formatImage(pngBuffer: Buffer, { imageId = null as number | null, chunkSize = 4096 } = {}): string {
-  const idParam = imageId != null ? `,i=${imageId}` : ''
+function formatImage(
+  pngBuffer: Buffer,
+  { imageId = null, chunkSize = 4096, columns, rows, cursorMovement = true }: FormatImageArgs = {}
+): string {
   const base64 = pngBuffer.toString('base64')
+  const head = [ 'f=100', 'a=T', 'q=1' ]
+
+  if (imageId != null) head.push(`i=${imageId}`)
+  if (columns != null) head.push(`c=${columns}`)
+  if (rows != null) head.push(`r=${rows}`)
+  if (!cursorMovement) head.push('C=1')
 
   let result = ''
   for (let i = 0; i < base64.length; i += chunkSize) {
@@ -84,7 +100,7 @@ function formatImage(pngBuffer: Buffer, { imageId = null as number | null, chunk
     const isFirst = i === 0
     const isLast = i + chunkSize >= base64.length
     const control = isFirst
-      ? `f=100,a=T${idParam},q=1,m=${isLast ? 0 : 1}`
+      ? [ ...head, `m=${isLast ? 0 : 1}` ].join(',')
       : `m=${isLast ? 0 : 1}`
 
     result += `\x1b_G${control};${chunk}\x1b\\`
@@ -103,4 +119,4 @@ async function readStdin(): Promise<string> {
 }
 
 export { rasterizeSvg, formatImage, readStdin }
-export type { RasterizeArgs }
+export type { RasterizeArgs, FormatImageArgs }
