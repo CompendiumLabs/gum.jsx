@@ -1,7 +1,7 @@
 // geometry elements
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D, d2r } from '../lib/const'
+import { DEFAULTS as D, d2r, none } from '../lib/const'
 import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
@@ -116,6 +116,60 @@ class Ellipse extends Element {
         const { prect } = ctx
         let [ cx, cy, rx, ry ] = rect_radial(prect, true)
         return { cx, cy, rx, ry, ...attr }
+    }
+}
+
+interface ArcArgs extends ElementArgs {
+    degrees?: Limit
+    range?: Limit
+}
+
+class Arc extends Element {
+    degrees: Limit
+
+    constructor(args: ArcArgs = {}) {
+        const { range, degrees = range ?? [ 0, 360 ], fill = none, ...attr } = THEME(args, 'Arc')
+        super({ tag: 'path', unary: true, fill, ...attr })
+        this.args = args
+        this.degrees = degrees
+    }
+
+    data(ctx: Context): string {
+        const [ cx, cy, rx, ry ] = rect_radial(ctx.prect, true)
+        const [ x0, y0, x1, y1 ] = ctx.coord
+        const [ sx, sy ] = [ Math.sign(x1 - x0) || 1, Math.sign(y1 - y0) || 1 ]
+        const [ start, stop ] = this.degrees
+        const delta = stop - start
+        const sweep = delta * sx * sy >= 0 ? 1 : 0
+
+        const point = (angle: number): Point => {
+            const theta = d2r * angle
+            return [ cx + sx * rx * cos(theta), cy + sy * ry * sin(theta) ]
+        }
+
+        const [ xstart, ystart ] = point(start)
+        const parts = [ `M ${rounder(xstart, ctx.prec)},${rounder(ystart, ctx.prec)}` ]
+
+        let angle = start
+        let remain = abs(delta)
+        const sign = delta >= 0 ? 1 : -1
+        while (remain > 0) {
+            const span = Math.min(remain, 180)
+            angle += sign * span
+            remain -= span
+            const [ x, y ] = point(angle)
+            parts.push(
+                `A ${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 0 ${sweep} ${rounder(x, ctx.prec)},${rounder(y, ctx.prec)}`
+            )
+        }
+
+        return parts.join(' ')
+    }
+
+    props(ctx: Context): Attrs {
+        const attr = super.props(ctx)
+        const d = this.data(ctx)
+        return { d, ...attr }
     }
 }
 
@@ -630,5 +684,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, Square, Ellipse, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
-export type { LineArgs, UnitLineArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }
+export { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }
