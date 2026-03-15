@@ -1,12 +1,12 @@
 // geometry elements
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D, d2r, none } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar, heavisign, heaviside } from '../lib/utils'
+import { DEFAULTS as D, d2r } from '../lib/const'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
-import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc, Size } from '../lib/types'
+import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc, Rect } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
@@ -313,23 +313,6 @@ class ArcCmd extends Command {
     }
 }
 
-interface ArcArgs extends ElementArgs {
-    start?: number
-    end?: number
-}
-
-class Arc extends Path {
-    constructor(args: ArcArgs = {}) {
-        const { start = 0, end = 360, upright = true, ...attr } = THEME(args, 'Arc')
-        const [ theta0, theta1 ] = upright_limits([ start, end ])
-        const large = (theta1 - theta0) > 180
-        const [ point0, point1 ] = [ theta0, theta1 ].map(t => polar([0.5, t], [0.5, 0.5]))
-        const children = [ new MoveCmd(point0), new ArcCmd(point1, 0.5, true, large) ]
-        super({ children, upright, ...attr })
-        this.args = args
-    }
-}
-
 // this makes a rounded corner between two points
 // the direction is by default counter-clockwise
 // this assumes the cursor is at pos0
@@ -537,6 +520,28 @@ class RoundedRect extends Path {
         const prect = upright_rect(prect0)
         const ctx1 = ctx.clone({ prect })
         return super.props(ctx1)
+    }
+}
+
+//
+// arc classe
+//
+
+interface ArcArgs extends ElementArgs {
+    start?: number
+    end?: number
+}
+
+class Arc extends Path {
+    constructor(args: ArcArgs = {}) {
+        const { start, end, upright = true, ...attr } = THEME(args, 'Arc')
+        if (start == null || end == null) throw new Error('Must provide `start` and `end` angles')
+        const [ theta0, theta1 ] = upright_limits([ start, end ])
+        const large = (theta1 - theta0) > 180
+        const [ point0, point1 ] = [ theta0, theta1 ].map(t => polar([0.5, t], [0.5, 0.5]))
+        const children = [ new MoveCmd(point0), new ArcCmd(point1, 0.5, true, large) ]
+        super({ children, upright, ...attr })
+        this.args = args
     }
 }
 
