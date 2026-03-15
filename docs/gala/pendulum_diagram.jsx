@@ -1,30 +1,26 @@
-// Pendulum Diagram — stately, muted palette
+// Pendulum Diagram
 const slate = '#4a5568'
 const steel = '#718096'
-const sand = '#c4b5a0'
+const sand  = '#c4b5a0'
 const cream = '#f5f0e8'
-const navy = '#2d3748'
-const dustyRose = '#9e6060'
-const sage = '#5a8a6e'
+const navy  = '#2d3748'
+const rose  = '#9e6060'
+const sage  = '#5a8a6e'
 
-// Geometry
+// Diagram constants
 const pivotX = 0.5
 const pivotY = 0.08
+const rodAng = 25
 const rodLen = 0.7
+const bobRad = 0.075
+const arcRad = 0.25
 
-// Angle of pendulum
-const angle = 25
-const bobR = 0.075
-const arcR = 0.25
-
-// Bob positions
-const [ bobX, bobY ] = polar([rodLen, 90 - angle], [pivotX, pivotY])
-const [ tEndX, tEndY ] = polar([0.75 * rodLen, 90 - angle], [pivotX, pivotY])
-const eqEndY = pivotY + rodLen
-
-// Midpoint of rod for length label
-const midRodX = (pivotX + bobX) / 2
-const midRodY = (pivotY + bobY) / 2
+// Computed positions
+const rodRot = 90 - rodAng
+const eqnY = pivotY + rodLen
+const [ bobX, bobY ] = polar([rodLen, rodRot], [pivotX, pivotY])
+const [ midX, midY ] = polar([0.50 * rodLen, rodRot], [pivotX, pivotY])
+const [ tenX, tenY ] = polar([0.75 * rodLen, rodRot], [pivotX, pivotY])
 
 return <Box margin={0.06}>
   <VStack spacing={0.05}>
@@ -40,30 +36,30 @@ return <Box margin={0.06}>
       <RoundedRect pos={[0.5, 0]} rad={[0.3, 0.08]} fill={sand} stroke={navy} stroke-width={1.5} rounded={0.1} />
 
       {/* Angle arc */}
-      <Arc pos={[pivotX, pivotY]} rad={arcR} start={90} end={90 - angle} stroke={dustyRose} stroke-width={2} />
-      <Latex pos={[pivotX + 0.04, pivotY + 0.18]} yrad={0.05} color={dustyRose}>\theta</Latex>
+      <Arc pos={[pivotX, pivotY]} rad={arcRad} start={90} end={rodRot} stroke={rose} stroke-width={2} />
+      <Latex pos={[pivotX + 0.04, pivotY + 0.18]} yrad={0.05} color={rose}>\theta</Latex>
 
-      {/* Dashed equilibrium line */}
-      <Line stroke={steel} stroke-width={2} stroke-dasharray={4} points={[[pivotX, pivotY], [pivotX, eqEndY]]} />
-      <Dot pos={[pivotX, eqEndY]} rad={0.01} color={steel} stroke-width={2}/>
+      {/* Equilibrium line */}
+      <Line stroke={steel} stroke-width={2} stroke-dasharray={4} points={[[pivotX, pivotY], [pivotX, eqnY]]} />
+      <Dot pos={[pivotX, eqnY]} rad={0.01} color={steel} stroke-width={2}/>
 
       {/* Rod */}
       <Line stroke={navy} stroke-width={2.5} points={[[pivotX, pivotY], [bobX, bobY]]} />
-      <Latex pos={[midRodX - 0.02, midRodY + 0.06]} yrad={0.05} color={navy}>\ell</Latex>
+      <Latex pos={[midX - 0.02, midY + 0.06]} yrad={0.05} color={navy}>\ell</Latex>
 
       {/* Pivot point */}
       <Circle pos={[pivotX, pivotY]} rad={0.01} fill={slate} stroke={navy} stroke-width={1.5} />
 
       {/* Tension arrow */}
-      <Arrow points={[[bobX, bobY], [tEndX, tEndY]]} stroke={sage} stroke-width={2} arrow-fill={sage} arrow-size={0.04} />
-      <Latex pos={[tEndX + 0.06, tEndY + 0.01]} yrad={0.05} color={sage}>T</Latex>
+      <Arrow points={[[bobX, bobY], [tenX, tenY]]} stroke={sage} stroke-width={2} arrow-fill={sage} arrow-size={0.04} />
+      <Latex pos={[tenX + 0.06, tenY + 0.01]} yrad={0.05} color={sage}>T</Latex>
 
       {/* Gravity arrow */}
-      <Arrow points={[[bobX, bobY], [bobX, bobY + bobR + 0.13]]} stroke={dustyRose} stroke-width={2} arrow-fill={dustyRose} arrow-size={0.03} />
-      <Latex pos={[bobX + 0.09, bobY + bobR + 0.1]} yrad={0.05} color={dustyRose}>mg</Latex>
+      <Arrow points={[[bobX, bobY], [bobX, bobY + bobRad + 0.13]]} stroke={rose} stroke-width={2} arrow-fill={rose} arrow-size={0.03} />
+      <Latex pos={[bobX + 0.09, bobY + bobRad + 0.1]} yrad={0.05} color={rose}>mg</Latex>
 
       {/* Bob */}
-      <Frame aspect={1} pos={[bobX, bobY]} rad={bobR} padding={0.5} fill={sage} stroke={navy}border={2} shape={<Circle />}>
+      <Frame aspect={1} pos={[bobX, bobY]} rad={bobRad} padding={0.5} fill={sage} stroke={navy}border={2} shape={<Circle />}>
         <Latex color={white}>m</Latex>
       </Frame>
     </Group></Frame>
