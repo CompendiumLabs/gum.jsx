@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r, none } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, rounder, abs, cos, sin, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -209,11 +209,11 @@ class Ray extends Line {
         const theta = angle * d2r
         const [ x, y ] = loc
         const [ rx, ry ] = ensure_vector(size, 2)
-        const children = [
+        const points: Point[] = [
             [ x, y ],
-            [ x + rx * cos(theta), y + ry * sin(theta) ]
+            polar([ [ rx, ry ], theta ], [ x, y ])
         ]
-        super({ children, ...attr })
+        super({ points, ...attr })
         this.args = args
     }
 }

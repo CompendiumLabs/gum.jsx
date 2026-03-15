@@ -1,8 +1,8 @@
 // core components
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer } from '../lib/utils'
+import { DEFAULTS as D, svgns, sans, light, blue, red, d2r, pi } from '../lib/const'
+import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, div_point, vector_angle, polar } from '../lib/utils'
 
 import type { Point, Rect, Limit, Size, AlignValue, Align, Side, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
@@ -111,15 +111,11 @@ function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string 
 
 function adjust_rotate(rotate: number, prect: Rect, coord: Rect): number {
     if (rotate == 0) return rotate
-    const theta = d2r * rotate
-    const [ cx1, cy1, cx2, cy2 ] = coord
-    const [ px1, py1, px2, py2 ] = prect
-    const [ sx, sy ] = [
-        (px2 - px1) / (cx2 - cx1),
-        (py2 - py1) / (cy2 - cy1),
-    ]
-    const [ vx, vy ] = [ cos(theta) * sx, sin(theta) * sy ]
-    return Math.atan2(vy, vx) / d2r
+    const csize = rect_size(coord)
+    const psize = rect_size(prect)
+    const proj = div_point(psize, csize)
+    const vec = polar([ proj, rotate ])
+    return vector_angle(vec)
 }
 
 //

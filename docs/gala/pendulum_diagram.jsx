@@ -13,19 +13,14 @@ const pivotY = 0.08
 const rodLen = 0.7
 
 // Angle of pendulum
-const angle = 25 * d2r
-const angleDeg = angle * r2d
+const angle = 25
 const bobR = 0.075
 const arcR = 0.25
 
-// Bob position
-const bobX = pivotX + rodLen * sin(angle)
-const bobY = pivotY + rodLen * cos(angle)
+// Bob positions
+const [ bobX, bobY ] = polar([rodLen, 90 - angle], [pivotX, pivotY])
+const [ tEndX, tEndY ] = polar([0.75 * rodLen, 90 - angle], [pivotX, pivotY])
 const eqEndY = pivotY + rodLen
-
-// Tension arrow direction (along rod, toward pivot)
-const tEndX = pivotX + 0.75 * rodLen * sin(angle)
-const tEndY = pivotY + 0.75 * rodLen * cos(angle)
 
 // Midpoint of rod for length label
 const midRodX = (pivotX + bobX) / 2
@@ -45,7 +40,7 @@ return <Box margin={0.06}>
       <RoundedRect pos={[0.5, 0]} rad={[0.3, 0.08]} fill={sand} stroke={navy} stroke-width={1.5} rounded={0.1} />
 
       {/* Angle arc */}
-      <Arc pos={[pivotX, pivotY]} rad={arcR} degrees={[90, 90 - angleDeg]} stroke={dustyRose} stroke-width={2} />
+      <Arc pos={[pivotX, pivotY]} rad={arcR} degrees={[90, 90 - angle]} stroke={dustyRose} stroke-width={2} />
       <Latex pos={[pivotX + 0.04, pivotY + 0.18]} yrad={0.05} color={dustyRose}>\theta</Latex>
 
       {/* Dashed equilibrium line */}

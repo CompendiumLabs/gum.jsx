@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Angle, Direc, Size, Pair, Grad } from './types'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Angle, Direc, Size, Pair, Grad, Polar } from './types'
 
 //
 // environment tests
@@ -419,7 +419,7 @@ function normal(mean?: number, stdv?: number): Point {
     stdv = stdv ?? 1
     const [ u, v ] = [ 1 - random(), random() ]
     const [ r, t ] = [ sqrt(-2 * log(u)), 2 * pi * v ]
-    const [ a, b ] = [ r * cos(t), r * sin(t) ]
+    const [ a, b ] = polar([ r, t ])
     return [ a, b ].map(x => mean + stdv * x) as Point
 }
 
@@ -777,6 +777,11 @@ function angle_direc(angle: Angle): Point {
     return [ cos(d2r * angle), sin(d2r * angle) ]
 }
 
+function polar([radius, angle]: Polar, center?: Point): Point {
+    const offset = mul_point(radius, angle_direc(angle))
+    return center ? add_point(center, offset) : offset
+}
+
 function norm_side(side: Side): Side0 {
     if (side == 'top' || side == 't' || side == 'north' || side == 'n') return 't'
     if (side == 'bottom' || side == 'b' || side == 'south' || side == 's') return 'b'
@@ -858,4 +863,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add_point, sub_point, mul_point, div_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add_point, sub_point, mul_point, div_point, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, rounder, remap_rect, resizer, rescaler, rotate_aspect }
