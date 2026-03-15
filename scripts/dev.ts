@@ -6,8 +6,10 @@ import { basename, resolve } from 'path'
 
 import { evaluateGum } from '../src/eval'
 import { formatImage, rasterizeSvg } from '../src/render'
+import type { Size } from '../src/lib/types'
 
-const IMAGE_ID = 1
+const IMAGE_IDS = [ 1, 2 ] as const
+const PLACEMENT_ID = 1
 const CELL_RATIO = 0.5
 const MARGIN_COLS = 2
 const MARGIN_ROWS = 2
@@ -16,6 +18,11 @@ const RENDER_DELAY = 40
 
 let closed = false
 let renderTimer: ReturnType<typeof setTimeout> | null = null
+let pendingFullRender = true
+let activeImageId: number | null = null
+let activeBox: CellRect | null = null
+let activeSize: Size | null = null
+let lastErrorMessage: string | null = null
 
 interface ViewerOptions {
   theme: string
@@ -54,6 +61,15 @@ function write(data: string): void {
 
 function clearScreen(): void {
   write('\x1b[2J\x1b[H')
+}
+
+function clearTextScreen(): void {
+  const rows = process.stdout.rows ?? 24
+  let out = ''
+  for (let row = 1; row <= rows; row++) {
+    out += `\x1b[${row};1H\x1b[2K`
+  }
+  write(out)
 }
 
 function moveCursor(row: number, col: number): void {
@@ -97,10 +113,32 @@ function fitCells(width: number, height: number): CellRect {
   }
 }
 
-function showError(error: unknown): void {
-  clearScreen()
+function deleteImage(imageId: number): void {
+  write(`\x1b_Ga=d,d=I,i=${imageId},q=1\x1b\\`)
+}
 
+function placeImage(imageId: number, box: CellRect): void {
+  moveCursor(box.row, box.col)
+  write(`\x1b_Ga=p,i=${imageId},p=${PLACEMENT_ID},c=${box.cols},r=${box.rows},C=1,q=1\x1b\\`)
+}
+
+function nextImageId(): number {
+  return activeImageId === IMAGE_IDS[0] ? IMAGE_IDS[1] : IMAGE_IDS[0]
+}
+
+function showError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error)
+  lastErrorMessage = message
+
+  if (activeImageId != null) {
+    deleteImage(activeImageId)
+    activeImageId = null
+    activeBox = null
+    activeSize = null
+  }
+
+  clearTextScreen()
+
   const lines = [
     basename(file),
     '',
@@ -116,9 +154,7 @@ function showError(error: unknown): void {
   moveCursor(process.stdout.rows ?? 24, 1)
 }
 
-function render(): void {
-  renderTimer = null
-
+function renderFile(): void {
   try {
     const code = readFileSync(file, 'utf-8')
     const elem = evaluateGum(code, { size: opts.size, theme: opts.theme })
@@ -126,25 +162,76 @@ function render(): void {
     const [ width, height ] = elem.size
     const box = fitCells(width, height)
     const png = rasterizeSvg(svg, { size: elem.size, background: opts.background })
+    const imageId = nextImageId()
+    const prevImageId = activeImageId
 
-    clearScreen()
+    if (lastErrorMessage != null) clearTextScreen()
+
     moveCursor(box.row, box.col)
     write(formatImage(png, {
-      imageId: IMAGE_ID,
+      imageId,
+      placementId: PLACEMENT_ID,
       columns: box.cols,
       rows: box.rows,
       cursorMovement: false,
     }))
+
+    if (prevImageId != null) deleteImage(prevImageId)
+
+    activeImageId = imageId
+    activeBox = box
+    activeSize = elem.size
+    lastErrorMessage = null
     moveCursor(process.stdout.rows ?? 24, 1)
   } catch (error) {
     showError(error)
   }
 }
 
-function scheduleRender(): void {
+function updateLayout(): void {
+  if (lastErrorMessage != null) {
+    showError(lastErrorMessage)
+    return
+  }
+
+  if (activeImageId == null || activeSize == null) {
+    renderFile()
+    return
+  }
+
+  const [ width, height ] = activeSize
+  const box = fitCells(width, height)
+  if (
+    activeBox != null &&
+    box.cols === activeBox.cols &&
+    box.rows === activeBox.rows &&
+    box.col === activeBox.col &&
+    box.row === activeBox.row
+  ) {
+    return
+  }
+
+  placeImage(activeImageId, box)
+  activeBox = box
+  moveCursor(process.stdout.rows ?? 24, 1)
+}
+
+function flushRender(): void {
+  renderTimer = null
+
+  if (pendingFullRender) {
+    pendingFullRender = false
+    renderFile()
+  } else {
+    updateLayout()
+  }
+}
+
+function scheduleRender(fullRender = false): void {
   if (closed) return
+  pendingFullRender = pendingFullRender || fullRender
   if (renderTimer != null) clearTimeout(renderTimer)
-  renderTimer = setTimeout(render, RENDER_DELAY)
+  renderTimer = setTimeout(flushRender, RENDER_DELAY)
 }
 
 function closeViewer(code = 0): void {
@@ -161,8 +248,8 @@ function closeViewer(code = 0): void {
   process.exit(code)
 }
 
-watchFile(file, { interval: WATCH_INTERVAL }, scheduleRender)
-process.on('SIGWINCH', scheduleRender)
+watchFile(file, { interval: WATCH_INTERVAL }, () => scheduleRender(true))
+process.on('SIGWINCH', () => scheduleRender(false))
 process.on('SIGINT', () => closeViewer(0))
 process.on('SIGTERM', () => closeViewer(0))
 process.on('uncaughtException', error => {
@@ -171,4 +258,4 @@ process.on('uncaughtException', error => {
 
 write('\x1b[?1049h')
 write('\x1b[?25l')
-scheduleRender()
+scheduleRender(true)

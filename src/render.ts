@@ -46,6 +46,7 @@ interface RasterizeArgs {
 
 interface FormatImageArgs {
   imageId?: number | null
+  placementId?: number | null
   chunkSize?: number
   columns?: number
   rows?: number
@@ -84,12 +85,13 @@ function rasterizeSvg(svg: string | Buffer, { size, width, height, background }:
 // kitty image protocol
 function formatImage(
   pngBuffer: Buffer,
-  { imageId = null, chunkSize = 4096, columns, rows, cursorMovement = true }: FormatImageArgs = {}
+  { imageId = null, placementId = null, chunkSize = 4096, columns, rows, cursorMovement = true }: FormatImageArgs = {}
 ): string {
   const base64 = pngBuffer.toString('base64')
   const head = [ 'f=100', 'a=T', 'q=1' ]
 
   if (imageId != null) head.push(`i=${imageId}`)
+  if (placementId != null) head.push(`p=${placementId}`)
   if (columns != null) head.push(`c=${columns}`)
   if (rows != null) head.push(`r=${rows}`)
   if (!cursorMovement) head.push('C=1')
