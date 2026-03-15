@@ -29,7 +29,7 @@ const midRodY = (pivotY + bobY) / 2
 return <Box margin={0.06}>
   <VStack spacing={0.05}>
     {/* Title */}
-    <Text stack-size={0.1}>Simple Pendulum</Text>
+    <Text stack-size={0.1} color={navy}>Simple Pendulum</Text>
 
     {/* Diagram */}
     <Frame rounded={0.025} fill={cream} clip border={2}><Group aspect={1.25}>
@@ -49,6 +49,7 @@ return <Box margin={0.06}>
 
       {/* Rod */}
       <Line stroke={navy} stroke-width={2.5} points={[[pivotX, pivotY], [bobX, bobY]]} />
+      <Latex pos={[midRodX - 0.02, midRodY + 0.06]} yrad={0.05} color={navy}>\ell</Latex>
 
       {/* Pivot point */}
       <Circle pos={[pivotX, pivotY]} rad={0.01} fill={slate} stroke={navy} stroke-width={1.5} />
@@ -63,14 +64,11 @@ return <Box margin={0.06}>
 
       {/* Bob */}
       <Frame aspect={1} pos={[bobX, bobY]} rad={bobR} padding={0.5} fill={sage} stroke={navy}border={2} shape={<Circle />}>
-        <Latex>m</Latex>
+        <Latex color={white}>m</Latex>
       </Frame>
-
-      {/* Length label */}
-      <Latex pos={[midRodX - 0.02, midRodY + 0.06]} yrad={0.05} color={navy}>\ell</Latex>
     </Group></Frame>
 
     {/* Equation of motion */}
-    <Latex stack-size={0.1}>{"\\ddot{\\theta} + \\frac{g}{\\ell}\\sin(\\theta) \\approx 0"}</Latex>
+    <Latex stack-size={0.1} color={navy}>{"\\ddot{\\theta} + \\frac{g}{\\ell}\\sin(\\theta) \\approx 0"}</Latex>
   </VStack>
 </Box>

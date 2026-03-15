@@ -4,12 +4,12 @@ import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Group, Rectangle, Spacer, prefix_split } from './core'
+import { Context, Element, Rectangle, Spacer, prefix_split, spec_split } from './core'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
-import type { Padding, Size } from '../lib/types'
+import type { Padding, Size, Attrs } from '../lib/types'
 import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
@@ -619,11 +619,11 @@ class Bracket extends HStack {
 // parse katex tree
 //
 
-function convert_tree(tree: Tree | TreeNode | null): Element {
+function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): Element {
     if (tree == null) return EMPTY_MATH
 
     if (is_array(tree)) {
-        const row = new MathText({ children: tree.map(node => convert_tree(node)) })
+        const row = new MathText({ children: tree.map(node => convert_tree(node, attr)) })
         return row.children.length > 0 ? row : EMPTY_MATH
     }
 
@@ -632,60 +632,60 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
 
         if (type == 'mathord') {
             const { mode, text } = tree
-            return new MathSymbol({ children: [ text ], mode })
+            return new MathSymbol({ children: [ text ], mode, ...attr })
         } else if (type == 'textord') {
             const { mode, text } = tree
-            return new MathSymbol({ children: [ text ], mode })
+            return new MathSymbol({ children: [ text ], mode, ...attr })
         } else if (type == 'atom') {
             const { mode, text, family } = tree
-            return new MathSymbol({ children: [ text ], mode, family })
+            return new MathSymbol({ children: [ text ], mode, family, ...attr })
         } else if (type == 'ordgroup') {
             const { body } = tree
-            return convert_tree(body)
+            return convert_tree(body, attr)
         } else if (type == 'op') {
             const { mode, name } = tree
             const entry = get_symbol_entry(mode, name)
             if (entry != null) {
-                return new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family: OP_SYMBOL_FONT })
+                return new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family: OP_SYMBOL_FONT, ...attr })
             } else {
                 const name1 = name.slice(1)
-                return new MathSymbol({ children: [ name1 ], mode: 'text', klass: 'mop' })
+                return new MathSymbol({ children: [ name1 ], mode: 'text', klass: 'mop', ...attr })
             }
         } else if (type == 'text') {
             const { body } = tree
-            return convert_tree(body)
+            return convert_tree(body, attr)
         } else if (type == 'accent') {
             const { label, base: base0 } = tree
-            const base = convert_tree(base0)
-            return new Accent({ children: [ base ], label })
+            const base = convert_tree(base0, attr)
+            return new Accent({ children: [ base ], label, ...attr })
         } else if (type == 'kern') {
             const { dimension } = tree
             const em = measurement_to_em(dimension)
             return new Spacer({ aspect: em })
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
-            const base = convert_tree(base0)
-            const sup = sup0 ? convert_tree(sup0) : null
-            const sub = sub0 ? convert_tree(sub0) : null
-            return new SupSub({ children: [ base ], sup, sub })
+            const base = convert_tree(base0, attr)
+            const sup = sup0 ? convert_tree(sup0, attr) : null
+            const sub = sub0 ? convert_tree(sub0, attr) : null
+            return new SupSub({ children: [ base ], sup, sub, ...attr })
         } else if (type == 'genfrac') {
             const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
-            const numer = convert_tree(numer0)
-            const denom = convert_tree(denom0)
-            const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine })
+            const numer = convert_tree(numer0, attr)
+            const denom = convert_tree(denom0, attr)
+            const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine, ...attr })
             if (leftDelim != null || rightDelim != null) {
-                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode })
+                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, ...attr })
             }
             return frac
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
-            const body = convert_tree(body0)
-            const index = index0 ? convert_tree(index0) : null
+            const body = convert_tree(body0, attr)
+            const index = index0 ? convert_tree(index0, attr) : null
             return new Sqrt({ children: [ body ], index })
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
-            const body = convert_tree(body0)
-            return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode })
+            const body = convert_tree(body0, attr)
+            return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode, ...attr })
         }
     }
 
@@ -700,14 +700,15 @@ function convert_tree(tree: Tree | TreeNode | null): Element {
 
 class Latex extends MathText {
     constructor(args: ElementArgs = {}) {
-        const { children, ...attr } = THEME(args, 'Latex')
+        const { children, ...attr0 } = THEME(args, 'Latex')
         const tex = check_string(children)
+        const [ spec, attr ] = spec_split(attr0)
 
         // parse to AST
         const elems: Element[] = []
         try {
             const tree = parse_tex(tex)
-            const items = tree.map(convert_tree)
+            const items = tree.map(tree => convert_tree(tree, attr))
             elems.push(...items)
         } catch (e) {
             const error = new MathSpan({ children: [ tex ], color: red })
@@ -715,7 +716,7 @@ class Latex extends MathText {
         }
 
         // pass to MathText
-        super({ children: elems, ...attr })
+        super({ children: elems, ...spec })
         this.args = args
     }
 }
