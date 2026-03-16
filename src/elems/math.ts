@@ -225,11 +225,11 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left = klass, right = left, vshift = -0.2, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, ...attr } = THEME(args, 'MathSpan')
         const text = check_string(children)
 
         // pass to Span
-        super({ children: [ text ], vshift, ...attr })
+        super({ children: [ text ], ...attr })
         this.args = args
 
         // set math metrics
@@ -374,7 +374,7 @@ interface SupSubArgs extends StackArgs {
 
 class SupSub extends HStack {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, vshift = 0.025, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, voffset = 0.025, ...attr } = THEME(args, 'SupSub')
         const base = ensure_singleton(children)
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
@@ -387,7 +387,7 @@ class SupSub extends HStack {
         const side = new VStack({
             children: [ supElem, subElem ],
             even: true, spacing: vspacing,
-            justify: 'left', pos: [ 0.5, 0.5 + vshift ]
+            justify: 'left', pos: [ 0.5, 0.5 + voffset ]
         })
         const sideBox = new Box({ children: [ side ] })
 
@@ -566,11 +566,11 @@ interface DelimArgs extends MathSymbolArgs {
 
 class Delim extends MathSymbol {
     constructor(args: DelimArgs = {}) {
-        const { delim, side = 'left', mode = 'math', size = 3, vshift = -0.25, ...attr } = THEME(args, 'Delim')
+        const { delim, side = 'left', mode = 'math', size = 3, ...attr } = THEME(args, 'Delim')
         const text = get_delim_text(delim, side)
         const font_family = delimiter_font(size)
         const klass = side == 'left' ? 'mopen' : 'mclose'
-        super({ children: [ text ], mode, klass, font_family, vshift, ...attr })
+        super({ children: [ text ], mode, klass, font_family, ...attr })
     }
 }
 
