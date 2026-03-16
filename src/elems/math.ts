@@ -225,7 +225,7 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, vshift = -0.2, ...attr } = THEME(args, 'MathSpan')
         const text = check_string(children)
 
         // pass to Span
@@ -323,10 +323,8 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends HStack {
-    vshift: number
-
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, vshift = 0.1, ...attr } = THEME(args, 'MathText')
+        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -362,18 +360,6 @@ class MathText extends HStack {
 
         // compute combined math metrics
         set_math(this, { left, right })
-        this.vshift = vshift
-    }
-
-    // TODO: this could be yet another spec property?
-    // `shift` and `scale` to modify one's own prect
-    svg(ctx: Context): string {
-        const { prect } = ctx
-        const [ x, y, w, h ] = rect_box(prect)
-        const y1 = y + this.vshift * h
-        const prect1 = box_rect([x, y1, w, h])
-        const ctx1 = ctx.clone({ prect: prect1 })
-        return super.svg(ctx1)
     }
 }
 
@@ -426,7 +412,6 @@ interface FracArgs extends BoxArgs {
     right?: Element | null
     padding?: Padding
     rule_size?: number
-    vshift?: number
 }
 
 class Frac extends Box {
@@ -435,13 +420,11 @@ class Frac extends Box {
         const [ numer, denom ] = check_array(children0, 2)
 
         // build numer and denom boxes
-        const elemSize = (1 - rule_size) / 2
         const numerBox = new Box({ children: [ numer ], padding })
         const denomBox = new Box({ children: [ denom ], padding })
 
         // build stack and bar
-        const elems = [ numerBox.clone({ stack_size: elemSize }), denomBox.clone({ stack_size: elemSize }) ]
-        const stack = new VStack({ children: elems, justify: 'center' })
+        const stack = new VStack({ children: [ numerBox, denomBox ], even: true, justify: 'center' })
         const bar = has_bar ? new Rectangle({ fill: black, rad: [ 0.5, rule_size ] }) : null
 
         // pass to Box

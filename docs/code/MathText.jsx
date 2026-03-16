@@ -1,9 +1,10 @@
-// a MathText row with a blue square inserted between an equals sign and y
+// a MathText row expressing "alpha = blue x red" where blue and red are represented by squares
 <TextFrame rounded>
   <MathText>
-    <MathSymbol>x</MathSymbol>
-    <MathSymbol>{'='}</MathSymbol>
-    <Square fill={blue} />
-    <MathSymbol>y</MathSymbol>
+    <MathSymbol>\alpha</MathSymbol>
+    <MathSymbol>=</MathSymbol>
+    <Square rounded fill={blue} />
+    <MathSymbol>\times</MathSymbol>
+    <Square rounded fill={red} />
   </MathText>
 </TextFrame>
