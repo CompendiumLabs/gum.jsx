@@ -4,15 +4,17 @@ import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Rectangle, Spacer, prefix_split, spec_split } from './core'
+import { Context, Element, Group, Rectangle, Spacer, prefix_split, spec_split } from './core'
+import { Line } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
-import type { Padding, Size, Attrs } from '../lib/types'
+import type { Padding, Point, Rect, Size, Attrs } from '../lib/types'
 import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
+import type { LineArgs } from './geometry'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
 
 //
@@ -436,44 +438,90 @@ class Frac extends Box {
     }
 }
 
+interface CoordLineArgs extends LineArgs {
+    line_width?: number
+}
+
+class CoordLine extends Line {
+    line_width: number
+
+    constructor(args: CoordLineArgs = {}) {
+        const { line_width = 0.03, ...attr } = args
+        super(attr)
+        this.args = args
+        this.line_width = line_width
+    }
+
+    props(ctx: Context): Attrs {
+        const attr = super.props(ctx)
+        const [ _, stroke_width ] = ctx.mapSize([0, this.line_width])
+        return { ...attr, stroke_width: Math.abs(stroke_width) }
+    }
+}
+
+type SqrtLayout = {
+    aspect: number
+    body_rect: Rect
+    index_rect: Rect
+    radical_points: Point[]
+}
+
+function compute_sqrt_layout(body_aspect: number): SqrtLayout {
+    const gutter = 0.5
+    const aspect = gutter + body_aspect
+    const body_left = gutter / aspect
+    const radical_points: Point[] = [
+        [0.1 * body_left, 0.58],
+        [0.42 * body_left, 1],
+        [body_left, 0],
+        [1, 0],
+    ]
+
+    return {
+        aspect,
+        body_rect: [ body_left, 0, 1, 1 ],
+        index_rect: [ 0, 0.04, 0.82 * body_left, 0.28 ],
+        radical_points,
+    }
+}
+
 //
 // sqrt
 //
 
-interface SqrtArgs extends StackArgs {
+interface SqrtArgs extends GroupArgs {
     index?: Element | null
     padding?: Padding
-    rule_pos?: Size
-    rule_size?: Size
-    index_pos?: Size
-    index_size?: number
 }
 
-class Sqrt extends HStack {
+class Sqrt extends Group {
     constructor(args: SqrtArgs = {}) {
-        const { children, index = null, color = black, padding = [0, 0.05, 0.2, 0], rule_pos = [0.49, 0.116], rule_size = [0.5, 0.015], index_pos = [0.75, 0.25], index_size = 0.5, ...attr } = THEME(args, 'Sqrt')
-        const body = ensure_singleton(children)
-
-        // build radical
-        const SQRT = new MathSpan({ children: [ '√' ], font_family: OP_SYMBOL_FONT })
-        const radical = (index != null) ? new Box({
-            children: [
-                SQRT,
-                index.clone({ pos: index_pos, yrad: index_size / 2, align: 'right' }),
-            ],
-        }) : SQRT
-
-        // build body stack
-        const bodyStack = new Box({
-            children: [
-                new Box({ children: [ body ], padding }),
-                new Rectangle({ rad: rule_size, pos: rule_pos, fill: color, stroke: color }),
-            ],
+        const {
+            children,
+            index = null,
+            color = black,
+            padding = [0, 0, 0.1, 0.1],
+            line_width = 0.05,
+            ...attr
+        } = THEME(args, 'Sqrt')
+        const body = check_singleton(children)
+        const bodyBox = new Box({ children: [ body ], padding })
+        const body_aspect = bodyBox.spec.aspect ?? body.spec.aspect ?? 1
+        const { aspect, body_rect, index_rect, radical_points } = compute_sqrt_layout(body_aspect)
+        const radical = new CoordLine({
+            points: radical_points,
+            line_width,
+            stroke: color,
+            stroke_linejoin: 'round',
         })
-        const core = new HStack({ children: [ radical, bodyStack ] })
+        const items = [
+            radical,
+            bodyBox.clone({ rect: body_rect }),
+            index != null ? index.clone({ rect: index_rect, align: ['right', 'bottom'] }) : null
+        ]
 
-        // pass to HStack
-        super({ children: [ core ], ...attr })
+        // pass to Group
+        super({ children: items, aspect, ...attr })
         this.args = args
 
         // set math metrics
