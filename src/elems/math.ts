@@ -499,29 +499,24 @@ class Sqrt extends Group {
         const {
             children,
             index = null,
-            color = black,
+            color,
             padding = [0, 0, 0.1, 0.1],
             line_width = 0.05,
             ...attr
         } = THEME(args, 'Sqrt')
         const body = check_singleton(children)
-        const bodyBox = new Box({ children: [ body ], padding })
-        const body_aspect = bodyBox.spec.aspect ?? body.spec.aspect ?? 1
+
+        // compute layout for radical
+        const body_aspect = body.spec.aspect ?? 1
         const { aspect, body_rect, index_rect, radical_points } = compute_sqrt_layout(body_aspect)
-        const radical = new CoordLine({
-            points: radical_points,
-            line_width,
-            stroke: color,
-            stroke_linejoin: 'round',
-        })
-        const items = [
-            radical,
-            bodyBox.clone({ rect: body_rect }),
-            index != null ? index.clone({ rect: index_rect, align: ['right', 'bottom'] }) : null
-        ]
+
+        // make child elements
+        const bodyBox = new Box({ children: [ body ], rect: body_rect, padding })
+        const indexElem = index != null ? index.clone({ rect: index_rect, align: ['right', 'bottom'] }) : null
+        const radical = new CoordLine({ points: radical_points, line_width, stroke: color, stroke_linejoin: 'round' })
 
         // pass to Group
-        super({ children: items, aspect, ...attr })
+        super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
         this.args = args
 
         // set math metrics
