@@ -1,10 +1,9 @@
-// x + y enclosed in parentheses
+// the ratio of alpha to beta enclosed in parentheses
 <TextFrame rounded>
   <Bracket>
-    <MathText>
-      <MathSymbol>x</MathSymbol>
-      <MathSymbol>{'+'}</MathSymbol>
-      <MathSymbol>y</MathSymbol>
-    </MathText>
+    <Frac>
+      <MathSymbol>\alpha</MathSymbol>
+      <MathSymbol>\beta</MathSymbol>
+    </Frac>
   </Bracket>
 </TextFrame>

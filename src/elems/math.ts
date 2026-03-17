@@ -227,11 +227,11 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left = klass, right = left, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
         const text = check_string(children)
 
         // pass to Span
-        super({ children: [ text ], ...attr })
+        super({ children: [ text ], vshift, ...attr })
         this.args = args
 
         // set math metrics
@@ -471,8 +471,9 @@ function compute_sqrt_layout(body_aspect: number): SqrtLayout {
     const aspect = gutter + body_aspect
     const body_left = gutter / aspect
     const radical_points: Point[] = [
-        [0.1 * body_left, 0.58],
-        [0.42 * body_left, 1],
+        [0, 0.6],
+        [0.1 * body_left, 0.5],
+        [0.42 * body_left, 0.9],
         [body_left, 0],
         [1, 0],
     ]
@@ -500,7 +501,7 @@ class Sqrt extends Group {
             children,
             index = null,
             color,
-            padding = [0, 0, 0.1, 0.1],
+            padding = [0, 0.1, 0.1, 0.1],
             line_width = 0.05,
             ...attr
         } = THEME(args, 'Sqrt')
@@ -513,7 +514,7 @@ class Sqrt extends Group {
         // make child elements
         const bodyBox = new Box({ children: [ body ], rect: body_rect, padding })
         const indexElem = index != null ? index.clone({ rect: index_rect, align: ['right', 'bottom'] }) : null
-        const radical = new CoordLine({ points: radical_points, line_width, stroke: color, stroke_linejoin: 'round' })
+        const radical = new CoordLine({ points: radical_points, line_width, stroke: color, stroke_linecap: 'round', stroke_linejoin: 'round' })
 
         // pass to Group
         super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
@@ -609,11 +610,11 @@ interface DelimArgs extends MathSymbolArgs {
 
 class Delim extends MathSymbol {
     constructor(args: DelimArgs = {}) {
-        const { delim, side = 'left', mode = 'math', size = 3, ...attr } = THEME(args, 'Delim')
+        const { delim, side = 'left', mode = 'math', size = 3, vshift = -0.25, ...attr } = THEME(args, 'Delim')
         const text = get_delim_text(delim, side)
         const font_family = delimiter_font(size)
         const klass = side == 'left' ? 'mopen' : 'mclose'
-        super({ children: [ text ], mode, klass, font_family, ...attr })
+        super({ children: [ text ], mode, klass, font_family, vshift, ...attr })
     }
 }
 
