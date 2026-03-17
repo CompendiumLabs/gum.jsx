@@ -19,9 +19,9 @@ return <Slide title="Simple Regular Polygons" wrap={25}>
   </Text>
   <Grid rows={2} spacing={[0.05, 0.075]}>
     { shapes.map(([n, s]) =>
-      <Frame rounded fill padding aspect>
-        <VStack spacing>
-          <RegularPolygon stack-size={0.8} n={n} fill={pal(n)} />
+      <Frame rounded fill padding>
+        <VStack spacing aspect>
+          <RegularPolygon n={n} fill={pal(n)} />
           <Text stack-size={0.2}>{`${s} (${n})`}</Text>
         </VStack>
       </Frame>
