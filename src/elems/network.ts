@@ -166,4 +166,4 @@ class Network extends Group {
 //
 
 export { Node, Edge, Network }
-export type { NodeArgs, EdgeArgs, NetworkArgs }
+export type { NodeArgs, EdgeArgs }
