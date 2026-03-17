@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r, pi } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul_point, filter_object, join_limits, flip_rect, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, div_point, vector_angle, polar, upright_rect } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul2, div2, filter_object, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, vector_angle, polar, upright_rect } from '../lib/utils'
 
 import type { Point, Rect, Limit, Size, AlignValue, Align, Side, Attrs, MPoint, MNumber, Spec } from '../lib/types'
 
@@ -113,7 +113,7 @@ function adjust_rotate(rotate: number, prect: Rect, coord: Rect): number {
     if (rotate == 0) return rotate
     const csize = rect_size(coord)
     const psize = rect_size(prect)
-    const proj = div_point(psize, csize)
+    const proj = div2(psize, csize)
     const vec = polar([ proj, rotate ])
     return vector_angle(vec)
 }
@@ -731,7 +731,7 @@ class Rectangle extends Element {
             if (is_scalar(this.rounded)) {
                 rx = s * this.rounded
             } else {
-                [ rx, ry ] = mul_point(this.rounded, s)
+                [ rx, ry ] = mul2(this.rounded, s)
             }
         }
 

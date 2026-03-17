@@ -1,37 +1,107 @@
 // Stokes' Theorem Diagram
 
-const boundary = [
-  [0.08, 0.66], [0.12, 0.46], [0.22, 0.30],
-  [0.40, 0.20], [0.58, 0.18], [0.76, 0.26],
-  [0.88, 0.44], [0.86, 0.64], [0.76, 0.76],
-  [0.58, 0.84], [0.36, 0.84], [0.14, 0.76],
+const surface = {
+  center: [0.48, 0.52],
+  basisX: [0.39, 0],
+  basisY: [0.06, 0.29],
+  basisZ: [0.03, -0.22],
+  boundaryCount: 18,
+  meshH: [ -0.35, 0.28 ],
+  meshV: [ -0.52, 0, 0.48 ],
+  tangentCount: 6,
+  tangentPhase: 0.58,
+  tangentLength: 0.2,
+  normals: [
+    [-0.45, -0.02],
+    [-0.1, -0.22],
+    [0.32, 0.42],
+    [-0.32, 0.54],
+    [0.26, 0.08],
+  ],
+  normalLength: 0.15,
+}
+
+const add3 = ([ax, ay, az], [bx, by, bz]) => [ax + bx, ay + by, az + bz]
+const scale3 = ([x, y, z], s) => [s * x, s * y, s * z]
+const cross3 = ([ax, ay, az], [bx, by, bz]) => [
+  ay * bz - az * by,
+  az * bx - ax * bz,
+  ax * by - ay * bx,
 ]
 
-const meshH1 = [[0.17, 0.46], [0.36, 0.36], [0.53, 0.33], [0.70, 0.35], [0.84, 0.46]]
-const meshH2 = [[0.18, 0.62], [0.38, 0.54], [0.54, 0.50], [0.70, 0.52], [0.85, 0.58]]
-const meshV1 = [[0.28, 0.31], [0.30, 0.44], [0.32, 0.58], [0.30, 0.80]]
-const meshV2 = [[0.50, 0.22], [0.51, 0.38], [0.53, 0.54], [0.52, 0.80]]
-const meshV3 = [[0.72, 0.30], [0.72, 0.42], [0.73, 0.56], [0.72, 0.76]]
+const project_vec = ([x, y, z]) =>
+  add2(
+    mul2(surface.basisX, x),
+    add2(mul2(surface.basisY, y), mul2(surface.basisZ, z))
+  )
 
-const normals = [
-  [[0.30, 0.44], [0.26, 0.26]],
-  [[0.53, 0.38], [0.50, 0.18]],
-  [[0.72, 0.42], [0.69, 0.24]],
-  [[0.40, 0.58], [0.37, 0.42]],
-  [[0.63, 0.54], [0.60, 0.36]],
+const project = (point) => add2(surface.center, project_vec(point))
+
+const surface_point = (u, v) => {
+  const x = u + 0.09 * u * v - 0.05 * v * v
+  const y = v + 0.05 * u - 0.06 * u * u + 0.03 * v * v
+  const z = 0.5 - 0.24 * u * u - 0.46 * v * v + 0.08 * u - 0.05 * v + 0.08 * u * v
+  return [x, y, z]
+}
+
+const surface_du = (u, v) => [
+  1 + 0.09 * v,
+  0.05 - 0.12 * u,
+  -0.48 * u + 0.08 + 0.08 * v,
 ]
 
-const tangents = [
-  [[0.12, 0.46], [0.2, 0.25]],
-  [[0.40, 0.20], [0.6, 0.15]],
-  [[0.82, 0.30], [1.02, 0.80]],
-  [[0.86, 0.64], [0.61, 1.04]],
-  [[0.58, 0.84], [0.23, 0.79]],
-  [[0.14, 0.76], [0.01, 0.21]],
+const surface_dv = (u, v) => [
+  0.09 * u,
+  1 + 0.06 * v,
+  -0.92 * v - 0.05 + 0.08 * u,
 ]
+
+const boundary_sample = (t) => project(surface_point(cos(t), sin(t)))
+
+const boundary_tangent = (t) => {
+  const [u, v] = [cos(t), sin(t)]
+  return project_vec(
+    add3(
+      scale3(surface_du(u, v), -sin(t)),
+      scale3(surface_dv(u, v), cos(t))
+    )
+  )
+}
+
+const iso_u = (u0, n = 4) => {
+  const span = sqrt(1 - u0 * u0)
+  return linspace(-span, span, n).map(v => project(surface_point(u0, v)))
+}
+
+const iso_v = (v0, n = 5) => {
+  const span = sqrt(1 - v0 * v0)
+  return linspace(-span, span, n).map(u => project(surface_point(u, v0)))
+}
+
+const tangent_arrow = (turn, length) => {
+  const t = 2 * pi * turn
+  const start = boundary_sample(t)
+  const delta = normalize(boundary_tangent(t), 2)
+  const end = add2(start, mul2(delta, length))
+  return [start, end]
+}
+
+const normal_arrow = (u, v, length) => {
+  const base = project(surface_point(u, v))
+  const normal = project_vec(cross3(surface_du(u, v), surface_dv(u, v)))
+  const delta = normalize(normal[1] > 0 ? mul2(normal, -1) : normal, 2)
+  const tip = add2(base, mul2(delta, length))
+  return [base, tip]
+}
+
+const boundary = linspace(0, 2 * pi, surface.boundaryCount, false).map(boundary_sample)
+const [ meshH1, meshH2 ] = surface.meshH.map(v => iso_v(v, 5))
+const [ meshV1, meshV2, meshV3 ] = surface.meshV.map(u => iso_u(u, 4))
+const normals = surface.normals.map(([u, v]) => normal_arrow(u, v, surface.normalLength))
+const tangents = linspace(0, 1, surface.tangentCount, false).map(i => tangent_arrow(i, surface.tangentLength))
 
 const SurfaceDiagram = (attr) =>
-  <Group aspect={1.05} {...attr}>
+  <Group aspect={1} {...attr}>
     <Spline closed points={boundary} stroke={blue} stroke-width={2.5} fill="#eeddf7" fill-opacity={0.7} curve={0.5} />
     {[ meshH1, meshH2, meshV1, meshV2, meshV3 ].map(points =>
       <Spline points={points} stroke="#caa0d8" stroke-dasharray={3} />
@@ -42,9 +112,9 @@ const SurfaceDiagram = (attr) =>
     {normals.map(([base, tip]) =>
       <Arrow points={[base, tip]} fill={purple} stroke={purple} stroke-width={2}/>
     )}
-    <Latex pos={[0.48, 0.52]} yrad={0.055} color="#9c27b0" stroke={none} font-weight={700}>S</Latex>
-    <Latex pos={[0.02, 0.52]} yrad={0.035} color={blue} stroke={none} font-weight={700}>\delta S</Latex>
-    <Latex pos={[0.40, 0.10]} yrad={0.035} color={purple} font-weight={700}>{"\\hat{n}"}</Latex>
+    <Latex pos={[0.48, 0.5]} yrad={0.055} color="#9c27b0" stroke={none} font-weight={700}>S</Latex>
+    <Latex pos={[0, 0.55]} yrad={0.035} color={blue} stroke={none} font-weight={700}>\delta S</Latex>
+    <Latex pos={[0.56, 0.17]} yrad={0.035} color={purple} font-weight={700}>{"\\hat{n}"}</Latex>
   </Group>
 
 const MathPanel = (attr) =>

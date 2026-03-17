@@ -1,7 +1,7 @@
 // network elements
 
 import { THEME } from '../lib/theme'
-import { sub_point, abs, mul_point, check_singleton, is_string, rect_center, join_limits, side_direc } from '../lib/utils'
+import { abs, sub2, mul2, check_singleton, is_string, rect_center, side_direc } from '../lib/utils'
 
 import { Context, Element, Group, prefix_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
@@ -16,7 +16,7 @@ import type { AlignValue, Limit, Point, Side } from '../lib/types'
 //
 
 function get_side(p1: Point, p2: Point): Side {
-    const [ dx, dy ] = sub_point(p2, p1)
+    const [ dx, dy ] = sub2(p2, p1)
     const [ ax, ay ] = [ abs(dx), abs(dy) ]
     const direc = (dy <= -ax) ? 't' :
                   (dy >=  ax) ? 'b' :
@@ -118,7 +118,7 @@ class Edge extends Element {
         const start = this.start.anchor(ctx, start_direc)
         const end = this.end.anchor(ctx, end_direc)
         const start_dir = side_direc(start_direc)
-        const end_dir = mul_point(side_direc(end_direc), -1)
+        const end_dir = mul2(side_direc(end_direc), -1)
 
         const path = new Arrow({ points: [ start, ...this.points, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, ...attr })
         return path.svg(ctx)

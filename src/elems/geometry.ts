@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add_point, sub_point, mul_point, div_point, range, angle_direc, unit_direc, vector_angle, polar } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add2, sub2, mul2, div2, range, angle_direc, unit_direc, vector_angle, polar } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
@@ -394,13 +394,13 @@ class CubicSplineCmd extends Command {
     args(ctx: Context): string {
         // use dir if provided, otherwise use tan
         const dist = squeeze_mpoint(sub_mpoint(this.pos2, this.pos1)).map(abs) as Point
-        const tan1 = this.dir1 != null ? mul_point(this.dir1, dist) : this.tan1
-        const tan2 = this.dir2 != null ? mul_point(this.dir2, dist) : this.tan2
+        const tan1 = this.dir1 != null ? mul2(this.dir1, dist) : this.tan1
+        const tan2 = this.dir2 != null ? mul2(this.dir2, dist) : this.tan2
         if (tan1 == null || tan2 == null) throw new Error('Spline tangent must be defined')
 
         // compute scaled tangents
-        const stan1 = mul_point(tan1, this.curve)
-        const stan2 = mul_point(tan2, this.curve)
+        const stan1 = mul2(tan1, this.curve)
+        const stan2 = mul2(tan2, this.curve)
 
         // get mapped points and tangents
         const ppos1 = ctx.mapPoint(this.pos1)
@@ -409,8 +409,8 @@ class CubicSplineCmd extends Command {
         const ptan2 = ctx.mapSize(stan2)
 
         // convert to Bernstein form
-        const pcon1 = add_point(ppos1, div_point(ptan1, 3))
-        const pcon2 = sub_point(ppos2, div_point(ptan2, 3))
+        const pcon1 = add2(ppos1, div2(ptan1, 3))
+        const pcon2 = sub2(ppos2, div2(ptan2, 3))
 
         // make a path command
         return pointstring([pcon1, pcon2, ppos2], ctx.prec)
@@ -566,9 +566,9 @@ class ArrowHead extends Path {
         const [ dir0, dir1, dir2 ] = [ arc0, arc1, arc2 ].map(angle_direc)
 
         // get vertex positions
-        const off: Point = exact ? mul_point(dir0, -0.5 * stroke_width) : [ 0, 0 ]
+        const off: Point = exact ? mul2(dir0, -0.5 * stroke_width) : [ 0, 0 ]
         const fracs: Point[] = [ [0, 0], dir1, dir2 ]
-        const [ fra0, fra1, fra2 ] = fracs.map(d => add_point(mul_point(d, -0.5), D.pos))
+        const [ fra0, fra1, fra2 ] = fracs.map(d => add2(mul2(d, -0.5), D.pos))
         const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => make_mpoint(f, off))
 
         // make command path
@@ -623,14 +623,14 @@ class Arrow extends Group {
         const stroke_offset = 0.5 * stroke_width
 
         // infer the from arrow direction
-        const start_direc = unit_direc(start_dir ?? sub_point(start_pre, start))
+        const start_direc = unit_direc(start_dir ?? sub2(start_pre, start))
         const start_angle = 180 - vector_angle(start_direc)
-        const start_pos = make_mpoint(start, mul_point(start_direc, stroke_offset))
+        const start_pos = make_mpoint(start, mul2(start_direc, stroke_offset))
 
         // infer the to arrow direction
-        const end_direc = unit_direc(end_dir ?? sub_point(end, end_pre))
+        const end_direc = unit_direc(end_dir ?? sub2(end, end_pre))
         const end_angle = -vector_angle(end_direc)
-        const end_pos = make_mpoint(end, mul_point(end_direc, -stroke_offset))
+        const end_pos = make_mpoint(end, mul2(end_direc, -stroke_offset))
 
         // make line path
         const points_adj = [ start_pos, ...points.slice(1, -1), end_pos ]

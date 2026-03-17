@@ -4,7 +4,7 @@ const R = 0.7
 const c = 0.6
 
 // get inner/outer vertex angles
-const theta0 = linspace(0, 2 * pi, n + 1).slice(0, -1).map(t => t - pi / 2)
+const theta0 = linspace(0, 2 * pi, n + 1, false).map(t => t - pi / 2)
 const theta1 = theta0.map(t => t + pi / n)
 
 // get inner/outer point positions
