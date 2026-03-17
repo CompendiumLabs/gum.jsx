@@ -1,10 +1,10 @@
 // core components
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D, svgns, sans, light, blue, red, d2r, pi } from '../lib/const'
+import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
 import { is_scalar, abs, cos, sin, tan, cot, mul2, div2, filter_object, expand_rect, rect_box, radial_rect, cbox_rect, rect_cbox, rect_center, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, vector_angle, polar, upright_rect } from '../lib/utils'
 
-import type { Point, Rect, Limit, Size, AlignValue, Align, Side, Attrs, MPoint, MNumber, Spec } from '../lib/types'
+import type { Point, Rect, Size, AlignValue, Align, Side, Attrs, MNumber, MPoint, Spec } from '../lib/types'
 
 //
 // rect embedding

@@ -34,7 +34,6 @@ interface DocsInfo {
     cats: Record<string, string[]>,
     text: Record<string, string>,
     code: Record<string, string>,
-    gala: Record<string, string>
 }
 
 // make doc pages
@@ -46,10 +45,24 @@ function getDocs(docs_dir: string): DocsInfo {
     // load text/code/gallery
     const text = indexDirectory(`${docs_dir}/text`)
     const code = indexDirectory(`${docs_dir}/code`)
-    const gala = indexDirectory(`${docs_dir}/gala`)
 
     // return all docs info
-    return { tags, cats, text, code, gala }
+    return { tags, cats, text, code }
 }
 
-export { getDocs, preparePage }
+interface GalaInfo {
+    text: Record<string, string>,
+    code: Record<string, string>,
+}
+
+// make gallery pages
+function getGala(gallery_dir: string): GalaInfo {
+    // load text/code
+    const text = indexDirectory(`${gallery_dir}/text`)
+    const code = indexDirectory(`${gallery_dir}/code`)
+
+    // return all gallery info
+    return { text, code }
+}
+
+export { getDocs, getGala, preparePage }
