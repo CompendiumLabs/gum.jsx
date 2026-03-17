@@ -462,7 +462,7 @@ class CoordLine extends Line {
 type SqrtLayout = {
     aspect: number
     body_rect: Rect
-    index_rect: Rect
+    index_pos: Point
     radical_points: Point[]
 }
 
@@ -470,19 +470,17 @@ function compute_sqrt_layout(body_aspect: number): SqrtLayout {
     const gutter = 0.5
     const aspect = gutter + body_aspect
     const body_left = gutter / aspect
-    const radical_points: Point[] = [
-        [0, 0.6],
-        [0.1 * body_left, 0.5],
-        [0.42 * body_left, 0.9],
-        [body_left, 0],
-        [1, 0],
-    ]
-
     return {
         aspect,
         body_rect: [ body_left, 0, 1, 1 ],
-        index_rect: [ 0, 0.04, 0.82 * body_left, 0.28 ],
-        radical_points,
+        index_pos: [ 0.6 * body_left, 0.2 ],
+        radical_points: [
+            [0, 0.6],
+            [0.1 * body_left, 0.5],
+            [0.42 * body_left, 0.9],
+            [body_left, 0],
+            [1, 0],
+        ],
     }
 }
 
@@ -509,12 +507,14 @@ class Sqrt extends Group {
 
         // compute layout for radical
         const body_aspect = body.spec.aspect ?? 1
-        const { aspect, body_rect, index_rect, radical_points } = compute_sqrt_layout(body_aspect)
+        const { aspect, body_rect, radical_points, index_pos } = compute_sqrt_layout(body_aspect)
 
-        // make child elements
+        // build body box
         const bodyBox = new Box({ children: [ body ], rect: body_rect, padding })
-        const indexElem = index != null ? index.clone({ rect: index_rect, align: ['right', 'bottom'] }) : null
         const radical = new CoordLine({ points: radical_points, line_width, stroke: color, stroke_linecap: 'round', stroke_linejoin: 'round' })
+
+        // build optional index element
+        const indexElem = index != null ? index.clone({ pos: index_pos, yrad: 0.2, align: 'right' }) : null
 
         // pass to Group
         super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
