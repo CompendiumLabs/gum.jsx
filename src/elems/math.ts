@@ -4,15 +4,17 @@ import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Rectangle, Spacer, prefix_split, spec_split } from './core'
+import { Context, Element, Group, Rectangle, Spacer, prefix_split, spec_split } from './core'
+import { Line } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
-import type { Padding, Size, Attrs } from '../lib/types'
+import type { Padding, Point, Rect, Size, Attrs } from '../lib/types'
 import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
+import type { LineArgs } from './geometry'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
 
 //
@@ -225,11 +227,11 @@ interface MathSpanArgs extends SpanArgs {
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, ...attr } = THEME(args, 'MathSpan')
         const text = check_string(children)
 
         // pass to Span
-        super({ children: [ text ], vshift, ...attr })
+        super({ children: [ text ], ...attr })
         this.args = args
 
         // set math metrics
@@ -323,10 +325,8 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends HStack {
-    vshift: number
-
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, vshift = 0.1, ...attr } = THEME(args, 'MathText')
+        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -362,18 +362,6 @@ class MathText extends HStack {
 
         // compute combined math metrics
         set_math(this, { left, right })
-        this.vshift = vshift
-    }
-
-    // TODO: this could be yet another spec property?
-    // `shift` and `scale` to modify one's own prect
-    svg(ctx: Context): string {
-        const { prect } = ctx
-        const [ x, y, w, h ] = rect_box(prect)
-        const y1 = y + this.vshift * h
-        const prect1 = box_rect([x, y1, w, h])
-        const ctx1 = ctx.clone({ prect: prect1 })
-        return super.svg(ctx1)
     }
 }
 
@@ -388,7 +376,7 @@ interface SupSubArgs extends StackArgs {
 
 class SupSub extends HStack {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, vshift = 0.025, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, voffset = 0.025, ...attr } = THEME(args, 'SupSub')
         const base = ensure_singleton(children)
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
@@ -401,7 +389,7 @@ class SupSub extends HStack {
         const side = new VStack({
             children: [ supElem, subElem ],
             even: true, spacing: vspacing,
-            justify: 'left', pos: [ 0.5, 0.5 + vshift ]
+            justify: 'left', pos: [ 0.5, 0.5 + voffset ]
         })
         const sideBox = new Box({ children: [ side ] })
 
@@ -426,7 +414,6 @@ interface FracArgs extends BoxArgs {
     right?: Element | null
     padding?: Padding
     rule_size?: number
-    vshift?: number
 }
 
 class Frac extends Box {
@@ -435,13 +422,11 @@ class Frac extends Box {
         const [ numer, denom ] = check_array(children0, 2)
 
         // build numer and denom boxes
-        const elemSize = (1 - rule_size) / 2
         const numerBox = new Box({ children: [ numer ], padding })
         const denomBox = new Box({ children: [ denom ], padding })
 
         // build stack and bar
-        const elems = [ numerBox.clone({ stack_size: elemSize }), denomBox.clone({ stack_size: elemSize }) ]
-        const stack = new VStack({ children: elems, justify: 'center' })
+        const stack = new VStack({ children: [ numerBox, denomBox ], even: true, justify: 'center' })
         const bar = has_bar ? new Rectangle({ fill: black, rad: [ 0.5, rule_size ] }) : null
 
         // pass to Box
@@ -453,44 +438,85 @@ class Frac extends Box {
     }
 }
 
+interface CoordLineArgs extends LineArgs {
+    line_width?: number
+}
+
+class CoordLine extends Line {
+    line_width: number
+
+    constructor(args: CoordLineArgs = {}) {
+        const { line_width = 0.03, ...attr } = args
+        super(attr)
+        this.args = args
+        this.line_width = line_width
+    }
+
+    props(ctx: Context): Attrs {
+        const attr = super.props(ctx)
+        const [ _, stroke_width ] = ctx.mapSize([0, this.line_width])
+        return { ...attr, stroke_width: Math.abs(stroke_width) }
+    }
+}
+
+type SqrtLayout = {
+    aspect: number
+    body_rect: Rect
+    index_rect: Rect
+    radical_points: Point[]
+}
+
+function compute_sqrt_layout(body_aspect: number): SqrtLayout {
+    const gutter = 0.5
+    const aspect = gutter + body_aspect
+    const body_left = gutter / aspect
+    const radical_points: Point[] = [
+        [0.1 * body_left, 0.58],
+        [0.42 * body_left, 1],
+        [body_left, 0],
+        [1, 0],
+    ]
+
+    return {
+        aspect,
+        body_rect: [ body_left, 0, 1, 1 ],
+        index_rect: [ 0, 0.04, 0.82 * body_left, 0.28 ],
+        radical_points,
+    }
+}
+
 //
 // sqrt
 //
 
-interface SqrtArgs extends StackArgs {
+interface SqrtArgs extends GroupArgs {
     index?: Element | null
     padding?: Padding
-    rule_pos?: Size
-    rule_size?: Size
-    index_pos?: Size
-    index_size?: number
 }
 
-class Sqrt extends HStack {
+class Sqrt extends Group {
     constructor(args: SqrtArgs = {}) {
-        const { children, index = null, color = black, padding = [0, 0.05, 0.2, 0], rule_pos = [0.49, 0.116], rule_size = [0.5, 0.015], index_pos = [0.75, 0.25], index_size = 0.5, ...attr } = THEME(args, 'Sqrt')
-        const body = ensure_singleton(children)
+        const {
+            children,
+            index = null,
+            color,
+            padding = [0, 0, 0.1, 0.1],
+            line_width = 0.05,
+            ...attr
+        } = THEME(args, 'Sqrt')
+        const body = check_singleton(children)
 
-        // build radical
-        const SQRT = new MathSpan({ children: [ '√' ], font_family: OP_SYMBOL_FONT })
-        const radical = (index != null) ? new Box({
-            children: [
-                SQRT,
-                index.clone({ pos: index_pos, yrad: index_size / 2, align: 'right' }),
-            ],
-        }) : SQRT
+        // compute layout for radical
+        const body_aspect = body.spec.aspect ?? 1
+        const { aspect, body_rect, index_rect, radical_points } = compute_sqrt_layout(body_aspect)
 
-        // build body stack
-        const bodyStack = new Box({
-            children: [
-                new Box({ children: [ body ], padding }),
-                new Rectangle({ rad: rule_size, pos: rule_pos, fill: color, stroke: color }),
-            ],
-        })
-        const core = new HStack({ children: [ radical, bodyStack ] })
+        // make child elements
+        const bodyBox = new Box({ children: [ body ], rect: body_rect, padding })
+        const indexElem = index != null ? index.clone({ rect: index_rect, align: ['right', 'bottom'] }) : null
+        const radical = new CoordLine({ points: radical_points, line_width, stroke: color, stroke_linejoin: 'round' })
 
-        // pass to HStack
-        super({ children: [ core ], ...attr })
+        // pass to Group
+        super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
         this.args = args
 
         // set math metrics
@@ -583,11 +609,11 @@ interface DelimArgs extends MathSymbolArgs {
 
 class Delim extends MathSymbol {
     constructor(args: DelimArgs = {}) {
-        const { delim, side = 'left', mode = 'math', size = 3, vshift = -0.25, ...attr } = THEME(args, 'Delim')
+        const { delim, side = 'left', mode = 'math', size = 3, ...attr } = THEME(args, 'Delim')
         const text = get_delim_text(delim, side)
         const font_family = delimiter_font(size)
         const klass = side == 'left' ? 'mopen' : 'mclose'
-        super({ children: [ text ], mode, klass, font_family, vshift, ...attr })
+        super({ children: [ text ], mode, klass, font_family, ...attr })
     }
 }
 

@@ -1,6 +1,6 @@
-// a square-bracketed sum
+// x + y enclosed in parentheses
 <TextFrame rounded>
-  <Bracket delim="square">
+  <Bracket>
     <MathText>
       <MathSymbol>x</MathSymbol>
       <MathSymbol>{'+'}</MathSymbol>
