@@ -42,7 +42,7 @@ function getDocs(docs_dir: string): DocsInfo {
     const cats: Record<string, string[]> = JSON.parse(readFileSync(`${docs_dir}/meta.json`, 'utf8'))
     const tags = Object.values(cats).flat()
 
-    // load text/code/gallery
+    // load text/code
     const text = indexDirectory(`${docs_dir}/text`)
     const code = indexDirectory(`${docs_dir}/code`)
 
@@ -51,18 +51,22 @@ function getDocs(docs_dir: string): DocsInfo {
 }
 
 interface GalaInfo {
+    tags: string[],
     text: Record<string, string>,
     code: Record<string, string>,
 }
 
-// make gallery pages
-function getGala(gallery_dir: string): GalaInfo {
-    // load text/code
-    const text = indexDirectory(`${gallery_dir}/text`)
-    const code = indexDirectory(`${gallery_dir}/code`)
+// make gala pages
+function getGala(gala_dir: string): GalaInfo {
+    // load metadata
+    const tags: string[] = JSON.parse(readFileSync(`${gala_dir}/meta.json`, 'utf8'))
 
-    // return all gallery info
-    return { text, code }
+    // load text/code
+    const text = indexDirectory(`${gala_dir}/text`)
+    const code = indexDirectory(`${gala_dir}/code`)
+
+    // return all gala info
+    return { tags, text, code }
 }
 
 export { getDocs, getGala, preparePage }
