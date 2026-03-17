@@ -82,14 +82,14 @@ const boundary_tangent = (t) => {
 
 const boundary_sample = (t) => project(surface_point(cos(t), sin(t)))
 
-const iso_u = (u0, n = 4) => {
+const iso_u = (u0) => {
   const span = sqrt(1 - u0 * u0)
-  return linspace(-span, span, n).map(v => project(surface_point(u0, v)))
+  return linspace(-span, span, 5).map(v => project(surface_point(u0, v)))
 }
 
-const iso_v = (v0, n = 5) => {
+const iso_v = (v0) => {
   const span = sqrt(1 - v0 * v0)
-  return linspace(-span, span, n).map(u => project(surface_point(u, v0)))
+  return linspace(-span, span, 5).map(u => project(surface_point(u, v0)))
 }
 
 const tangent_arrow = (turn) => {
@@ -113,8 +113,8 @@ const normal_arrow = ([u, v]) => {
 //
 
 const boundary = linspace(0, 2 * pi, boundaryCount, false).map(boundary_sample)
-const [ meshH1, meshH2 ] = meshH.map(v => iso_v(v))
-const [ meshV1, meshV2, meshV3 ] = meshV.map(u => iso_u(u))
+const [ meshH1, meshH2 ] = meshH.map(iso_v)
+const [ meshV1, meshV2, meshV3 ] = meshV.map(iso_u)
 const normals = normalPoints.map(normal_arrow)
 const tangents = linspace(0, 1, tangentCount, false).map(tangent_arrow)
 

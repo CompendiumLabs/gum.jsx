@@ -1,15 +1,13 @@
 // a fraction with x + 1 over y - 1
-<TextFrame rounded>
-  <Frac>
-    <MathText>
-      <MathSymbol>x</MathSymbol>
-      <MathSymbol>{'+'}</MathSymbol>
-      <MathSymbol>1</MathSymbol>
-    </MathText>
-    <MathText>
-      <MathSymbol>y</MathSymbol>
-      <MathSymbol>{'-'}</MathSymbol>
-      <MathSymbol>1</MathSymbol>
-    </MathText>
-  </Frac>
-</TextFrame>
+<Frac>
+  <MathText>
+    <MathSymbol>x</MathSymbol>
+    <MathSymbol>{'+'}</MathSymbol>
+    <MathSymbol>1</MathSymbol>
+  </MathText>
+  <MathText>
+    <MathSymbol>y</MathSymbol>
+    <MathSymbol>{'-'}</MathSymbol>
+    <MathSymbol>1</MathSymbol>
+  </MathText>
+</Frac>

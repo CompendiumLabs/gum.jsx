@@ -285,6 +285,7 @@ type MathItem =
 interface MathTextArgs extends Omit<StackArgs, 'children'> {
     children?: MathItem | MathItem[]
     spacing?: number
+    inline?: boolean
 }
 
 type MathLeaf = Element | string | number | boolean | null
@@ -325,8 +326,10 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends HStack {
+    vshift: number
+
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
+        const { children: children0, spacing = 0.25, inline = false, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
@@ -362,6 +365,16 @@ class MathText extends HStack {
 
         // compute combined math metrics
         set_math(this, { left, right })
+        this.vshift = inline ? 0.1 : 0
+    }
+
+    svg(ctx: Context): string {
+        const { prect: prect0 } = ctx
+        const [ x, y0, w, h ] = rect_box(prect0, true)
+        const y = y0 + this.vshift * h
+        const prect = box_rect([x, y, w, h])
+        const ctx1 = ctx.clone({ prect })
+        return super.svg(ctx1)
     }
 }
 
@@ -727,7 +740,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): Element {
 
 class Latex extends MathText {
     constructor(args: ElementArgs = {}) {
-        const { children, ...attr0 } = THEME(args, 'Latex')
+        const { children, inline, ...attr0 } = THEME(args, 'Latex')
         const tex = check_string(children)
         const [ spec, attr ] = spec_split(attr0)
 
@@ -743,8 +756,14 @@ class Latex extends MathText {
         }
 
         // pass to MathText
-        super({ children: elems, ...spec })
+        super({ children: elems, inline, ...spec })
         this.args = args
+    }
+}
+
+class Tex extends Latex {
+    constructor({ inline = true, ...args }: ElementArgs = {}) {
+        super({ inline, ...args })
     }
 }
 
@@ -752,5 +771,5 @@ class Latex extends MathText {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex }
+export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
 export type { AtomClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }

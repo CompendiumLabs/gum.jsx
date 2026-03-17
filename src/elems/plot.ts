@@ -637,8 +637,9 @@ class Plot extends Box {
         // default xaxis generation
         if (xaxis === true) {
             const xtick_size1 = xtick_size * (ymax - ymin)
-            const xaxis_yrect = [ xanchor - xtick_size1, xanchor + xtick_size1 ] as Limit
-            xaxis = new HAxis({ ticks: xticks, lim: xlim as Limit, xrect: xlim, yrect: xaxis_yrect, ...xaxis_attr })
+            const xaxis_ylim: Limit = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
+            const xaxis_rect = join_limits({ h: xlim, v: xaxis_ylim })
+            xaxis = new HAxis({ ticks: xticks, lim: xlim as Limit, rect: xaxis_rect, ...xaxis_attr })
             fg_elems.push(xaxis)
         } else if (xaxis === false) {
             xaxis = undefined
@@ -647,8 +648,9 @@ class Plot extends Box {
         // default yaxis generation
         if (yaxis === true) {
             const ytick_size1 = ytick_size * (xmax - xmin)
-            const yaxis_xrect = [ yanchor - ytick_size1, yanchor + ytick_size1 ] as Limit
-            yaxis = new VAxis({ ticks: yticks, lim: ylim as Limit, xrect: yaxis_xrect, yrect: ylim, ...yaxis_attr })
+            const yaxis_xlim: Limit = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
+            const yaxis_rect = join_limits({ h: yaxis_xlim, v: ylim })
+            yaxis = new VAxis({ ticks: yticks, lim: ylim as Limit, rect: yaxis_rect, ...yaxis_attr })
             fg_elems.push(yaxis)
         } else if (yaxis === false) {
             yaxis = undefined

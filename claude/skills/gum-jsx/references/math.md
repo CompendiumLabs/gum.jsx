@@ -17,10 +17,10 @@ Prompt: There are two latex equations framed by rounded borders arranged vertica
 Generated code:
 ```jsx
 <VStack spacing>
-  <TextFrame rounded>
+  <TextFrame rounded border={2}>
     <Latex>{"\\int_0^{\\infty} \\exp(-x^2) dx = \\sqrt{\\pi}"}</Latex>
   </TextFrame>
-  <TextFrame rounded>
+  <TextFrame rounded border={2}>
     <Latex>{"\\sin^2(\\theta) + \\cos^2(\\theta) = 1"}</Latex>
   </TextFrame>
 </VStack>
@@ -42,16 +42,17 @@ Parameters:
 
 **Example**
 
-Prompt: a MathText row with a blue square inserted between an equals sign and y
+Prompt: a MathText row expressing "alpha = blue x red" where blue and red are represented by squares
 
 Generated code:
 ```jsx
 <TextFrame rounded>
   <MathText>
-    <MathSymbol>x</MathSymbol>
-    <MathSymbol>{'='}</MathSymbol>
-    <Square fill={blue} />
-    <MathSymbol>y</MathSymbol>
+    <MathSymbol>\alpha</MathSymbol>
+    <MathSymbol>=</MathSymbol>
+    <Square rounded fill={blue} />
+    <MathSymbol>\times</MathSymbol>
+    <Square rounded fill={red} />
   </MathText>
 </TextFrame>
 ```
@@ -133,17 +134,16 @@ Subunit names:
 
 **Example**
 
-Prompt: a square-bracketed sum
+Prompt: the ratio of alpha to beta enclosed in parentheses
 
 Generated code:
 ```jsx
 <TextFrame rounded>
-  <Bracket delim="square">
-    <MathText>
-      <MathSymbol>x</MathSymbol>
-      <MathSymbol>{'+'}</MathSymbol>
-      <MathSymbol>y</MathSymbol>
-    </MathText>
+  <Bracket>
+    <Frac>
+      <MathSymbol>\alpha</MathSymbol>
+      <MathSymbol>\beta</MathSymbol>
+    </Frac>
   </Bracket>
 </TextFrame>
 ```

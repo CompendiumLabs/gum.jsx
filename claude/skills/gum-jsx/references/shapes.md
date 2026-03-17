@@ -38,6 +38,30 @@ Generated code:
 </Group>
 ```
 
+## Arc
+
+*Inherits*: **Element**
+
+This draws an elliptical arc that inscribes its allocated rectangle, like **Ellipse**, but only over a selected angular interval.
+
+Parameters:
+- `degrees` = `[0, 360]` — start and end angle in degrees
+- `range` — alias for `degrees`
+
+Angles follow gum's usual screen-space convention: `0` points right and `90` points down.
+
+**Example**
+
+Prompt: elliptical and circular arcs using degree ranges
+
+Generated code:
+```jsx
+<Group>
+  <Arc pos={[0.32, 0.5]} rad={[0.22, 0.16]} degrees={[-45, 210]} stroke={blue} stroke-width={2} />
+  <Arc pos={[0.72, 0.5]} rad={0.16} degrees={[90, -150]} stroke={red} stroke-width={2} />
+</Group>
+```
+
 ## Line
 
 *Inherits*: **Element**

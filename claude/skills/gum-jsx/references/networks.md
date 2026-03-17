@@ -33,10 +33,12 @@ Generated code:
 
 *Inherits*: **Arrow** > **Group** > **Element**
 
-This creates a cubic spline path from one point to another with optional arrowheads at either or both ends. It is named **Edge** because of its usage in network diagrams with **Network**. The emanation directions are automatically inferred from the relative point positions but can be overriden as well. See **Arrow** for more details on the paths and arrowheads.
+This creates a cubic spline path from one element (typically a **Node**) to another with optional arrowheads at either or both ends. It is named **Edge** because of its usage in network diagrams with **Network**. The emanation directions are automatically inferred from the relative node positions but can be overriden as well.
+
+Use **Arrow** for creating edges between arbitrary points and for details on options for the path and arrowheads.
 
 Parameters:
-- `start`/`end` — the beginning and ending **Node** for the path and where the optional arrowheads are placed, or a `[node, direc]` pair where `direc` specifies the emanation direction
+- `start`/`end` — the beginning and ending element for the path
 - `start_dir`/`end_dir` — the emanation directions of the arrowheads (cardinal strings or direction vectors)
 - `points` — the intermediate points to draw the spline between
 - `arrow` / `arrow_start` / `arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_start`, meaning a directed graph edge
@@ -62,7 +64,7 @@ Generated code:
 
 Network diagrams can be created using the **Node** and **Edge** classes. This automatically processes Node and Edge children to create a network diagram. It will also display non-network elements as they would be displayed in a **Graph**.
 
-You can specify the internal coordinate system using the `coord` argument, which is a 4-element array specifying the position of the bottom left corner and the width and height of the coordinate system. For example, `coord: [0, 0, 1, 1]` specifies the unit square. When using `Graph`, one can also pass in `xlim`/`ylim` arguments to specify the extent of the graph.
+You can specify the internal coordinate system using the `coord` argument, which is a 4-element array specifying the position of the bottom left corner and the width and height of the coordinate system. For example, `coord: [0, 0, 1, 1]` specifies the unit square.
 
 Parameters:
 - `coord` — the internal coordinate system to use

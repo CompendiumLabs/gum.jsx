@@ -28,18 +28,29 @@ Here we collect a variety of global mathematical functions and constants. You ca
 - `round(x)` — the rounding function
 - `clamp(x, lim=[0, 1])` — clamp `x` to the range `lim`
 - `rescale(x, lim=[0, 1])` — linearly rescale `x` to the range `lim`
+- `polar([radius, angle], center=[0, 0])` — convert polar coordinates to a 2D point
+
+Angles use gum's usual screen-space convention: `0` points right and `90` points down.
 
 **Example**
 
-Prompt: plot the exponential of sin(x) over [0, 2π]
+Prompt: use polar to place points around a circle
 
 Generated code:
 ```jsx
-<Box margin={0.15}>
-  <Plot aspect={phi} xlim={[0, 2*pi]} ylim={[0, 3]} grid>
-    <SymLine fy={x => exp(sin(x))} />
-  </Plot>
-</Box>
+const center = [0.5, 0.5]
+const ring = range(10).map(i => {
+  const radius = i % 2 == 0 ? 0.32 : 0.16
+  return polar([radius, -90 + 36 * i], center)
+})
+const spokes = range(5).map(i => polar([0.32, -90 + 72 * i], center))
+
+return <Group>
+  <Circle pos={center} rad={0.32} stroke={gray} />
+  <Shape points={ring} stroke={blue} stroke-width={2} />
+  {spokes.map(pos => <Line points={[center, pos]} stroke={red} stroke-width={1.5} />)}
+  {ring.map(pos => <Dot pos={pos} rad={0.015} fill={blue} />)}
+</Group>
 ```
 
 ## Arrays

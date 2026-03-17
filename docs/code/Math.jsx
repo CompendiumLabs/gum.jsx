@@ -7,7 +7,7 @@ const ring = range(10).map(i => {
 const spokes = range(5).map(i => polar([0.32, -90 + 72 * i], center))
 
 return <Group>
-  <Circle pos={center} rad={0.32} stroke={gray} />
+  <Circle pos={center} rad={0.32} stroke={darkgray} />
   <Shape points={ring} stroke={blue} stroke-width={2} />
   {spokes.map(pos => <Line points={[center, pos]} stroke={red} stroke-width={1.5} />)}
   {ring.map(pos => <Dot pos={pos} rad={0.015} fill={blue} />)}
