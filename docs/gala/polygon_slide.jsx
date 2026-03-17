@@ -15,7 +15,7 @@ const RegularPolygon = ({ n, ...args }) =>
 return <Slide title="Simple Regular Polygons" wrap={25}>
   <Text>
     A regular polygon has equal side lengths and equal interior angles. Below are examples for
-    <Latex>{"n \\in \\{3, \\ldots, 8\\}"}</Latex>
+    <Tex>{"n \\in \\{3, \\ldots, 8\\}"}</Tex>
   </Text>
   <Grid rows={2} spacing={[0.05, 0.075]}>
     { shapes.map(([n, s]) =>

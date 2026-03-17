@@ -5,7 +5,7 @@ const col = {
   trade: '#ffb300',
 }
 
-return <TitleFrame title="Simple Macroeconomic Flow" title-size={0.06} rounded padding={0.05} margin>
+return <Slide title="Macroeconomic Flows">
   <Network aspect={2} coord={[0, 0, 1.6, 0.8]} node-yrad={0.08} node-rounded={0.06} node-fill={gray} node-text-color="#333" edge-stroke-width={2} edge-arrow-size={0.02} edge-stroke="#444">
     <Node id="trade" pos={[0.8, 0.15]} fill={col.trade} fill-opacity={0.15} border-stroke={col.trade} wrap={6}>Foreign Trade</Node>
     <Node id="prod" pos={[0.3, 0.4]} fill={col.prod} fill-opacity={0.15} border-stroke={col.prod} wrap={6}>Producers (Firms)</Node>
@@ -25,4 +25,4 @@ return <TitleFrame title="Simple Macroeconomic Flow" title-size={0.06} rounded p
     <Text pos={[0.3, 0.13]} yrad={0.02} color={darkgray} spin={-30}>Imports / Exports</Text>
     <Text pos={[1.3, 0.13]} yrad={0.02} color={darkgray} spin={30}>Transfers</Text>
   </Network>
-</TitleFrame>
+</Slide>

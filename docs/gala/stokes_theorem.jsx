@@ -138,14 +138,14 @@ const SurfaceDiagram = (attr) =>
 const MathPanel = (attr) =>
   <VStack spacing={0.2} justify="left" {...attr}>
     <Frame padding={0.15} rounded={0.05} fill="#f8f4fc" border-stroke="#d0b8e0">
-      <Latex>{"\\oint_{\\partial S} F \\cdot dr = \\iint_{S} (\\nabla \\times F) \\cdot dS"}</Latex>
+      <Tex>{"\\oint_{\\partial S} F \\cdot dr = \\iint_{S} (\\nabla \\times F) \\cdot dS"}</Tex>
     </Frame>
-    <Text wrap={16} spacing={0.25}>The line integral of a vector field <Latex>F</Latex> around the closed boundary curve <Latex>\delta S</Latex> equals the surface integral of the curl of <Latex>F</Latex> over any oriented surface <Latex>S</Latex> bounded by that curve.</Text>
+    <Text wrap={16} spacing={0.25}>The line integral of a vector field <Tex>F</Tex> around the closed boundary curve <Tex>\delta S</Tex> equals the surface integral of the curl of <Tex>F</Tex> over any oriented surface <Tex>S</Tex> bounded by that curve.</Text>
   </VStack>
 
-return <TitleFrame title="Stokes' Theorem" title-size={0.075} margin padding={0.15} rounded={0.025}>
+return <Slide title="Stokes' Theorem" title-size={0.07} padding={0.15}>
   <HStack spacing={0.05}>
     <SurfaceDiagram />
     <MathPanel />
   </HStack>
-</TitleFrame>
+</Slide>
