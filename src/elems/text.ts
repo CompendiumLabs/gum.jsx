@@ -10,7 +10,7 @@ import { wrapWidths } from '../lib/wrap'
 import { Context, Element, Group, prefix_split, prefix_join, spec_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HStack, VStack } from './layout'
-import type { BoxArgs, HWrapArgs, StackArgs } from './layout'
+import type { BoxArgs, StackArgs } from './layout'
 
 //
 // span class
@@ -195,7 +195,7 @@ class TextLine extends Group {
     }
 }
 
-interface TextArgs extends HWrapArgs {
+interface TextArgs extends StackArgs {
     font_family?: string
     font_weight?: number
     font_style?: string

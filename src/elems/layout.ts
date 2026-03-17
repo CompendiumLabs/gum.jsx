@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
-import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side } from '../lib/utils'
+import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side, intersperse } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
 import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac, ensure_children } from './core'
@@ -288,17 +288,19 @@ interface HWrapArgs extends StackArgs {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args: HWrapArgs = {}) {
-        const { children: children0, spacing, padding, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, hspacing, vspacing, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
         const children = ensure_children(children0)
         const measure = measure0 ?? default_measure
 
+        // intersperse spacers if needed and wrap widths
+        const items = hspacing > 0 ? intersperse(children, new Spacer({ aspect: hspacing })) : children
+        const { rows } = wrapWidths(items, measure, wrap)
+
         // make HStack rows
-        const { rows } = wrapWidths(children, measure, wrap)
-        const lines = rows.map(row => new HStack({ children: row, spacing: padding, align: justify, debug }))
-        const boxes = lines.map(line => new Group({ children: [ line ], aspect: wrap ?? line.spec.aspect }))
+        const lines = rows.map(row => new HStack({ children: row, align: justify, aspect: wrap, debug }))
 
         // pass to VStack
-        super({ children: boxes, spacing, even: true, debug, ...attr })
+        super({ children: lines, spacing: vspacing, even: true, debug, ...attr })
         this.args = args
     }
 }
