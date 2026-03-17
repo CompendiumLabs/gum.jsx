@@ -1,25 +1,31 @@
 // Stokes' Theorem Diagram
 
-const surface = {
-  center: [0.48, 0.52],
-  basisX: [0.39, 0],
-  basisY: [0.06, 0.29],
-  basisZ: [0.03, -0.22],
-  boundaryCount: 18,
-  meshH: [ -0.35, 0.28 ],
-  meshV: [ -0.52, 0, 0.48 ],
-  tangentCount: 6,
-  tangentPhase: 0.58,
-  tangentLength: 0.2,
-  normals: [
-    [-0.45, -0.02],
-    [-0.1, -0.22],
-    [0.32, 0.42],
-    [-0.32, 0.54],
-    [0.26, 0.08],
-  ],
-  normalLength: 0.15,
-}
+//
+// constants
+//
+
+const center = [ 0.48, 0.52 ]
+const basisX = [ 0.39, 0 ]
+const basisY = [ 0.06, 0.29 ]
+const basisZ = [ 0.03, -0.22 ]
+const boundaryCount = 18
+const meshH = [ -0.35, 0.28 ]
+const meshV = [ -0.52, 0, 0.48 ]
+const tangentCount = 6
+const tangentPhase = 0.58
+const tangentLength = 0.2
+const normalLength = 0.15
+const normalPoints = [
+  [ -0.45, -0.02 ],
+  [ -0.1, -0.22 ],
+  [ 0.32, 0.42 ],
+  [ -0.32, 0.54 ],
+  [ 0.26, 0.08 ],
+]
+
+//
+// vector ops
+//
 
 const add3 = ([ax, ay, az], [bx, by, bz]) => [ax + bx, ay + by, az + bz]
 const scale3 = ([x, y, z], s) => [s * x, s * y, s * z]
@@ -31,11 +37,15 @@ const cross3 = ([ax, ay, az], [bx, by, bz]) => [
 
 const project_vec = ([x, y, z]) =>
   add2(
-    mul2(surface.basisX, x),
-    add2(mul2(surface.basisY, y), mul2(surface.basisZ, z))
+    mul2(basisX, x),
+    add2(mul2(basisY, y), mul2(basisZ, z))
   )
 
-const project = (point) => add2(surface.center, project_vec(point))
+const project = (point) => add2(center, project_vec(point))
+
+//
+// surface definitions
+//
 
 const surface_point = (u, v) => {
   const x = u + 0.09 * u * v - 0.05 * v * v
@@ -56,8 +66,6 @@ const surface_dv = (u, v) => [
   -0.92 * v - 0.05 + 0.08 * u,
 ]
 
-const boundary_sample = (t) => project(surface_point(cos(t), sin(t)))
-
 const boundary_tangent = (t) => {
   const [u, v] = [cos(t), sin(t)]
   return project_vec(
@@ -67,6 +75,12 @@ const boundary_tangent = (t) => {
     )
   )
 }
+
+//
+// point generators
+//
+
+const boundary_sample = (t) => project(surface_point(cos(t), sin(t)))
 
 const iso_u = (u0, n = 4) => {
   const span = sqrt(1 - u0 * u0)
@@ -78,27 +92,31 @@ const iso_v = (v0, n = 5) => {
   return linspace(-span, span, n).map(u => project(surface_point(u, v0)))
 }
 
-const tangent_arrow = (turn, length) => {
+const tangent_arrow = (turn) => {
   const t = 2 * pi * turn
   const start = boundary_sample(t)
   const delta = normalize(boundary_tangent(t), 2)
-  const end = add2(start, mul2(delta, length))
+  const end = add2(start, mul2(delta, tangentLength))
   return [start, end]
 }
 
-const normal_arrow = (u, v, length) => {
+const normal_arrow = ([u, v]) => {
   const base = project(surface_point(u, v))
   const normal = project_vec(cross3(surface_du(u, v), surface_dv(u, v)))
   const delta = normalize(normal[1] > 0 ? mul2(normal, -1) : normal, 2)
-  const tip = add2(base, mul2(delta, length))
+  const tip = add2(base, mul2(delta, normalLength))
   return [base, tip]
 }
 
-const boundary = linspace(0, 2 * pi, surface.boundaryCount, false).map(boundary_sample)
-const [ meshH1, meshH2 ] = surface.meshH.map(v => iso_v(v, 5))
-const [ meshV1, meshV2, meshV3 ] = surface.meshV.map(u => iso_u(u, 4))
-const normals = surface.normals.map(([u, v]) => normal_arrow(u, v, surface.normalLength))
-const tangents = linspace(0, 1, surface.tangentCount, false).map(i => tangent_arrow(i, surface.tangentLength))
+//
+// diagram elements
+//
+
+const boundary = linspace(0, 2 * pi, boundaryCount, false).map(boundary_sample)
+const [ meshH1, meshH2 ] = meshH.map(v => iso_v(v))
+const [ meshV1, meshV2, meshV3 ] = meshV.map(u => iso_u(u))
+const normals = normalPoints.map(normal_arrow)
+const tangents = linspace(0, 1, tangentCount, false).map(tangent_arrow)
 
 const SurfaceDiagram = (attr) =>
   <Group aspect={1} {...attr}>
