@@ -61,16 +61,16 @@ class Node extends Frame {
 //
 
 interface EdgeArgs extends ElementArgs {
-    start?: Node | string
-    end?: Node | string
+    start?: Element | string
+    end?: Element | string
     start_dir?: Side
     end_dir?: Side
     points?: Point[]
 }
 
 class Edge extends Element {
-    start: Node | string
-    end: Node | string
+    start: Element | string
+    end: Element | string
     start_dir?: Side
     end_dir?: Side
     points: Point[]
@@ -129,16 +129,10 @@ class Edge extends Element {
 // network class
 //
 
-interface NetworkArgs extends GroupArgs {
-    xlim?: Limit
-    ylim?: Limit
-}
-
 class Network extends Group {
-    constructor(args: NetworkArgs = {}) {
-        const { children: children0, xlim, ylim, coord: coord0, ...attr0 } = THEME(args, 'Network')
+    constructor(args: GroupArgs = {}) {
+        const { children: children0, coord, ...attr0 } = THEME(args, 'Network')
         const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
-        const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
         const children = ensure_children(children0)
 
         // process nodes and make label map

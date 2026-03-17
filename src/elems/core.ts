@@ -243,7 +243,7 @@ function props_repr(d: Attrs, prec: number): string {
 
 // reserved keys
 const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'upright', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
-const HELP_KEYS = [ 'pos', 'rad', 'xlim', 'ylim', 'flex', 'spin', 'hflip', 'vflip', 'xrad', 'yrad' ]
+const HELP_KEYS = [ 'pos', 'rad', 'xrad', 'yrad', 'flex', 'spin', 'orient' ]
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 
@@ -307,15 +307,9 @@ interface ElementArgs extends SpecArgs {
     rad?: number | Size
     xrad?: number
     yrad?: number
-    xlim?: Limit
-    ylim?: Limit
-    xrect?: Limit
-    yrect?: Limit
     flex?: boolean
     spin?: number
     orient?: number
-    hflip?: boolean
-    vflip?: boolean
     debug?: boolean
     [key: string]: any
 }
@@ -329,7 +323,7 @@ class Element {
     attr: Attrs
 
     constructor(args: ElementArgs = {}) {
-        const { tag, unary, children, pos, rad, xrad, yrad, xlim, ylim, xrect, yrect, flex, spin, orient, hflip, vflip, ...attr0 } = args
+        const { tag, unary, children, pos, rad, xrad, yrad, flex, spin, orient, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
@@ -340,10 +334,6 @@ class Element {
         // store layout params
         this.spec = spec
         this.attr = attr
-
-        // handle coord and rect convenience
-        if (xlim != null || ylim != null) this.spec.coord ??= join_limits({ h: xlim, v: ylim })
-        if (xrect != null || yrect != null) this.spec.rect ??= join_limits({ h: xrect, v: yrect })
 
         // handle pos/rad conveniences
         if (pos != null || rad != null || xrad != null || yrad != null) {
@@ -356,8 +346,6 @@ class Element {
         // various convenience conversions
         if (spin != null) { this.spec.rotate = spin; this.spec.rotate_invar = true }
         if (orient != null) { this.spec.rotate = orient; this.spec.rotate_adjust = true }
-        if (hflip === true) this.spec.coord = flip_rect(this.spec.coord, false)
-        if (vflip === true) this.spec.coord = flip_rect(this.spec.coord, true)
         if (flex === true) this.spec.aspect = undefined
 
         // adjust aspect for rotation
@@ -478,6 +466,7 @@ function makeUID(prefix: string): string {
 
 interface GroupArgs extends ElementArgs {
     children?: (Element | null)[]
+    coord?: Rect | 'auto'
     clip?: true | Element
     mask?: Element
 }

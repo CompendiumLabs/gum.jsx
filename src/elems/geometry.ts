@@ -598,7 +598,7 @@ interface ArrowArgs extends GroupArgs {
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { points, start_dir, end_dir, arrow_size = 0.04, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, stroke_width = 1, stroke_linecap, fill, ...attr0 } = THEME(args, 'Arrow')
+        const { points, start_dir, end_dir, arrow_size = 0.04, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, stroke_width = 1, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'Arrow')
         const [ line_attr0, arrow_attr0, start_attr0, end_attr0, attr ] = prefix_split([ 'line', 'arrow', 'start', 'end' ], attr0)
 
         // arrow defaults
@@ -635,15 +635,15 @@ class Arrow extends Group {
         // make line path
         const points_adj = [ start_pos, ...points.slice(1, -1), end_pos ]
         const line_elem = curve ?
-            new Spline({ points: points_adj, dir1: start_direc, dir2: end_direc, curve, ...line_attr }) :
-            new Line({ points: points_adj, ...line_attr })
+            new Spline({ points: points_adj, dir1: start_direc, dir2: end_direc, curve, coord, ...line_attr }) :
+            new Line({ points: points_adj, coord, ...line_attr })
 
         // make arrowheads
         const start_elem = arrow_start ? new ArrowHead({ angle: start_angle, pos: start, rad: arrow_size, ...start_attr }) : null
         const end_elem = arrow_end ? new ArrowHead({ angle: end_angle, pos: end, rad: arrow_size, ...end_attr }) : null
 
         // pass to Group
-        super({ children: [ line_elem, start_elem, end_elem ], ...attr })
+        super({ children: [ line_elem, start_elem, end_elem ], coord, ...attr })
         this.args = args
     }
 }
