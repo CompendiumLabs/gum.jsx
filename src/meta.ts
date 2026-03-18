@@ -3,23 +3,30 @@
 import { readFileSync, readdirSync } from 'fs'
 
 // replace links with bold and push headings
-function prepareText(text: string): string {
-    const mark = text
-        .replace(/\[(.*?)\]\((.*?)\)/g, '**$1**') // links to bold
-        .replace(/^# (.*?)$/mg, '## $1') // headings to bold
-    return mark.trim()
+function prepareText(text: string, sub: boolean = true): string {
+    text = text.replace(/\[(.*?)\]\((.*?)\)/g, '**$1**') // links to bold
+    if (sub) text = text.replace(/^# (.*?)$/mg, '## $1') // headings to sub-headings
+    return text.trim()
 }
 
 // if there's a comment on line one, that's the query
-function prepareCode(text: string): string {
+function prepareDocsCode(text: string): string {
     const [ first, ...rest ] = text.split('\n')
     const query = first.replace(/^\/\/(.*?)$/, '$1').trim()
     const code = `\`\`\`jsx\n${rest.join('\n').trim()}\n\`\`\``
     return `**Example**\n\nPrompt: ${query}\n\nGenerated code:\n${code}`
 }
 
-function preparePage(text: string, code: string): string {
-    return `${prepareText(text)}\n\n${prepareCode(code)}`
+function prepareGalaCode(text: string): string {
+    return `\`\`\`jsx\n${text.trim()}\n\`\`\``
+}
+
+function prepareDocsPage(text: string, code: string): string {
+    return `${prepareText(text, true)}\n\n${prepareDocsCode(code)}`
+}
+
+function prepareGalaPage(text: string, code: string): string {
+    return `${prepareText(text, false)}\n\n${prepareGalaCode(code)}`
 }
 
 // index directory contents
@@ -69,4 +76,4 @@ function getGala(gala_dir: string): GalaInfo {
     return { tags, text, code }
 }
 
-export { getDocs, getGala, preparePage }
+export { getDocs, getGala, prepareDocsPage, prepareGalaPage }

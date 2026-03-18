@@ -2,7 +2,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { Command } from 'commander'
-import { getDocs, preparePage } from '../src/meta'
+import { getDocs, getGala, prepareDocsPage, prepareGalaPage } from '../src/meta'
 
 // capitalize a string
 function capitalize(s: string): string {
@@ -16,11 +16,16 @@ program.parse(process.argv)
 const { output = 'claude/skills/gum-jsx' } = program.opts()
 
 // load docs pages
-const { tags, cats, text, code } = getDocs('docs')
+const { tags: docs_tags, cats, text: docs_text, code: docs_code } = getDocs('docs')
+const { tags: gala_tags, text: gala_text, code: gala_code } = getGala('gala')
 
 // make reference pages
-const pages = Object.fromEntries(tags.map(tag =>
-   [ tag, preparePage(text[tag], code[tag]) ]
+const docs_pages = Object.fromEntries(docs_tags.map(tag =>
+   [ tag, prepareDocsPage(docs_text[tag], docs_code[tag]) ]
+))
+
+const gala_pages = Object.fromEntries(gala_tags.map(tag =>
+    [ tag, prepareGalaPage(gala_text[tag], gala_code[tag]) ]
 ))
 
 // load prompt files
@@ -37,21 +42,31 @@ ${intro}
 
 ${docs}
 
-${pages['Element']}
+${docs_pages['Element']}
 
-${pages['Group']}
+${docs_pages['Group']}
 
-${pages['Box']}
+${docs_pages['Box']}
 
 ${refs}
 `.trim()
 
 // write skill directory
-mkdirSync(`${output}/references`, { recursive: true })
+mkdirSync(output, { recursive: true })
 writeFileSync(`${output}/SKILL.md`, skill + '\n')
+
+// write reference pages
+mkdirSync(`${output}/references`, { recursive: true })
 Object.entries(cats).forEach(([c, ps]) => {
     if (c == 'core') return
-    const content = ps.map(p => pages[p]).join('\n\n')
+    const content = ps.map(p => docs_pages[p]).join('\n\n')
     const entry = `# ${capitalize(c)} Elements\n\n${content}\n`
     writeFileSync(`${output}/references/${c}.md`, entry)
+})
+
+// write gala pages
+mkdirSync(`${output}/references/gala`, { recursive: true })
+gala_tags.forEach(t => {
+    const entry = gala_pages[t]
+    writeFileSync(`${output}/references/gala/${t}.md`, entry)
 })
