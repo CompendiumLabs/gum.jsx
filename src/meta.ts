@@ -18,7 +18,8 @@ function prepareDocsCode(text: string): string {
 }
 
 function prepareGalaCode(text: string): string {
-    return `\`\`\`jsx\n${text.trim()}\n\`\`\``
+    const code = `\`\`\`jsx\n${text.trim()}\n\`\`\``
+    return `**Code**\n\n${code}`
 }
 
 function prepareDocsPage(text: string, code: string): string {

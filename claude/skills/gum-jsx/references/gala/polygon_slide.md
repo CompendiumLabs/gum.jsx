@@ -6,6 +6,8 @@ The overall composition is handled with layout elements rather than manual posit
 
 The color handling is also worth noting. `palette(blue, purple, [3, 8])` turns the side count into a smooth color ramp, so the sequence reads as a progression rather than a collection of unrelated fills. There is also a small `spin` adjustment in `RegularPolygon`, which helps each shape sit in a more natural upright orientation.
 
+**Code**
+
 ```jsx
 const pal = palette(blue, purple, [3, 8])
 const shapes = [

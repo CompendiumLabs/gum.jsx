@@ -4,6 +4,8 @@ This is a compact set-diagram example built around a small local helper. The `Se
 
 The actual set relationships are expressed entirely through positioning and scale. There is no boolean geometry here; the picture just relies on overlapping translucent ellipses and containment. That keeps the construction simple while still giving a recognizable set-theory diagram.
 
+**Code**
+
 ```jsx
 const Set = ({ label, label_pos, label_rad = 0.15, fill = "#C8CAE3", ...args }) =>
   <Frame flex fill={fill} shape={<Ellipse/>} {...args}>

@@ -6,6 +6,8 @@ There are two useful scripting tricks here. The first is using `map` + `polar` t
 
 Note the non-standard coordinate system. By default `coord` is the unit box `[0, 0, 1, 1]`, but here we set it to `[-1, -1, 1, 1]` so we can express things in an origin-centered way.
 
+**Code**
+
 ```jsx
 // parameters
 const n = 5

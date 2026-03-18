@@ -4,6 +4,8 @@ This is a simple but effective generative plot. Each curve is the same damped co
 
 The visual style comes from a few restrained choices. The axes are turned off (`axis = false`), the dense grid is left on, and the stroke colors are interpolated from red to blue across the family of curves with `interp`. That is enough to make the figure feel atmospheric without requiring any extra structure beyond a loop over **SymSpline** elements.
 
+**Code**
+
 ```jsx
 <Frame border={2} rounded={0.02} clip margin>
   <Plot

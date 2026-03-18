@@ -6,6 +6,8 @@ The small `Curve` helper is doing useful cleanup. It wraps **SymLine** with shar
 
 One small trick worth noting is the use of `maximum(0, ...)` inside the square roots. That clips away the invalid region and avoids taking square roots of negative values, which keeps the plotted branches well behaved at their endpoints.
 
+**Code**
+
 ```jsx
 const xlim = [ -4, 4 ]; const ylim = [ -2, 2 ]
 const Curve = ({ fx, stroke }) => <SymLine fx={fx} ylim={ylim} stroke={stroke} stroke-width={2} N={200} />

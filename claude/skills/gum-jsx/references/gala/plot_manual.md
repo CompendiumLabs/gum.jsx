@@ -4,6 +4,8 @@ This is basically the manual version of **Plot**. Instead of using the wrapper, 
 
 That makes it a useful example if you want to understand what **Plot** is abstracting away. You get direct control over where the axes sit and how big they are, which is why the code computes the small `ratio` factor before placing the vertical axis. Once you are doing this kind of thing often, though, it is usually easier to go back to **Plot**.
 
+**Code**
+
 ```jsx
 const aspect = 2
 const ratio = pi / aspect

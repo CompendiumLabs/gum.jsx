@@ -6,6 +6,8 @@ The two main helpers are `OrbitalLobe` and `OrbGraph`. `OrbitalLobe` wraps **Sym
 
 The final layout is also worth noting. Since the figure really wants an uneven `1 / 3 / 2` arrangement, a rigid grid with spacers would be awkward. Instead the slide uses a **VStack** of **HWrap** rows, and **HWrap**'s aspect-based spacing keeps the square boxes lined up cleanly even though each row has a different number of cells.
 
+**Code**
+
 ```jsx
 // Atomic Orbital Diagram: s, p, and d
 

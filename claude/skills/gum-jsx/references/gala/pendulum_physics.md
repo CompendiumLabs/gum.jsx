@@ -6,6 +6,8 @@ The figure also shows how well simple geometry mixes with mathematical text. Mos
 
 One useful trick used here is setting `clip` on the **Frame** to hide the upper part of the anchoring rectangle. Note that when you do apply `clip`, you may need to increase the `border` value since half of it will be cut off.
 
+**Code**
+
 ```jsx
 // Pendulum Diagram
 const slate = '#4a5568'

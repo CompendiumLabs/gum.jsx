@@ -6,6 +6,8 @@ The interesting part is the overlaid spline. The code draws the same **Spline** 
 
 The nested **Frame**s matter too. They give the piece its metallic bezel and inset-screen look, so the final image reads less like a raw grid and more like a display panel.
 
+**Code**
+
 ```jsx
 const [ n, m ] = [ 9, 16 ]
 const pal = palette('#00d4ff', '#7c3aed', [0, m-1])

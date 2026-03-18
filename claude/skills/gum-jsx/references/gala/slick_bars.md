@@ -6,6 +6,8 @@ It is also a good example of using `Bars` inside `Plot` rather than reaching for
 
 The rotated x-axis labels are another important touch. With text labels this is often necessary, especially when the names are long or numerous, and `xaxis-label-spin={-45}` solves the overlap cleanly without having to make the plot much wider.
 
+**Code**
+
 ```jsx
 const [labs, vals] = zip(
   ["GPT-4o", 0.4], ["OpenAI o1", 3.2], ["OpenAI o4-mini", 8.3], ["Gemini 3 Pro", 12.4],

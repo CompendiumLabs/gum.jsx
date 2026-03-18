@@ -6,6 +6,8 @@ The key idea is that the surface is parameterized in `(u, v)` coordinates and th
 
 There is also a bit of vector calculus baked in here. The normal arrows come from a cross product of the surface derivatives, so the picture is not just decorative; it is tied to the geometry behind the theorem. So even though gum doesn't have 3D vector ops build in, it's still possible to do some pretty sophisticated geometric diagrams.
 
+**Code**
+
 ```jsx
 // Stokes' Theorem Diagram
 

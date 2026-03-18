@@ -4,6 +4,8 @@ This one is very simple, but it is a nice reminder that layout elements can be g
 
 Most of the energy comes from the framing rather than the text itself. The bright blocks, asymmetric rounding, and overall rotation are enough to push the piece toward a poster or logo treatment with very little code.
 
+**Code**
+
 ```jsx
 <Frame rounded={0.15} padding margin fill={gray} rotate={-25}>
   <HStack aspect={7.5} spacing={0.075}>

@@ -259,7 +259,7 @@ Generated code:
 
 # References
 
-Below is a list of topics to reference for documentation and usage examples for the various components. Every `gum.jsx` component is documented in one of the following files in the `references` directory. Your code must either use these components or create its own custom components. Before using a component, be sure to read the relevant reference to fully understand its parameters and capabilities.
+Below is a list of topics to reference for documentation and usage examples for the various components. Every `gum.jsx` component is documented here. Your code must either use these components or create its own custom components. Before using a component, be sure to read the relevant reference to fully understand its parameters and capabilities.
 
 ## Layout
 

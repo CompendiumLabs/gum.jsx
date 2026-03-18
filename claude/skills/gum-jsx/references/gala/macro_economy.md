@@ -6,6 +6,8 @@ What makes it work is the mix of abstraction levels. The node and edge structure
 
 The color palette also does useful work here. Each sector gets its own color family, and the central producer-consumer exchange is labeled in matching colors, so the main flows stand out from the secondary tax and transfer loops.
 
+**Code**
+
 ```jsx
 const col = {
   prod: '#1e88e5',
