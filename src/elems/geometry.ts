@@ -6,7 +6,7 @@ import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_arr
 
 import { Context, Element, Group, Rectangle, prefix_split } from './core'
 
-import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc, Rect } from '../lib/types'
+import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //

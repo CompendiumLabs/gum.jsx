@@ -1,5 +1,5 @@
 const xlim = [ -4, 4 ]; const ylim = [ -2, 2 ]
-const Curve = ({ fx, stroke }) => <SymLine fx={fx} ylim={ylim} stroke={stroke} stroke-width={2} N={250} />
+const Curve = ({ fx, stroke }) => <SymLine fx={fx} ylim={ylim} stroke={stroke} stroke-width={2} N={200} />
 const xlabel = <Latex>x = a + bi</Latex>
 const ylabel = <Latex>c</Latex>
 return <Plot aspect={2} margin={0.3} xlim={xlim} ylabel={ylabel} xlabel={xlabel} ylabel-offset={0.075}>

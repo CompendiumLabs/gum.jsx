@@ -10,7 +10,7 @@ import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
-import type { Padding, Point, Rect, Size, Attrs } from '../lib/types'
+import type { Padding, Point, Rect, Attrs } from '../lib/types'
 import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
