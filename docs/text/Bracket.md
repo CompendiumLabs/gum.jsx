@@ -9,4 +9,4 @@ Parameters:
 - `delim` = `'round'` — one of `'round'`, `'square'`, `'curly'`, `'angle'`, or a `[left, right]` pair of those values
 
 Subunit names:
-- `delim` — forwarded to the generated delimiter symbols, for example `delim_size`
+- `delim` — forwarded to the generated delimiter symbols, for example `delim-size`
