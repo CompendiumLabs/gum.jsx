@@ -2,8 +2,8 @@
 
 import { THEME } from '../lib/theme'
 
-import { prefix_split, spec_split, is_element } from './core'
-import { Box } from './layout'
+import { prefix_split, spec_split, is_element, ensure_children } from './core'
+import { Box, Attach } from './layout'
 import { Span, TextFrame, TextStack } from './text'
 
 import type { AlignValue, Padding, Rounded, Point, Size } from '../lib/types'
@@ -13,6 +13,34 @@ import type { BoxArgs } from './layout'
 //
 // title/slide classes
 //
+
+interface LabelBoxArgs extends BoxArgs {
+    label?: Element | string
+    size?: number
+}
+
+class LabelBox extends Box {
+    constructor(args: LabelBoxArgs = {}) {
+        const { children: children0, label: label0, ...attr0 } = THEME(args, 'LabelBox')
+        const [ label_attr, attr1 ] = prefix_split(['label'], attr0)
+        const [ spec, attr ] = spec_split(attr1)
+        const children = ensure_children(children0)
+
+        // enclose children in a box
+        const inner = new Box({ children, ...attr })
+
+        // make optional label box
+        let attach: Attach | null = null
+        if (label0 != null) {
+            const label = is_element(label0) ? label0 : new Span({ children: [ label0 ] })
+            attach = new Attach({ children: [ label ], ...label_attr })
+        }
+
+        // pass layout spec to the outer box, not the inner box
+        super({ children: [ inner, attach ], ...spec })
+        this.args = args
+    }
+}
 
 interface TitleBoxArgs extends BoxArgs {
     title?: Element | string
@@ -88,5 +116,5 @@ class Slide extends TitleFrame {
 // exports
 //
 
-export { TitleBox, TitleFrame, Slide }
-export type { TitleBoxArgs, TitleFrameArgs, SlideArgs }
+export { LabelBox, TitleBox, TitleFrame, Slide }
+export type { LabelBoxArgs, TitleBoxArgs, TitleFrameArgs, SlideArgs }

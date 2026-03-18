@@ -407,6 +407,7 @@ interface PointsArgs extends GroupArgs {
     shape?: Element
 }
 
+// places a bunch of clones at points
 class Points extends Group {
     constructor(args: PointsArgs = {}) {
         const { points: points0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
@@ -425,9 +426,11 @@ interface AnchorArgs extends GroupArgs {
     loc?: AlignValue
 }
 
+// circumscribe a parent element with a child element (loc and justify specify where its anchored to)
+// doing this in an aspect-ed element allows you to pivot sizes across dimensions (see tick labels)
 class Anchor extends Group {
     constructor(args: AnchorArgs = {}) {
-        const { children: children0, direc = 'h', justify = 'center', loc: loc0, ...attr } = args
+        const { children: children0, direc = 'h', justify = 'center', loc: loc0 = 0.5, ...attr } = args
         const child0 = check_singleton(children0)
 
         // assign spec to child
@@ -444,30 +447,31 @@ class Anchor extends Group {
     }
 }
 
+function attach_rect(side: Side, loc: number, offset: number, size: number): Rect {
+    const extent = size + offset
+    if (side == 't') return [ loc       , -extent   , loc       , -offset    ]
+    if (side == 'b') return [ loc       , 1 + offset, loc       , 1 + extent ]
+    if (side == 'l') return [ -extent   , loc       , -offset   , loc        ]
+    if (side == 'r') return [ 1 + offset, loc       , 1 + extent, loc        ]
+    throw new Error(`Unrecognized side: ${side}`)
+}
+
 interface AttachArgs extends GroupArgs {
     offset?: number
     size?: number
     side?: Side
 }
 
+// attach a child element to the edge of a parent element
 class Attach extends Group {
     constructor(args: AttachArgs = {}) {
-        const { children: children0, offset = 0, size = 1, align = 'center', side: side0 = 'top', ...attr } = THEME(args, 'Attach')
+        const { children: children0, side: side0 = 'top', size = 1, offset = 0, loc = 0.5, justify = 'center', ...attr } = THEME(args, 'Attach')
         const child0 = check_singleton(children0)
         const side = norm_side(side0)
 
-        // get extent and map
-        const extent = size + offset
-        const rmap = {
-            'l': [ -extent, 0, -offset, 1 ], 'r' : [ 1+offset, 0, 1+extent, 1 ],
-            't' : [ 0, -extent, 1, -offset ], 'b': [ 0, 1+offset, 1, 1+extent ],
-        }
-
-        // assign spec to child
-        const child = child0.clone({
-            rect: rmap[side],
-            align,
-        })
+        // get extent and map to child
+        const rect = attach_rect(side, loc, offset, size)
+        const child = child0.clone({ rect, expand: true, align: justify })
 
         // pass to Group
         super({ children: [ child ], ...attr })

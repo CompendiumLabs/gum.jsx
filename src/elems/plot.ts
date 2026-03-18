@@ -338,21 +338,21 @@ class VAxis extends Axis {
     }
 }
 
-interface BoxLabelArgs extends ElementArgs {
+interface OuterLabelArgs extends ElementArgs {
     children?: (Element | string)[]
     size?: number
     offset?: number
     side?: Side
 }
 
-class BoxLabel extends Attach {
-    constructor(args: BoxLabelArgs = {}) {
-        const { children: children0, side = 'top', size = 0.1, offset, ...attr0 } = args
+class OuterLabel extends Attach {
+    constructor(args: OuterLabelArgs = {}) {
+        const { children: children0, side = 'top', size = 0.1, offset, loc, justify, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
         const label0 = is_element(text) ? text : new Span({ children: [ text ], ...attr })
         const label = (side == 'left' || side == 'right') ? label0.clone({ rotate: -90 }) : label0
-        super({ children: [ label ], side, size, offset, ...spec })
+        super({ children: [ label ], side, size, offset, loc, justify, ...spec })
         this.args = args
     }
 }
@@ -682,20 +682,20 @@ class Plot extends Box {
 
         // optional xaxis label
         if (xlabel != null) {
-            xlabel = new BoxLabel({ children: [ xlabel ], side: 'bottom', debug, size: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
+            xlabel = new OuterLabel({ children: [ xlabel ], side: 'bottom', debug, size: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
             items.push(xlabel)
         }
 
         // optional yaxis label
         if (ylabel != null) {
             const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: [ ylabel ], rotate: -90 })
-            ylabel = new BoxLabel({ children: [ ylabel_text ], side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
+            ylabel = new OuterLabel({ children: [ ylabel_text ], side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
             items.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new BoxLabel({ children: [ title ], side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
+            title = new OuterLabel({ children: [ title ], side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
             items.push(title)
         }
 
@@ -751,5 +751,5 @@ class BarPlot extends Plot {
 // exports
 //
 
-export { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, BoxLabel, Mesh, HMesh, VMesh, Mesh2D, Legend, Graph, Plot, BarPlot }
-export type { BarArgs, BarsArgs, ScaleArgs, LabelsArgs, AxisArgs, BoxLabelArgs, MeshArgs, Mesh2DArgs, LegendArgs, GraphArgs, PlotArgs, BarPlotArgs }
+export { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Legend, Graph, Plot, BarPlot }
+export type { BarArgs, BarsArgs, ScaleArgs, LabelsArgs, AxisArgs, OuterLabelArgs, MeshArgs, Mesh2DArgs, LegendArgs, GraphArgs, PlotArgs, BarPlotArgs }
