@@ -117,3 +117,22 @@ These are the helper functions that are available in the library. They are not c
 - *Math*: mathematical functions
 - *Arrays*: array operations
 - *Colors*: color operations
+
+# Gallery
+
+There is a gallery of more complex examples available. Each is a single markdown file with a complete `gum.jsx` code example and accompanying text description. These are available in the `references/gala` directory. Here is a brief description of each along with a list of the main elements used:
+
+- [Atomic Orbitals](references/gala/atomic_orbitals.md): a slide with polar graphs of the s, p, and d atomic orbitals (**Graph**, **SymSpline**)
+- [Complex Plot](references/gala/complex_plot.md): a plot of a complex function showing the solutions to a parameterized quadratic equation (**Plot**, **SymSpline**, **Mesh2D**)
+- [Flux Capacitance](references/gala/flux_capacitance.md): a relatively simple line and shaded area plot (**Plot**, **SymLine**, **SymFill**)
+- [Macro Economy](references/gala/macro_economy.md): a diagram of a macro economy (**Network**, **Edge**, **Node**, **Text**)
+- [Metal Grid](references/gala/metal_grid.md): a stylized grid of metal squares (**Grid**, **Spline**, **Frame**)
+- [Pendulum Physics](references/gala/pendulum_physics.md): a physics diagram of a pendulum (**Arc**, **Arrow**, **Line**, **Latex**)
+- [Plot Manual](references/gala/plot_manual.md): a simple example of a plot manual diagram (**Plot**, **Axis**, **Mesh**)
+- [Polygon Slide](references/gala/polygon_slide.md): a simple example of a polygon slide diagram (**SymShape**, **Grid**, **Stack**)
+- [Punk Rock](references/gala/punk_rock.md): a logo-style text block (**TextFrame**, **Stack**)
+- [Set Theory](references/gala/set_theory.md): a mathematical diagram of nested sets (**Text**, **Frame**, **Group**)
+- [Slick Bars](references/gala/slick_bars.md): a bar chart with a custom plot style (**Plot**, **Bars**, **Span**)
+- [Spline Star](references/gala/spline_star.md): a parameterized star shape (**Spline**, **Frame**)
+- [Stokes Theorem](references/gala/stokes_theorem.md): a slide depicting Stokes' theorem (**Spline** , **Arrow**, **Latex**)
+- [The Nexus](references/gala/the_nexus.md): a plot of damped cosine functions (**Plot**, **SymSpline**)

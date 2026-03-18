@@ -86,7 +86,7 @@ const handlers: Record<string, (node: ASTNode) => any> = {
   },
   VariableDeclarator(node) {
     const { id, init } = node
-    return `${walkTree(id)} = ${walkTree(init)}`
+    return init != null ? `${walkTree(id)} = ${walkTree(init)}` : `${walkTree(id)}`
   },
   VariableDeclaration(node) {
     const { kind, declarations } = node
@@ -97,6 +97,10 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     return `${operator}(${walkTree(argument)})`
   },
   BinaryExpression(node) {
+    const { left, right, operator } = node
+    return `(${walkTree(left)}) ${operator} (${walkTree(right)})`
+  },
+  LogicalExpression(node) {
     const { left, right, operator } = node
     return `(${walkTree(left)}) ${operator} (${walkTree(right)})`
   },
@@ -143,6 +147,78 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     const { test, consequent, alternate } = node
     return `(${walkTree(test)}) ? ${walkTree(consequent)} : ${walkTree(alternate)}`
   },
+  IfStatement(node) {
+    const { test, consequent, alternate } = node
+    const alt = alternate != null ? ` else ${walkTree(alternate)}` : ''
+    return `if (${walkTree(test)}) ${walkTree(consequent)}${alt}`
+  },
+  LabeledStatement(node) {
+    const { label, body } = node
+    return `${walkTree(label)}: ${walkTree(body)}`
+  },
+  WhileStatement(node) {
+    const { test, body } = node
+    return `while (${walkTree(test)}) ${walkTree(body)}`
+  },
+  DoWhileStatement(node) {
+    const { test, body } = node
+    return `do ${walkTree(body)} while (${walkTree(test)})`
+  },
+  ForStatement(node) {
+    const { init, test, update, body } = node
+    const initText = init != null ? walkTree(init) : ''
+    const testText = test != null ? walkTree(test) : ''
+    const updateText = update != null ? walkTree(update) : ''
+    return `for (${initText}; ${testText}; ${updateText}) ${walkTree(body)}`
+  },
+  ForInStatement(node) {
+    const { left, right, body } = node
+    return `for (${walkTree(left)} in ${walkTree(right)}) ${walkTree(body)}`
+  },
+  ForOfStatement(node) {
+    const { left, right, body, await: isAwait } = node
+    const prefix = isAwait ? 'for await' : 'for'
+    return `${prefix} (${walkTree(left)} of ${walkTree(right)}) ${walkTree(body)}`
+  },
+  SwitchStatement(node) {
+    const { discriminant, cases } = node
+    return `switch (${walkTree(discriminant)}) {\n${cases.map(walkTree).join('\n')}\n}`
+  },
+  SwitchCase(node) {
+    const { test, consequent } = node
+    const head = test != null ? `case ${walkTree(test)}:` : 'default:'
+    const body = consequent.map(walkTree).join('\n')
+    return body.length > 0 ? `${head}\n${body}` : head
+  },
+  ThrowStatement(node) {
+    const { argument } = node
+    return `throw ${walkTree(argument)}`
+  },
+  TryStatement(node) {
+    const { block, handler, finalizer } = node
+    const catchText = handler != null ? ` ${walkTree(handler)}` : ''
+    const finallyText = finalizer != null ? ` finally ${walkTree(finalizer)}` : ''
+    return `try ${walkTree(block)}${catchText}${finallyText}`
+  },
+  CatchClause(node) {
+    const { param, body } = node
+    const paramText = param != null ? ` (${walkTree(param)})` : ''
+    return `catch${paramText} ${walkTree(body)}`
+  },
+  BreakStatement(node) {
+    const { label } = node
+    return label != null ? `break ${walkTree(label)}` : 'break'
+  },
+  ContinueStatement(node) {
+    const { label } = node
+    return label != null ? `continue ${walkTree(label)}` : 'continue'
+  },
+  EmptyStatement(_node) {
+    return ';'
+  },
+  DebuggerStatement(_node) {
+    return 'debugger'
+  },
   Super(_node) {
     return 'super'
   },
@@ -150,8 +226,12 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     return 'this'
   },
   AssignmentExpression(node) {
-    const { left, right } = node
-    return `${walkTree(left)} = ${walkTree(right)}`
+    const { left, right, operator } = node
+    return `${walkTree(left)} ${operator} ${walkTree(right)}`
+  },
+  UpdateExpression(node) {
+    const { argument, operator, prefix } = node
+    return prefix ? `${operator}${walkTree(argument)}` : `${walkTree(argument)}${operator}`
   },
   NewExpression(node) {
     const { callee, arguments: args } = node
@@ -168,6 +248,10 @@ const handlers: Record<string, (node: ASTNode) => any> = {
   AssignmentPattern(node) {
     const { left, right } = node
     return `${walkTree(left)} = ${walkTree(right)}`
+  },
+  SequenceExpression(node) {
+    const { expressions } = node
+    return expressions.map(walkTree).join(', ')
   },
   TemplateLiteral(node) {
     const { quasis, expressions } = node
@@ -189,6 +273,7 @@ const handlers: Record<string, (node: ASTNode) => any> = {
   },
   ReturnStatement(node) {
     const { argument } = node
+    if (argument == null) return 'return'
     return `return (\n${walkTree(argument)}\n)`
   },
   CallExpression(node) {
