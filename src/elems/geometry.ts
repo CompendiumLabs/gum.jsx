@@ -92,6 +92,31 @@ class HLine extends UnitLine {
     }
 }
 
+interface CoordLineArgs extends LineArgs {
+    direc?: Orient
+    line_width?: number
+}
+
+class CoordLine extends Line {
+    direc: Orient
+    line_width: number
+
+    constructor(args: CoordLineArgs = {}) {
+        const { direc = 'v', line_width = 0.03, ...attr } = args
+        super(attr)
+        this.args = args
+        this.direc = direc
+        this.line_width = line_width
+    }
+
+    props(ctx: Context): Attrs {
+        const attr = super.props(ctx)
+        const [ w, h ] = ctx.mapSize([this.line_width, this.line_width])
+        const stroke_width = this.direc == 'v' ? h : w
+        return { ...attr, stroke_width }
+    }
+}
+
 //
 // shape classes
 //
@@ -652,5 +677,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
-export type { LineArgs, UnitLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }
+export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }

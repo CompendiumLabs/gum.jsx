@@ -5,7 +5,7 @@ import { black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Rectangle, Spacer, prefix_split, spec_split } from './core'
-import { Line } from './geometry'
+import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
@@ -14,7 +14,6 @@ import type { Padding, Point, Rect, Attrs } from '../lib/types'
 import type { BoxArgs, StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
-import type { LineArgs } from './geometry'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
 
 //
@@ -451,27 +450,6 @@ class Frac extends Box {
     }
 }
 
-interface CoordLineArgs extends LineArgs {
-    line_width?: number
-}
-
-class CoordLine extends Line {
-    line_width: number
-
-    constructor(args: CoordLineArgs = {}) {
-        const { line_width = 0.03, ...attr } = args
-        super(attr)
-        this.args = args
-        this.line_width = line_width
-    }
-
-    props(ctx: Context): Attrs {
-        const attr = super.props(ctx)
-        const [ _, stroke_width ] = ctx.mapSize([0, this.line_width])
-        return { ...attr, stroke_width: Math.abs(stroke_width) }
-    }
-}
-
 type SqrtLayout = {
     aspect: number
     body_rect: Rect
@@ -553,12 +531,12 @@ const ACCENT_TEXT_FALLBACK: Record<string, string> = {
     '\\vec': '→',
 }
 
-function build_accent_symbol(label: string): Element {
+function build_accent_symbol(label: string, color: string): Element {
     const label1 = ACCENT_LABEL_FALLBACK[label] ?? label
     if (label1 in ACCENT_TEXT_FALLBACK) {
-        return new MathSpan({ children: [ ACCENT_TEXT_FALLBACK[label1] ] })
+        return new MathSpan({ children: [ ACCENT_TEXT_FALLBACK[label1] ], color })
     }
-    return new MathSymbol({ children: [ label1 ] })
+    return new MathSymbol({ children: [ label1 ], color })
 }
 
 interface AccentArgs extends GroupArgs {
@@ -569,11 +547,11 @@ interface AccentArgs extends GroupArgs {
 
 class Accent extends Box {
     constructor(args: AccentArgs = {}) {
-        const { children, label = '', body_top = 0.5, ...attr } = THEME(args, 'Accent')
+        const { children, label = '', body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
         const base = check_singleton(children)
 
         // build accent symbol
-        const accent = build_accent_symbol(label)
+        const accent = build_accent_symbol(label, color)
 
         // pass to Box
         super({ children: [ base, accent ], ...attr })
