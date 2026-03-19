@@ -1,16 +1,17 @@
 [
-    "atomic_orbitals",
-    "complex_plot",
+    "the_nexus",
+    "slick_bars",
     "flux_capacitance",
+    "pendulum_physics",
+    "particle_box",
+    "atomic_orbitals",
     "macro_economy",
     "metal_grid",
-    "pendulum_physics",
-    "plot_manual",
     "polygon_slide",
     "punk_rock",
-    "set_theory",
-    "slick_bars",
     "spline_star",
+    "set_theory",
     "stokes_theorem",
-    "the_nexus"
+    "complex_plot",
+    "plot_manual"
 ]

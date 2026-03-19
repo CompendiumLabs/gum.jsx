@@ -25,7 +25,7 @@ const [ tenX, tenY ] = polar([0.75 * rodLen, rodRot], [pivotX, pivotY])
 return <Box margin={0.06}>
   <VStack spacing={0.05}>
     {/* Title */}
-    <Text stack-size={0.1} color={navy}>Simple Pendulum</Text>
+    <Text stack-size={0.075} color={navy}>Simple Pendulum</Text>
 
     {/* Diagram */}
     <Frame rounded={0.02} fill={cream} clip border={2}><Group aspect={1.25}>
@@ -65,6 +65,6 @@ return <Box margin={0.06}>
     </Group></Frame>
 
     {/* Equation of motion */}
-    <Latex stack-size={0.1} color={navy}>{"\\ddot{\\theta} = - (g/\\ell) \\sin(\\theta)"}</Latex>
+    <Latex stack-size={0.075} color={navy}>{"\\ddot{\\theta} = - (g/\\ell) \\sin(\\theta)"}</Latex>
   </VStack>
 </Box>
