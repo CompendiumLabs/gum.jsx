@@ -4,7 +4,7 @@
 
 Stack one or more **Element** either vertically or horizontally. There are specialized components **VStack** and **HStack** that don't take the `direc` argument. Proportional spacing between children can be specified with the `spacing` parameter. This handles child positioning and sizing, so any `pos`/`rad` arguments will be overridden.
 
-Elements can specify their own sizing with the `stack-size` parameter. If `stack-size` is not specified and `stack-expand` is not set to `false`, space will be distributed according to the child's aspect ratio. If `stack-expand` is set to `false`, the child will be given an even share of the remaining space.
+Elements can specify their own sizing with the `stack-size` parameter (do not use `rad`/`xrad`/`yrad` on child elements, this will be overridden). If `stack-size` is not specified and `stack-expand` is not set to `false`, space will be distributed according to the child's aspect ratio. If `stack-expand` is set to `false`, the child will be given an even share of the remaining space.
 
 Whenever possible, the aspect ratio of the overall stack is set so that all elements with defined aspect ratios will reach full width (in the **VStack** case) or full height (in the **HStack** case).
 
