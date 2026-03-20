@@ -1,17 +1,17 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { black, red } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector, prefix_split } from '../lib/utils'
+import { black, red, DEFAULTS as D } from '../lib/const'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Group, Rectangle, Spacer, spec_split } from './core'
+import { Element, Group, Rectangle, Spacer, spec_split } from './core'
 import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
 import type { Padding, Point, Rect, Attrs } from '../lib/types'
-import type { BoxArgs, StackArgs } from './layout'
+import type { StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
@@ -24,9 +24,16 @@ type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'K
 
 type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
 
+type InlineMetrics = {
+    advance: number
+    above: number
+    below: number
+}
+
 type MathSpec = {
     left: AtomClass | null
     right: AtomClass | null
+    inline?: InlineMetrics | null
 }
 
 type MathElement = Element & {
@@ -57,6 +64,7 @@ const SYMBOL_FAMILY_CLASS: Record<SymbolFamily, AtomClass | null> = {
 const THINSPACE: Measurement = { number: 3, unit: 'mu' }
 const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
 const THICKSPACE: Measurement = { number: 5, unit: 'mu' }
+const MATH_AXIS = 0.25
 
 type SpacingTable = Partial<Record<AtomClass, Measurement>>
 const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
@@ -92,19 +100,111 @@ const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
 
 function set_math(element: Element, updates: Partial<MathSpec>): Element {
     const e = element as MathElement
-    const { left, right } = updates
+    const { left, right, inline } = updates
     if (e.math == null) e.math = {}
     if (left != null) e.math.left = left
     if (right != null) e.math.right = right
+    if (inline != null) e.math.inline = inline
     return e
 }
 
 function get_math(element: Element | null): MathSpec {
-    const { left = null, right = null } = (element as MathElement)?.math ?? {}
-    return { left, right }
+    const { left = null, right = null, inline = null } = (element as MathElement)?.math ?? {}
+    return { left, right, inline }
 }
 
-const EMPTY_MATH = new Spacer()
+function span_inline_metrics(span: Span): InlineMetrics {
+    const advance = span.spec.aspect ?? 0
+    const { vshift, vsize, vcenter } = span
+    const voffset = (vsize > 1) ? vshift + (vcenter - 0.25) : vshift
+    return { advance, above: 1 + voffset, below: -voffset }
+}
+
+function default_inline_metrics(element: Element): InlineMetrics {
+    if (element instanceof Spacer) {
+        return { advance: element.spec.aspect ?? 0, above: 0, below: 0 }
+    } else if (element instanceof Span) {
+        return span_inline_metrics(element)
+    } else {
+        const advance = element.spec.aspect ?? 1
+        return { advance, above: 0.5, below: 0.5 }
+    }
+}
+
+function set_inline(element: Element, inline: InlineMetrics): Element {
+    return set_math(element, { inline })
+}
+
+function get_inline(element: Element | null): InlineMetrics {
+    const { inline } = get_math(element)
+    if (inline != null) return inline
+    if (element == null) return { advance: 0, above: 0, below: 0 }
+    return default_inline_metrics(element)
+}
+
+function make_inline_spacer(advance: number): Element {
+    return set_inline(new Spacer({ aspect: advance }), { advance, above: 0, below: 0 })
+}
+
+function inline_padding(padding: Padding | undefined): Point {
+    if (padding == null) return [ 0, 0 ]
+    if (is_scalar(padding)) return [ padding, padding ]
+    if (!Array.isArray(padding)) return [ 0, 0 ]
+    if (padding.length == 2) return padding as Point
+    const [ pl, _pt, pr, _pb ] = padding
+    const [ pl1, pl2 ] = ensure_vector(pl, 2)
+    const [ pr1, pr2 ] = ensure_vector(pr, 2)
+    return [ 0.5 * (pl1 + pr1), 0.5 * (pl2 + pr2) ]
+}
+
+function inline_aspect({ advance, above, below }: InlineMetrics): number | undefined {
+    const height = above + below
+    return height > 0 ? advance / height : undefined
+}
+
+type InlinePlacement = {
+    item: Element
+    rect: Rect
+}
+
+type InlineLayout = {
+    children: Element[]
+    coord: Rect
+    inline: InlineMetrics
+    aspect: number | undefined
+}
+
+function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
+    if (items.length == 0) {
+        const inline = { advance: 0, above: 0, below: 0 }
+        return { children: [], coord: [ 0, 0, 0, 0 ], inline, aspect: undefined }
+    }
+
+    const [ xmin, ymin, xmax, ymax ] = merge_rects(items.map(item => item.rect)) ?? D.rect
+    const children = items.map(({ item, rect: [ x1, y1, x2, y2 ] }) =>
+        item.clone({ rect: [ x1 - xmin, y1, x2 - xmin, y2 ] })
+    )
+
+    const inline = { advance: xmax - xmin, above: Math.max(0, -ymin), below: Math.max(0, ymax) }
+    const coord: Rect = [ 0, ymin, inline.advance, ymax ]
+    const aspect = inline_aspect(inline)
+    return { children, coord, inline, aspect }
+}
+
+function layout_inline_row(items: Element[]): InlineLayout {
+    const placements: InlinePlacement[] = []
+    let x = 0
+
+    for (const item of items) {
+        const { advance, above, below } = get_inline(item)
+        placements.push({ item, rect: [ x, -above, x + advance, below ] })
+        x += advance
+    }
+
+    return layout_inline_placements(placements)
+}
+
+const EMPTY_MATH = set_inline(new Spacer({ aspect: 0 }), { advance: 0, above: 0, below: 0 })
 
 //
 // symbol lookup
@@ -235,6 +335,7 @@ class MathSpan extends Span {
 
         // set math metrics
         set_math(this, { left, right })
+        set_inline(this, span_inline_metrics(this))
     }
 }
 
@@ -313,7 +414,7 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
             out.push(...normalize_math_children(child))
             continue
         } else if (child instanceof MathText) {
-            out.push(...child.children)
+            out.push(...child.items)
             continue
         } else {
             const elem = normalize_math_leaf(child)
@@ -324,16 +425,16 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
     return out
 }
 
-class MathText extends HStack {
-    vshift: number
+class MathText extends Group {
+    items: Element[]
 
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, inline = false, ...attr } = THEME(args, 'MathText')
+        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
 
         // normalize children
         const rawItems = normalize_math_children(children0)
         const items = cancel_binary_atoms(rawItems)
-        const children: Element[] = []
+        const rowItems: Element[] = []
 
         // accumulate math metrics
         let left: AtomClass | null = null
@@ -344,9 +445,9 @@ class MathText extends HStack {
         for (const item of items) {
             const { left: itemLeft, right: itemRight } = get_math(item)
             const gap = inter_item_spacing(prevItem, item, spacing)
-            if (gap > 0) children.push(new Spacer({ aspect: gap }))
+            if (gap > 0) rowItems.push(make_inline_spacer(gap))
 
-            children.push(item)
+            rowItems.push(item)
 
             if (left == null) left = itemLeft
             if (itemRight != null) {
@@ -358,22 +459,16 @@ class MathText extends HStack {
         // set default right
         if (right == null) right = left
 
-        // pass to HStack
-        super({ children, ...attr })
+        // compute inline row layout
+        const { children, coord, inline, aspect } = layout_inline_row(rowItems)
+
+        // pass to Group
+        super({ children, coord, aspect, ...attr })
         this.args = args
 
         // compute combined math metrics
-        set_math(this, { left, right })
-        this.vshift = inline ? 0.1 : 0
-    }
-
-    svg(ctx: Context): string {
-        const { prect: prect0 } = ctx
-        const [ x, y0, w, h ] = rect_box(prect0, true)
-        const y = y0 + this.vshift * h
-        const prect = box_rect([x, y, w, h])
-        const ctx1 = ctx.clone({ prect })
-        return super.svg(ctx1)
+        set_math(this, { left, right, inline })
+        this.items = items
     }
 }
 
@@ -418,7 +513,7 @@ class SupSub extends HStack {
 // frac
 //
 
-interface FracArgs extends BoxArgs {
+interface FracArgs extends GroupArgs {
     numer?: Element
     denom?: Element
     has_bar?: boolean
@@ -428,25 +523,48 @@ interface FracArgs extends BoxArgs {
     rule_size?: number
 }
 
-class Frac extends Box {
+class Frac extends Group {
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, left = null, right = null, padding = 0.1, rule_size = 0.005, ...attr } = THEME(args, 'Frac')
-        const [ numer, denom ] = check_array(children0, 2)
+        const { children: children0, has_bar = true, left = null, right = null, padding = 0.1, rule_size = 0.03, ...attr } = THEME(args, 'Frac')
+        const [ numer, denom ] = check_array(children0, 2) as [ Element, Element ]
+        const [ pad_x, pad_y ] = inline_padding(padding)
+        const num = get_inline(numer)
+        const den = get_inline(denom)
+        const width = Math.max(num.advance, den.advance) + 2 * pad_x
+        const bar_half = has_bar ? 0.5 * rule_size : 0
+        const clearance = pad_y
+        const axis_y = -MATH_AXIS
+        const numer_shift = num.below + clearance + bar_half
+        const denom_shift = den.above + clearance + bar_half
+        const numer_x = 0.5 * (width - num.advance)
+        const denom_x = 0.5 * (width - den.advance)
+        const numer_base = axis_y - numer_shift
+        const denom_base = axis_y + denom_shift
 
-        // build numer and denom boxes
-        const numerBox = new Box({ children: [ numer ], padding })
-        const denomBox = new Box({ children: [ denom ], padding })
+        const placements: InlinePlacement[] = [
+            {
+                item: numer,
+                rect: [ numer_x, numer_base - num.above, numer_x + num.advance, numer_base + num.below ],
+            },
+            {
+                item: denom,
+                rect: [ denom_x, denom_base - den.above, denom_x + den.advance, denom_base + den.below ],
+            },
+        ]
+        if (has_bar) {
+            placements.push({
+                item: new Rectangle({ fill: black }),
+                rect: [ 0, axis_y - bar_half, width, axis_y + bar_half ],
+            })
+        }
+        const layout = layout_inline_placements(placements)
 
-        // build stack and bar
-        const stack = new VStack({ children: [ numerBox, denomBox ], even: true, justify: 'center' })
-        const bar = has_bar ? new Rectangle({ fill: black, rad: [ 0.5, rule_size ] }) : null
-
-        // pass to Box
-        super({ children: [ stack, bar ], ...attr })
+        // pass to Group
+        super({ children: layout.children, coord: layout.coord, aspect: layout.aspect, ...attr })
         this.args = args
 
         // set math metrics
-        set_math(this, { left: 'mord', right: 'mord' })
+        set_math(this, { left: 'mord', right: 'mord', inline: layout.inline })
     }
 }
 
