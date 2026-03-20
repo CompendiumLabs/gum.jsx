@@ -598,7 +598,7 @@ function cbox_rect(cbox: Rect): Rect {
 // rect aggregators
 //
 
-function merge_rects(rects: (Rect | undefined)[] | undefined): Rect | undefined {
+function merge_rects(rects: (Rect | undefined)[]): Rect | undefined {
     if (rects == null || rects.length == 0) return
     const rects1 = rects.filter(r => r != null) as Rect[]
     if (rects1.length == 0) return

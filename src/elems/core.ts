@@ -327,9 +327,13 @@ class Element {
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
+        // check for required keys
+        if (tag == null) throw new Error('tag is required')
+        if (unary == null) throw new Error('unary is required')
+
         // core display
-        this.tag = tag!
-        this.unary = unary!
+        this.tag = tag
+        this.unary = unary
 
         // store layout params
         this.spec = spec
