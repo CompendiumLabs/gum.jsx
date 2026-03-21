@@ -15,6 +15,7 @@ Parameters:
 - `margin` = `0` / `0.1` — the margin to be added (outside border)
 - `border` = `0` / `1` — the border width to use (stroke in pixels)
 - `rounded` = `0` / `0.1` — the border rounding to use (proportional to the box size)
+- `fill` = `null` — the background color to use (default is no fill)
 - `adjust` = `true` — whether to adjust values for aspect ratio
 - `shape` = `Rect` — the shape class to use for the border
 - `clip` = `false` — whether to clip the contents to the border shape
