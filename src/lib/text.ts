@@ -81,12 +81,24 @@ type TextMetrics = {
     vrange: Limit
 }
 
+function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics): TextMetrics {
+    const yrange = ymax - ymin
+    const line_height = Math.max(1, yrange)
+    const font_height = 1 / line_height
+    const glyph_top = (yrange > 1) ? 0.25 : 1 - ymax
+    const baseline = glyph_top + ymax * font_height
+    return {
+        advance: advance / line_height,
+        vrange: [ baseline - font_height, baseline ],
+    }
+}
+
 function textMetrics(text: string, args: TextSizerArgs = {}): TextMetrics {
     if (text == '\n') return { advance: 0, vrange: [ 0, 1 ] }
     const text1 = compress_whitespace(text)
     const advance = textSizer(text1, args)
     const vrange = textVertical(text1, args)
-    return { advance, vrange }
+    return normalizeTextMetrics({ advance, vrange })
 }
 
 //

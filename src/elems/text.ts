@@ -27,28 +27,11 @@ interface SpanArgs extends ElementArgs {
     font_style?: string
 }
 
-function layoutSpan({ advance, vrange: [ ymin, ymax ] }: TextMetrics, vshift: number): {
-    aspect: number
-    rect: Rect
-} {
-    const yrange = ymax - ymin
-    const line_height = Math.max(1, yrange)
-    const font_height = 1 / line_height
-    const inline_advance = advance / line_height
-    const glyph_top = (yrange > 1) ? 0.25 + vshift : 1 + vshift - ymax
-    const baseline = glyph_top + ymax * font_height
-    return {
-        aspect: inline_advance,
-        rect: [ 0, baseline - font_height, 1, baseline ],
-    }
-}
-
 // no wrapping at all, clobber newlines, mainly internal use
 class Span extends Element {
     text: string
-    vshift: number
     metrics: TextMetrics
-    glyph_rect: Rect
+    vshift: number
 
     constructor(args: SpanArgs = {}) {
         const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
@@ -59,17 +42,15 @@ class Span extends Element {
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
         const metrics = textMetrics(text, font_attr)
-        const { aspect, rect } = layoutSpan(metrics, vshift)
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect, fill: color, stroke, ...font_attr, ...attr })
+        super({ tag: 'text', unary: false, aspect: metrics.advance, fill: color, stroke, ...font_attr, ...attr })
         this.args = args
 
         // additional props
         this.text = text
-        this.vshift = vshift
         this.metrics = metrics
-        this.glyph_rect = rect
+        this.vshift = vshift
     }
 
     // because text will always be displayed upright,
@@ -77,7 +58,11 @@ class Span extends Element {
     // and then offset it by the given offset
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        const rect = ctx.mapRect(this.glyph_rect)
+
+        // compute glyph rect
+        const { vrange: [ ymin, ymax ] } = this.metrics
+        const glyph_rect: Rect = [ 0, ymin + this.vshift, 1, ymax + this.vshift ]
+        const rect = ctx.mapRect(glyph_rect)
 
         // get position and size
         const [ x, y0, _w, h ] = rect_box(rect, true)

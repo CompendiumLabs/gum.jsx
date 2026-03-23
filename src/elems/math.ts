@@ -28,11 +28,11 @@ type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct
 type MathSpec = {
     left: AtomClass | null
     right: AtomClass | null
-    metrics?: TextMetrics | null
+    metrics: TextMetrics
 }
 
 type MathElement = Element & {
-    math?: Partial<MathSpec>
+    math?: MathSpec
 }
 
 const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
@@ -93,28 +93,33 @@ const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
 // math metrics
 //
 
-function set_math(element: Element, updates: Partial<MathSpec>): Element {
+const DEFAULT_MATH: MathSpec = {
+    left: null,
+    right: null,
+    metrics: { advance: 0, vrange: [ 0, 0 ] },
+}
+
+function init_math(element: Element): MathSpec {
     const e = element as MathElement
-    const { left, right, metrics } = updates
-    if (e.math == null) e.math = {}
-    if (left != null) e.math.left = left
-    if (right != null) e.math.right = right
-    if (metrics != null) e.math.metrics = metrics
-    return e
+    e.math ??= { left: null, right: null, metrics: default_metrics(element) }
+    return e.math
+}
+
+function set_math(element: Element, updates: Partial<MathSpec>): Element {
+    const math = init_math(element)
+    if ('left' in updates) math.left = updates.left ?? null
+    if ('right' in updates) math.right = updates.right ?? null
+    if (updates.metrics != null) math.metrics = updates.metrics
+    return element
 }
 
 function get_math(element: Element | null): MathSpec {
-    const { left = null, right = null, metrics = null } = (element as MathElement)?.math ?? {}
-    return { left, right, metrics }
+    if (element == null) return DEFAULT_MATH
+    return init_math(element)
 }
 
 function span_metrics(span: Span): TextMetrics {
-    const advance = span.spec.aspect ?? 0
-    const { vrange: [ ymin, ymax ] } = span.metrics
-    const yrange = ymax - ymin
-    const line_height = Math.max(1, yrange)
-    const glyph_top = (yrange > 1) ? 0.25 + span.vshift : 1 + span.vshift - ymax
-    const baseline = glyph_top + ymax / line_height
+    const { advance, vrange: [ _ymin, baseline ] } = span.metrics
     return { advance, vrange: [ baseline - 1, baseline ] }
 }
 
@@ -134,10 +139,7 @@ function set_metrics(element: Element, metrics: TextMetrics): Element {
 }
 
 function get_metrics(element: Element | null): TextMetrics {
-    const { metrics } = get_math(element)
-    if (metrics != null) return metrics
-    if (element == null) return { advance: 0, vrange: [ 0, 0 ] }
-    return default_metrics(element)
+    return get_math(element).metrics
 }
 
 function make_inline_spacer(advance: number): Element {
