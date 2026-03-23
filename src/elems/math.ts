@@ -9,6 +9,7 @@ import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
+import type { TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
@@ -24,16 +25,10 @@ type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'K
 
 type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
 
-type InlineMetrics = {
-    advance: number
-    above: number
-    below: number
-}
-
 type MathSpec = {
     left: AtomClass | null
     right: AtomClass | null
-    inline?: InlineMetrics | null
+    metrics?: TextMetrics | null
 }
 
 type MathElement = Element & {
@@ -100,50 +95,53 @@ const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
 
 function set_math(element: Element, updates: Partial<MathSpec>): Element {
     const e = element as MathElement
-    const { left, right, inline } = updates
+    const { left, right, metrics } = updates
     if (e.math == null) e.math = {}
     if (left != null) e.math.left = left
     if (right != null) e.math.right = right
-    if (inline != null) e.math.inline = inline
+    if (metrics != null) e.math.metrics = metrics
     return e
 }
 
 function get_math(element: Element | null): MathSpec {
-    const { left = null, right = null, inline = null } = (element as MathElement)?.math ?? {}
-    return { left, right, inline }
+    const { left = null, right = null, metrics = null } = (element as MathElement)?.math ?? {}
+    return { left, right, metrics }
 }
 
-function span_inline_metrics(span: Span): InlineMetrics {
+function span_metrics(span: Span): TextMetrics {
     const advance = span.spec.aspect ?? 0
-    const { vshift, vsize, vcenter } = span
-    const voffset = (vsize > 1) ? vshift + (vcenter - 0.25) : vshift
-    return { advance, above: 1 + voffset, below: -voffset }
+    const { vrange: [ ymin, ymax ] } = span.metrics
+    const yrange = ymax - ymin
+    const line_height = Math.max(1, yrange)
+    const glyph_top = (yrange > 1) ? 0.25 + span.vshift : 1 + span.vshift - ymax
+    const baseline = glyph_top + ymax / line_height
+    return { advance, vrange: [ baseline - 1, baseline ] }
 }
 
-function default_inline_metrics(element: Element): InlineMetrics {
+function default_metrics(element: Element): TextMetrics {
     if (element instanceof Spacer) {
-        return { advance: element.spec.aspect ?? 0, above: 0, below: 0 }
+        return { advance: element.spec.aspect ?? 0, vrange: [ 0, 0 ] }
     } else if (element instanceof Span) {
-        return span_inline_metrics(element)
+        return span_metrics(element)
     } else {
         const advance = element.spec.aspect ?? 1
-        return { advance, above: 0.5, below: 0.5 }
+        return { advance, vrange: [ -0.5, 0.5 ] }
     }
 }
 
-function set_inline(element: Element, inline: InlineMetrics): Element {
-    return set_math(element, { inline })
+function set_metrics(element: Element, metrics: TextMetrics): Element {
+    return set_math(element, { metrics })
 }
 
-function get_inline(element: Element | null): InlineMetrics {
-    const { inline } = get_math(element)
-    if (inline != null) return inline
-    if (element == null) return { advance: 0, above: 0, below: 0 }
-    return default_inline_metrics(element)
+function get_metrics(element: Element | null): TextMetrics {
+    const { metrics } = get_math(element)
+    if (metrics != null) return metrics
+    if (element == null) return { advance: 0, vrange: [ 0, 0 ] }
+    return default_metrics(element)
 }
 
 function make_inline_spacer(advance: number): Element {
-    return set_inline(new Spacer({ aspect: advance }), { advance, above: 0, below: 0 })
+    return set_metrics(new Spacer({ aspect: advance }), { advance, vrange: [ 0, 0 ] })
 }
 
 function inline_padding(padding: Padding | undefined): Point {
@@ -157,9 +155,13 @@ function inline_padding(padding: Padding | undefined): Point {
     return [ 0.5 * (pl1 + pr1), 0.5 * (pl2 + pr2) ]
 }
 
-function inline_aspect({ advance, above, below }: InlineMetrics): number | undefined {
-    const height = above + below
+function inline_aspect({ advance, vrange: [ ymin, ymax ] }: TextMetrics): number | undefined {
+    const height = ymax - ymin
     return height > 0 ? advance / height : undefined
+}
+
+function inline_rect({ advance, vrange: [ ymin, ymax ] }: TextMetrics, x: number = 0, y: number = 0): Rect {
+    return [ x, y - ymax, x + advance, y - ymin ]
 }
 
 type InlinePlacement = {
@@ -170,14 +172,14 @@ type InlinePlacement = {
 type InlineLayout = {
     children: Element[]
     coord: Rect
-    inline: InlineMetrics
+    metrics: TextMetrics
     aspect: number | undefined
 }
 
 function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
     if (items.length == 0) {
-        const inline = { advance: 0, above: 0, below: 0 }
-        return { children: [], coord: [ 0, 0, 0, 0 ], inline, aspect: undefined }
+        const metrics: TextMetrics = { advance: 0, vrange: [ 0, 0 ] }
+        return { children: [], coord: [ 0, 0, 0, 0 ], metrics, aspect: undefined }
     }
 
     const [ xmin, ymin, xmax, ymax ] = merge_rects(items.map(item => item.rect)) ?? D.rect
@@ -185,10 +187,10 @@ function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
         item.clone({ rect: [ x1 - xmin, y1, x2 - xmin, y2 ] })
     )
 
-    const inline = { advance: xmax - xmin, above: Math.max(0, -ymin), below: Math.max(0, ymax) }
-    const coord: Rect = [ 0, ymin, inline.advance, ymax ]
-    const aspect = inline_aspect(inline)
-    return { children, coord, inline, aspect }
+    const metrics: TextMetrics = { advance: xmax - xmin, vrange: [ -ymax, -ymin ] }
+    const coord: Rect = [ 0, ymin, metrics.advance, ymax ]
+    const aspect = inline_aspect(metrics)
+    return { children, coord, metrics, aspect }
 }
 
 function layout_inline_row(items: Element[]): InlineLayout {
@@ -196,15 +198,16 @@ function layout_inline_row(items: Element[]): InlineLayout {
     let x = 0
 
     for (const item of items) {
-        const { advance, above, below } = get_inline(item)
-        placements.push({ item, rect: [ x, -above, x + advance, below ] })
+        const metrics = get_metrics(item)
+        placements.push({ item, rect: inline_rect(metrics, x) })
+        const { advance } = metrics
         x += advance
     }
 
     return layout_inline_placements(placements)
 }
 
-const EMPTY_MATH = set_inline(new Spacer({ aspect: 0 }), { advance: 0, above: 0, below: 0 })
+const EMPTY_MATH = set_metrics(new Spacer({ aspect: 0 }), { advance: 0, vrange: [ 0, 0 ] })
 
 //
 // symbol lookup
@@ -335,7 +338,7 @@ class MathSpan extends Span {
 
         // set math metrics
         set_math(this, { left, right })
-        set_inline(this, span_inline_metrics(this))
+        set_metrics(this, span_metrics(this))
     }
 }
 
@@ -460,14 +463,14 @@ class MathText extends Group {
         if (right == null) right = left
 
         // compute inline row layout
-        const { children, coord, inline, aspect } = layout_inline_row(rowItems)
+        const { children, coord, metrics, aspect } = layout_inline_row(rowItems)
 
         // pass to Group
         super({ children, coord, aspect, ...attr })
         this.args = args
 
         // compute combined math metrics
-        set_math(this, { left, right, inline })
+        set_math(this, { left, right, metrics })
         this.items = items
     }
 }
@@ -528,14 +531,14 @@ class Frac extends Group {
         const { children: children0, has_bar = true, left = null, right = null, padding = 0.1, rule_size = 0.03, ...attr } = THEME(args, 'Frac')
         const [ numer, denom ] = check_array(children0, 2) as [ Element, Element ]
         const [ pad_x, pad_y ] = inline_padding(padding)
-        const num = get_inline(numer)
-        const den = get_inline(denom)
+        const num = get_metrics(numer)
+        const den = get_metrics(denom)
         const width = Math.max(num.advance, den.advance) + 2 * pad_x
         const bar_half = has_bar ? 0.5 * rule_size : 0
         const clearance = pad_y
         const axis_y = -MATH_AXIS
-        const numer_shift = num.below + clearance + bar_half
-        const denom_shift = den.above + clearance + bar_half
+        const numer_shift = -num.vrange[0] + clearance + bar_half
+        const denom_shift = den.vrange[1] + clearance + bar_half
         const numer_x = 0.5 * (width - num.advance)
         const denom_x = 0.5 * (width - den.advance)
         const numer_base = axis_y - numer_shift
@@ -544,11 +547,11 @@ class Frac extends Group {
         const placements: InlinePlacement[] = [
             {
                 item: numer,
-                rect: [ numer_x, numer_base - num.above, numer_x + num.advance, numer_base + num.below ],
+                rect: inline_rect(num, numer_x, numer_base),
             },
             {
                 item: denom,
-                rect: [ denom_x, denom_base - den.above, denom_x + den.advance, denom_base + den.below ],
+                rect: inline_rect(den, denom_x, denom_base),
             },
         ]
         if (has_bar) {
@@ -557,14 +560,14 @@ class Frac extends Group {
                 rect: [ 0, axis_y - bar_half, width, axis_y + bar_half ],
             })
         }
-        const layout = layout_inline_placements(placements)
+        const { children, coord, aspect, metrics } = layout_inline_placements(placements)
 
         // pass to Group
-        super({ children: layout.children, coord: layout.coord, aspect: layout.aspect, ...attr })
+        super({ children, coord, aspect, ...attr })
         this.args = args
 
         // set math metrics
-        set_math(this, { left: 'mord', right: 'mord', inline: layout.inline })
+        set_math(this, { left: 'mord', right: 'mord', metrics })
     }
 }
 

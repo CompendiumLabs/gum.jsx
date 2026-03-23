@@ -73,23 +73,20 @@ function textVertical(text: string, { font_family = sans }: TextSizerArgs = {}):
     const units = font.unitsPerEm ?? 1000
     const yMin = min(yMins) ?? 0
     const yMax = max(yMaxs) ?? units
-    const ascent = yMax / units
-    const descent = yMin / units
-    return [ ascent, descent ]
+    return [ yMin / units, yMax / units ]
 }
 
 type TextMetrics = {
     advance: number
-    ascent: number
-    descent: number
+    vrange: Limit
 }
 
 function textMetrics(text: string, args: TextSizerArgs = {}): TextMetrics {
-    if (text == '\n') return { advance: 0, ascent: 1, descent: 0 }
+    if (text == '\n') return { advance: 0, vrange: [ 0, 1 ] }
     const text1 = compress_whitespace(text)
     const advance = textSizer(text1, args)
-    const [ ascent, descent ] = textVertical(text1, args)
-    return { advance, ascent, descent }
+    const vrange = textVertical(text1, args)
+    return { advance, vrange }
 }
 
 //
@@ -149,3 +146,4 @@ function mergeStrings(items: any[]): any[] {
 //
 
 export { is_emoji, textMetrics, textSizer, textVertical, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
+export type { TextMetrics }

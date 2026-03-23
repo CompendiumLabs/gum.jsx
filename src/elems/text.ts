@@ -1,10 +1,11 @@
 // text elements
 
-import type { Attrs, AlignValue } from '../lib/types'
+import type { Attrs, AlignValue, Rect } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
+import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
 import { Context, Element, Group, spec_split, ensure_children } from './core'
@@ -26,12 +27,28 @@ interface SpanArgs extends ElementArgs {
     font_style?: string
 }
 
+function layoutSpan({ advance, vrange: [ ymin, ymax ] }: TextMetrics, vshift: number): {
+    aspect: number
+    rect: Rect
+} {
+    const yrange = ymax - ymin
+    const line_height = Math.max(1, yrange)
+    const font_height = 1 / line_height
+    const inline_advance = advance / line_height
+    const glyph_top = (yrange > 1) ? 0.25 + vshift : 1 + vshift - ymax
+    const baseline = glyph_top + ymax * font_height
+    return {
+        aspect: inline_advance,
+        rect: [ 0, baseline - font_height, 1, baseline ],
+    }
+}
+
 // no wrapping at all, clobber newlines, mainly internal use
 class Span extends Element {
     text: string
     vshift: number
-    vsize: number
-    vcenter: number
+    metrics: TextMetrics
+    glyph_rect: Rect
 
     constructor(args: SpanArgs = {}) {
         const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
@@ -41,10 +58,8 @@ class Span extends Element {
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
-        const { advance, ascent, descent } = textMetrics(text, font_attr)
-        const vsize = Math.max(1, ascent - descent)
-        const vcenter = (ascent + descent) / (2 * vsize)
-        const aspect = advance / vsize
+        const metrics = textMetrics(text, font_attr)
+        const { aspect, rect } = layoutSpan(metrics, vshift)
 
         // pass to element
         super({ tag: 'text', unary: false, aspect, fill: color, stroke, ...font_attr, ...attr })
@@ -53,8 +68,8 @@ class Span extends Element {
         // additional props
         this.text = text
         this.vshift = vshift
-        this.vsize = vsize
-        this.vcenter = vcenter
+        this.metrics = metrics
+        this.glyph_rect = rect
     }
 
     // because text will always be displayed upright,
@@ -62,19 +77,11 @@ class Span extends Element {
     // and then offset it by the given offset
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
-        const { vshift, vsize, vcenter } = this
-        const size = (this as any).size as number | undefined
-        const { prect } = ctx
+        const rect = ctx.mapRect(this.glyph_rect)
 
         // get position and size
-        let [ x0, y0, _w0, h0 ] = rect_box(prect, true)
-        const voffset = (vsize > 1) ? vshift + (vcenter - 0.25) : vshift
-        const yoff = voffset * h0
-        const h = size ?? (h0 / vsize)
-
-        // get display position
-        const [ x1, y1 ] = [ x0, y0 + h0 ]
-        const [ x, y ] = [ x1, y1 + yoff ]
+        const [ x, y0, _w, h ] = rect_box(rect, true)
+        const y = y0 + h
 
         // get adjusted size
         return { x, y, font_size: `${h}px`, ...attr }
