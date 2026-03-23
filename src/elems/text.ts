@@ -1,6 +1,6 @@
 // text elements
 
-import type { Attrs, AlignValue, Rect } from '../lib/types'
+import type { Attrs, AlignValue, Rect, Limit } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join } from '../lib/utils'
@@ -31,7 +31,6 @@ interface SpanArgs extends ElementArgs {
 class Span extends Element {
     text: string
     metrics: TextMetrics
-    vshift: number
 
     constructor(args: SpanArgs = {}) {
         const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
@@ -41,16 +40,20 @@ class Span extends Element {
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
-        const metrics = textMetrics(text, font_attr)
+        const { advance, vrange } = textMetrics(text, font_attr)
+
+        // adjust metrics for vertical shift
+        const [ ymin, ymax ] = vrange
+        const vrange1: Limit = [ ymin + vshift, ymax + vshift ]
+        const metrics1 = { advance, vrange: vrange1 }
 
         // pass to element
-        super({ tag: 'text', unary: false, aspect: metrics.advance, fill: color, stroke, ...font_attr, ...attr })
+        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...attr })
         this.args = args
 
         // additional props
         this.text = text
-        this.metrics = metrics
-        this.vshift = vshift
+        this.metrics = metrics1
     }
 
     // because text will always be displayed upright,
@@ -61,7 +64,7 @@ class Span extends Element {
 
         // compute glyph rect
         const { vrange: [ ymin, ymax ] } = this.metrics
-        const glyph_rect: Rect = [ 0, ymin + this.vshift, 1, ymax + this.vshift ]
+        const glyph_rect: Rect = [ 0, ymin, 1, ymax ]
         const rect = ctx.mapRect(glyph_rect)
 
         // get position and size

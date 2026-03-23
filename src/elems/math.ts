@@ -118,16 +118,11 @@ function get_math(element: Element | null): MathSpec {
     return init_math(element)
 }
 
-function span_metrics(span: Span): TextMetrics {
-    const { advance, vrange: [ _ymin, baseline ] } = span.metrics
-    return { advance, vrange: [ baseline - 1, baseline ] }
-}
-
 function default_metrics(element: Element): TextMetrics {
     if (element instanceof Spacer) {
         return { advance: element.spec.aspect ?? 0, vrange: [ 0, 0 ] }
     } else if (element instanceof Span) {
-        return span_metrics(element)
+        return element.metrics
     } else {
         const advance = element.spec.aspect ?? 1
         return { advance, vrange: [ -0.5, 0.5 ] }
@@ -340,7 +335,6 @@ class MathSpan extends Span {
 
         // set math metrics
         set_math(this, { left, right })
-        set_metrics(this, span_metrics(this))
     }
 }
 
