@@ -88,7 +88,7 @@ const EMPTY_METRIC: TextMetrics = {
 
 const DEFAULT_METRIC: TextMetrics = {
     advance: 1,
-    vrange: [ -0.5, 0.5 ],
+    vrange: [ -0.25, 0.75 ],
 }
 
 function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics): TextMetrics {

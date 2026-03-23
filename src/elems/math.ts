@@ -171,25 +171,30 @@ type InlinePlacement = {
 
 type InlineLayout = {
     children: Element[]
-    coord: Rect
     metrics: TextMetrics
-    aspect: number | undefined
+    coord?: Rect
+    aspect?: number
 }
 
 function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
+    // empty case
     if (items.length == 0) {
         const metrics = EMPTY_METRIC
-        return { children: [], coord: [ 0, 0, 0, 0 ], metrics, aspect: undefined }
+        return { children: [], metrics }
     }
 
+    // reposition children
     const [ xmin, ymin, xmax, ymax ] = merge_rects(items.map(item => item.rect)) ?? D.rect
     const children = items.map(({ item, rect: [ x1, y1, x2, y2 ] }) =>
         item.clone({ rect: [ x1 - xmin, y1, x2 - xmin, y2 ] })
     )
 
+    // compute layout metrics
     const metrics: TextMetrics = { advance: xmax - xmin, vrange: [ -ymax, -ymin ] }
     const coord: Rect = [ 0, ymin, metrics.advance, ymax ]
     const aspect = inline_aspect(metrics)
+
+    // return layout
     return { children, coord, metrics, aspect }
 }
 
@@ -276,6 +281,7 @@ function cancel_element_left_bin(element: Element): void {
     if (left != 'mbin') return
     set_math(element, { left: 'mord', right: right == 'mbin' ? 'mord' : right })
 }
+
 function cancel_element_right_bin(element: Element): void {
     const { left, right } = get_math(element)
     if (right != 'mbin') return
