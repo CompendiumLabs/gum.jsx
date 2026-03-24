@@ -272,17 +272,18 @@ function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
 // math spacer
 //
 
-type MathSpacerArgs = ElementArgs & {
-    aspect?: number
-}
-
 class MathSpacer extends Spacer {
     math: MathSpec
 
-    constructor(args: MathSpacerArgs = {}) {
+    constructor(args: ElementArgs = {}) {
         const { aspect = 0, ...attr } = THEME(args, 'MathSpacer')
         super({ aspect, ...attr })
         this.args = args
+
+        // check aspect type
+        if (!is_scalar(aspect)) {
+            throw new Error('aspect must be a number')
+        }
 
         // compute math metrics
         const metrics: TextMetrics = { advance: aspect, vrange: [ 0, 0 ] }
@@ -345,6 +346,63 @@ class MathSymbol extends MathSpan {
 }
 
 //
+// math row
+//
+
+interface MathRowArgs extends GroupArgs {
+    children?: WithMath[]
+}
+
+function layoutMathRow(items: WithMath[]): InlineLayout {
+    // empty case
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRIC }
+
+    // compute placements
+    const placements: InlinePlacement[] = []
+    let x = 0
+    for (const item of items) {
+        const { metrics } = item.math
+        if (metrics == null) continue
+        placements.push({ item, rect: inline_rect(metrics, x) })
+        x += metrics.advance
+    }
+
+    // reposition children
+    const [ xmin, ymin, xmax, ymax ] = merge_rects(placements.map(p => p.rect)) ?? D.rect
+    const children = placements.map(({ item, rect: [ x1, y1, x2, y2 ] }) =>
+        item.clone({ rect: [ x1 - xmin, y1, x2 - xmin, y2 ] })
+    )
+
+    // compute layout metrics
+    const metrics: TextMetrics = { advance: xmax - xmin, vrange: [ -ymax, -ymin ] }
+    const coord: Rect = [ 0, ymin, metrics.advance, ymax ]
+    const aspect = inline_aspect(metrics)
+
+    // return layout
+    return { children, coord, aspect, metrics }
+}
+
+class MathRow extends Group {
+    math: MathSpec
+
+    constructor(args: MathRowArgs = {}) {
+        const { children: children0, ...attr } = THEME(args, 'MathRow')
+        const items = ensure_children(children0)
+
+        // compute layout
+        const mathItems = ensure_math_children(items)
+        const { metrics, ...layout } = layoutMathRow(mathItems)
+
+        // pass to Group
+        super({ ...layout, ...attr })
+        this.args = args
+
+        // set math metrics
+        this.math = { left: 'mord', right: 'mord', metrics }
+    }
+}
+
+//
 // math text
 //
 
@@ -372,6 +430,10 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
     const newElement = element.clone() as WithMath<E>
     newElement.math = math
     return newElement
+}
+
+function ensure_math_children(children: Element[]): WithMath[] {
+    return children.map(child => ensure_math(child))
 }
 
 function normalize_math_leaf(child: MathLeaf): WithMath | undefined {
@@ -410,8 +472,8 @@ function normalize_math_children(children0: Element | Element[]): WithMath[] {
 }
 
 class MathText extends Group {
-    math: MathSpec
     items: WithMath[]
+    math: MathSpec
 
     constructor(args: MathTextArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
@@ -430,16 +492,15 @@ class MathText extends Group {
         // process items
         for (const item of rowMathItems) {
             const { left: itemLeft, right: itemRight } = item.math
-            const gap = inter_item_spacing(prevItem, item, spacing)
-            console.log('inter_item_spacing', prevItem, item, gap)
-            if (gap > 0) rowItems.push(new MathSpacer({ aspect: gap }))
 
+            // insert item with spacing
+            const gap = inter_item_spacing(prevItem, item, spacing)
+            if (gap > 0) rowItems.push(new MathSpacer({ aspect: gap }))
             rowItems.push(item)
 
+            // update left/right classes
             if (left == 'none') left = itemLeft
-            if (itemRight != 'none') {
-                right = itemRight
-            }
+            if (itemRight != 'none') right = itemRight
             prevItem = item
         }
 
@@ -448,15 +509,14 @@ class MathText extends Group {
 
         // compute inline row layout
         const { children, coord, metrics, aspect } = layout_inline_row(rowItems)
-        const math = make_math({ left, right, metrics })
 
         // pass to Group
-        super({ children, coord, aspect, math, ...attr })
+        super({ children, coord, aspect, ...attr })
         this.args = args
 
         // set math metrics
-        this.math = math
         this.items = items
+        this.math = make_math({ left, right, metrics })
     }
 }
 
@@ -904,5 +964,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathSpacer, MathRow, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
