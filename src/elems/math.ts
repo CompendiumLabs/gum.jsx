@@ -9,7 +9,7 @@ import { CoordLine, RoundedRect } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
-import { EMPTY_METRIC, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
+import { EMPTY_METRICS, EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
@@ -47,6 +47,12 @@ const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
 }
 
 //
+// constants
+//
+
+const MATH_AXIS = 0.25
+
+//
 // symbols and spacing
 //
 
@@ -67,7 +73,13 @@ const SYMBOL_FAMILY_CLASS: Record<SymbolFamily, MathClass> = {
 const THINSPACE: Measurement = { number: 3, unit: 'mu' }
 const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
 const THICKSPACE: Measurement = { number: 5, unit: 'mu' }
-const MATH_AXIS = 0.25
+
+type SpacingType = 'thin' | 'medium' | 'thick'
+const SPACING: Record<SpacingType, number> = {
+    thin: measurement_to_em(THINSPACE),
+    medium: measurement_to_em(MEDIUMSPACE),
+    thick: measurement_to_em(THICKSPACE),
+}
 
 type SpacingTable = Partial<Record<MathClass, Measurement>>
 const SPACING_TABLE: Record<MathClass, SpacingTable> = {
@@ -90,7 +102,7 @@ function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
-        metrics: metrics ?? EMPTY_METRIC,
+        metrics: metrics ?? EMPTY_METRICS,
     }
 }
 
@@ -157,7 +169,7 @@ function inline_rect({ advance, vrange: [ ymin, ymax ] }: TextMetrics, x: number
 function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
     // empty case
     if (items.length == 0) {
-        return { children: [], metrics: EMPTY_METRIC }
+        return { children: [], metrics: EMPTY_METRICS }
     }
 
     // reposition children
@@ -173,20 +185,6 @@ function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
 
     // return layout
     return { children, coord, metrics, aspect }
-}
-
-function layout_inline_row(items: WithMath[]): InlineLayout {
-    const placements: InlinePlacement[] = []
-    let x = 0
-
-    for (const item of items) {
-        const { metrics } = item.math
-        if (metrics == null) continue
-        placements.push({ item, rect: inline_rect(metrics, x) })
-        x += metrics.advance
-    }
-
-    return layout_inline_placements(placements)
 }
 
 //
@@ -296,21 +294,28 @@ function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
 // math spacer
 //
 
+interface MathSpacerArgs extends ElementArgs {
+    size?: SpacingType
+}
+
 class MathSpacer extends Spacer {
     math: MathSpec
 
-    constructor(args: ElementArgs = {}) {
-        const { aspect = 0, ...attr } = THEME(args, 'MathSpacer')
-        super({ aspect, ...attr })
-        this.args = args
+    constructor(args: MathSpacerArgs = {}) {
+        const { aspect = 0, size, ...attr } = THEME(args, 'MathSpacer')
 
         // check aspect type
-        if (!is_scalar(aspect)) {
-            throw new Error('aspect must be a number')
+        const advance = size != null ? SPACING[size] : aspect
+        if (!is_scalar(advance)) {
+            throw new Error('must specify size (thin, medium, thick) or numerical aspect')
         }
 
+        // pass to Spacer
+        super({ ...attr })
+        this.args = args
+
         // compute math metrics
-        const metrics: TextMetrics = { advance: aspect, vrange: [ 0, 0 ] }
+        const metrics: TextMetrics = { advance, vrange: EMPTY_VRANGE }
         this.math = make_math({ metrics })
     }
 }
@@ -379,7 +384,7 @@ interface MathRowArgs extends GroupArgs {
 
 function layoutMathRow(items: WithMath[]): InlineLayout {
     // empty case
-    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRIC }
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRICS }
 
     // find outer vertical range
     const advance = sum(items.map(item => item.math.metrics.advance))
@@ -510,12 +515,10 @@ class MathText extends MathRow {
     constructor(args: MathTextArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
-
-        // add spacing and compress
         const mathItems = normalize_math_children(inputs)
-        const spacedItems = cancel_binary_atoms(mathItems)
 
-        // compute layout
+        // compress sapcing and layout
+        const spacedItems = cancel_binary_atoms(mathItems)
         const { items, left, right } = layoutMathText(spacedItems, spacing)
 
         // pass to Group
@@ -523,7 +526,7 @@ class MathText extends MathRow {
         this.args = args
 
         // set math metrics
-        this.items = items
+        this.items = mathItems
         this.math.left = left
         this.math.right = right
     }
