@@ -442,25 +442,30 @@ function layoutMathCol(items: WithMath[], justify: Align = 'center'): InlineLayo
 
     // find outer metrics
     const advance = max(items.map(item => item.math.metrics.advance)) ?? 0
-    const vtotal = sum(items.map(item => {
+    const heights = items.map(item => {
         const { vrange: [ ylo, yhi ] } = item.math.metrics
         return yhi - ylo
-    }))
+    })
+    const vtotal = sum(heights)
 
-    // compute placements (stack vertically, center horizontally)
-    let ymax = - vtotal / 2 + 1
+    // stack top-down in raw coordinates, then shift so the column center
+    // lands at the canonical inline center used by ordinary math glyphs.
+    const anchor = 0.5 * vtotal
+    const yshift = anchor - MATH_AXIS
+
+    let y0 = 0
     const children = items.map((item, i) => {
-        const { metrics } = item.math
-        const { vrange: [ ylo, yhi ] } = metrics
-        const height = yhi - ylo
-        ymax += height
-        return item.clone({ rect: [ 0, ymax - height, advance, ymax ], align: justify })
+        const height = heights[i]
+        const y1 = y0 + height
+        const child = item.clone({ rect: [ 0, y0 - yshift, advance, y1 - yshift ], align: justify })
+        y0 = y1
+        return child
     })
 
     // compute layout metrics
-    const vrange: Limit = [ - vtotal / 2 + 0.25, vtotal / 2 + 0.25 ]
+    const vrange: Limit = [ -yshift, vtotal - yshift ]
     const metrics: TextMetrics = { advance, vrange }
-    const coord: Rect = [ 0, 0, advance, ymax ]
+    const coord = join_limits({ h: [ 0, advance ], v: vrange })
     const aspect = rect_aspect(coord)
 
     // return layout
