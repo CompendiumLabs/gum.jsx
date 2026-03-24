@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { black, red, DEFAULTS as D } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, merge_limits, prefix_split, join_limits, rect_aspect, sum } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, merge_limits, prefix_split, join_limits, rect_aspect, sum, max } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Spacer, spec_split, ensure_children } from './core'
 import { CoordLine, RoundedRect } from './geometry'
@@ -11,7 +11,7 @@ import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 import { EMPTY_METRICS, EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
-import type { Padding, Point, Rect, Attrs } from '../lib/types'
+import type { Padding, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
@@ -418,6 +418,65 @@ class MathRow extends Group {
         // compute layout
         const mathItems = ensure_math_children(items)
         const { metrics, ...layout } = layoutMathRow(mathItems)
+
+        // pass to Group
+        super({ ...layout, ...attr })
+        this.args = args
+
+        // set math metrics
+        this.math = { left: 'mord', right: 'mord', metrics }
+    }
+}
+
+//
+// math col
+//
+
+interface MathColArgs extends GroupArgs {
+    children?: WithMath[]
+}
+
+function layoutMathCol(items: WithMath[], justify: Align = 'center'): InlineLayout {
+    // empty case
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRICS }
+
+    // find outer metrics
+    const advance = max(items.map(item => item.math.metrics.advance)) ?? 0
+    const vtotal = sum(items.map(item => {
+        const { vrange: [ ylo, yhi ] } = item.math.metrics
+        return yhi - ylo
+    }))
+
+    // compute placements (stack vertically, center horizontally)
+    let ymax = - vtotal / 2 + 1
+    const children = items.map((item, i) => {
+        const { metrics } = item.math
+        const { vrange: [ ylo, yhi ] } = metrics
+        const height = yhi - ylo
+        ymax += height
+        return item.clone({ rect: [ 0, ymax - height, advance, ymax ], align: justify })
+    })
+
+    // compute layout metrics
+    const vrange: Limit = [ - vtotal / 2 + 0.25, vtotal / 2 + 0.25 ]
+    const metrics: TextMetrics = { advance, vrange }
+    const coord: Rect = [ 0, 0, advance, ymax ]
+    const aspect = rect_aspect(coord)
+
+    // return layout
+    return { children, coord, aspect, metrics }
+}
+
+class MathCol extends Group {
+    math: MathSpec
+
+    constructor(args: MathColArgs = {}) {
+        const { children: children0, justify, ...attr } = THEME(args, 'MathCol')
+        const items = ensure_children(children0)
+        const mathItems = ensure_math_children(items)
+
+        // compute layout
+        const { metrics, ...layout } = layoutMathCol(mathItems, justify)
 
         // pass to Group
         super({ ...layout, ...attr })
@@ -976,5 +1035,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathSpacer, MathRow, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
