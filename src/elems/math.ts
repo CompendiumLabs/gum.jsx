@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { black, red, DEFAULTS as D } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split, prefix_join } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Rectangle, Spacer, spec_split } from './core'
 import { CoordLine } from './geometry'
@@ -23,8 +23,7 @@ import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tr
 
 type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'KaTeX_Size2' | 'KaTeX_Size3' | 'KaTeX_Size4'
 
-type AtomClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
-type MathClass = AtomClass | 'none'
+type MathClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner' | 'none'
 
 type MathSpec = {
     left: MathClass
@@ -32,9 +31,9 @@ type MathSpec = {
     metrics: TextMetrics
 }
 
-type MathElement = Element & {
-    math?: MathSpec
-}
+//
+// fonts
+//
 
 const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
 
@@ -42,6 +41,10 @@ const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
     math: 'KaTeX_Math',
     text: 'KaTeX_Main',
 }
+
+//
+// symbols and spacing
+//
 
 const SYMBOL_FAMILY_CLASS: Record<SymbolFamily, MathClass> = {
     mathord: 'mord',
@@ -62,32 +65,17 @@ const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
 const THICKSPACE: Measurement = { number: 5, unit: 'mu' }
 const MATH_AXIS = 0.25
 
-type SpacingTable = Partial<Record<AtomClass, Measurement>>
-const SPACING_TABLE: Record<AtomClass, SpacingTable> = {
+type SpacingTable = Partial<Record<MathClass, Measurement>>
+const SPACING_TABLE: Record<MathClass, SpacingTable> = {
     mord: { mop: THINSPACE, mbin: MEDIUMSPACE, mrel: THICKSPACE, minner: THINSPACE },
     mop: { mord: THINSPACE, mop: THINSPACE, mrel: THICKSPACE, minner: THINSPACE },
     mbin: { mord: MEDIUMSPACE, mop: MEDIUMSPACE, mopen: MEDIUMSPACE, minner: MEDIUMSPACE },
     mrel: { mord: THICKSPACE, mop: THICKSPACE, mopen: THICKSPACE, minner: THICKSPACE },
     mopen: {},
     mclose: { mop: THINSPACE, mbin: MEDIUMSPACE, mrel: THICKSPACE, minner: THINSPACE },
-    mpunct: {
-        mord: THINSPACE,
-        mop: THINSPACE,
-        mrel: THICKSPACE,
-        mopen: THINSPACE,
-        mclose: THINSPACE,
-        mpunct: THINSPACE,
-        minner: THINSPACE,
-    },
-    minner: {
-        mord: THINSPACE,
-        mop: THINSPACE,
-        mbin: MEDIUMSPACE,
-        mrel: THICKSPACE,
-        mopen: THINSPACE,
-        mpunct: THINSPACE,
-        minner: THINSPACE,
-    },
+    mpunct: { mord: THINSPACE, mop: THINSPACE, mrel: THICKSPACE, mopen: THINSPACE, mclose: THINSPACE, mpunct: THINSPACE, minner: THINSPACE },
+    minner: { mord: THINSPACE, mop: THINSPACE, mbin: MEDIUMSPACE, mrel: THICKSPACE, mopen: THINSPACE, mpunct: THINSPACE, minner: THINSPACE },
+    none: {},
 }
 
 //
@@ -100,48 +88,44 @@ const DEFAULT_MATH: MathSpec = {
     metrics: EMPTY_METRIC,
 }
 
-function init_math(element: Element): MathSpec {
-    const e = element as MathElement
-    e.math ??= { left: 'none', right: 'none', metrics: default_metrics(element) }
-    return e.math
-}
-
-function set_math(element: Element, updates: Partial<MathSpec>): Element {
-    const math = init_math(element)
-    if ('left' in updates) math.left = updates.left ?? 'none'
-    if ('right' in updates) math.right = updates.right ?? 'none'
-    if (updates.metrics != null) math.metrics = updates.metrics
-    return element
-}
-
 function get_math(element: Element | null): MathSpec {
     if (element == null) return DEFAULT_MATH
-    return init_math(element)
+    const { math_left, math_right, math_metrics } = element.attr
+    return {
+        left: math_left ?? 'none',
+        right: math_right ?? 'none',
+        metrics: math_metrics ?? default_metrics(element),
+    }
+}
+
+function get_metrics(element: Element | null): TextMetrics {
+    if (element == null) return EMPTY_METRIC
+    const { math_metrics } = element.attr
+    return math_metrics ?? default_metrics(element)
+}
+
+function make_metrics({ advance, vrange }: Partial<TextMetrics>): TextMetrics {
+    return {
+        advance: advance ?? 0,
+        vrange: vrange ?? [ 0, 0 ],
+    }
 }
 
 function default_metrics(element: Element): TextMetrics {
     if (element instanceof Spacer) {
         const advance = element.spec.aspect ?? 0
-        return advance == 0 ? EMPTY_METRIC : { ...EMPTY_METRIC, advance }
+        return make_metrics({ advance })
     } else if (element instanceof Span) {
         return element.metrics
     } else {
         const advance = element.spec.aspect ?? 1
-        return advance == DEFAULT_METRIC.advance ? DEFAULT_METRIC : { ...DEFAULT_METRIC, advance }
+        return make_metrics({ ...DEFAULT_METRIC, advance })
     }
 }
 
-function set_metrics(element: Element, metrics: TextMetrics): Element {
-    return set_math(element, { metrics })
-}
-
-function get_metrics(element: Element | null): TextMetrics {
-    return get_math(element).metrics
-}
-
 function make_inline_spacer(advance: number): Element {
-    const metrics = advance == 0 ? EMPTY_METRIC : { ...EMPTY_METRIC, advance }
-    return set_metrics(new Spacer({ aspect: advance }), metrics)
+    const metrics = make_metrics({ advance })
+    return new Spacer({ aspect: advance, math_metrics: metrics })
 }
 
 function inline_padding(padding: Padding | undefined): Point {
@@ -205,14 +189,13 @@ function layout_inline_row(items: Element[]): InlineLayout {
     for (const item of items) {
         const metrics = get_metrics(item)
         placements.push({ item, rect: inline_rect(metrics, x) })
-        const { advance } = metrics
-        x += advance
+        x += metrics.advance
     }
 
     return layout_inline_placements(placements)
 }
 
-const EMPTY_MATH = set_metrics(new Spacer({ aspect: 0 }), EMPTY_METRIC)
+const EMPTY_MATH = new Spacer({ aspect: 0, math_metrics: EMPTY_METRIC })
 
 //
 // symbol lookup
@@ -249,7 +232,6 @@ function has_math_metrics(element: Element): boolean {
 }
 
 function inter_atom_spacing(prev: MathClass, next: MathClass): number {
-    if (prev == 'none' || next == 'none') return 0
     const table = SPACING_TABLE[prev]
     const measurement = table?.[next]
     if (measurement == null) return 0
@@ -258,34 +240,28 @@ function inter_atom_spacing(prev: MathClass, next: MathClass): number {
 
 function inter_item_spacing(prev: Element | null, next: Element | null, spacing: number): number {
     if (prev == null || next == null) return 0
-    if (prev instanceof Spacer || next instanceof Spacer) return 0
-
     const { right: prevRight } = get_math(prev)
     const { left: nextLeft } = get_math(next)
-    const prevIsMath = has_math_metrics(prev)
-    const nextIsMath = has_math_metrics(next)
-
-    if (prevIsMath && nextIsMath) return inter_atom_spacing(prevRight, nextLeft)
-    return spacing
+    return inter_atom_spacing(prevRight, nextLeft)
 }
 
 //
 // binary atom cancellation
 //
 
-const BIN_LEFT_CANCELLER = new Set<AtomClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
-const BIN_RIGHT_CANCELLER = new Set<AtomClass>(['mrel', 'mclose', 'mpunct'])
+const BIN_LEFT_CANCELLER = new Set<MathClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
+const BIN_RIGHT_CANCELLER = new Set<MathClass>(['mrel', 'mclose', 'mpunct'])
 
-function cancel_element_left_bin(element: Element): void {
+function cancel_element_left_bin(element: Element): Element {
     const { left, right } = get_math(element)
-    if (left != 'mbin') return
-    set_math(element, { left: 'mord', right: right == 'mbin' ? 'mord' : right })
+    if (left != 'mbin') return element
+    return element.clone({ math_left: 'mord', math_right: right == 'mbin' ? 'mord' : right })
 }
 
-function cancel_element_right_bin(element: Element): void {
+function cancel_element_right_bin(element: Element): Element {
     const { left, right } = get_math(element)
-    if (right != 'mbin') return
-    set_math(element, { left: left == 'mbin' ? 'mord' : left, right: 'mord' })
+    if (right != 'mbin') return element
+    return element.clone({ math_left: left == 'mbin' ? 'mord' : left, math_right: 'mord' })
 }
 
 function cancel_binary_atoms(items0: Element[]): Element[] {
@@ -293,23 +269,25 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
     let prevIndex: number | null = null
 
     for (let i = 0; i < items.length; i++) {
-        const item = items[i]
+        let item = items[i]
         const { left, right } = get_math(item)
         if (left == 'none' && right == 'none') continue
 
         if (prevIndex == null) {
-            cancel_element_left_bin(item)
+            item = cancel_element_left_bin(item)
+            items[i] = item
         } else if (left != 'none') {
             const prev = items[prevIndex]
             const { right: prevRight } = get_math(prev)
 
             if (prevRight == 'mbin' && BIN_RIGHT_CANCELLER.has(left)) {
-                cancel_element_right_bin(prev)
+                items[prevIndex] = cancel_element_right_bin(prev)
             }
 
-            const { right: prevClass } = get_math(prev)
+            const { right: prevClass } = get_math(items[prevIndex])
             if (left == 'mbin' && (prevClass == 'none' || BIN_LEFT_CANCELLER.has(prevClass))) {
-                cancel_element_left_bin(item)
+                item = cancel_element_left_bin(item)
+                items[i] = item
             }
         }
 
@@ -317,7 +295,7 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
     }
 
     if (prevIndex != null) {
-        cancel_element_right_bin(items[prevIndex])
+        items[prevIndex] = cancel_element_right_bin(items[prevIndex])
     }
 
     return items
@@ -328,25 +306,20 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
 //
 
 interface MathSpanArgs extends SpanArgs {
-    klass?: MathClass | null
-    left?: MathClass | null
-    right?: MathClass | null
+    klass?: MathClass
+    left?: MathClass
+    right?: MathClass
 }
 
 class MathSpan extends Span {
     constructor(args: MathSpanArgs = {}) {
-        const { children, klass = 'mord', left, right, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
+        const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
         const text = check_string(children)
-        const klass1 = klass ?? 'mord'
-        const left1 = left ?? klass1
-        const right1 = right ?? left1
+        const math = prefix_join('math', { left, right })
 
         // pass to Span
-        super({ children: [ text ], vshift, ...attr })
+        super({ children: [ text ], vshift, ...math, ...attr })
         this.args = args
-
-        // set math metrics
-        set_math(this, { left: left1, right: right1 })
     }
 }
 
@@ -424,12 +397,15 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
         } else if (is_array(child)) {
             out.push(...normalize_math_children(child))
             continue
-        } else if (child instanceof MathText) {
-            out.push(...child.items)
-            continue
         } else {
             const elem = normalize_math_leaf(child)
-            if (elem != null) out.push(elem)
+            if (elem == null) continue
+            const { math_items } = elem.attr
+            if (math_items != null) {
+                out.push(...math_items)
+            } else {
+                out.push(elem)
+            }
         }
     }
 
@@ -443,8 +419,8 @@ class MathText extends Group {
         const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
 
         // normalize children
-        const rawItems = normalize_math_children(children0)
-        const items = cancel_binary_atoms(rawItems)
+        const items = normalize_math_children(children0)
+        const rowMathItems = cancel_binary_atoms(items)
         const rowItems: Element[] = []
 
         // accumulate math metrics
@@ -453,7 +429,7 @@ class MathText extends Group {
         let prevItem: Element | null = null
 
         // process items
-        for (const item of items) {
+        for (const item of rowMathItems) {
             const { left: itemLeft, right: itemRight } = get_math(item)
             const gap = inter_item_spacing(prevItem, item, spacing)
             if (gap > 0) rowItems.push(make_inline_spacer(gap))
@@ -472,13 +448,11 @@ class MathText extends Group {
 
         // compute inline row layout
         const { children, coord, metrics, aspect } = layout_inline_row(rowItems)
+        const math = prefix_join('math', { left, right, metrics, items })
 
         // pass to Group
-        super({ children, coord, aspect, ...attr })
+        super({ children, coord, aspect, ...math, ...attr })
         this.args = args
-
-        // compute combined math metrics
-        set_math(this, { left, right, metrics })
         this.items = items
     }
 }
@@ -498,6 +472,7 @@ class SupSub extends HStack {
         const base = ensure_singleton(children)
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
+        const math = get_math(base)
 
         // handle missing sup/sub
         const supElem = sup != null ? sup : new Spacer()
@@ -512,11 +487,8 @@ class SupSub extends HStack {
         const sideBox = new Box({ children: [ side ] })
 
         // pass to HStack
-        super({ children: [ base, sideBox ], spacing: hspacing, ...attr })
+        super({ children: [ base, sideBox ], spacing: hspacing, ...math, ...attr })
         this.args = args
-
-        // compute combined math metrics
-        set_math(this, get_math(base))
     }
 }
 
@@ -569,13 +541,11 @@ class Frac extends Group {
             })
         }
         const { children, coord, aspect, metrics } = layout_inline_placements(placements)
+        const math = prefix_join('math', { left: 'mord', right: 'mord', metrics })
 
         // pass to Group
-        super({ children, coord, aspect, ...attr })
+        super({ children, coord, aspect, ...math, ...attr })
         this.args = args
-
-        // set math metrics
-        set_math(this, { left: 'mord', right: 'mord', metrics })
     }
 }
 
@@ -637,11 +607,9 @@ class Sqrt extends Group {
         const indexElem = index != null ? index.clone({ pos: index_pos, yrad: 0.2, align: 'right' }) : null
 
         // pass to Group
-        super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
+        const math = prefix_join('math', { left: 'mord', right: 'mord' })
+        super({ children: [ bodyBox, indexElem, radical ], aspect, ...math, ...attr })
         this.args = args
-
-        // set math metrics
-        set_math(this, { left: 'mord', right: 'mord' })
     }
 }
 
@@ -678,16 +646,14 @@ class Accent extends Box {
     constructor(args: AccentArgs = {}) {
         const { children, label = '', body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
         const base = check_singleton(children)
+        const math = get_math(base)
 
         // build accent symbol
         const accent = build_accent_symbol(label, color)
 
         // pass to Box
-        super({ children: [ base, accent ], ...attr })
+        super({ children: [ base, accent ], ...math, ...attr })
         this.args = args
-
-        // set math metrics
-        set_math(this, get_math(base))
     }
 }
 
@@ -754,11 +720,9 @@ class Bracket extends HStack {
         const right = right_delim != null ? new Delim({ delim: right_delim, side: 'right', ...delim_attr }) : null
 
         // pass to HStack
-        super({ children: [ left, body, right ], ...attr })
+        const math = prefix_join('math', { left: 'mord', right: 'mord' })
+        super({ children: [ left, body, right ], ...math, ...attr })
         this.args = args
-
-        // set math metrics
-        set_math(this, { left: 'mord', right: 'mord' })
     }
 }
 
@@ -879,4 +843,4 @@ class Tex extends Latex {
 //
 
 export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
-export type { AtomClass, MathClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
+export type { MathClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }

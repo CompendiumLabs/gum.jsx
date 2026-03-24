@@ -244,7 +244,7 @@ function props_repr(d: Attrs, prec: number): string {
 // reserved keys
 const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'upright', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
 const HELP_KEYS = [ 'pos', 'rad', 'xrad', 'yrad', 'flex', 'spin', 'orient' ]
-const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
+const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'math_left', 'math_right', 'math_metrics', 'math_items', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 
 function spec_split(attr: Attrs, extended: boolean = true): [Attrs, Attrs] {
@@ -352,8 +352,9 @@ class Element {
 
     props(ctx: Context): Attrs {
         const { transform } = ctx
-        if (transform == null) return this.attr
-        return  { ...this.attr, transform }
+        const attr = filter_object(this.attr, (k: string, v: any) => v != null && !OTHER_KEYS.includes(k))
+        if (transform == null) return attr
+        return  { ...attr, transform }
     }
 
     inner(_ctx: Context): string {
