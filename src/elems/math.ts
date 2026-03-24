@@ -420,6 +420,7 @@ function normalize_math_children(children0: Element | Element[]): WithMath[] {
 }
 
 class MathText extends Group {
+    math: MathSpec
     items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
@@ -463,6 +464,9 @@ class MathText extends Group {
         // pass to Group
         super({ children, coord, aspect, math, ...attr })
         this.args = args
+
+        // set math metrics
+        this.math = math
         this.items = items
     }
 }
@@ -626,6 +630,7 @@ interface SqrtArgs extends GroupArgs {
     padding?: Padding
 }
 
+// TODO: math metrics
 class Sqrt extends Group {
     constructor(args: SqrtArgs = {}) {
         const {
@@ -687,9 +692,8 @@ interface AccentArgs extends GroupArgs {
     body_top?: number
 }
 
+// TODO: math metrics
 class Accent extends Box {
-    math: MathSpec
-
     constructor(args: AccentArgs = {}) {
         const { children, label = '', body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
         const child = check_singleton(children)
@@ -706,9 +710,6 @@ class Accent extends Box {
         // pass to Box
         super({ children: [ base, accent ], ...attr })
         this.args = args
-
-        // set math metrics
-        this.math = base.math
     }
 }
 
@@ -763,6 +764,7 @@ interface BracketArgs extends StackArgs {
     delim?: DelimType | [ DelimType, DelimType ]
 }
 
+// TODO: math metrics
 class Bracket extends HStack {
     constructor(args: BracketArgs = {}) {
         const { children: children0, delim: delim0 = 'round', ...attr0 } = THEME(args, 'Bracket')
@@ -789,7 +791,7 @@ class Bracket extends HStack {
 
 const EMPTY_MATH = new MathSpacer()
 
-function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): Element {
+function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath {
     if (tree == null) return EMPTY_MATH
 
     if (is_array(tree)) {
@@ -831,7 +833,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): Element {
         } else if (type == 'kern') {
             const { dimension } = tree
             const em = measurement_to_em(dimension)
-            return new Spacer({ aspect: em })
+            return new MathSpacer({ aspect: em })
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0, attr)
@@ -875,7 +877,7 @@ class Latex extends MathText {
         const [ spec, attr ] = spec_split(attr0)
 
         // parse to AST
-        const elems: Element[] = []
+        const elems: WithMath[] = []
         try {
             const tree = parse_tex(tex)
             const items = tree.map(tree => convert_tree(tree, attr))
