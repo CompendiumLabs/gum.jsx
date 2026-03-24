@@ -81,14 +81,17 @@ type TextMetrics = {
     vrange: Limit
 }
 
+const EMPTY_VRANGE: Limit = [ 0, 0 ]
+const DEFAULT_VRANGE: Limit = [ -0.25, 0.75 ]
+
 const EMPTY_METRIC: TextMetrics = {
     advance: 0,
-    vrange: [ 0, 0 ],
+    vrange: EMPTY_VRANGE,
 }
 
 const DEFAULT_METRIC: TextMetrics = {
     advance: 1,
-    vrange: [ -0.25, 0.75 ],
+    vrange: DEFAULT_VRANGE,
 }
 
 function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics): TextMetrics {
@@ -168,5 +171,5 @@ function mergeStrings(items: any[]): any[] {
 //
 
 export { is_emoji, textMetrics, textSizer, textVertical, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
-export { DEFAULT_METRIC, EMPTY_METRIC }
+export { DEFAULT_METRIC, EMPTY_METRIC, DEFAULT_VRANGE, EMPTY_VRANGE }
 export type { TextMetrics }

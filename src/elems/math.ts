@@ -9,7 +9,7 @@ import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
-import { DEFAULT_METRIC, EMPTY_METRIC, type TextMetrics } from '../lib/text'
+import { DEFAULT_METRIC, EMPTY_METRIC, DEFAULT_VRANGE, EMPTY_VRANGE, type TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
@@ -86,33 +86,11 @@ const SPACING_TABLE: Record<MathClass, SpacingTable> = {
 // math metrics
 //
 
-const DEFAULT_MATH: MathSpec = {
-    left: 'mord',
-    right: 'mord',
-    metrics: DEFAULT_METRIC,
-}
-
-function make_metrics({ advance, vrange }: Partial<TextMetrics>): TextMetrics {
-    return {
-        advance: advance ?? 0,
-        vrange: vrange ?? [ 0, 0 ],
-    }
-}
-
-function default_metrics(element: Element): TextMetrics {
-    if (element instanceof Span) {
-        return element.metrics
-    } else {
-        const advance = element.spec.aspect ?? 1
-        return make_metrics({ ...DEFAULT_METRIC, advance })
-    }
-}
-
 function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
-        metrics: metrics ?? DEFAULT_METRIC,
+        metrics: metrics ?? EMPTY_METRIC,
     }
 }
 
@@ -304,7 +282,7 @@ class MathSpacer extends Spacer {
         this.args = args
 
         // compute math metrics
-        const metrics = make_metrics({ advance: aspect })
+        const metrics: TextMetrics = { advance: aspect, vrange: [ 0, 0 ] }
         this.math = make_math({ metrics })
     }
 }
@@ -373,11 +351,20 @@ interface MathTextArgs extends GroupArgs {
 
 type MathLeaf = Element | string | number | boolean | null
 
+function ensure_metrics(element: Element): TextMetrics {
+    if (element instanceof Span) {
+        return element.metrics
+    } else {
+        const advance = element.spec.aspect ?? 1
+        return { advance, vrange: DEFAULT_VRANGE }
+    }
+}
+
 function ensure_math<E extends Element>(element: E): WithMath<E> {
     if ((element as any).math != null) {
         return element as WithMath<E>
     }
-    const metrics = default_metrics(element)
+    const metrics = ensure_metrics(element)
     const math = make_math({ metrics })
     const newElement = element.clone() as WithMath<E>
     newElement.math = math
@@ -429,7 +416,6 @@ class MathText extends Group {
 
         // normalize children
         const items = normalize_math_children(inputs)
-        console.log('items', items)
         const rowMathItems = cancel_binary_atoms(items)
         const rowItems: WithMath[] = []
 
@@ -632,6 +618,8 @@ interface SqrtArgs extends GroupArgs {
 
 // TODO: math metrics
 class Sqrt extends Group {
+    math: MathSpec
+
     constructor(args: SqrtArgs = {}) {
         const {
             children,
@@ -660,6 +648,9 @@ class Sqrt extends Group {
         // pass to Group
         super({ children: [ bodyBox, indexElem, radical ], aspect, math, ...attr })
         this.args = args
+
+        // set math metrics
+        this.math = make_math({ left: 'mord', right: 'mord' })
     }
 }
 
@@ -694,6 +685,8 @@ interface AccentArgs extends GroupArgs {
 
 // TODO: math metrics
 class Accent extends Box {
+    math: MathSpec
+
     constructor(args: AccentArgs = {}) {
         const { children, label = '', body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
         const child = check_singleton(children)
@@ -710,6 +703,9 @@ class Accent extends Box {
         // pass to Box
         super({ children: [ base, accent ], ...attr })
         this.args = args
+
+        // set math metrics
+        this.math = make_math({ left: 'mord', right: 'mord' })
     }
 }
 
@@ -766,6 +762,8 @@ interface BracketArgs extends StackArgs {
 
 // TODO: math metrics
 class Bracket extends HStack {
+    math: MathSpec
+
     constructor(args: BracketArgs = {}) {
         const { children: children0, delim: delim0 = 'round', ...attr0 } = THEME(args, 'Bracket')
         const body = check_singleton(children0)
@@ -782,6 +780,9 @@ class Bracket extends HStack {
         // pass to HStack
         super({ children: [ left, body, right ], math, ...attr })
         this.args = args
+
+        // set math metrics
+        this.math = make_math({ left: 'mord', right: 'mord' })
     }
 }
 
