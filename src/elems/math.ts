@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { black, red, DEFAULTS as D } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, merge_limits, prefix_split, join_limits, rect_aspect, sum } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Spacer, spec_split, ensure_children } from './core'
 import { CoordLine, RoundedRect } from './geometry'
@@ -92,6 +92,30 @@ function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
         right: right ?? 'mord',
         metrics: metrics ?? EMPTY_METRIC,
     }
+}
+
+function ensure_metrics(element: Element): TextMetrics {
+    if (element instanceof Span) {
+        return element.metrics
+    } else {
+        const advance = element.spec.aspect ?? 1
+        return { advance, vrange: DEFAULT_VRANGE }
+    }
+}
+
+function ensure_math<E extends Element>(element: E): WithMath<E> {
+    if ((element as any).math != null) {
+        return element as WithMath<E>
+    }
+    const metrics = ensure_metrics(element)
+    const math = make_math({ metrics })
+    const newElement = element.clone() as WithMath<E>
+    newElement.math = math
+    return newElement
+}
+
+function ensure_math_children(children: Element[]): WithMath[] {
+    return children.map(child => ensure_math(child))
 }
 
 //
@@ -317,13 +341,13 @@ class MathSpan extends Span {
     }
 }
 
-interface MathSymbolArgs extends MathSpanArgs {
-    mode?: SymbolMode
-}
-
 //
 // math symbol
 //
+
+interface MathSymbolArgs extends MathSpanArgs {
+    mode?: SymbolMode
+}
 
 class MathSymbol extends MathSpan {
     constructor(args: MathSymbolArgs = {}) {
@@ -357,26 +381,23 @@ function layoutMathRow(items: WithMath[]): InlineLayout {
     // empty case
     if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRIC }
 
-    // compute placements
-    const placements: InlinePlacement[] = []
-    let x = 0
-    for (const item of items) {
-        const { metrics } = item.math
-        if (metrics == null) continue
-        placements.push({ item, rect: inline_rect(metrics, x) })
-        x += metrics.advance
-    }
+    // find outer vertical range
+    const advance = sum(items.map(item => item.math.metrics.advance))
+    const vrange = merge_limits(items.map(item => item.math.metrics.vrange))
 
-    // reposition children
-    const [ xmin, ymin, xmax, ymax ] = merge_rects(placements.map(p => p.rect)) ?? D.rect
-    const children = placements.map(({ item, rect: [ x1, y1, x2, y2 ] }) =>
-        item.clone({ rect: [ x1 - xmin, y1, x2 - xmin, y2 ] })
-    )
+    // compute placements
+    let xmax = 0
+    const children = items.map(item => {
+        const { metrics } = item.math
+        const { advance: x, vrange: [ ylo, yhi ] } = metrics
+        xmax += x
+        return item.clone({ rect: [ xmax - x, ylo, xmax, yhi ] })
+    })
 
     // compute layout metrics
-    const metrics: TextMetrics = { advance: xmax - xmin, vrange: [ -ymax, -ymin ] }
-    const coord: Rect = [ 0, ymin, metrics.advance, ymax ]
-    const aspect = inline_aspect(metrics)
+    const metrics: TextMetrics = { advance, vrange }
+    const coord = join_limits({ h: [ 0, advance ], v: vrange })
+    const aspect = rect_aspect(coord)
 
     // return layout
     return { children, coord, aspect, metrics }
@@ -411,30 +432,6 @@ interface MathTextArgs extends GroupArgs {
 }
 
 type MathLeaf = Element | string | number | boolean | null
-
-function ensure_metrics(element: Element): TextMetrics {
-    if (element instanceof Span) {
-        return element.metrics
-    } else {
-        const advance = element.spec.aspect ?? 1
-        return { advance, vrange: DEFAULT_VRANGE }
-    }
-}
-
-function ensure_math<E extends Element>(element: E): WithMath<E> {
-    if ((element as any).math != null) {
-        return element as WithMath<E>
-    }
-    const metrics = ensure_metrics(element)
-    const math = make_math({ metrics })
-    const newElement = element.clone() as WithMath<E>
-    newElement.math = math
-    return newElement
-}
-
-function ensure_math_children(children: Element[]): WithMath[] {
-    return children.map(child => ensure_math(child))
-}
 
 function normalize_math_leaf(child: MathLeaf): WithMath | undefined {
     if (child == null) {
@@ -471,52 +468,64 @@ function normalize_math_children(children0: Element | Element[]): WithMath[] {
     return out
 }
 
-class MathText extends Group {
+type MathTextLayout = {
     items: WithMath[]
-    math: MathSpec
+    left: MathClass
+    right: MathClass
+}
+
+function layoutMathText(mathItems: WithMath[], spacing: number): MathTextLayout {
+    const rowItems: WithMath[] = []
+
+    // accumulate math metrics
+    let left: MathClass = 'none'
+    let right: MathClass = 'none'
+    let prevItem: WithMath | null = null
+
+    // process items
+    for (const item of mathItems) {
+        const { left: itemLeft, right: itemRight } = item.math
+
+        // insert item with spacing
+        const gap = inter_item_spacing(prevItem, item, spacing)
+        if (gap > 0) rowItems.push(new MathSpacer({ aspect: gap }))
+        rowItems.push(item)
+
+        // update left/right classes
+        if (left == 'none') left = itemLeft
+        if (itemRight != 'none') right = itemRight
+        prevItem = item
+    }
+
+    // set default right
+    if (right == 'none') right = left
+
+    // return math items
+    return { items: rowItems, left, right }
+}
+
+class MathText extends MathRow {
+    items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
 
-        // normalize children
-        const items = normalize_math_children(inputs)
-        const rowMathItems = cancel_binary_atoms(items)
-        const rowItems: WithMath[] = []
+        // add spacing and compress
+        const mathItems = normalize_math_children(inputs)
+        const spacedItems = cancel_binary_atoms(mathItems)
 
-        // accumulate math metrics
-        let left: MathClass = 'none'
-        let right: MathClass = 'none'
-        let prevItem: WithMath | null = null
-
-        // process items
-        for (const item of rowMathItems) {
-            const { left: itemLeft, right: itemRight } = item.math
-
-            // insert item with spacing
-            const gap = inter_item_spacing(prevItem, item, spacing)
-            if (gap > 0) rowItems.push(new MathSpacer({ aspect: gap }))
-            rowItems.push(item)
-
-            // update left/right classes
-            if (left == 'none') left = itemLeft
-            if (itemRight != 'none') right = itemRight
-            prevItem = item
-        }
-
-        // set default right
-        if (right == 'none') right = left
-
-        // compute inline row layout
-        const { children, coord, metrics, aspect } = layout_inline_row(rowItems)
+        // compute layout
+        const { items, left, right } = layoutMathText(spacedItems, spacing)
 
         // pass to Group
-        super({ children, coord, aspect, ...attr })
+        super({ children: items, ...attr })
         this.args = args
 
         // set math metrics
         this.items = items
-        this.math = make_math({ left, right, metrics })
+        this.math.left = left
+        this.math.right = right
     }
 }
 
