@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { black, red, DEFAULTS as D } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split, prefix_join } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Element, Group, Rectangle, Spacer, spec_split } from './core'
+import { Element, Group, Rectangle, Spacer, spec_split, ensure_children } from './core'
 import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
@@ -29,6 +29,10 @@ type MathSpec = {
     left: MathClass
     right: MathClass
     metrics: TextMetrics
+}
+
+type WithMath<E extends Element = Element> = E & {
+    math: MathSpec
 }
 
 //
@@ -83,25 +87,9 @@ const SPACING_TABLE: Record<MathClass, SpacingTable> = {
 //
 
 const DEFAULT_MATH: MathSpec = {
-    left: 'none',
-    right: 'none',
-    metrics: EMPTY_METRIC,
-}
-
-function get_math(element: Element | null): MathSpec {
-    if (element == null) return DEFAULT_MATH
-    const { math_left, math_right, math_metrics } = element.attr
-    return {
-        left: math_left ?? 'none',
-        right: math_right ?? 'none',
-        metrics: math_metrics ?? default_metrics(element),
-    }
-}
-
-function get_metrics(element: Element | null): TextMetrics {
-    if (element == null) return EMPTY_METRIC
-    const { math_metrics } = element.attr
-    return math_metrics ?? default_metrics(element)
+    left: 'mord',
+    right: 'mord',
+    metrics: DEFAULT_METRIC,
 }
 
 function make_metrics({ advance, vrange }: Partial<TextMetrics>): TextMetrics {
@@ -112,10 +100,7 @@ function make_metrics({ advance, vrange }: Partial<TextMetrics>): TextMetrics {
 }
 
 function default_metrics(element: Element): TextMetrics {
-    if (element instanceof Spacer) {
-        const advance = element.spec.aspect ?? 0
-        return make_metrics({ advance })
-    } else if (element instanceof Span) {
+    if (element instanceof Span) {
         return element.metrics
     } else {
         const advance = element.spec.aspect ?? 1
@@ -123,9 +108,12 @@ function default_metrics(element: Element): TextMetrics {
     }
 }
 
-function make_inline_spacer(advance: number): Element {
-    const metrics = make_metrics({ advance })
-    return new Spacer({ aspect: advance, math_metrics: metrics })
+function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
+    return {
+        left: left ?? 'mord',
+        right: right ?? 'mord',
+        metrics: metrics ?? DEFAULT_METRIC,
+    }
 }
 
 function inline_padding(padding: Padding | undefined): Point {
@@ -182,20 +170,19 @@ function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
     return { children, coord, metrics, aspect }
 }
 
-function layout_inline_row(items: Element[]): InlineLayout {
+function layout_inline_row(items: WithMath[]): InlineLayout {
     const placements: InlinePlacement[] = []
     let x = 0
 
     for (const item of items) {
-        const metrics = get_metrics(item)
+        const { metrics } = item.math
+        if (metrics == null) continue
         placements.push({ item, rect: inline_rect(metrics, x) })
         x += metrics.advance
     }
 
     return layout_inline_placements(placements)
 }
-
-const EMPTY_MATH = new Spacer({ aspect: 0, math_metrics: EMPTY_METRIC })
 
 //
 // symbol lookup
@@ -226,11 +213,6 @@ function measurement_to_em(d: Measurement): number {
     return d.number * (scale[d.unit] ?? 0)
 }
 
-function has_math_metrics(element: Element): boolean {
-    const { left, right } = get_math(element)
-    return left != 'none' || right != 'none'
-}
-
 function inter_atom_spacing(prev: MathClass, next: MathClass): number {
     const table = SPACING_TABLE[prev]
     const measurement = table?.[next]
@@ -238,10 +220,10 @@ function inter_atom_spacing(prev: MathClass, next: MathClass): number {
     return measurement_to_em(measurement)
 }
 
-function inter_item_spacing(prev: Element | null, next: Element | null, spacing: number): number {
+function inter_item_spacing(prev: WithMath | null, next: WithMath | null, spacing: number): number {
     if (prev == null || next == null) return 0
-    const { right: prevRight } = get_math(prev)
-    const { left: nextLeft } = get_math(next)
+    const { right: prevRight } = prev.math
+    const { left: nextLeft } = next.math
     return inter_atom_spacing(prevRight, nextLeft)
 }
 
@@ -252,25 +234,29 @@ function inter_item_spacing(prev: Element | null, next: Element | null, spacing:
 const BIN_LEFT_CANCELLER = new Set<MathClass>(['mbin', 'mopen', 'mrel', 'mop', 'mpunct'])
 const BIN_RIGHT_CANCELLER = new Set<MathClass>(['mrel', 'mclose', 'mpunct'])
 
-function cancel_element_left_bin(element: Element): Element {
-    const { left, right } = get_math(element)
+function cancel_element_left_bin(element: WithMath): WithMath {
+    const { left, right } = element.math
     if (left != 'mbin') return element
-    return element.clone({ math_left: 'mord', math_right: right == 'mbin' ? 'mord' : right })
+    const right1 = right == 'mbin' ? 'mord' : right
+    const math = { ...element.math, left: 'mord', right: right1 }
+    return element.clone({ math }) as WithMath<typeof element>
 }
 
-function cancel_element_right_bin(element: Element): Element {
-    const { left, right } = get_math(element)
+function cancel_element_right_bin(element: WithMath): WithMath {
+    const { left, right } = element.math
     if (right != 'mbin') return element
-    return element.clone({ math_left: left == 'mbin' ? 'mord' : left, math_right: 'mord' })
+    const left1 = left == 'mbin' ? 'mord' : left
+    const math = { ...element.math, left: left1, right: 'mord' }
+    return element.clone({ math }) as WithMath<typeof element>
 }
 
-function cancel_binary_atoms(items0: Element[]): Element[] {
+function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
     const items = items0.slice()
     let prevIndex: number | null = null
 
     for (let i = 0; i < items.length; i++) {
         let item = items[i]
-        const { left, right } = get_math(item)
+        const { left, right } = item.math
         if (left == 'none' && right == 'none') continue
 
         if (prevIndex == null) {
@@ -278,13 +264,13 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
             items[i] = item
         } else if (left != 'none') {
             const prev = items[prevIndex]
-            const { right: prevRight } = get_math(prev)
+            const { right: prevRight } = prev.math
 
             if (prevRight == 'mbin' && BIN_RIGHT_CANCELLER.has(left)) {
                 items[prevIndex] = cancel_element_right_bin(prev)
             }
 
-            const { right: prevClass } = get_math(items[prevIndex])
+            const { right: prevClass } = items[prevIndex].math
             if (left == 'mbin' && (prevClass == 'none' || BIN_LEFT_CANCELLER.has(prevClass))) {
                 item = cancel_element_left_bin(item)
                 items[i] = item
@@ -302,6 +288,28 @@ function cancel_binary_atoms(items0: Element[]): Element[] {
 }
 
 //
+// math spacer
+//
+
+type MathSpacerArgs = ElementArgs & {
+    aspect?: number
+}
+
+class MathSpacer extends Spacer {
+    math: MathSpec
+
+    constructor(args: MathSpacerArgs = {}) {
+        const { aspect = 0, ...attr } = THEME(args, 'MathSpacer')
+        super({ aspect, ...attr })
+        this.args = args
+
+        // compute math metrics
+        const metrics = make_metrics({ advance: aspect })
+        this.math = make_math({ metrics })
+    }
+}
+
+//
 // math span
 //
 
@@ -312,14 +320,18 @@ interface MathSpanArgs extends SpanArgs {
 }
 
 class MathSpan extends Span {
+    math: MathSpec
+
     constructor(args: MathSpanArgs = {}) {
         const { children, klass = 'mord', left = klass, right = left, vshift = -0.25, ...attr } = THEME(args, 'MathSpan')
         const text = check_string(children)
-        const math = prefix_join('math', { left, right })
 
         // pass to Span
-        super({ children: [ text ], vshift, ...math, ...attr })
+        super({ children: [ text ], vshift, ...attr })
         this.args = args
+
+        // inherit math metrics
+        this.math = make_math({ left, right, metrics: this.metrics })
     }
 }
 
@@ -355,30 +367,28 @@ class MathSymbol extends MathSpan {
 // math text
 //
 
-type MathItem =
-    | Element
-    | MathText
-    | MathSpan
-    | string
-    | number
-    | boolean
-    | null
-    | undefined
-    | MathItem[]
-
-interface MathTextArgs extends Omit<StackArgs, 'children'> {
-    children?: MathItem | MathItem[]
+interface MathTextArgs extends GroupArgs {
     spacing?: number
-    inline?: boolean
 }
 
 type MathLeaf = Element | string | number | boolean | null
 
-function normalize_math_leaf(child: MathLeaf): Element | null {
+function ensure_math<E extends Element>(element: E): WithMath<E> {
+    if ((element as any).math != null) {
+        return element as WithMath<E>
+    }
+    const metrics = default_metrics(element)
+    const math = make_math({ metrics })
+    const newElement = element.clone() as WithMath<E>
+    newElement.math = math
+    return newElement
+}
+
+function normalize_math_leaf(child: MathLeaf): WithMath | undefined {
     if (child == null) {
-        return null
+        return
     } else if (child instanceof Element) {
-        return child
+        return ensure_math(child)
     } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
         const text = String(child)
         return new MathSymbol({ children: [ text ] })
@@ -387,9 +397,9 @@ function normalize_math_leaf(child: MathLeaf): Element | null {
     }
 }
 
-function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
+function normalize_math_children(children0: Element | Element[]): WithMath[] {
     const children = is_array(children0) ? children0 : [ children0 ]
-    const out: Element[] = []
+    const out: WithMath[] = []
 
     for (const child of children) {
         if (child == null) {
@@ -397,15 +407,12 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
         } else if (is_array(child)) {
             out.push(...normalize_math_children(child))
             continue
+        } else if (child instanceof MathText) {
+            out.push(...child.items)
         } else {
             const elem = normalize_math_leaf(child)
             if (elem == null) continue
-            const { math_items } = elem.attr
-            if (math_items != null) {
-                out.push(...math_items)
-            } else {
-                out.push(elem)
-            }
+            out.push(elem)
         }
     }
 
@@ -413,26 +420,29 @@ function normalize_math_children(children0: MathItem | MathItem[]): Element[] {
 }
 
 class MathText extends Group {
-    items: Element[]
+    items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
         const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
+        const inputs = ensure_children(children0)
 
         // normalize children
-        const items = normalize_math_children(children0)
+        const items = normalize_math_children(inputs)
+        console.log('items', items)
         const rowMathItems = cancel_binary_atoms(items)
-        const rowItems: Element[] = []
+        const rowItems: WithMath[] = []
 
         // accumulate math metrics
         let left: MathClass = 'none'
         let right: MathClass = 'none'
-        let prevItem: Element | null = null
+        let prevItem: WithMath | null = null
 
         // process items
         for (const item of rowMathItems) {
-            const { left: itemLeft, right: itemRight } = get_math(item)
+            const { left: itemLeft, right: itemRight } = item.math
             const gap = inter_item_spacing(prevItem, item, spacing)
-            if (gap > 0) rowItems.push(make_inline_spacer(gap))
+            console.log('inter_item_spacing', prevItem, item, gap)
+            if (gap > 0) rowItems.push(new MathSpacer({ aspect: gap }))
 
             rowItems.push(item)
 
@@ -448,10 +458,10 @@ class MathText extends Group {
 
         // compute inline row layout
         const { children, coord, metrics, aspect } = layout_inline_row(rowItems)
-        const math = prefix_join('math', { left, right, metrics, items })
+        const math = make_math({ left, right, metrics })
 
         // pass to Group
-        super({ children, coord, aspect, ...math, ...attr })
+        super({ children, coord, aspect, math, ...attr })
         this.args = args
         this.items = items
     }
@@ -467,12 +477,21 @@ interface SupSubArgs extends StackArgs {
 }
 
 class SupSub extends HStack {
+    math: MathSpec
+
     constructor(args: SupSubArgs = {}) {
         const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, voffset = 0.025, ...attr } = THEME(args, 'SupSub')
-        const base = ensure_singleton(children)
+        const child = ensure_singleton(children)
+        const base = normalize_math_leaf(child)
+
+        // check child
+        if (base == null) {
+            throw new Error('SupSub must have exactly one child')
+        }
+
+        // ensure math metrics
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
-        const math = get_math(base)
 
         // handle missing sup/sub
         const supElem = sup != null ? sup : new Spacer()
@@ -487,8 +506,14 @@ class SupSub extends HStack {
         const sideBox = new Box({ children: [ side ] })
 
         // pass to HStack
-        super({ children: [ base, sideBox ], spacing: hspacing, ...math, ...attr })
+        super({ children: [ base, sideBox ], spacing: hspacing, ...attr })
         this.args = args
+
+        // set math metrics
+        const { left, right, metrics } = base.math
+        const { vrange } = metrics
+        const metrics1 = { advance: this.spec.aspect ?? 0, vrange }
+        this.math = { left, right, metrics: metrics1 }
     }
 }
 
@@ -507,31 +532,45 @@ interface FracArgs extends GroupArgs {
 }
 
 class Frac extends Group {
+    math: MathSpec
+
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, left = null, right = null, padding = 0.1, rule_size = 0.03, ...attr } = THEME(args, 'Frac')
-        const [ numer, denom ] = check_array(children0, 2) as [ Element, Element ]
+        const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.03, ...attr } = THEME(args, 'Frac')
+        const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
-        const num = get_metrics(numer)
-        const den = get_metrics(denom)
-        const width = Math.max(num.advance, den.advance) + 2 * pad_x
+        const numer = normalize_math_leaf(numer0)
+        const denom = normalize_math_leaf(denom0)
+
+        // check children
+        if (numer == null || denom == null) {
+            throw new Error('Frac must have exactly two children')
+        }
+
+        // get math metrics
+        const { metrics: numMetrics } = numer.math
+        const { metrics: denMetrics } = denom.math
+
+        // compute parameters
+        const width = Math.max(numMetrics.advance, denMetrics.advance) + 2 * pad_x
         const bar_half = has_bar ? 0.5 * rule_size : 0
         const clearance = pad_y
         const axis_y = -MATH_AXIS
-        const numer_shift = -num.vrange[0] + clearance + bar_half
-        const denom_shift = den.vrange[1] + clearance + bar_half
-        const numer_x = 0.5 * (width - num.advance)
-        const denom_x = 0.5 * (width - den.advance)
+        const numer_shift = -numMetrics.vrange[0] + clearance + bar_half
+        const denom_shift = denMetrics.vrange[1] + clearance + bar_half
+        const numer_x = 0.5 * (width - numMetrics.advance)
+        const denom_x = 0.5 * (width - denMetrics.advance)
         const numer_base = axis_y - numer_shift
         const denom_base = axis_y + denom_shift
 
+        // compute placements
         const placements: InlinePlacement[] = [
             {
                 item: numer,
-                rect: inline_rect(num, numer_x, numer_base),
+                rect: inline_rect(numMetrics, numer_x, numer_base),
             },
             {
                 item: denom,
-                rect: inline_rect(den, denom_x, denom_base),
+                rect: inline_rect(denMetrics, denom_x, denom_base),
             },
         ]
         if (has_bar) {
@@ -540,14 +579,22 @@ class Frac extends Group {
                 rect: [ 0, axis_y - bar_half, width, axis_y + bar_half ],
             })
         }
+
+        // compute layout
         const { children, coord, aspect, metrics } = layout_inline_placements(placements)
-        const math = prefix_join('math', { left: 'mord', right: 'mord', metrics })
 
         // pass to Group
-        super({ children, coord, aspect, ...math, ...attr })
+        super({ children, coord, aspect, ...attr })
         this.args = args
+
+        // set math metrics
+        this.math = make_math({ left: 'mord', right: 'mord', metrics })
     }
 }
+
+//
+// sqrt
+//
 
 type SqrtLayout = {
     aspect: number
@@ -573,10 +620,6 @@ function compute_sqrt_layout(body_aspect: number): SqrtLayout {
         ],
     }
 }
-
-//
-// sqrt
-//
 
 interface SqrtArgs extends GroupArgs {
     index?: Element | null
@@ -606,9 +649,11 @@ class Sqrt extends Group {
         // build optional index element
         const indexElem = index != null ? index.clone({ pos: index_pos, yrad: 0.2, align: 'right' }) : null
 
+        // make math spec
+        const math = make_math({ left: 'mord', right: 'mord' })
+
         // pass to Group
-        const math = prefix_join('math', { left: 'mord', right: 'mord' })
-        super({ children: [ bodyBox, indexElem, radical ], aspect, ...math, ...attr })
+        super({ children: [ bodyBox, indexElem, radical ], aspect, math, ...attr })
         this.args = args
     }
 }
@@ -643,17 +688,27 @@ interface AccentArgs extends GroupArgs {
 }
 
 class Accent extends Box {
+    math: MathSpec
+
     constructor(args: AccentArgs = {}) {
         const { children, label = '', body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
-        const base = check_singleton(children)
-        const math = get_math(base)
+        const child = check_singleton(children)
+        const base = normalize_math_leaf(child)
+
+        // check child
+        if (base == null) {
+            throw new Error('Accent must have exactly one child')
+        }
 
         // build accent symbol
         const accent = build_accent_symbol(label, color)
 
         // pass to Box
-        super({ children: [ base, accent ], ...math, ...attr })
+        super({ children: [ base, accent ], ...attr })
         this.args = args
+
+        // set math metrics
+        this.math = base.math
     }
 }
 
@@ -719,9 +774,11 @@ class Bracket extends HStack {
         const left = left_delim != null ? new Delim({ delim: left_delim, side: 'left', ...delim_attr }) : null
         const right = right_delim != null ? new Delim({ delim: right_delim, side: 'right', ...delim_attr }) : null
 
+        // make math spec
+        const math = make_math({ left: 'mord', right: 'mord' })
+
         // pass to HStack
-        const math = prefix_join('math', { left: 'mord', right: 'mord' })
-        super({ children: [ left, body, right ], ...math, ...attr })
+        super({ children: [ left, body, right ], math, ...attr })
         this.args = args
     }
 }
@@ -729,6 +786,8 @@ class Bracket extends HStack {
 //
 // parse katex tree
 //
+
+const EMPTY_MATH = new MathSpacer()
 
 function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): Element {
     if (tree == null) return EMPTY_MATH
@@ -843,4 +902,4 @@ class Tex extends Latex {
 //
 
 export { MathSpan, MathSymbol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
-export type { MathClass, MathItem, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
+export type { MathClass, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }

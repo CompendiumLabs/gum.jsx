@@ -44,8 +44,8 @@ class Span extends Element {
 
         // adjust metrics for vertical shift
         const [ ymin, ymax ] = vrange
-        const vrange1: Limit = [ ymin + vshift, ymax + vshift ]
-        const metrics1 = { advance, vrange: vrange1 }
+        const vrange_shift: Limit = [ ymin + vshift, ymax + vshift ]
+        const metrics = { advance, vrange: vrange_shift }
 
         // pass to element
         super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...attr })
@@ -53,7 +53,7 @@ class Span extends Element {
 
         // additional props
         this.text = text
-        this.metrics = metrics1
+        this.metrics = metrics
     }
 
     // because text will always be displayed upright,
