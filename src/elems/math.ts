@@ -9,7 +9,7 @@ import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
-import { DEFAULT_METRIC, EMPTY_METRIC, DEFAULT_VRANGE, EMPTY_VRANGE, type TextMetrics } from '../lib/text'
+import { EMPTY_METRIC, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
@@ -94,6 +94,22 @@ function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
     }
 }
 
+//
+// inline layout
+//
+
+type InlinePlacement = {
+    item: Element
+    rect: Rect
+}
+
+type InlineLayout = {
+    children: Element[]
+    metrics: TextMetrics
+    coord?: Rect
+    aspect?: number
+}
+
 function inline_padding(padding: Padding | undefined): Point {
     if (padding == null) return [ 0, 0 ]
     if (is_scalar(padding)) return [ padding, padding ]
@@ -114,23 +130,10 @@ function inline_rect({ advance, vrange: [ ymin, ymax ] }: TextMetrics, x: number
     return [ x, y - ymax, x + advance, y - ymin ]
 }
 
-type InlinePlacement = {
-    item: Element
-    rect: Rect
-}
-
-type InlineLayout = {
-    children: Element[]
-    metrics: TextMetrics
-    coord?: Rect
-    aspect?: number
-}
-
 function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
     // empty case
     if (items.length == 0) {
-        const metrics = EMPTY_METRIC
-        return { children: [], metrics }
+        return { children: [], metrics: EMPTY_METRIC }
     }
 
     // reposition children
@@ -642,11 +645,8 @@ class Sqrt extends Group {
         // build optional index element
         const indexElem = index != null ? index.clone({ pos: index_pos, yrad: 0.2, align: 'right' }) : null
 
-        // make math spec
-        const math = make_math({ left: 'mord', right: 'mord' })
-
         // pass to Group
-        super({ children: [ bodyBox, indexElem, radical ], aspect, math, ...attr })
+        super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
         this.args = args
 
         // set math metrics
