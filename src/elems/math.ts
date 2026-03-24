@@ -4,8 +4,8 @@ import { THEME } from '../lib/theme'
 import { black, red, DEFAULTS as D } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, prefix_split } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Element, Group, Rectangle, Spacer, spec_split, ensure_children } from './core'
-import { CoordLine } from './geometry'
+import { Element, Group, Spacer, spec_split, ensure_children } from './core'
+import { CoordLine, RoundedRect } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
@@ -528,7 +528,7 @@ class Frac extends Group {
     math: MathSpec
 
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.03, ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.033, ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
         const numer = normalize_math_leaf(numer0)
@@ -568,7 +568,7 @@ class Frac extends Group {
         ]
         if (has_bar) {
             placements.push({
-                item: new Rectangle({ fill: black }),
+                item: new RoundedRect({ fill: black, rounded: 0.5 }),
                 rect: [ 0, axis_y - bar_half, width, axis_y + bar_half ],
             })
         }
