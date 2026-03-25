@@ -781,16 +781,15 @@ class SupSub extends MathRow {
         const sub = normalize_math_leaf(sub0) ?? new MathSpacer()
 
         // layout script side
-        let side: WithMath | null = null
-        if (sup != null || sub != null) {
-            const scripts = new VStack({ children: [ sup, sub ], justify: 'left', spacing: vspacing, even: true })
-            const metrics: InlineMetrics = {
-                advance: scripts.spec.aspect ?? 0,
-                vrange: base.math.metrics.vrange,
-                vanchor: base.math.metrics.vanchor,
-            }
-            side = clone_math(scripts, {}, make_math({ metrics }))
+        const scripts = new VStack({
+            children: [ sup, sub ], justify: 'left', spacing: vspacing, even: true
+        })
+        const metrics: InlineMetrics = {
+            advance: scripts.spec.aspect ?? 0,
+            vrange: base.math.metrics.vrange,
+            vanchor: base.math.metrics.vanchor,
         }
+        const side = clone_math(scripts, {}, make_math({ metrics }))
 
         // construct full row
         const spacer = new MathSpacer({ advance: hspacing })
