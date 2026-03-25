@@ -6,7 +6,6 @@ import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton,
 import symbols from '../lib/symbols'
 import { Element, Group, Spacer, spec_split, ensure_children } from './core'
 import { CoordLine, RoundedRect } from './geometry'
-import { HStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
@@ -180,13 +179,6 @@ function ensure_math_children(children: Element[]): WithMath[] {
     return children.map(child => ensure_math(child))
 }
 
-type InlineLayout = {
-    children: Element[]
-    metrics: InlineMetrics
-    coord?: Rect
-    aspect?: number
-}
-
 function inline_padding(padding: Padding | undefined): Point {
     if (padding == null) return [ 0, 0 ]
     if (is_scalar(padding)) return [ padding, padding ]
@@ -196,6 +188,17 @@ function inline_padding(padding: Padding | undefined): Point {
     const [ pl1, pl2 ] = ensure_vector(pl, 2)
     const [ pr1, pr2 ] = ensure_vector(pr, 2)
     return [ 0.5 * (pl1 + pr1), 0.5 * (pl2 + pr2) ]
+}
+
+function vertical_padding(padding: Padding | undefined): Limit {
+    if (padding == null) return [ 0, 0 ]
+    if (is_scalar(padding)) return [ padding, padding ]
+    if (!Array.isArray(padding)) return [ 0, 0 ]
+    if (padding.length == 2) return [ padding[1], padding[1] ]
+    const [ _pl, pt, _pr, pb ] = padding
+    const [ pt1 ] = ensure_vector(pt, 2)
+    const [ pb1 ] = ensure_vector(pb, 2)
+    return [ pt1, pb1 ]
 }
 
 //
@@ -389,8 +392,11 @@ class MathSymbol extends MathSpan {
 // math row
 //
 
-interface MathRowArgs extends GroupArgs {
-    children?: WithMath[]
+type InlineLayout = {
+    children: Element[]
+    metrics: InlineMetrics
+    coord?: Rect
+    aspect?: number
 }
 
 function layoutMathRow(items: WithMath[]): InlineLayout {
@@ -419,6 +425,10 @@ function layoutMathRow(items: WithMath[]): InlineLayout {
     return { children, coord, aspect, metrics }
 }
 
+interface MathRowArgs extends GroupArgs {
+    children?: WithMath[]
+}
+
 class MathRow extends Group {
     math: MathSpec
 
@@ -443,25 +453,14 @@ class MathRow extends Group {
 // math col
 //
 
-interface MathColArgs extends GroupArgs {
-    children?: WithMath[]
+type MathColLayout = {
+    justify?: Align
     spacing?: number
     anchor?: number
     anchor_index?: number
-    justify?: Align
 }
 
-function layoutMathCol(items: WithMath[], {
-    justify = 'center',
-    spacing = 0,
-    anchor: anchor0,
-    anchor_index,
-}: {
-    justify?: Align
-    spacing?: number
-    anchor?: number
-    anchor_index?: number
-} = {}): InlineLayout {
+function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anchor: anchor0, anchor_index }: MathColLayout): InlineLayout {
     // empty case
     if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
@@ -500,6 +499,14 @@ function layoutMathCol(items: WithMath[], {
 
     // return layout
     return { children, coord, aspect, metrics }
+}
+
+interface MathColArgs extends GroupArgs {
+    children?: WithMath[]
+    spacing?: number
+    anchor?: number
+    anchor_index?: number
+    justify?: Align
 }
 
 class MathCol extends Group {
@@ -789,68 +796,70 @@ class Frac extends MathCol {
 // sqrt
 //
 
-type SqrtLayout = {
-    aspect: number
-    body_rect: Rect
-    index_pos: Point
-    radical_points: Point[]
-}
-
-function compute_sqrt_layout(body_aspect: number): SqrtLayout {
-    const gutter = 0.5
-    const aspect = gutter + body_aspect
-    const body_left = gutter / aspect
-    return {
-        aspect,
-        body_rect: [ body_left, 0, 1, 1 ],
-        index_pos: [ 0.6 * body_left, 0.2 ],
-        radical_points: [
-            [0, 0.6],
-            [0.1 * body_left, 0.5],
-            [0.42 * body_left, 0.9],
-            [body_left, 0],
-            [1, 0],
-        ],
-    }
-}
-
 interface SqrtArgs extends GroupArgs {
     index?: Element | null
     padding?: Padding
 }
 
-// TODO: math metrics
 class Sqrt extends Group {
     math: MathSpec
 
     constructor(args: SqrtArgs = {}) {
-        const {
-            children,
-            index = null,
-            color,
-            padding = [0, 0.1, 0.1, 0.1],
-            line_width = 0.05,
-            ...attr
-        } = THEME(args, 'Sqrt')
-        const body = check_singleton(children)
+        const { children, index = null, color, padding = [0, 0.1, 0.1, 0.1], line_width = 0.05, ...attr } = THEME(args, 'Sqrt')
+        const child = check_singleton(children)
+        const body = normalize_math_leaf(child)
 
-        // compute layout for radical
-        const body_aspect = body.spec.aspect ?? 1
-        const { aspect, body_rect, radical_points, index_pos } = compute_sqrt_layout(body_aspect)
+        // check child
+        if (body == null) {
+            throw new Error('Sqrt must have exactly one child')
+        }
 
-        // build body box
-        const bodyBox = new Box({ children: [ body ], rect: body_rect, padding })
-        const radical = new CoordLine({ points: radical_points, line_width, stroke: color, stroke_linecap: 'round', stroke_linejoin: 'round' })
+        // build math-aware body box
+        const [ pad_top, pad_bottom ] = vertical_padding(padding)
+        const bodyBox = new MathBox({ children: [ body ], top: pad_top, bottom: pad_bottom })
+        const bodyHeight = metrics_height(bodyBox.math.metrics)
+        const bodyWidth = bodyBox.math.metrics.advance
+
+        // compute layout metrics
+        const gutter = 0.5 * bodyHeight
+        const width = gutter + bodyWidth
+        const body_rect: Rect = [ gutter, 0, width, bodyHeight ]
+        const coord: Rect = [ 0, 0, width, bodyHeight ]
+
+        // build radical around the boxed body
+        const radical = new CoordLine({
+            points: [
+                [ 0, 0.6 * bodyHeight ],
+                [ 0.1 * gutter, 0.5 * bodyHeight ],
+                [ 0.42 * gutter, 0.9 * bodyHeight ],
+                [ gutter, 0 ],
+                [ width, 0 ],
+            ],
+            coord,
+            line_width,
+            stroke: color,
+            stroke_linecap: 'round',
+            stroke_linejoin: 'round',
+        })
 
         // build optional index element
-        const indexElem = index != null ? index.clone({ pos: index_pos, yrad: 0.2, align: 'right' }) : null
+        const indexElem = index != null ? index.clone({ pos: [ 0.6 * gutter, 0.2 * bodyHeight ], yrad: 0.2 * bodyHeight, align: 'right' }) : null
+        const bodyElem = clone_math(bodyBox, { rect: body_rect })
+
+        // compute composite metrics by preserving the body anchor
+        const metrics: InlineMetrics = {
+            advance: width,
+            vrange: [ 0, bodyHeight ],
+            vanchor: bodyBox.math.metrics.vanchor,
+        }
+        const aspect = metrics_aspect(metrics)
 
         // pass to Group
-        super({ children: [ bodyBox, indexElem, radical ], aspect, ...attr })
+        super({ children: [ bodyElem, indexElem, radical ], coord, aspect, ...attr })
         this.args = args
 
         // set math metrics
-        this.math = make_math({ left: 'mord', right: 'mord' })
+        this.math = make_math({ left: 'mord', right: 'mord', metrics })
     }
 }
 
@@ -883,12 +892,9 @@ interface AccentArgs extends GroupArgs {
     body_top?: number
 }
 
-// TODO: math metrics
-class Accent extends Box {
-    math: MathSpec
-
+class Accent extends MathCol {
     constructor(args: AccentArgs = {}) {
-        const { children, label = '', body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
+        const { children, label = '', accent_height, body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
         const child = check_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -898,14 +904,21 @@ class Accent extends Box {
         }
 
         // build accent symbol
-        const accent = build_accent_symbol(label, color)
+        const accent = ensure_math(build_accent_symbol(label, color))
+        const width = Math.max(base.math.metrics.advance, accent.math.metrics.advance)
+        const baseBox = new MathBox({ children: [ base ], advance: width })
+        const accentHeight0 = metrics_height(accent.math.metrics)
+        const accentPad = Math.max(0, (accent_height ?? accentHeight0) - accentHeight0)
+        const accentBox = new MathBox({ children: [ accent ], advance: width, bottom: accentPad })
+        const overlap = body_top * metrics_height(accentBox.math.metrics)
 
-        // pass to Box
-        super({ children: [ base, accent ], ...attr })
+        // pass to MathCol, preserving the base anchor
+        super({ children: [ accentBox, baseBox ], spacing: -overlap, anchor_index: 1, ...attr })
         this.args = args
 
-        // set math metrics
-        this.math = make_math({ left: 'mord', right: 'mord' })
+        // preserve the base atom classes
+        this.math.left = base.math.left
+        this.math.right = base.math.right
     }
 }
 
@@ -914,6 +927,11 @@ class Accent extends Box {
 //
 
 type DelimType = 'round' | 'square' | 'curly' | 'angle'
+
+function normalize_delim(delim: string | null | undefined): string | null {
+    if (delim == null || delim == '.' || delim == '') return null
+    return delim
+}
 
 function delimiter_font(size: number): FontFamily {
     if (size >= 5) return 'KaTeX_Size4'
@@ -924,6 +942,7 @@ function delimiter_font(size: number): FontFamily {
 }
 
 function get_delim_text(delim: string | undefined, side: 'left' | 'right'): string {
+    if (delim == '.' || delim == null) return ''
     if (side == 'left') {
         return delim == 'round' ? '(' :
                delim == 'square' ? '[' :
@@ -956,33 +975,55 @@ class Delim extends MathSymbol {
     }
 }
 
-interface BracketArgs extends StackArgs {
-    delim?: DelimType | [ DelimType, DelimType ]
+function fit_delim_size(delim: string, side: 'left' | 'right', targetHeight: number, attr: Omit<DelimArgs, 'delim' | 'side' | 'size'>): number {
+    for (let size = 1; size <= 5; size++) {
+        const candidate = new Delim({ delim, side, size, ...attr })
+        if (metrics_height(candidate.math.metrics) >= targetHeight) {
+            return size
+        }
+    }
+    return 5
 }
 
-// TODO: math metrics
-class Bracket extends HStack {
-    math: MathSpec
+interface BracketArgs extends StackArgs {
+    delim?: DelimType | [ DelimType, DelimType ]
+    left_delim?: string | null
+    right_delim?: string | null
+}
 
+class Bracket extends MathRow {
     constructor(args: BracketArgs = {}) {
-        const { children: children0, delim: delim0 = 'round', ...attr0 } = THEME(args, 'Bracket')
-        const body = check_singleton(children0)
-        const [ left_delim, right_delim ] = ensure_vector(delim0, 2)
-        const [ delim_attr, attr ] = prefix_split([ 'delim' ], attr0)
+        const { children: children0, delim: delim0 = 'round', left_delim: leftDelim0, right_delim: rightDelim0, ...attr0 } = THEME(args, 'Bracket')
+        const body0 = check_singleton(children0)
+        const body = normalize_math_leaf(body0)
+        const [ left_delim1, right_delim1 ] = ensure_vector(delim0, 2)
+        const left_delim = normalize_delim(leftDelim0 ?? left_delim1)
+        const right_delim = normalize_delim(rightDelim0 ?? right_delim1)
+        const [ spec, shared_attr0 ] = spec_split(attr0)
+        const [ delim_attr, shared_attr ] = prefix_split([ 'delim' ], shared_attr0)
+        const { size: size0, ...delim_attr1 } = delim_attr as DelimArgs
+
+        // check child
+        if (body == null) {
+            throw new Error('Bracket must have exactly one child')
+        }
 
         // auto-detect delimiter size
-        const left = left_delim != null ? new Delim({ delim: left_delim, side: 'left', ...delim_attr }) : null
-        const right = right_delim != null ? new Delim({ delim: right_delim, side: 'right', ...delim_attr }) : null
+        const targetHeight = metrics_height(body.math.metrics)
+        const baseDelimAttr = { ...shared_attr, ...delim_attr1 }
+        const leftSize = size0 ?? (left_delim != null ? fit_delim_size(left_delim, 'left', targetHeight, baseDelimAttr) : 1)
+        const rightSize = size0 ?? (right_delim != null ? fit_delim_size(right_delim, 'right', targetHeight, baseDelimAttr) : 1)
+        const left = left_delim != null ? new Delim({ delim: left_delim, side: 'left', size: leftSize, ...baseDelimAttr }) : null
+        const right = right_delim != null ? new Delim({ delim: right_delim, side: 'right', size: rightSize, ...baseDelimAttr }) : null
+        const items = [ left, body, right ].filter(item => item != null)
 
-        // make math spec
-        const math = make_math({ left: 'mord', right: 'mord' })
-
-        // pass to HStack
-        super({ children: [ left, body, right ], math, ...attr })
+        // pass to MathRow
+        super({ children: items, ...shared_attr, ...spec })
         this.args = args
 
-        // set math metrics
-        this.math = make_math({ left: 'mord', right: 'mord' })
+        // grouped delimiters behave like an ordinary atom
+        this.math.left = 'mord'
+        this.math.right = 'mord'
     }
 }
 
@@ -1104,5 +1145,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, InlineMetrics, FontFamily, MathSymbolArgs, MathTextArgs }
