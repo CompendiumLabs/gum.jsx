@@ -316,10 +316,10 @@ class MathSpacer extends Spacer {
     math: MathSpec
 
     constructor(args: MathSpacerArgs = {}) {
-        const { aspect = 0, size, ...attr } = THEME(args, 'MathSpacer')
+        const { advance: advance0 = 0, vrange = EMPTY_VRANGE, size, ...attr } = THEME(args, 'MathSpacer')
 
         // check aspect type
-        const advance = size != null ? SPACING[size] : aspect
+        const advance = size != null ? SPACING[size] : advance0
         if (!is_scalar(advance)) {
             throw new Error('must specify size (thin, medium, thick) or numerical aspect')
         }
@@ -329,7 +329,7 @@ class MathSpacer extends Spacer {
         this.args = args
 
         // compute math metrics
-        const metrics: InlineMetrics = { advance, vrange: EMPTY_VRANGE, vanchor: 0 }
+        const metrics: InlineMetrics = { advance, vrange, vanchor: 0 }
         this.math = make_math({ metrics })
     }
 }
@@ -668,7 +668,7 @@ function layoutMathText(mathItems: WithMath[], spacing: number): MathTextLayout 
 
         // insert item with spacing
         const gap = inter_item_spacing(prevItem, item, spacing)
-        if (gap > 0) rowItems.push(new MathSpacer({ aspect: gap }))
+        if (gap > 0) rowItems.push(new MathSpacer({ advance: gap }))
         rowItems.push(item)
 
         // update left/right classes
@@ -736,7 +736,7 @@ class SupSub extends MathRow {
         const subElem = sub ?? new MathSpacer()
         const sideCol = new MathCol({ children: [ supElem, subElem ], justify: 'left', spacing: vspacing })
         const side = new MathBox({ children: [ sideCol ], justify: 'left', vanchor: sideCol.math.metrics.vanchor - voffset })
-        const gap = new MathSpacer({ aspect: hspacing })
+        const gap = new MathSpacer({ advance: hspacing })
 
         // pass to MathRow
         super({ children: [ base, gap, side ], ...attr })
@@ -783,7 +783,7 @@ class Frac extends MathCol {
         // compute parameters
         const width = Math.max(numMetrics.advance, denMetrics.advance) + 2 * pad_x
         const numer_box = new MathBox({ children: [ numer ], advance: width, bottom: pad_y })
-        const axis = has_bar ? new MathRule({ advance: width, thickness: rule_size }) : new MathSpacer({ aspect: width })
+        const axis = has_bar ? new MathRule({ advance: width, thickness: rule_size }) : new MathSpacer({ advance: width })
         const denom_box = new MathBox({ children: [ denom ], advance: width, top: pad_y })
 
         // pass to MathCol
@@ -1075,7 +1075,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath 
         } else if (type == 'kern') {
             const { dimension } = tree
             const em = measurement_to_em(dimension)
-            return new MathSpacer({ aspect: em })
+            return new MathSpacer({ advance: em })
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const base = convert_tree(base0, attr)
