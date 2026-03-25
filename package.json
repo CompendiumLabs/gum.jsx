@@ -44,7 +44,7 @@
   },
   "bin": {
     "gum-cli": "./scripts/cli.ts",
-    "gum-mcp": "./scripts/mcp.ts"
+    "gum-dev": "./scripts/dev.ts"
   },
   "dependencies": {
     "@types/node": "^25.2.3",

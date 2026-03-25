@@ -4,7 +4,7 @@ To test the output of a particular `gum.jsx` snippet or file, you can pipe it to
 
 For one off tests, pipe the code using `echo`. It is recommended that you use single quotes as the outer delimiter, to accommodate code that includes double quotes for component properties (e.g. `justify="left"`).
 
-For more difficult tasks, use a file and `cat` it in. Using a file allows you to view and refine your code repeatedly. If you are uncomfortable piping code to a file, use the `-o` option to write to a file.
+For more difficult tasks, use a file and `cat` it in. Using a file allows you to view and refine your code repeatedly. If you wish to avoid output redirection to a file, use the `-o` option to write to a file.
 
 In general, it makes a lot of sense to write a draft to a file, view its output, then refine the code until you're satisfied. This way you can start simple and add complexity as needed.
 
@@ -21,6 +21,12 @@ cat test.jsx | gum-cli -f svg > output.svg
 
 # Generate PNG from a .jsx file
 cat test.jsx | gum-cli -f png > output.png
+
+# Generate SVG from a .jsx file without output redirection
+cat test.jsx | gum-cli -f svg -o output.svg
+
+# Generate PNG from a .jsx file without output redirection
+cat test.jsx | gum-cli -f png -o output.png
 ```
 
 **CLI options:**
