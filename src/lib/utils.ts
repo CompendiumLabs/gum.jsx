@@ -626,29 +626,24 @@ function cbox_rect(cbox: Rect): Rect {
 // rect aggregators
 //
 
-function merge_rects(rects: (Rect | undefined)[]): Rect | undefined {
-    if (rects.length == 0) return
+function merge_rects(rects: (Rect | undefined)[]): Rect {
     const rects1 = rects.filter(r => r != null) as Rect[]
-    if (rects1.length == 0) return
     const [ xa, ya, xb, yb ] = zip(...rects1)
     const [ xs, ys ] = [ [ ...xa, ...xb ], [ ...ya, ...yb ] ]
     return [ min(xs), min(ys), max(xs), max(ys) ] as Rect
 }
 
-function merge_points(points: Point[]): Rect | undefined {
-    if (points.length == 0) return
+function merge_points(points: Point[]): Rect {
     const [ xs, ys ] = zip(...points)
     return [ min(xs), min(ys), max(xs), max(ys) ] as Rect
 }
 
-function merge_limits(limits: Limit[]): Limit | undefined {
-    if (limits.length == 0) return
+function merge_limits(limits: Limit[]): Limit {
     const [ xa, xb ] = zip(...limits)
     return [ min(xa), max(xb) ] as Limit
 }
 
-function merge_values(vals: number[]): Limit | undefined {
-    if (vals.length == 0) return
+function merge_values(vals: number[]): Limit {
     return [ min(vals), max(vals) ] as Limit
 }
 
