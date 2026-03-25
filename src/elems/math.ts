@@ -767,16 +767,16 @@ class Frac extends MathCol {
 
         // compute parameters
         const width = Math.max(numMetrics.advance, denMetrics.advance) + 2 * pad_x
-        const numer_box = new MathBox({ children: [ numer ], advance: width, bottom: pad_y })
+        const numer_pad = new MathSpacer({ vrange: [ 0, pad_y ] })
         const axis = has_bar ? new MathRule({ advance: width, thickness: rule_size }) : new MathSpacer({ advance: width })
-        const denom_box = new MathBox({ children: [ denom ], advance: width, top: pad_y })
+        const denom_pad = new MathSpacer({ vrange: [ 0, pad_y ] })
 
         // pass to MathCol
-        super({ children: [ numer_box, axis, denom_box ], ...attr })
+        super({ children: [ numer, numer_pad, axis, denom_pad, denom ], ...attr })
         this.args = args
 
         // use the bar position as the inline anchor
-        const vanchor = metrics_height(numer_box.math) + axis.math.vanchor
+        const vanchor = metrics_height(numer.math) + metrics_height(numer_pad.math) + axis.math.vanchor
         this.math = inherit_metrics(this.math, { vanchor })
     }
 }
