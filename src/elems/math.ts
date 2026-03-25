@@ -148,20 +148,6 @@ function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rec
     return [ x, y + ylo, x + advance, y + yhi ]
 }
 
-function remap_value(value: number, source: Limit, target: Limit): number {
-    const [ s0, s1 ] = source
-    const [ t0, t1 ] = target
-    const span = s1 - s0
-    if (span == 0) return 0.5 * (t0 + t1)
-    const frac = (value - s0) / span
-    return t0 + frac * (t1 - t0)
-}
-
-function remap_limit(bounds: Limit, source: Limit, target: Limit): Limit {
-    const [ y0, y1 ] = bounds
-    return [ remap_value(y0, source, target), remap_value(y1, source, target) ]
-}
-
 function inherit_metrics(source: WithMath | MathSpec, patch: Partial<InlineMetrics> = {}): MathSpec {
     const math = (source as WithMath).math ?? source as MathSpec
     return make_math({ ...math, ...patch })
@@ -467,43 +453,30 @@ class MathRow extends Group {
 type MathColLayout = {
     justify?: Align
     spacing?: number
-    anchor?: number
-    target_vrange?: Limit
 }
 
-function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anchor: anchor0, target_vrange }: MathColLayout): InlineLayout {
+function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0 }: MathColLayout): InlineLayout {
     // empty case
     if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
-    // find outer metrics
+    // find outer advance
     const advance = max(items.map(item => item.math.advance)) ?? 0
-    const bounds = items.map(item => metrics_bounds(item.math))
 
-    // stack raw bounds top-down while preserving each child's anchor line
+    // stack top-down while preserving each child's anchor line
     let ybottom = 0
-    const boxes = items.map((item, i) => {
-        const [ ylo, yhi ] = bounds[i]
+    const children = items.map((item, i) => {
+        const [ ylo, yhi ] = metrics_bounds(item.math)
         const yanchor = ybottom + (i > 0 ? spacing : 0) - ylo
         const y0 = yanchor + ylo
         const y1 = yanchor + yhi
         ybottom = y1
-        return { item, y0, y1 }
-    })
-
-    // optionally compress the stacked range into a new output range
-    const source_vrange: Limit = [ 0, ybottom ]
-    const vrange = target_vrange ?? source_vrange
-    const anchor = anchor0 ?? (0.5 * ybottom)
-    const vanchor = remap_value(anchor, source_vrange, vrange)
-
-    // map children into full-width vertical slots
-    const children = boxes.map(({ item, y0, y1 }) => {
-        const [ y0c, y1c ] = remap_limit([ y0, y1 ], source_vrange, vrange)
-        return with_math(item, {}, { rect: [ 0, y0c, advance, y1c ], align: justify })
+        const rect: Rect = [ 0, y0, advance, y1 ]
+        return with_math(item, {}, { rect, align: justify })
     })
 
     // compute layout metrics
-    const metrics: InlineMetrics = { advance, vrange, vanchor }
+    const vrange: Limit = [ 0, ybottom ]
+    const metrics: InlineMetrics = { advance, vrange, vanchor: 0.5 * ybottom }
     const coord = join_limits({ h: [ 0, advance ], v: vrange })
     const aspect = metrics_aspect(metrics)
 
@@ -514,8 +487,6 @@ function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anc
 interface MathColArgs extends GroupArgs {
     children?: WithMath[]
     spacing?: number
-    anchor?: number
-    target_vrange?: Limit
     justify?: Align
 }
 
@@ -523,12 +494,12 @@ class MathCol extends Group {
     math: MathSpec
 
     constructor(args: MathColArgs = {}) {
-        const { children: children0, justify, spacing = 0, anchor, target_vrange, ...attr } = THEME(args, 'MathCol')
+        const { children: children0, justify, spacing = 0, ...attr } = THEME(args, 'MathCol')
         const items = ensure_children(children0)
         const mathItems = ensure_math_children(items)
 
         // compute layout
-        const { metrics, ...layout } = layoutMathCol(mathItems, { justify, spacing, anchor, target_vrange })
+        const { metrics, ...layout } = layoutMathCol(mathItems, { justify, spacing })
 
         // pass to Group
         super({ ...layout, ...attr })
@@ -561,7 +532,6 @@ class MathBox extends Group {
         const child = ensure_math(child0)
 
         // get metrics info
-        const { left, right } = child.math
         const [ ylo, yhi ] = metrics_bounds(child.math)
         const height = top + (yhi - ylo) + bottom
 
@@ -610,40 +580,6 @@ class MathRule extends Group {
 
         // set math metrics
         this.math = make_math({ left: 'none', right: 'none', ...metrics })
-    }
-}
-
-interface MathScaleArgs extends GroupArgs {
-    children?: WithMath[]
-    scale?: number
-    justify?: Align
-}
-
-class MathScale extends Group {
-    math: MathSpec
-
-    constructor(args: MathScaleArgs = {}) {
-        const { children: children0, scale = 1, justify = 'left', ...attr } = THEME(args, 'MathScale')
-        const child0 = check_singleton(children0)
-        const child = ensure_math(child0)
-
-        // compute scaled metrics
-        const { advance, vrange: [ y0, y1 ], vanchor } = child.math
-        const metrics: InlineMetrics = {
-            advance: scale * advance,
-            vrange: [ scale * y0, scale * y1 ],
-            vanchor: scale * vanchor,
-        }
-
-        // make child item in the scaled coordinate frame
-        const rect = metrics_rect(metrics)
-        const item = with_math(child, {}, { rect, align: justify })
-        const coord = rect
-        const aspect = metrics_aspect(metrics)
-
-        super({ children: [ item ], coord, aspect, ...attr })
-        this.args = args
-        this.math = inherit_metrics(child, metrics)
     }
 }
 
@@ -813,7 +749,6 @@ interface FracArgs extends GroupArgs {
 }
 
 class Frac extends MathCol {
-
     constructor(args: FracArgs = {}) {
         const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.033, ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
@@ -839,6 +774,10 @@ class Frac extends MathCol {
         // pass to MathCol
         super({ children: [ numer_box, axis, denom_box ], ...attr })
         this.args = args
+
+        // use the bar position as the inline anchor
+        const vanchor = metrics_height(numer_box.math) + axis.math.vanchor
+        this.math = inherit_metrics(this.math, { vanchor })
     }
 }
 
