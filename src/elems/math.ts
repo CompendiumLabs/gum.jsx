@@ -1,15 +1,15 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { black, red, DEFAULTS as D } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_rects, merge_limits, prefix_split, join_limits, rect_aspect, sum, max } from '../lib/utils'
+import { black, red } from '../lib/const'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Spacer, spec_split, ensure_children } from './core'
 import { CoordLine, RoundedRect } from './geometry'
-import { HStack, VStack, Box } from './layout'
+import { HStack, Box } from './layout'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
-import { EMPTY_METRICS, EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
+import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
@@ -25,10 +25,16 @@ type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'K
 
 type MathClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner' | 'none'
 
+type InlineMetrics = {
+    advance: number
+    vrange: Limit
+    vanchor: number
+}
+
 type MathSpec = {
     left: MathClass
     right: MathClass
-    metrics: TextMetrics
+    metrics: InlineMetrics
 }
 
 type WithMath<E extends Element = Element> = E & {
@@ -98,20 +104,66 @@ const SPACING_TABLE: Record<MathClass, SpacingTable> = {
 // math metrics
 //
 
+const EMPTY_INLINE_METRICS: InlineMetrics = {
+    advance: 0,
+    vrange: EMPTY_VRANGE,
+    vanchor: 0,
+}
+
+const DEFAULT_INLINE_METRICS: InlineMetrics = {
+    advance: 1,
+    vrange: DEFAULT_VRANGE,
+    vanchor: MATH_AXIS,
+}
+
 function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
-        metrics: metrics ?? EMPTY_METRICS,
+        metrics: metrics ?? EMPTY_INLINE_METRICS,
     }
 }
 
-function ensure_metrics(element: Element): TextMetrics {
+function text_inline_metrics({ advance, vrange }: TextMetrics): InlineMetrics {
+    return { advance, vrange, vanchor: MATH_AXIS }
+}
+
+function metrics_bounds({ vrange: [ ylo, yhi ], vanchor }: InlineMetrics): Limit {
+    return [ ylo - vanchor, yhi - vanchor ]
+}
+
+function metrics_height({ vrange: [ ylo, yhi ] }: InlineMetrics): number {
+    return yhi - ylo
+}
+
+function metrics_aspect(metrics: InlineMetrics): number | undefined {
+    const { advance } = metrics
+    const height = metrics_height(metrics)
+    return height > 0 ? advance / height : undefined
+}
+
+function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rect {
+    const { advance } = metrics
+    const [ ylo, yhi ] = metrics_bounds(metrics)
+    return [ x, y + ylo, x + advance, y + yhi ]
+}
+
+function clone_math<E extends Element>(element: E, args: Attrs = {}, math?: MathSpec): WithMath<E> {
+    const out = element.clone(args) as WithMath<E>
+    if (math != null) {
+        out.math = math
+    } else if ((element as any).math != null) {
+        out.math = (element as WithMath<E>).math
+    }
+    return out
+}
+
+function ensure_metrics(element: Element): InlineMetrics {
     if (element instanceof Span) {
-        return element.metrics
+        return text_inline_metrics(element.metrics)
     } else {
-        const advance = element.spec.aspect ?? 1
-        return { advance, vrange: DEFAULT_VRANGE }
+        const { advance, vrange, vanchor } = DEFAULT_INLINE_METRICS
+        return { advance: element.spec.aspect ?? advance, vrange, vanchor }
     }
 }
 
@@ -121,27 +173,16 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
     }
     const metrics = ensure_metrics(element)
     const math = make_math({ metrics })
-    const newElement = element.clone() as WithMath<E>
-    newElement.math = math
-    return newElement
+    return clone_math(element, {}, math)
 }
 
 function ensure_math_children(children: Element[]): WithMath[] {
     return children.map(child => ensure_math(child))
 }
 
-//
-// inline layout
-//
-
-type InlinePlacement = {
-    item: Element
-    rect: Rect
-}
-
 type InlineLayout = {
     children: Element[]
-    metrics: TextMetrics
+    metrics: InlineMetrics
     coord?: Rect
     aspect?: number
 }
@@ -155,36 +196,6 @@ function inline_padding(padding: Padding | undefined): Point {
     const [ pl1, pl2 ] = ensure_vector(pl, 2)
     const [ pr1, pr2 ] = ensure_vector(pr, 2)
     return [ 0.5 * (pl1 + pr1), 0.5 * (pl2 + pr2) ]
-}
-
-function inline_aspect({ advance, vrange: [ ymin, ymax ] }: TextMetrics): number | undefined {
-    const height = ymax - ymin
-    return height > 0 ? advance / height : undefined
-}
-
-function inline_rect({ advance, vrange: [ ymin, ymax ] }: TextMetrics, x: number = 0, y: number = 0): Rect {
-    return [ x, y - ymax, x + advance, y - ymin ]
-}
-
-function layout_inline_placements(items: InlinePlacement[]): InlineLayout {
-    // empty case
-    if (items.length == 0) {
-        return { children: [], metrics: EMPTY_METRICS }
-    }
-
-    // reposition children
-    const [ xmin, ymin, xmax, ymax ] = merge_rects(items.map(item => item.rect)) ?? D.rect
-    const children = items.map(({ item, rect: [ x1, y1, x2, y2 ] }) =>
-        item.clone({ rect: [ x1 - xmin, y1, x2 - xmin, y2 ] })
-    )
-
-    // compute layout metrics
-    const metrics: TextMetrics = { advance: xmax - xmin, vrange: [ -ymax, -ymin ] }
-    const coord: Rect = [ 0, ymin, metrics.advance, ymax ]
-    const aspect = inline_aspect(metrics)
-
-    // return layout
-    return { children, coord, metrics, aspect }
 }
 
 //
@@ -241,16 +252,16 @@ function cancel_element_left_bin(element: WithMath): WithMath {
     const { left, right } = element.math
     if (left != 'mbin') return element
     const right1 = right == 'mbin' ? 'mord' : right
-    const math = { ...element.math, left: 'mord', right: right1 }
-    return element.clone({ math }) as WithMath<typeof element>
+    const math = make_math({ ...element.math, left: 'mord', right: right1 })
+    return clone_math(element, {}, math)
 }
 
 function cancel_element_right_bin(element: WithMath): WithMath {
     const { left, right } = element.math
     if (right != 'mbin') return element
     const left1 = left == 'mbin' ? 'mord' : left
-    const math = { ...element.math, left: left1, right: 'mord' }
-    return element.clone({ math }) as WithMath<typeof element>
+    const math = make_math({ ...element.math, left: left1, right: 'mord' })
+    return clone_math(element, {}, math)
 }
 
 function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
@@ -311,11 +322,11 @@ class MathSpacer extends Spacer {
         }
 
         // pass to Spacer
-        super({ ...attr })
+        super({ aspect: advance, ...attr })
         this.args = args
 
         // compute math metrics
-        const metrics: TextMetrics = { advance, vrange: EMPTY_VRANGE }
+        const metrics: InlineMetrics = { advance, vrange: EMPTY_VRANGE, vanchor: 0 }
         this.math = make_math({ metrics })
     }
 }
@@ -342,7 +353,7 @@ class MathSpan extends Span {
         this.args = args
 
         // inherit math metrics
-        this.math = make_math({ left, right, metrics: this.metrics })
+        this.math = make_math({ left, right, metrics: text_inline_metrics(this.metrics) })
     }
 }
 
@@ -384,25 +395,25 @@ interface MathRowArgs extends GroupArgs {
 
 function layoutMathRow(items: WithMath[]): InlineLayout {
     // empty case
-    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRICS }
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
     // find outer vertical range
     const advance = sum(items.map(item => item.math.metrics.advance))
-    const vrange = merge_limits(items.map(item => item.math.metrics.vrange))
+    const vrange = merge_limits(items.map(item => metrics_bounds(item.math.metrics)))
 
     // compute placements
     let xmax = 0
     const children = items.map(item => {
         const { metrics } = item.math
-        const { advance: x, vrange: [ ylo, yhi ] } = metrics
+        const { advance: x } = metrics
         xmax += x
-        return item.clone({ rect: [ xmax - x, ylo, xmax, yhi ] })
+        return clone_math(item, { rect: metrics_rect(metrics, xmax - x, 0) })
     })
 
     // compute layout metrics
-    const metrics: TextMetrics = { advance, vrange }
+    const metrics: InlineMetrics = { advance, vrange, vanchor: 0 }
     const coord = join_limits({ h: [ 0, advance ], v: vrange })
-    const aspect = rect_aspect(coord)
+    const aspect = metrics_aspect(metrics)
 
     // return layout
     return { children, coord, aspect, metrics }
@@ -434,39 +445,58 @@ class MathRow extends Group {
 
 interface MathColArgs extends GroupArgs {
     children?: WithMath[]
+    spacing?: number
+    anchor?: number
+    anchor_index?: number
+    justify?: Align
 }
 
-function layoutMathCol(items: WithMath[], justify: Align = 'center'): InlineLayout {
+function layoutMathCol(items: WithMath[], {
+    justify = 'center',
+    spacing = 0,
+    anchor: anchor0,
+    anchor_index,
+}: {
+    justify?: Align
+    spacing?: number
+    anchor?: number
+    anchor_index?: number
+} = {}): InlineLayout {
     // empty case
-    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_METRICS }
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
     // find outer metrics
     const advance = max(items.map(item => item.math.metrics.advance)) ?? 0
-    const heights = items.map(item => {
-        const { vrange: [ ylo, yhi ] } = item.math.metrics
-        return yhi - ylo
-    })
-    const vtotal = sum(heights)
+    const bounds = items.map(item => metrics_bounds(item.math.metrics))
 
-    // stack top-down in raw coordinates, then shift so the column center
-    // lands at the canonical inline center used by ordinary math glyphs.
-    const anchor = 0.5 * vtotal
-    const yshift = anchor - MATH_AXIS
-
-    let y0 = 0
-    const children = items.map((item, i) => {
-        const height = heights[i]
-        const y1 = y0 + height
-        const child = item.clone({ rect: [ 0, y0 - yshift, advance, y1 - yshift ], align: justify })
-        y0 = y1
-        return child
+    // stack raw bounds top-down while preserving each child's anchor line
+    let ybottom = 0
+    const anchors: number[] = []
+    const boxes = items.map((item, i) => {
+        const [ ylo, yhi ] = bounds[i]
+        const yanchor = ybottom + (i > 0 ? spacing : 0) - ylo
+        const y0 = yanchor + ylo
+        const y1 = yanchor + yhi
+        anchors.push(yanchor)
+        ybottom = y1
+        return { item, y0, y1 }
     })
+
+    // choose the composite anchor
+    const anchor = anchor_index != null && anchor_index >= 0 && anchor_index < anchors.length ?
+        anchors[anchor_index] :
+        anchor0 ?? (0.5 * ybottom)
+
+    // map children into full-width vertical slots
+    const children = boxes.map(({ item, y0, y1 }) =>
+        clone_math(item, { rect: [ 0, y0, advance, y1 ], align: justify })
+    )
 
     // compute layout metrics
-    const vrange: Limit = [ -yshift, vtotal - yshift ]
-    const metrics: TextMetrics = { advance, vrange }
+    const vrange: Limit = [ 0, ybottom ]
+    const metrics: InlineMetrics = { advance, vrange, vanchor: anchor }
     const coord = join_limits({ h: [ 0, advance ], v: vrange })
-    const aspect = rect_aspect(coord)
+    const aspect = metrics_aspect(metrics)
 
     // return layout
     return { children, coord, aspect, metrics }
@@ -476,12 +506,12 @@ class MathCol extends Group {
     math: MathSpec
 
     constructor(args: MathColArgs = {}) {
-        const { children: children0, justify, ...attr } = THEME(args, 'MathCol')
+        const { children: children0, justify, spacing = 0, anchor, anchor_index, ...attr } = THEME(args, 'MathCol')
         const items = ensure_children(children0)
         const mathItems = ensure_math_children(items)
 
         // compute layout
-        const { metrics, ...layout } = layoutMathCol(mathItems, justify)
+        const { metrics, ...layout } = layoutMathCol(mathItems, { justify, spacing, anchor, anchor_index })
 
         // pass to Group
         super({ ...layout, ...attr })
@@ -489,6 +519,63 @@ class MathCol extends Group {
 
         // set math metrics
         this.math = { left: 'mord', right: 'mord', metrics }
+    }
+}
+
+//
+// math box/rule
+//
+
+interface MathBoxArgs extends GroupArgs {
+    children?: WithMath[]
+    advance?: number
+    top?: number
+    bottom?: number
+    justify?: Align
+    vanchor?: number
+}
+
+class MathBox extends Group {
+    math: MathSpec
+
+    constructor(args: MathBoxArgs = {}) {
+        const { children: children0, advance: advance0, top = 0, bottom = 0, justify = 'center', vanchor: vanchor0, ...attr } = THEME(args, 'MathBox')
+        const child0 = check_singleton(children0)
+        const child = ensure_math(child0)
+        const { left, right, metrics: childMetrics } = child.math
+        const advance = advance0 ?? childMetrics.advance
+        const [ ylo, yhi ] = metrics_bounds(childMetrics)
+        const height = top + (yhi - ylo) + bottom
+        const anchor = vanchor0 ?? (top - ylo)
+        const item = clone_math(child, { rect: [ 0, top, advance, top + (yhi - ylo) ], align: justify })
+        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: anchor }
+        const aspect = metrics_aspect(metrics)
+
+        super({ children: [ item ], coord: [ 0, 0, advance, height ], aspect, ...attr })
+        this.args = args
+        this.math = make_math({ left, right, metrics })
+    }
+}
+
+interface MathRuleArgs extends GroupArgs {
+    advance?: number
+    thickness?: number
+    rounded?: number
+    fill?: string
+}
+
+class MathRule extends Group {
+    math: MathSpec
+
+    constructor(args: MathRuleArgs = {}) {
+        const { advance = 1, thickness = 0.033, rounded = 0.5, fill = black, ...attr } = THEME(args, 'MathRule')
+        const bar = thickness > 0 ? new RoundedRect({ rect: [ 0, 0, advance, thickness ], fill, rounded }) : null
+        const metrics: InlineMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
+        const aspect = metrics_aspect(metrics)
+
+        super({ children: [ bar ], coord: [ 0, 0, advance, thickness ], aspect, ...attr })
+        this.args = args
+        this.math = make_math({ left: 'none', right: 'none', metrics })
     }
 }
 
@@ -605,9 +692,7 @@ interface SupSubArgs extends StackArgs {
     sub?: MathLeaf
 }
 
-class SupSub extends HStack {
-    math: MathSpec
-
+class SupSub extends MathRow {
     constructor(args: SupSubArgs = {}) {
         const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, voffset = 0.025, ...attr } = THEME(args, 'SupSub')
         const child = ensure_singleton(children)
@@ -622,27 +707,20 @@ class SupSub extends HStack {
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
 
-        // handle missing sup/sub
-        const supElem = sup != null ? sup : new Spacer()
-        const subElem = sub != null ? sub : new Spacer()
+        // build the side script column and bias its anchor line relative to the base
+        const supElem = sup ?? new MathSpacer()
+        const subElem = sub ?? new MathSpacer()
+        const sideCol = new MathCol({ children: [ supElem, subElem ], justify: 'left', spacing: vspacing })
+        const side = new MathBox({ children: [ sideCol ], justify: 'left', vanchor: sideCol.math.metrics.vanchor - voffset })
+        const gap = new MathSpacer({ aspect: hspacing })
 
-        // make side stack
-        const side = new VStack({
-            children: [ supElem, subElem ],
-            even: true, spacing: vspacing,
-            justify: 'left', pos: [ 0.5, 0.5 + voffset ]
-        })
-        const sideBox = new Box({ children: [ side ] })
-
-        // pass to HStack
-        super({ children: [ base, sideBox ], spacing: hspacing, ...attr })
+        // pass to MathRow
+        super({ children: [ base, gap, side ], ...attr })
         this.args = args
 
-        // set math metrics
-        const { left, right, metrics } = base.math
-        const { vrange } = metrics
-        const metrics1 = { advance: this.spec.aspect ?? 0, vrange }
-        this.math = { left, right, metrics: metrics1 }
+        // preserve the base atom classes while keeping the actual row metrics
+        this.math.left = base.math.left
+        this.math.right = base.math.right
     }
 }
 
@@ -660,8 +738,7 @@ interface FracArgs extends GroupArgs {
     rule_size?: number
 }
 
-class Frac extends Group {
-    math: MathSpec
+class Frac extends MathCol {
 
     constructor(args: FracArgs = {}) {
         const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.033, ...attr } = THEME(args, 'Frac')
@@ -681,43 +758,13 @@ class Frac extends Group {
 
         // compute parameters
         const width = Math.max(numMetrics.advance, denMetrics.advance) + 2 * pad_x
-        const bar_half = has_bar ? 0.5 * rule_size : 0
-        const clearance = pad_y
-        const axis_y = -MATH_AXIS
-        const numer_shift = -numMetrics.vrange[0] + clearance + bar_half
-        const denom_shift = denMetrics.vrange[1] + clearance + bar_half
-        const numer_x = 0.5 * (width - numMetrics.advance)
-        const denom_x = 0.5 * (width - denMetrics.advance)
-        const numer_base = axis_y - numer_shift
-        const denom_base = axis_y + denom_shift
+        const numer_box = new MathBox({ children: [ numer ], advance: width, bottom: pad_y })
+        const axis = has_bar ? new MathRule({ advance: width, thickness: rule_size }) : new MathSpacer({ aspect: width })
+        const denom_box = new MathBox({ children: [ denom ], advance: width, top: pad_y })
 
-        // compute placements
-        const placements: InlinePlacement[] = [
-            {
-                item: numer,
-                rect: inline_rect(numMetrics, numer_x, numer_base),
-            },
-            {
-                item: denom,
-                rect: inline_rect(denMetrics, denom_x, denom_base),
-            },
-        ]
-        if (has_bar) {
-            placements.push({
-                item: new RoundedRect({ fill: black, rounded: 0.5 }),
-                rect: [ 0, axis_y - bar_half, width, axis_y + bar_half ],
-            })
-        }
-
-        // compute layout
-        const { children, coord, aspect, metrics } = layout_inline_placements(placements)
-
-        // pass to Group
-        super({ children, coord, aspect, ...attr })
+        // pass to MathCol
+        super({ children: [ numer_box, axis, denom_box ], anchor_index: 1, ...attr })
         this.args = args
-
-        // set math metrics
-        this.math = make_math({ left: 'mord', right: 'mord', metrics })
     }
 }
 
@@ -1040,5 +1087,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
-export type { MathClass, MathSpec, FontFamily, MathSymbolArgs, MathTextArgs }
+export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Bracket, Latex, Tex }
+export type { MathClass, MathSpec, InlineMetrics, FontFamily, MathSymbolArgs, MathTextArgs }
