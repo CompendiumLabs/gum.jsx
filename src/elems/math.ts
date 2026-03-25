@@ -25,17 +25,15 @@ type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'K
 
 type MathClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner' | 'none'
 
-type InlineMetrics = {
+type MathSpec = {
+    left: MathClass
+    right: MathClass
     advance: number
     vrange: Limit
     vanchor: number
 }
 
-type MathSpec = {
-    left: MathClass
-    right: MathClass
-    metrics: InlineMetrics
-}
+type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'>
 
 type WithMath<E extends Element = Element> = E & {
     math: MathSpec
@@ -116,11 +114,13 @@ const DEFAULT_INLINE_METRICS: InlineMetrics = {
     vanchor: MATH_AXIS,
 }
 
-function make_math({ left, right, metrics }: Partial<MathSpec>): MathSpec {
+function make_math({ left, right, advance, vrange, vanchor }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
-        metrics: metrics ?? EMPTY_INLINE_METRICS,
+        advance: advance ?? EMPTY_INLINE_METRICS.advance,
+        vrange: vrange ?? EMPTY_INLINE_METRICS.vrange,
+        vanchor: vanchor ?? EMPTY_INLINE_METRICS.vanchor,
     }
 }
 
@@ -162,13 +162,15 @@ function remap_limit(bounds: Limit, source: Limit, target: Limit): Limit {
     return [ remap_value(y0, source, target), remap_value(y1, source, target) ]
 }
 
-function clone_math<E extends Element>(element: E, args: Attrs = {}, math?: MathSpec): WithMath<E> {
+function inherit_metrics(source: WithMath | MathSpec, patch: Partial<InlineMetrics> = {}): MathSpec {
+    const math = (source as WithMath).math ?? source as MathSpec
+    return make_math({ ...math, ...patch })
+}
+
+function with_math<E extends Element>(element: E, patch: Partial<MathSpec> = {}, args: Attrs = {}): WithMath<E> {
     const out = element.clone(args) as WithMath<E>
-    if (math != null) {
-        out.math = math
-    } else if ((element as any).math != null) {
-        out.math = (element as WithMath<E>).math
-    }
+    const math = (element as WithMath<E>).math ?? make_math(ensure_metrics(element))
+    out.math = make_math({ ...math, ...patch })
     return out
 }
 
@@ -185,9 +187,7 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
     if ((element as any).math != null) {
         return element as WithMath<E>
     }
-    const metrics = ensure_metrics(element)
-    const math = make_math({ metrics })
-    return clone_math(element, {}, math)
+    return with_math(element)
 }
 
 function ensure_math_children(children: Element[]): WithMath[] {
@@ -270,16 +270,14 @@ function cancel_element_left_bin(element: WithMath): WithMath {
     const { left, right } = element.math
     if (left != 'mbin') return element
     const right1 = right == 'mbin' ? 'mord' : right
-    const math = make_math({ ...element.math, left: 'mord', right: right1 })
-    return clone_math(element, {}, math)
+    return with_math(element, { left: 'mord', right: right1 })
 }
 
 function cancel_element_right_bin(element: WithMath): WithMath {
     const { left, right } = element.math
     if (right != 'mbin') return element
     const left1 = left == 'mbin' ? 'mord' : left
-    const math = make_math({ ...element.math, left: left1, right: 'mord' })
-    return clone_math(element, {}, math)
+    return with_math(element, { left: left1, right: 'mord' })
 }
 
 function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
@@ -344,8 +342,7 @@ class MathSpacer extends Spacer {
         this.args = args
 
         // compute math metrics
-        const metrics: InlineMetrics = { advance, vrange, vanchor: 0 }
-        this.math = make_math({ metrics })
+        this.math = make_math({ advance, vrange, vanchor: 0 })
     }
 }
 
@@ -371,7 +368,7 @@ class MathSpan extends Span {
         this.args = args
 
         // inherit math metrics
-        this.math = make_math({ left, right, metrics: text_inline_metrics(this.metrics) })
+        this.math = make_math({ left, right, ...text_inline_metrics(this.metrics) })
     }
 }
 
@@ -419,16 +416,15 @@ function layoutMathRow(items: WithMath[]): InlineLayout {
     if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
     // find outer vertical range
-    const advance = sum(items.map(item => item.math.metrics.advance))
-    const vrange = merge_limits(items.map(item => metrics_bounds(item.math.metrics)))
+    const advance = sum(items.map(item => item.math.advance))
+    const vrange = merge_limits(items.map(item => metrics_bounds(item.math)))
 
     // compute placements
     let xmax = 0
     const children = items.map(item => {
-        const { metrics } = item.math
-        const { advance: x } = metrics
+        const { advance: x } = item.math
         xmax += x
-        return clone_math(item, { rect: metrics_rect(metrics, xmax - x, 0) })
+        return with_math(item, {}, { rect: metrics_rect(item.math, xmax - x, 0) })
     })
 
     // compute layout metrics
@@ -460,7 +456,7 @@ class MathRow extends Group {
         this.args = args
 
         // set math metrics
-        this.math = { left: 'mord', right: 'mord', metrics }
+        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
     }
 }
 
@@ -480,8 +476,8 @@ function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anc
     if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
     // find outer metrics
-    const advance = max(items.map(item => item.math.metrics.advance)) ?? 0
-    const bounds = items.map(item => metrics_bounds(item.math.metrics))
+    const advance = max(items.map(item => item.math.advance)) ?? 0
+    const bounds = items.map(item => metrics_bounds(item.math))
 
     // stack raw bounds top-down while preserving each child's anchor line
     let ybottom = 0
@@ -503,7 +499,7 @@ function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anc
     // map children into full-width vertical slots
     const children = boxes.map(({ item, y0, y1 }) => {
         const [ y0c, y1c ] = remap_limit([ y0, y1 ], source_vrange, vrange)
-        return clone_math(item, { rect: [ 0, y0c, advance, y1c ], align: justify })
+        return with_math(item, {}, { rect: [ 0, y0c, advance, y1c ], align: justify })
     })
 
     // compute layout metrics
@@ -539,7 +535,7 @@ class MathCol extends Group {
         this.args = args
 
         // set math metrics
-        this.math = { left: 'mord', right: 'mord', metrics }
+        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
     }
 }
 
@@ -565,25 +561,25 @@ class MathBox extends Group {
         const child = ensure_math(child0)
 
         // get metrics info
-        const { left, right, metrics: childMetrics } = child.math
-        const [ ylo, yhi ] = metrics_bounds(childMetrics)
+        const { left, right } = child.math
+        const [ ylo, yhi ] = metrics_bounds(child.math)
         const height = top + (yhi - ylo) + bottom
 
         // compute layout metrics
-        const advance = advance0 ?? childMetrics.advance
+        const advance = advance0 ?? child.math.advance
         const vrange: Limit = [ 0, height ]
         const vanchor = vanchor0 ?? (top - ylo)
         const metrics: InlineMetrics = { advance, vrange, vanchor }
 
         // make child item
         const rect: Rect = [ 0, top, advance, top + (yhi - ylo) ]
-        const item = clone_math(child, { rect, align: justify })
+        const item = with_math(child, {}, { rect, align: justify })
         const coord: Rect = [ 0, 0, advance, height ]
         const aspect = metrics_aspect(metrics)
 
         super({ children: [ item ], coord, aspect, ...attr })
         this.args = args
-        this.math = make_math({ left, right, metrics })
+        this.math = inherit_metrics(child, metrics)
     }
 }
 
@@ -613,7 +609,7 @@ class MathRule extends Group {
         this.args = args
 
         // set math metrics
-        this.math = make_math({ left: 'none', right: 'none', metrics })
+        this.math = make_math({ left: 'none', right: 'none', ...metrics })
     }
 }
 
@@ -632,8 +628,7 @@ class MathScale extends Group {
         const child = ensure_math(child0)
 
         // compute scaled metrics
-        const { left, right, metrics: childMetrics } = child.math
-        const { advance, vrange: [ y0, y1 ], vanchor } = childMetrics
+        const { advance, vrange: [ y0, y1 ], vanchor } = child.math
         const metrics: InlineMetrics = {
             advance: scale * advance,
             vrange: [ scale * y0, scale * y1 ],
@@ -642,13 +637,13 @@ class MathScale extends Group {
 
         // make child item in the scaled coordinate frame
         const rect = metrics_rect(metrics)
-        const item = clone_math(child, { rect, align: justify })
+        const item = with_math(child, {}, { rect, align: justify })
         const coord = rect
         const aspect = metrics_aspect(metrics)
 
         super({ children: [ item ], coord, aspect, ...attr })
         this.args = args
-        this.math = make_math({ left, right, metrics })
+        this.math = inherit_metrics(child, metrics)
     }
 }
 
@@ -784,12 +779,10 @@ class SupSub extends MathRow {
         const scripts = new VStack({
             children: [ sup, sub ], justify: 'left', spacing: vspacing, even: true
         })
-        const metrics: InlineMetrics = {
-            advance: scripts.spec.aspect ?? 0,
-            vrange: base.math.metrics.vrange,
-            vanchor: base.math.metrics.vanchor,
-        }
-        const side = clone_math(scripts, {}, make_math({ metrics }))
+
+        // set metrics on side
+        const advance = scripts.spec.aspect ?? 0
+        const side = with_math(scripts, inherit_metrics(base, { advance }))
 
         // construct full row
         const spacer = new MathSpacer({ advance: hspacing })
@@ -834,8 +827,8 @@ class Frac extends MathCol {
         }
 
         // get math metrics
-        const { metrics: numMetrics } = numer.math
-        const { metrics: denMetrics } = denom.math
+        const numMetrics = numer.math
+        const denMetrics = denom.math
 
         // compute parameters
         const width = Math.max(numMetrics.advance, denMetrics.advance) + 2 * pad_x
@@ -874,8 +867,8 @@ class Sqrt extends Group {
         // build math-aware body box
         const [ pad_top, pad_bottom ] = vertical_padding(padding)
         const bodyBox = new MathBox({ children: [ body ], top: pad_top, bottom: pad_bottom })
-        const bodyHeight = metrics_height(bodyBox.math.metrics)
-        const bodyWidth = bodyBox.math.metrics.advance
+        const bodyHeight = metrics_height(bodyBox.math)
+        const bodyWidth = bodyBox.math.advance
 
         // compute layout metrics
         const gutter = 0.5 * bodyHeight
@@ -901,13 +894,13 @@ class Sqrt extends Group {
 
         // build optional index element
         const indexElem = index != null ? index.clone({ pos: [ 0.6 * gutter, 0.2 * bodyHeight ], yrad: 0.2 * bodyHeight, align: 'right' }) : null
-        const bodyElem = clone_math(bodyBox, { rect: body_rect })
+        const bodyElem = with_math(bodyBox, {}, { rect: body_rect })
 
         // compute composite metrics by preserving the body anchor
         const metrics: InlineMetrics = {
             advance: width,
             vrange: [ 0, bodyHeight ],
-            vanchor: bodyBox.math.metrics.vanchor,
+            vanchor: bodyBox.math.vanchor,
         }
         const aspect = metrics_aspect(metrics)
 
@@ -916,7 +909,7 @@ class Sqrt extends Group {
         this.args = args
 
         // set math metrics
-        this.math = make_math({ left: 'mord', right: 'mord', metrics })
+        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
     }
 }
 
@@ -962,12 +955,12 @@ class Accent extends MathCol {
 
         // build accent symbol
         const accent = ensure_math(build_accent_symbol(label, color))
-        const width = Math.max(base.math.metrics.advance, accent.math.metrics.advance)
+        const width = Math.max(base.math.advance, accent.math.advance)
         const baseBox = new MathBox({ children: [ base ], advance: width })
-        const accentHeight0 = metrics_height(accent.math.metrics)
+        const accentHeight0 = metrics_height(accent.math)
         const accentPad = Math.max(0, (accent_height ?? accentHeight0) - accentHeight0)
         const accentBox = new MathBox({ children: [ accent ], advance: width, bottom: accentPad })
-        const overlap = body_top * metrics_height(accentBox.math.metrics)
+        const overlap = body_top * metrics_height(accentBox.math)
 
         // pass to MathCol, preserving the base anchor
         super({ children: [ accentBox, baseBox ], spacing: -overlap, ...attr })
@@ -1035,7 +1028,7 @@ class Delim extends MathSymbol {
 function fit_delim_size(delim: string, side: 'left' | 'right', targetHeight: number, attr: Omit<DelimArgs, 'delim' | 'side' | 'size'>): number {
     for (let size = 1; size <= 5; size++) {
         const candidate = new Delim({ delim, side, size, ...attr })
-        if (metrics_height(candidate.math.metrics) >= targetHeight) {
+        if (metrics_height(candidate.math) >= targetHeight) {
             return size
         }
     }
@@ -1066,7 +1059,7 @@ class Bracket extends MathRow {
         }
 
         // auto-detect delimiter size
-        const targetHeight = metrics_height(body.math.metrics)
+        const targetHeight = metrics_height(body.math)
         const baseDelimAttr = { ...shared_attr, ...delim_attr1 }
         const leftSize = size0 ?? (left_delim != null ? fit_delim_size(left_delim, 'left', targetHeight, baseDelimAttr) : 1)
         const rightSize = size0 ?? (right_delim != null ? fit_delim_size(right_delim, 'right', targetHeight, baseDelimAttr) : 1)
