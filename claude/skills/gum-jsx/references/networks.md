@@ -39,10 +39,10 @@ Use **Arrow** for creating edges between arbitrary points and for details on opt
 
 Parameters:
 - `start`/`end` — the beginning and ending element for the path
-- `start_dir`/`end_dir` — the emanation directions of the arrowheads (cardinal strings or direction vectors)
+- `start-dir`/`end-dir` — the emanation directions of the arrowheads (cardinal strings or direction vectors)
 - `points` — the intermediate points to draw the spline between
-- `arrow` / `arrow_start` / `arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_start`, meaning a directed graph edge
-- `arrow_size` = `0.04` — the arrowhead size to use for both arrows
+- `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
+- `arrow-size` = `0.04` — the arrowhead size to use for both arrows
 - `curve` = `2` — curvature factor forwarded to the spline
 
 **Example**

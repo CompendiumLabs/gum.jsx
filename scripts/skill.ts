@@ -33,6 +33,7 @@ const head = readFileSync('prompt/head.md', 'utf8').trim()
 const intro = readFileSync('prompt/intro.md', 'utf8').trim()
 const docs = readFileSync('prompt/docs.md', 'utf8').trim()
 const refs = readFileSync('prompt/refs.md', 'utf8').trim()
+const gen = readFileSync('prompt/gen.md', 'utf8').trim()
 
 // build skill file
 const skill = `
@@ -49,6 +50,8 @@ ${docs_pages['Group']}
 ${docs_pages['Box']}
 
 ${refs}
+
+${gen}
 `.trim()
 
 // write skill directory

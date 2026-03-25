@@ -173,9 +173,9 @@ The arrow direction is inferred automatically from `from` to `to`.
 
 Parameters:
 - `points` — the points to draw the arrow between (can include intermediate points)
-- `start_dir` / `end_dir` — the direction of the arrowheads at the start and end
-- `arrow` / `arrow_start` / `arrow_end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow_end` and `false` for `arrow_start`, meaning a directed graph edge
-- `arrow_size` = `0.04` — size of the arrowhead
+- `start-dir` / `end-dir` — the direction of the arrowheads at the start and end
+- `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
+- `arrow-size` = `0.04` — size of the arrowhead
 - `curve` = `null` — curvature factor forwarded to the spline (`null` or zero means straight line)
 
 Subunit names:

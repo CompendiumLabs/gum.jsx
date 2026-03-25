@@ -17,6 +17,7 @@ Parameters:
 - `margin` = `0` / `0.1` — the margin to be added (outside border)
 - `border` = `0` / `1` — the border width to use (stroke in pixels)
 - `rounded` = `0` / `0.1` — the border rounding to use (proportional to the box size)
+- `fill` = `null` — the background color to use (default is no fill)
 - `adjust` = `true` — whether to adjust values for aspect ratio
 - `shape` = `Rect` — the shape class to use for the border
 - `clip` = `false` — whether to clip the contents to the border shape
@@ -41,7 +42,7 @@ Generated code:
 
 Stack one or more **Element** either vertically or horizontally. There are specialized components **VStack** and **HStack** that don't take the `direc` argument. Proportional spacing between children can be specified with the `spacing` parameter. This handles child positioning and sizing, so any `pos`/`rad` arguments will be overridden.
 
-Elements can specify their own sizing with the `stack-size` parameter. If `stack-size` is not specified and `stack-expand` is not set to `false`, space will be distributed according to the child's aspect ratio. If `stack-expand` is set to `false`, the child will be given an even share of the remaining space.
+Elements can specify their own sizing with the `stack-size` parameter (do not use `rad`/`xrad`/`yrad` on child elements, this will be overridden). If `stack-size` is not specified and `stack-expand` is not set to `false`, space will be distributed according to the child's aspect ratio. If `stack-expand` is set to `false`, the child will be given an even share of the remaining space.
 
 Whenever possible, the aspect ratio of the overall stack is set so that all elements with defined aspect ratios will reach full width (in the **VStack** case) or full height (in the **HStack** case).
 
