@@ -911,12 +911,13 @@ function build_accent_symbol(label: string, color: string | undefined): WithMath
 interface AccentArgs extends GroupArgs {
     label?: string
     color?: string
-    body_top?: number
 }
 
-class Accent extends MathCol {
+class Accent extends Group {
+    math: MathSpec
+
     constructor(args: AccentArgs = {}) {
-        const { children, label = '', accent_height, body_top = 1, color, ...attr } = THEME(args, 'Accent')
+        const { children, label = '', color, ...attr } = THEME(args, 'Accent')
         const child = check_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -925,22 +926,28 @@ class Accent extends MathCol {
             throw new Error('Accent must have exactly one child')
         }
 
-        // build accent symbol
+        // build overlay children
         const accent = build_accent_symbol(label, color)
-        const spacing = 0
+        const advance = max([ base.math.advance, accent.math.advance ]) ?? 0
+        const xbase = 0.5 * (advance - base.math.advance)
+        const xaccent = 0.5 * (advance - accent.math.advance)
 
-        // pass to MathCol, preserving the base anchor
-        super({ children: [ accent, base ], spacing, ...attr })
+        // place children explicitly in a shared inline box
+        const accentElem = with_math(accent, {}, { rect: metrics_rect(accent.math, xaccent, 0) })
+        const baseElem = with_math(base, {}, { rect: metrics_rect(base.math, xbase, 0) })
+
+        // outer metrics are the union of the overlaid children
+        const accentBounds = metrics_bounds(accent.math)
+        const baseBounds = metrics_bounds(base.math)
+        const [ ylo, yhi ] = merge_limits([ accentBounds, baseBounds ])
+        const height = yhi - ylo
+        const coord: Rect = [ 0, ylo, advance, yhi ]
+        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: -ylo }
+        const aspect = metrics_aspect(metrics)
+
+        super({ children: [ accentElem, baseElem ], coord, aspect, ...attr })
         this.args = args
-
-        // preserve the base atom classes and anchor line
-        const [ base_ylo ] = metrics_bounds(base.math)
-        const vanchor = metrics_height(accent.math) + spacing - base_ylo
-        this.math = inherit_metrics(this.math, {
-            left: base.math.left,
-            right: base.math.right,
-            vanchor,
-        })
+        this.math = make_math({ left: base.math.left, right: base.math.right, ...metrics })
     }
 }
 
