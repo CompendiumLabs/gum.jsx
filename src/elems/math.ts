@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Spacer, spec_split, ensure_children } from './core'
 import { CoordLine, RoundedRect } from './geometry'
@@ -174,6 +174,25 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
         return element as WithMath<E>
     }
     return with_math(element)
+}
+
+function span_metrics_aspect({ advance, vrange: [ ylo, yhi ] }: TextMetrics): number | undefined {
+    const height = yhi - ylo
+    return height > 0 ? advance / height : undefined
+}
+
+function span_metrics_coord({ vrange: [ ylo, yhi ] }: TextMetrics): Rect {
+    return [ 0, ylo, 1, yhi ]
+}
+
+function with_text_metrics<E extends Span>(span: E, metrics: TextMetrics, args: Attrs = {}): E {
+    const out = span.clone(args) as E
+    const aspect = span_metrics_aspect(metrics)
+    out.metrics = metrics
+    out.spec.coord = span_metrics_coord(metrics)
+    out.spec.aspect0 = aspect
+    out.spec.aspect = out.spec.rotate_invar ? aspect : rotate_aspect(aspect, out.spec.rotate)
+    return out
 }
 
 function ensure_math_children(children: Element[]): WithMath[] {
@@ -979,13 +998,46 @@ class Delim extends MathSymbol {
 }
 
 function fit_delim_size(delim: string, side: 'left' | 'right', targetHeight: number, attr: Omit<DelimArgs, 'delim' | 'side' | 'size'>): number {
+    let bestSize = 1
+    let bestError = Infinity
+
     for (let size = 1; size <= 5; size++) {
         const candidate = new Delim({ delim, side, size, ...attr })
-        if (metrics_height(candidate.math) >= targetHeight) {
-            return size
+        const height = metrics_height(candidate.math)
+        const error = Math.abs(Math.log((targetHeight || 1) / (height || 1)))
+        if (error < bestError) {
+            bestError = error
+            bestSize = size
         }
     }
-    return 5
+
+    return bestSize
+}
+
+function fit_text_metrics(source: TextMetrics, target: InlineMetrics): TextMetrics {
+    const [ sourceLo, sourceHi ] = source.vrange
+    const [ rawLo, rawHi ] = source.raw_vrange ?? source.vrange
+    const targetHeight = metrics_height(target)
+    const sourceHeight = sourceHi - sourceLo
+    const scale = sourceHeight > 0 ? targetHeight / sourceHeight : 1
+    const shift = target.vrange[0] - scale * sourceLo
+
+    return {
+        advance: source.advance * scale,
+        vrange: target.vrange,
+        raw_vrange: [ shift + scale * rawLo, shift + scale * rawHi ],
+    }
+}
+
+function fit_delim(delim: Delim, target: InlineMetrics): WithMath<Delim> {
+    const metrics = fit_text_metrics(delim.metrics, target)
+    const out = with_text_metrics(delim, metrics) as WithMath<Delim>
+    out.math = inherit_metrics(delim, {
+        advance: metrics.advance,
+        vrange: target.vrange,
+        vanchor: target.vanchor,
+    })
+    return out
 }
 
 interface BracketArgs extends StackArgs {
@@ -1016,8 +1068,10 @@ class Bracket extends MathRow {
         const baseDelimAttr = { ...shared_attr, ...delim_attr1 }
         const leftSize = size0 ?? (left_delim != null ? fit_delim_size(left_delim, 'left', targetHeight, baseDelimAttr) : 1)
         const rightSize = size0 ?? (right_delim != null ? fit_delim_size(right_delim, 'right', targetHeight, baseDelimAttr) : 1)
-        const left = left_delim != null ? new Delim({ delim: left_delim, side: 'left', size: leftSize, ...baseDelimAttr }) : null
-        const right = right_delim != null ? new Delim({ delim: right_delim, side: 'right', size: rightSize, ...baseDelimAttr }) : null
+        const left0 = left_delim != null ? new Delim({ delim: left_delim, side: 'left', size: leftSize, ...baseDelimAttr }) : null
+        const right0 = right_delim != null ? new Delim({ delim: right_delim, side: 'right', size: rightSize, ...baseDelimAttr }) : null
+        const left = left0 != null ? fit_delim(left0, body.math) : null
+        const right = right0 != null ? fit_delim(right0, body.math) : null
         const items = [ left, body, right ].filter(item => item != null)
 
         // pass to MathRow
