@@ -603,6 +603,41 @@ class MathRule extends Group {
     }
 }
 
+interface MathScaleArgs extends GroupArgs {
+    children?: WithMath[]
+    scale?: number
+    justify?: Align
+}
+
+class MathScale extends Group {
+    math: MathSpec
+
+    constructor(args: MathScaleArgs = {}) {
+        const { children: children0, scale = 1, justify = 'left', ...attr } = THEME(args, 'MathScale')
+        const child0 = check_singleton(children0)
+        const child = ensure_math(child0)
+
+        // compute scaled metrics
+        const { left, right, metrics: childMetrics } = child.math
+        const { advance, vrange: [ y0, y1 ], vanchor } = childMetrics
+        const metrics: InlineMetrics = {
+            advance: scale * advance,
+            vrange: [ scale * y0, scale * y1 ],
+            vanchor: scale * vanchor,
+        }
+
+        // make child item in the scaled coordinate frame
+        const rect = metrics_rect(metrics)
+        const item = clone_math(child, { rect, align: justify })
+        const coord = rect
+        const aspect = metrics_aspect(metrics)
+
+        super({ children: [ item ], coord, aspect, ...attr })
+        this.args = args
+        this.math = make_math({ left, right, metrics })
+    }
+}
+
 //
 // math text
 //
@@ -714,11 +749,24 @@ class MathText extends MathRow {
 interface SupSubArgs extends StackArgs {
     sup?: MathLeaf
     sub?: MathLeaf
+    script_scale?: number
+    sup_shift?: number
+    sub_shift?: number
 }
 
 class SupSub extends MathRow {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0 = null, sub: sub0 = null, hspacing = 0.025, vspacing = -0.025, voffset = 0.025, ...attr } = THEME(args, 'SupSub')
+        const {
+            children,
+            sup: sup0 = null,
+            sub: sub0 = null,
+            hspacing = 0.025,
+            vspacing = 0.05,
+            script_scale = 0.6,
+            sup_shift: _sup_shift = 0.6,
+            sub_shift: _sub_shift = 0.6,
+            ...attr
+        } = THEME(args, 'SupSub')
         const child = ensure_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -731,15 +779,33 @@ class SupSub extends MathRow {
         const sup = normalize_math_leaf(sup0)
         const sub = normalize_math_leaf(sub0)
 
-        // build the side script column and bias its anchor line relative to the base
-        const supElem = sup ?? new MathSpacer()
-        const subElem = sub ?? new MathSpacer()
-        const sideCol = new MathCol({ children: [ supElem, subElem ], justify: 'left', spacing: vspacing })
-        const side = new MathBox({ children: [ sideCol ], justify: 'left', vanchor: sideCol.math.metrics.vanchor - voffset })
-        const gap = new MathSpacer({ advance: hspacing })
+        // shrink scripts before laying them out
+        const supElem = sup != null ? new MathScale({ children: [ sup ], scale: script_scale, justify: 'left' }) : null
+        const subElem = sub != null ? new MathScale({ children: [ sub ], scale: script_scale, justify: 'left' }) : null
+
+        // layout script side according to which scripts exist
+        let side: WithMath | null = null
+        if (supElem != null && subElem != null) {
+            side = new MathCol({ children: [ supElem, subElem ], justify: 'left', spacing: vspacing })
+        } else if (supElem != null) {
+            side = new MathCol({
+                children: [ supElem, new MathSpacer() ],
+                justify: 'left',
+                spacing: vspacing,
+                anchor_index: 1,
+            })
+        } else if (subElem != null) {
+            side = new MathCol({
+                children: [ new MathSpacer(), subElem ],
+                justify: 'left',
+                spacing: vspacing,
+                anchor_index: 0,
+            })
+        }
 
         // pass to MathRow
-        super({ children: [ base, gap, side ], ...attr })
+        const items = side != null ? [ base, new MathSpacer({ advance: hspacing }), side ] : [ base ]
+        super({ children: items, ...attr })
         this.args = args
 
         // preserve the base atom classes while keeping the actual row metrics
