@@ -40,12 +40,14 @@ class Span extends Element {
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
-        const { advance, vrange } = textMetrics(text, font_attr)
+        const { advance, vrange, raw_vrange = vrange } = textMetrics(text, font_attr)
 
         // adjust metrics for vertical shift
         const [ ymin, ymax ] = vrange
+        const [ raw_ymin, raw_ymax ] = raw_vrange
         const vrange_shift: Limit = [ ymin + vshift, ymax + vshift ]
-        const metrics = { advance, vrange: vrange_shift }
+        const raw_vrange_shift: Limit = [ raw_ymin + vshift, raw_ymax + vshift ]
+        const metrics = { advance, vrange: vrange_shift, raw_vrange: raw_vrange_shift }
 
         // pass to element
         super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...attr })

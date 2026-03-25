@@ -148,7 +148,7 @@ function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rec
     return [ x, y + ylo, x + advance, y + yhi ]
 }
 
-function inherit_metrics(source: WithMath | MathSpec, patch: Partial<InlineMetrics> = {}): MathSpec {
+function inherit_metrics(source: WithMath | MathSpec, patch: Partial<MathSpec> = {}): MathSpec {
     const math = (source as WithMath).math ?? source as MathSpec
     return make_math({ ...math, ...patch })
 }
@@ -189,6 +189,17 @@ function inline_padding(padding: Padding | undefined): Point {
     const [ pl1, pl2 ] = ensure_vector(pl, 2)
     const [ pr1, pr2 ] = ensure_vector(pr, 2)
     return [ 0.5 * (pl1 + pr1), 0.5 * (pl2 + pr2) ]
+}
+
+function padding_rect(padding: Padding | undefined): Rect {
+    if (padding == null) return [ 0, 0, 0, 0 ]
+    if (is_scalar(padding)) return [ padding, padding, padding, padding ]
+    if (!Array.isArray(padding)) return [ 0, 0, 0, 0 ]
+    if (padding.length == 2) {
+        const [ px, py ] = padding
+        return [ px, py, px, py ] as Rect
+    }
+    return padding as Rect
 }
 
 function vertical_padding(padding: Padding | undefined): Limit {
@@ -517,6 +528,7 @@ class MathCol extends Group {
 interface MathBoxArgs extends GroupArgs {
     children?: WithMath[]
     advance?: number
+    padding?: Padding
     top?: number
     bottom?: number
     justify?: Align
@@ -527,24 +539,26 @@ class MathBox extends Group {
     math: MathSpec
 
     constructor(args: MathBoxArgs = {}) {
-        const { children: children0, advance: advance0, top = 0, bottom = 0, justify = 'center', vanchor: vanchor0, ...attr } = THEME(args, 'MathBox')
+        const { children: children0, advance: advance0, padding: padding0, justify = 'center', vanchor: vanchor0, ...attr } = THEME(args, 'MathBox')
         const child0 = check_singleton(children0)
         const child = ensure_math(child0)
 
         // get metrics info
         const [ ylo, yhi ] = metrics_bounds(child.math)
-        const height = top + (yhi - ylo) + bottom
+        const [ pl, pt, pr, pb ] = padding_rect(padding0)
 
         // compute layout metrics
-        const advance = advance0 ?? child.math.advance
-        const vrange: Limit = [ 0, height ]
-        const vanchor = vanchor0 ?? (top - ylo)
-        const metrics: InlineMetrics = { advance, vrange, vanchor }
+        const inner_advance = advance0 ?? child.math.advance
+        const outer_advance = inner_advance + pl + pr
+        const outer_height = pt + (yhi - ylo) + pb
+        const vrange: Limit = [ 0, outer_height ]
+        const vanchor = vanchor0 ?? (pt - ylo)
+        const metrics: InlineMetrics = { advance: outer_advance, vrange, vanchor }
 
         // make child item
-        const rect: Rect = [ 0, top, advance, top + (yhi - ylo) ]
+        const rect: Rect = [ pl, pt, pl + inner_advance, pt + (yhi - ylo) ]
         const item = with_math(child, {}, { rect, align: justify })
-        const coord: Rect = [ 0, 0, advance, height ]
+        const coord: Rect = [ 0, 0, outer_advance, outer_height ]
         const aspect = metrics_aspect(metrics)
 
         super({ children: [ item ], coord, aspect, ...attr })
@@ -804,8 +818,7 @@ class Sqrt extends Group {
         }
 
         // build math-aware body box
-        const [ pad_top, pad_bottom ] = vertical_padding(padding)
-        const bodyBox = new MathBox({ children: [ body ], top: pad_top, bottom: pad_bottom })
+        const bodyBox = new MathBox({ children: [ body ], padding })
         const bodyHeight = metrics_height(bodyBox.math)
         const bodyWidth = bodyBox.math.advance
 
@@ -867,23 +880,24 @@ const ACCENT_TEXT_FALLBACK: Record<string, string> = {
     '\\vec': '→',
 }
 
-function build_accent_symbol(label: string, color: string): Element {
+function build_accent_symbol(label: string, color: string | undefined): WithMath {
+    const span_attr = color != null ? { color } : {}
     const label1 = ACCENT_LABEL_FALLBACK[label] ?? label
     if (label1 in ACCENT_TEXT_FALLBACK) {
-        return new MathSpan({ children: [ ACCENT_TEXT_FALLBACK[label1] ], color })
+        return new MathSpan({ children: [ ACCENT_TEXT_FALLBACK[label1] ], ...span_attr })
     }
-    return new MathSymbol({ children: [ label1 ], color })
+    return new MathSymbol({ children: [ label1 ], ...span_attr })
 }
 
 interface AccentArgs extends GroupArgs {
     label?: string
-    accent_height?: number
+    color?: string
     body_top?: number
 }
 
 class Accent extends MathCol {
     constructor(args: AccentArgs = {}) {
-        const { children, label = '', accent_height, body_top = 0.5, color, ...attr } = THEME(args, 'Accent')
+        const { children, label = '', accent_height, body_top = 1, color, ...attr } = THEME(args, 'Accent')
         const child = check_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -893,21 +907,21 @@ class Accent extends MathCol {
         }
 
         // build accent symbol
-        const accent = ensure_math(build_accent_symbol(label, color))
-        const width = Math.max(base.math.advance, accent.math.advance)
-        const baseBox = new MathBox({ children: [ base ], advance: width })
-        const accentHeight0 = metrics_height(accent.math)
-        const accentPad = Math.max(0, (accent_height ?? accentHeight0) - accentHeight0)
-        const accentBox = new MathBox({ children: [ accent ], advance: width, bottom: accentPad })
-        const overlap = body_top * metrics_height(accentBox.math)
+        const accent = build_accent_symbol(label, color)
+        const spacing = 0
 
         // pass to MathCol, preserving the base anchor
-        super({ children: [ accentBox, baseBox ], spacing: -overlap, ...attr })
+        super({ children: [ accent, base ], spacing, ...attr })
         this.args = args
 
-        // preserve the base atom classes
-        this.math.left = base.math.left
-        this.math.right = base.math.right
+        // preserve the base atom classes and anchor line
+        const [ base_ylo ] = metrics_bounds(base.math)
+        const vanchor = metrics_height(accent.math) + spacing - base_ylo
+        this.math = inherit_metrics(this.math, {
+            left: base.math.left,
+            right: base.math.right,
+            vanchor,
+        })
     }
 }
 

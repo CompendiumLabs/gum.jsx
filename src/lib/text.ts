@@ -79,6 +79,7 @@ function textVertical(text: string, { font_family = sans }: TextSizerArgs = {}):
 type TextMetrics = {
     advance: number
     vrange: Limit
+    raw_vrange?: Limit
 }
 
 const EMPTY_VRANGE: Limit = [ 0, 0 ]
@@ -87,11 +88,13 @@ const DEFAULT_VRANGE: Limit = [ -0.25, 0.75 ]
 const EMPTY_METRICS: TextMetrics = {
     advance: 0,
     vrange: EMPTY_VRANGE,
+    raw_vrange: EMPTY_VRANGE,
 }
 
 const DEFAULT_METRICS: TextMetrics = {
     advance: 1,
     vrange: DEFAULT_VRANGE,
+    raw_vrange: DEFAULT_VRANGE,
 }
 
 function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics): TextMetrics {
@@ -103,11 +106,12 @@ function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics):
     return {
         advance: advance / line_height,
         vrange: [ baseline - font_height, baseline ],
+        raw_vrange: [ glyph_top + ymin * font_height, glyph_top + ymax * font_height ],
     }
 }
 
 function textMetrics(text: string, args: TextSizerArgs = {}): TextMetrics {
-    if (text == '\n') return { advance: 0, vrange: [ 0, 1 ] }
+    if (text == '\n') return { advance: 0, vrange: [ 0, 1 ], raw_vrange: [ 0, 1 ] }
     const text1 = compress_whitespace(text)
     const advance = textSizer(text1, args)
     const vrange = textVertical(text1, args)

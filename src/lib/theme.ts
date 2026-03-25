@@ -39,10 +39,6 @@ const BOOLEANS: ThemeLayer = {
         rounded: 0.05,
     },
 
-    TextSpan: {
-        color: black,
-    },
-
     Graph: {
         padding: 0.1,
     },
