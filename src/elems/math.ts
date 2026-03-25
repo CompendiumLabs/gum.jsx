@@ -11,6 +11,7 @@ import { __parse as parse_tex } from 'katex'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Limit, Align, Attrs } from '../lib/types'
+import { VStack } from './layout'
 import type { StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
@@ -145,6 +146,20 @@ function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rec
     const { advance } = metrics
     const [ ylo, yhi ] = metrics_bounds(metrics)
     return [ x, y + ylo, x + advance, y + yhi ]
+}
+
+function remap_value(value: number, source: Limit, target: Limit): number {
+    const [ s0, s1 ] = source
+    const [ t0, t1 ] = target
+    const span = s1 - s0
+    if (span == 0) return 0.5 * (t0 + t1)
+    const frac = (value - s0) / span
+    return t0 + frac * (t1 - t0)
+}
+
+function remap_limit(bounds: Limit, source: Limit, target: Limit): Limit {
+    const [ y0, y1 ] = bounds
+    return [ remap_value(y0, source, target), remap_value(y1, source, target) ]
 }
 
 function clone_math<E extends Element>(element: E, args: Attrs = {}, math?: MathSpec): WithMath<E> {
@@ -457,10 +472,10 @@ type MathColLayout = {
     justify?: Align
     spacing?: number
     anchor?: number
-    anchor_index?: number
+    target_vrange?: Limit
 }
 
-function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anchor: anchor0, anchor_index }: MathColLayout): InlineLayout {
+function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anchor: anchor0, target_vrange }: MathColLayout): InlineLayout {
     // empty case
     if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
 
@@ -470,30 +485,29 @@ function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0, anc
 
     // stack raw bounds top-down while preserving each child's anchor line
     let ybottom = 0
-    const anchors: number[] = []
     const boxes = items.map((item, i) => {
         const [ ylo, yhi ] = bounds[i]
         const yanchor = ybottom + (i > 0 ? spacing : 0) - ylo
         const y0 = yanchor + ylo
         const y1 = yanchor + yhi
-        anchors.push(yanchor)
         ybottom = y1
         return { item, y0, y1 }
     })
 
-    // choose the composite anchor
-    const anchor = anchor_index != null && anchor_index >= 0 && anchor_index < anchors.length ?
-        anchors[anchor_index] :
-        anchor0 ?? (0.5 * ybottom)
+    // optionally compress the stacked range into a new output range
+    const source_vrange: Limit = [ 0, ybottom ]
+    const vrange = target_vrange ?? source_vrange
+    const anchor = anchor0 ?? (0.5 * ybottom)
+    const vanchor = remap_value(anchor, source_vrange, vrange)
 
     // map children into full-width vertical slots
-    const children = boxes.map(({ item, y0, y1 }) =>
-        clone_math(item, { rect: [ 0, y0, advance, y1 ], align: justify })
-    )
+    const children = boxes.map(({ item, y0, y1 }) => {
+        const [ y0c, y1c ] = remap_limit([ y0, y1 ], source_vrange, vrange)
+        return clone_math(item, { rect: [ 0, y0c, advance, y1c ], align: justify })
+    })
 
     // compute layout metrics
-    const vrange: Limit = [ 0, ybottom ]
-    const metrics: InlineMetrics = { advance, vrange, vanchor: anchor }
+    const metrics: InlineMetrics = { advance, vrange, vanchor }
     const coord = join_limits({ h: [ 0, advance ], v: vrange })
     const aspect = metrics_aspect(metrics)
 
@@ -505,7 +519,7 @@ interface MathColArgs extends GroupArgs {
     children?: WithMath[]
     spacing?: number
     anchor?: number
-    anchor_index?: number
+    target_vrange?: Limit
     justify?: Align
 }
 
@@ -513,12 +527,12 @@ class MathCol extends Group {
     math: MathSpec
 
     constructor(args: MathColArgs = {}) {
-        const { children: children0, justify, spacing = 0, anchor, anchor_index, ...attr } = THEME(args, 'MathCol')
+        const { children: children0, justify, spacing = 0, anchor, target_vrange, ...attr } = THEME(args, 'MathCol')
         const items = ensure_children(children0)
         const mathItems = ensure_math_children(items)
 
         // compute layout
-        const { metrics, ...layout } = layoutMathCol(mathItems, { justify, spacing, anchor, anchor_index })
+        const { metrics, ...layout } = layoutMathCol(mathItems, { justify, spacing, anchor, target_vrange })
 
         // pass to Group
         super({ ...layout, ...attr })
@@ -646,7 +660,7 @@ interface MathTextArgs extends GroupArgs {
     spacing?: number
 }
 
-type MathLeaf = Element | string | number | boolean | null
+type MathLeaf = Element | string | number | boolean | null | undefined
 
 function normalize_math_leaf(child: MathLeaf): WithMath | undefined {
     if (child == null) {
@@ -749,24 +763,11 @@ class MathText extends MathRow {
 interface SupSubArgs extends StackArgs {
     sup?: MathLeaf
     sub?: MathLeaf
-    script_scale?: number
-    sup_shift?: number
-    sub_shift?: number
 }
 
 class SupSub extends MathRow {
     constructor(args: SupSubArgs = {}) {
-        const {
-            children,
-            sup: sup0 = null,
-            sub: sub0 = null,
-            hspacing = 0.025,
-            vspacing = 0.05,
-            script_scale = 0.6,
-            sup_shift: _sup_shift = 0.6,
-            sub_shift: _sub_shift = 0.6,
-            ...attr
-        } = THEME(args, 'SupSub')
+        const { children, sup: sup0, sub: sub0, hspacing = 0.025, vspacing = 0.05, ...attr } = THEME(args, 'SupSub')
         const child = ensure_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -775,36 +776,27 @@ class SupSub extends MathRow {
             throw new Error('SupSub must have exactly one child')
         }
 
-        // ensure math metrics
-        const sup = normalize_math_leaf(sup0)
-        const sub = normalize_math_leaf(sub0)
+        // handle missing scripts
+        const sup = normalize_math_leaf(sup0) ?? new MathSpacer()
+        const sub = normalize_math_leaf(sub0) ?? new MathSpacer()
 
-        // shrink scripts before laying them out
-        const supElem = sup != null ? new MathScale({ children: [ sup ], scale: script_scale, justify: 'left' }) : null
-        const subElem = sub != null ? new MathScale({ children: [ sub ], scale: script_scale, justify: 'left' }) : null
-
-        // layout script side according to which scripts exist
+        // layout script side
         let side: WithMath | null = null
-        if (supElem != null && subElem != null) {
-            side = new MathCol({ children: [ supElem, subElem ], justify: 'left', spacing: vspacing })
-        } else if (supElem != null) {
-            side = new MathCol({
-                children: [ supElem, new MathSpacer() ],
-                justify: 'left',
-                spacing: vspacing,
-                anchor_index: 1,
-            })
-        } else if (subElem != null) {
-            side = new MathCol({
-                children: [ new MathSpacer(), subElem ],
-                justify: 'left',
-                spacing: vspacing,
-                anchor_index: 0,
-            })
+        if (sup != null || sub != null) {
+            const scripts = new VStack({ children: [ sup, sub ], justify: 'left', spacing: vspacing, even: true })
+            const metrics: InlineMetrics = {
+                advance: scripts.spec.aspect ?? 0,
+                vrange: base.math.metrics.vrange,
+                vanchor: base.math.metrics.vanchor,
+            }
+            side = clone_math(scripts, {}, make_math({ metrics }))
         }
 
+        // construct full row
+        const spacer = new MathSpacer({ advance: hspacing })
+        const items = side != null ? [ base, spacer, side ] : [ base ]
+
         // pass to MathRow
-        const items = side != null ? [ base, new MathSpacer({ advance: hspacing }), side ] : [ base ]
         super({ children: items, ...attr })
         this.args = args
 
@@ -853,7 +845,7 @@ class Frac extends MathCol {
         const denom_box = new MathBox({ children: [ denom ], advance: width, top: pad_y })
 
         // pass to MathCol
-        super({ children: [ numer_box, axis, denom_box ], anchor_index: 1, ...attr })
+        super({ children: [ numer_box, axis, denom_box ], ...attr })
         this.args = args
     }
 }
@@ -979,7 +971,7 @@ class Accent extends MathCol {
         const overlap = body_top * metrics_height(accentBox.math.metrics)
 
         // pass to MathCol, preserving the base anchor
-        super({ children: [ accentBox, baseBox ], spacing: -overlap, anchor_index: 1, ...attr })
+        super({ children: [ accentBox, baseBox ], spacing: -overlap, ...attr })
         this.args = args
 
         // preserve the base atom classes
