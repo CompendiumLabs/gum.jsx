@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { black, red } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, rect_box, box_rect, ensure_vector, prefix_split } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Group, Rectangle, Spacer, prefix_split, spec_split } from './core'
+import { Context, Element, Group, Rectangle, Spacer, spec_split } from './core'
 import { CoordLine } from './geometry'
 import { HStack, VStack, Box } from './layout'
 import { Span } from './text'

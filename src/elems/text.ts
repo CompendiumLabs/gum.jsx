@@ -3,11 +3,11 @@
 import type { Attrs, AlignValue } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext } from '../lib/const'
-import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton } from '../lib/utils'
+import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
-import { Context, Element, Group, prefix_split, prefix_join, spec_split, ensure_children } from './core'
+import { Context, Element, Group, spec_split, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HStack, VStack } from './layout'
 import type { BoxArgs, StackArgs } from './layout'

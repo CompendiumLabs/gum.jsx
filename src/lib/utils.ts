@@ -1,7 +1,7 @@
 // core utils
 
 import { DEFAULTS as D, d2r, r2d, pi } from './const'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Angle, Direc, Size, Pair, Grad, Polar } from './types'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Angle, Direc, Size, Pair, Grad, Polar, Attrs } from './types'
 
 //
 // environment tests
@@ -284,6 +284,34 @@ async function map_object_async<T, U>(obj: Record<string, T>, fn: (k: string, v:
 function filter_object<T>(obj: Record<string, T>, fn: (k: string, v: T) => boolean): Record<string, T> {
     return Object.fromEntries(
         Object.entries(obj).filter(([ k, v ]) => fn(k, v))
+    )
+}
+
+//
+// prefix utils
+//
+
+function prefix_split(pres: string[], attr: Attrs): Attrs[] {
+    const attr1: Attrs = { ...attr }
+    const pres1 = pres.map(p => `${p}_`)
+    const out: Attrs[] = pres.map(_p => ({}))
+    Object.keys(attr).map(k => {
+        for (const i in pres1) {
+            const p1 = pres1[i]
+            if (k.startsWith(p1)) {
+                const k1 = k.slice(p1.length)
+                out[i][k1] = attr1[k]
+                delete attr1[k]
+                break
+            }
+        }
+    })
+    return [ ...out, attr1 ]
+}
+
+function prefix_join(pre: string, attr: Attrs): Attrs {
+    return Object.fromEntries(
+        Object.entries(attr).map(([ k, v ]) => [ `${pre}_${k}`, v ])
     )
 }
 
@@ -598,8 +626,8 @@ function cbox_rect(cbox: Rect): Rect {
 // rect aggregators
 //
 
-function merge_rects(rects: (Rect | undefined)[] | undefined): Rect | undefined {
-    if (rects == null || rects.length == 0) return
+function merge_rects(rects: (Rect | undefined)[]): Rect | undefined {
+    if (rects.length == 0) return
     const rects1 = rects.filter(r => r != null) as Rect[]
     if (rects1.length == 0) return
     const [ xa, ya, xb, yb ] = zip(...rects1)
@@ -607,14 +635,20 @@ function merge_rects(rects: (Rect | undefined)[] | undefined): Rect | undefined 
     return [ min(xs), min(ys), max(xs), max(ys) ] as Rect
 }
 
-function merge_points(points: Point[] | undefined): Rect | undefined {
-    if (points == null || points.length == 0) return
+function merge_points(points: Point[]): Rect | undefined {
+    if (points.length == 0) return
     const [ xs, ys ] = zip(...points)
     return [ min(xs), min(ys), max(xs), max(ys) ] as Rect
 }
 
-function merge_values(vals: number[] | undefined): Limit | undefined {
-    if (vals == null || vals.length == 0) return
+function merge_limits(limits: Limit[]): Limit | undefined {
+    if (limits.length == 0) return
+    const [ xa, xb ] = zip(...limits)
+    return [ min(xa), max(xb) ] as Limit
+}
+
+function merge_values(vals: number[]): Limit | undefined {
+    if (vals.length == 0) return
     return [ min(vals), max(vals) ] as Limit
 }
 
@@ -874,4 +908,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heaviside, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add2, sub2, mul2, div2, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_values, expand_limits, expand_rect, upright_rect, upright_limits, rounder, remap_rect, resizer, rescaler, rotate_aspect }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heaviside, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add2, sub2, mul2, div2, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_limits, merge_values, expand_limits, expand_rect, upright_rect, upright_limits, rounder, remap_rect, resizer, rescaler, rotate_aspect, prefix_split, prefix_join }

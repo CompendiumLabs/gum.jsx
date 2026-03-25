@@ -1,8 +1,9 @@
 // slide elements
 
 import { THEME } from '../lib/theme'
+import { prefix_split } from '../lib/utils'
 
-import { prefix_split, spec_split, is_element, ensure_children } from './core'
+import { spec_split, is_element, ensure_children } from './core'
 import { Box, Attach } from './layout'
 import { Span, TextFrame, TextStack } from './text'
 

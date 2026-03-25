@@ -2,10 +2,10 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none, blue, white } from '../lib/const'
-import { sign, abs, linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep } from '../lib/utils'
+import { sign, abs, linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep, prefix_split, prefix_join } from '../lib/utils'
 import { Span } from './text'
 
-import { Element, Group, Spacer, prefix_split, prefix_join, spec_split, is_element, ensure_children } from './core'
+import { Element, Group, Spacer, spec_split, is_element, ensure_children } from './core'
 import { Box, Frame, Attach, HStack, VStack, Anchor } from './layout'
 import { RoundedRect, UnitLine, HLine } from './geometry'
 

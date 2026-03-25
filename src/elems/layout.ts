@@ -2,10 +2,10 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
-import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side, intersperse } from '../lib/utils'
+import { is_scalar, ensure_vector, ensure_point, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side, intersperse, prefix_split } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
-import { Context, Group, Element, Rectangle, Spacer, prefix_split, spec_split, align_frac, ensure_children } from './core'
+import { Context, Group, Element, Rectangle, Spacer, spec_split, align_frac, ensure_children } from './core'
 import { RoundedRect, Dot } from './geometry'
 
 import type { Point, Rect, Limit, AlignValue, Side, Orient, Padding, Rounded } from '../lib/types'

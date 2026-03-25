@@ -247,30 +247,6 @@ const HELP_KEYS = [ 'pos', 'rad', 'xrad', 'yrad', 'flex', 'spin', 'orient' ]
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 
-function prefix_split(pres: string[], attr: Attrs): Attrs[] {
-    const attr1: Attrs = { ...attr }
-    const pres1 = pres.map(p => `${p}_`)
-    const out: Attrs[] = pres.map(_p => ({}))
-    Object.keys(attr).map(k => {
-        for (const i in pres1) {
-            const p1 = pres1[i]
-            if (k.startsWith(p1)) {
-                const k1 = k.slice(p1.length)
-                out[i][k1] = attr1[k]
-                delete attr1[k]
-                break
-            }
-        }
-    })
-    return [ ...out, attr1 ]
-}
-
-function prefix_join(pre: string, attr: Attrs): Attrs {
-    return Object.fromEntries(
-        Object.entries(attr).map(([ k, v ]) => [ `${pre}_${k}`, v ])
-    )
-}
-
 function spec_split(attr: Attrs, extended: boolean = true): [Attrs, Attrs] {
     const SPLIT_KEYS = extended ? RESERVED_KEYS : SPEC_KEYS
     const spec  = filter_object(attr, (k: string, v: any) => v != null &&  SPLIT_KEYS.includes(k))
@@ -327,9 +303,13 @@ class Element {
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
+        // check for required keys
+        if (tag == null) throw new Error('tag is required')
+        if (unary == null) throw new Error('unary is required')
+
         // core display
-        this.tag = tag!
-        this.unary = unary!
+        this.tag = tag
+        this.unary = unary
 
         // store layout params
         this.spec = spec
@@ -761,5 +741,5 @@ class Spacer extends Element {
 // exports
 //
 
-export { Context, Element, Group, Svg, Rectangle, Spacer, is_element, ensure_children, prefix_split, prefix_join, spec_split, align_frac }
+export { Context, Element, Group, Svg, Rectangle, Spacer, is_element, ensure_children, spec_split, align_frac }
 export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }

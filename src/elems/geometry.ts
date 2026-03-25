@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add2, sub2, mul2, div2, range, angle_direc, unit_direc, vector_angle, polar } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add2, sub2, mul2, div2, range, angle_direc, unit_direc, vector_angle, polar, prefix_split } from '../lib/utils'
 
-import { Context, Element, Group, Rectangle, prefix_split } from './core'
+import { Context, Element, Group, Rectangle } from './core'
 
 import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'

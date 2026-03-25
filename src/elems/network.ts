@@ -1,9 +1,9 @@
 // network elements
 
 import { THEME } from '../lib/theme'
-import { abs, sub2, mul2, check_singleton, is_string, rect_center, side_direc } from '../lib/utils'
+import { abs, sub2, mul2, check_singleton, is_string, rect_center, side_direc, prefix_split } from '../lib/utils'
 
-import { Context, Element, Group, prefix_split, ensure_children } from './core'
+import { Context, Element, Group, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Frame } from './layout'
 import { Arrow } from './geometry'
