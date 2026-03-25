@@ -425,9 +425,9 @@ class MathRow extends Group {
     constructor(args: MathRowArgs = {}) {
         const { children: children0, ...attr } = THEME(args, 'MathRow')
         const items = ensure_children(children0)
+        const mathItems = ensure_math_children(items)
 
         // compute layout
-        const mathItems = ensure_math_children(items)
         const { metrics, ...layout } = layoutMathRow(mathItems)
 
         // pass to Group
@@ -542,16 +542,25 @@ class MathBox extends Group {
         const { children: children0, advance: advance0, top = 0, bottom = 0, justify = 'center', vanchor: vanchor0, ...attr } = THEME(args, 'MathBox')
         const child0 = check_singleton(children0)
         const child = ensure_math(child0)
+
+        // get metrics info
         const { left, right, metrics: childMetrics } = child.math
-        const advance = advance0 ?? childMetrics.advance
         const [ ylo, yhi ] = metrics_bounds(childMetrics)
         const height = top + (yhi - ylo) + bottom
-        const anchor = vanchor0 ?? (top - ylo)
-        const item = clone_math(child, { rect: [ 0, top, advance, top + (yhi - ylo) ], align: justify })
-        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: anchor }
+
+        // compute layout metrics
+        const advance = advance0 ?? childMetrics.advance
+        const vrange: Limit = [ 0, height ]
+        const vanchor = vanchor0 ?? (top - ylo)
+        const metrics: InlineMetrics = { advance, vrange, vanchor }
+
+        // make child item
+        const rect: Rect = [ 0, top, advance, top + (yhi - ylo) ]
+        const item = clone_math(child, { rect, align: justify })
+        const coord: Rect = [ 0, 0, advance, height ]
         const aspect = metrics_aspect(metrics)
 
-        super({ children: [ item ], coord: [ 0, 0, advance, height ], aspect, ...attr })
+        super({ children: [ item ], coord, aspect, ...attr })
         this.args = args
         this.math = make_math({ left, right, metrics })
     }
@@ -569,12 +578,20 @@ class MathRule extends Group {
 
     constructor(args: MathRuleArgs = {}) {
         const { advance = 1, thickness = 0.033, rounded = 0.5, fill = black, ...attr } = THEME(args, 'MathRule')
+
+        // make center bar
         const bar = thickness > 0 ? new RoundedRect({ rect: [ 0, 0, advance, thickness ], fill, rounded }) : null
+
+        // compute layout metrics
         const metrics: InlineMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
+        const coord: Rect = [ 0, 0, advance, thickness ]
         const aspect = metrics_aspect(metrics)
 
-        super({ children: [ bar ], coord: [ 0, 0, advance, thickness ], aspect, ...attr })
+        // pass to Group
+        super({ children: [ bar ], coord, aspect, ...attr })
         this.args = args
+
+        // set math metrics
         this.math = make_math({ left: 'none', right: 'none', metrics })
     }
 }
