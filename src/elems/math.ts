@@ -55,6 +55,7 @@ const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
 //
 
 const MATH_AXIS = 0.25
+const INLINE_SHIFT = -0.1
 
 //
 // symbols and spacing
@@ -622,6 +623,7 @@ class MathRule extends Group {
 
 interface MathTextArgs extends GroupArgs {
     spacing?: number
+    inline?: boolean
 }
 
 type MathLeaf = Element | string | number | boolean | null | undefined
@@ -701,7 +703,7 @@ class MathText extends MathRow {
     items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, ...attr } = THEME(args, 'MathText')
+        const { children: children0, spacing = 0.25, inline, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
         const mathItems = normalize_math_children(inputs)
 
@@ -712,6 +714,13 @@ class MathText extends MathRow {
         // pass to Group
         super({ children: items, ...attr })
         this.args = args
+
+        // HACK: shift coord for inline text alignment
+        if (inline && this.spec.coord != null) {
+            const [x1, y1, x2, y2] = this.spec.coord as Rect
+            const shift = INLINE_SHIFT * (y2 - y1)
+            this.spec.coord = [x1, y1 + shift, x2, y2 + shift]
+        }
 
         // set math metrics
         this.items = mathItems
