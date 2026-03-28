@@ -1,5 +1,4 @@
 #! /usr/bin/env bun
-
 import { Command } from 'commander'
 import { readFileSync, watchFile, unwatchFile } from 'fs'
 import { basename, resolve } from 'path'
@@ -41,14 +40,18 @@ const program = new Command()
 program.name('gum-dev')
   .description('Live gum.jsx viewer for kitty-compatible terminals')
   .argument('<file>', 'gum.jsx file to watch')
-  .option('-t, --theme <theme>', 'theme to use', 'dark')
+  .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')
-  .option('-s, --size <size>', 'base size of the SVG', (value) => parseInt(value), 750)
+  .option('-s, --size <size>', 'base size of the SVG', (value) => parseInt(value), 1000)
   .parse()
 
 const [ fileArg ] = program.args
 const opts = program.opts<ViewerOptions>()
 const file = resolve(fileArg)
+
+if (opts.theme == 'light' && opts.background == null) {
+  opts.background = 'white'
+}
 
 if (!process.stdout.isTTY) {
   console.error('gum-dev requires a TTY')

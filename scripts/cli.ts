@@ -13,10 +13,10 @@ program.name('gum')
   .option('-i, --input <input>', 'input format')
   .option('-f, --format <format>', 'format to output')
   .option('-o, --output <output>', 'output file')
-  .option('-t, --theme <theme>', 'theme to use', 'dark')
+  .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')
   .option('-u, --update', 'live update display', false)
-  .option('-s, --size <size>', 'size of the SVG', (value) => parseInt(value), 750)
+  .option('-s, --size <size>', 'size of the SVG', (value) => parseInt(value), 1000)
   .option('-w, --width <width>', 'width of the PNG', (value) => parseInt(value))
   .option('-h, --height <height>', 'height of the PNG', (value) => parseInt(value))
   .parse()
@@ -24,6 +24,11 @@ program.name('gum')
 // parse arguments
 const [file] = program.args
 let { input = 'jsx', format = 'kitty', output, theme, background, size, width, height } = program.opts()
+
+// use white background for light theme
+if (theme == 'light' && background == null) {
+  background = 'white'
+}
 
 // don't output kitty to file
 if (output && format == null) format = 'png'

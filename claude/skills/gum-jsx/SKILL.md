@@ -399,7 +399,7 @@ There is a gallery of more complex examples available. Each is a single markdown
 
 # Commands
 
-To test the output of a particular `gum.jsx` snippet or file, you can pipe it to the `gum-bot` command, which is assumed to be installed globally. If you have vision capabilities, this can be useful for see the actual output of the code, either in SVG or PNG format. Even without vision, one can infer properties of the output by reading the SVG output directly.
+To test the output of a particular `gum.jsx` snippet or file, you can pipe it to the `gum-cli` command, which is assumed to be installed globally. If you have vision capabilities, this can be useful for see the actual output of the code, either in SVG or PNG format. Even without vision, one can infer properties of the output by reading the SVG output directly.
 
 For one off tests, pipe the code using `echo`. It is recommended that you use single quotes as the outer delimiter, to accommodate code that includes double quotes for component properties (e.g. `justify="left"`).
 
@@ -410,29 +410,29 @@ In general, it makes a lot of sense to write a draft to a file, view its output,
 **Examples:**
 ```bash
 # Generate SVG from a gum.jsx snippet
-echo '<Rectangle rounded fill={blue} />' | gum-bot -f svg > output.svg
+echo '<Rectangle rounded fill={blue} />' | gum-cli -f svg > output.svg
 
 # Generate PNG from a gum.jsx snippet
-echo '<Rectangle rounded fill={blue} />' | gum-bot -f png > output.png
+echo '<Rectangle rounded fill={blue} />' | gum-cli -f png > output.png
 
 # Generate SVG from a .jsx file
-cat test.jsx | gum-bot -f svg > output.svg
+cat test.jsx | gum-cli -f svg > output.svg
 
 # Generate PNG from a .jsx file
-cat test.jsx | gum-bot -f png > output.png
+cat test.jsx | gum-cli -f png > output.png
 
 # Generate SVG from a .jsx file without output redirection
-cat test.jsx | gum-bot -f svg -o output.svg
+cat test.jsx | gum-cli -f svg -o output.svg
 
 # Generate PNG from a .jsx file without output redirection
-cat test.jsx | gum-bot -f png -o output.png
+cat test.jsx | gum-cli -f png -o output.png
 ```
 
 **CLI options:**
-- `-s, --size <size>`: size of the SVG (default: 750)
+- `-s, --size <size>`: size of the SVG (default: 1000)
 - `-w, --width <width>`: width of the PNG (default: null)
 - `-h, --height <height>`: height of the PNG (default: null)
-- `-f, --format <format>`: format: svg or png (default: svg)
+- `-f, --format <format>`: format: svg or png (default: null)
 - `-t, --theme <theme>`: theme to use (default: light)
 - `-b, --background <color>`: background color (default: white)
 - `-o, --output <output>`: output file (default: null)
