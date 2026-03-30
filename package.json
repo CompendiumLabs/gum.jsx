@@ -33,7 +33,9 @@
     "./render": "./src/render.ts",
     "./meta": "./src/meta.ts",
     "./fonts/*": "./src/fonts/*",
-    "./docs/*": "./docs/*"
+    "./docs/*": "./docs/*",
+    "./gala/*": "./gala/*",
+    "./prompt/*": "./prompt/*"
   },
   "scripts": {
     "cli": "bun ./scripts/cli.ts",

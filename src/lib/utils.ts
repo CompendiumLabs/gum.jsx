@@ -626,8 +626,9 @@ function cbox_rect(cbox: Rect): Rect {
 // rect aggregators
 //
 
-function merge_rects(rects: (Rect | undefined)[]): Rect {
+function merge_rects(rects: (Rect | undefined)[]): Rect | undefined {
     const rects1 = rects.filter(r => r != null) as Rect[]
+    if (rects1.length == 0) return
     const [ xa, ya, xb, yb ] = zip(...rects1)
     const [ xs, ys ] = [ [ ...xa, ...xb ], [ ...ya, ...yb ] ]
     return [ min(xs), min(ys), max(xs), max(ys) ] as Rect
