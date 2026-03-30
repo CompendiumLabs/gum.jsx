@@ -31,6 +31,7 @@ interface SpanArgs extends ElementArgs {
 class Span extends Element {
     text: string
     metrics: TextMetrics
+    vshift: number
 
     constructor(args: SpanArgs = {}) {
         const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
@@ -56,6 +57,7 @@ class Span extends Element {
         // additional props
         this.text = text
         this.metrics = metrics
+        this.vshift = vshift
     }
 
     // because text will always be displayed upright,
@@ -64,14 +66,15 @@ class Span extends Element {
     props(ctx: Context): Attrs {
         const attr = super.props(ctx)
 
-        // compute glyph rect
+        // compute glyph rect without vshift (apply vshift in pixel space)
         const { vrange: [ ymin, ymax ] } = this.metrics
-        const glyph_rect: Rect = [ 0, ymin, 1, ymax ]
+        const vshift = this.vshift
+        const glyph_rect: Rect = [ 0, ymin - vshift, 1, ymax - vshift ]
         const rect = ctx.mapRect(glyph_rect)
 
         // get position and size
         const [ x, y0, _w, h ] = rect_box(rect, true)
-        const y = y0 + h
+        const y = y0 + (1 + vshift) * h
 
         // get adjusted size
         return { x, y, font_size: `${h}px`, ...attr }
