@@ -509,7 +509,7 @@ function cubic_bezier_point(points: [Point, Point, Point, Point], t: number): Po
     return mix_point(r0, r1, t)
 }
 
-function make_spline(points: Point[], args: SplineFuncArgs = {}): (t: number) => Point {
+function spline(points: Point[], args: SplineFuncArgs = {}): (t: number) => Point {
     const n = points.length
 
     // ensure enough data points
@@ -750,5 +750,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, make_spline, Spline, RoundedRect, ArrowHead, Arrow }
+export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, spline, Spline, RoundedRect, ArrowHead, Arrow }
 export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, SplineFuncArgs }

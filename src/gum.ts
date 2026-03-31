@@ -11,7 +11,7 @@ import { registerFont } from './fonts/fonts'
 
 import { Context, Element, Group, Svg, Rectangle, Spacer, is_element, type ElementArgs } from './elems/core'
 import { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute } from './elems/layout'
-import { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, make_spline, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry'
+import { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, spline, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry'
 import { Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic } from './elems/text'
 import { Node, Edge, Network } from './elems/network'
 import { SymPoints, SymLine, SymSpline, SymShape, SymFill, Field, SymField } from './elems/symbolic'
@@ -29,7 +29,7 @@ const CONST = {
 }
 
 const UTILS = {
-    range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, rounder, random, uniform, normal, interp, palette, add2, sub2, mul2, div2, make_spline,
+    range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, rounder, random, uniform, normal, interp, palette, add2, sub2, mul2, div2, spline,
 }
 
 const CTXS = {
@@ -51,7 +51,7 @@ export {
     setTheme, registerFont,
     is_string, is_boolean, is_array, is_object, is_function, is_element, is_scalar,
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, light, bold,
-    range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, rounder, random, uniform, normal, interp, palette, make_spline,
+    range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, exp, log, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, rounder, random, uniform, normal, interp, palette, spline,
     Context,
     Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage,
     Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd,
