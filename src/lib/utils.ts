@@ -493,6 +493,12 @@ function div2(p0: number | Pair, p1: number | Pair): Pair {
 // metaposition arithmetic
 //
 
+function make_mpoint(p: Point, off: Point): MPoint {
+    const [ x, y ] = p
+    const [ ox, oy ] = off
+    return [ [ x, ox ], [ y, oy ] ]
+}
+
 function ensure_mnumber(p: MNumber | number): MNumber {
     return is_scalar(p) ? [ p, 0 ] as MNumber : p
 }
@@ -507,39 +513,33 @@ function squeeze_mnumber(p: MNumber): number {
     return x
 }
 
-function make_mpoint(p: Point, off: Point): MPoint {
-    const [ x, y ] = p
-    const [ ox, oy ] = off
-    return [ [ x, ox ], [ y, oy ] ]
-}
-
 function squeeze_mpoint(p: MPoint): Point {
     const [ x, y ] = p
     return [ squeeze_mnumber(x), squeeze_mnumber(y) ]
 }
 
-function add_mnumber(p0: MNumber | number, p1: MNumber | number): MNumber {
+function addm(p0: MNumber | number, p1: MNumber | number): MNumber {
     const [ x0, c0 ] = ensure_mnumber(p0)
     const [ x1, c1 ] = ensure_mnumber(p1)
     return [ x0 + x1, c0 + c1 ]
 }
 
-function sub_mnumber(p0: MNumber | number, p1: MNumber | number): MNumber {
+function subm(p0: MNumber | number, p1: MNumber | number): MNumber {
     const [ x0, c0 ] = ensure_mnumber(p0)
     const [ x1, c1 ] = ensure_mnumber(p1)
     return [ x0 - x1, c0 - c1 ]
 }
 
-function add_mpoint(p0: MPoint | Point, p1: MPoint | Point): MPoint {
+function add2m(p0: MPoint | Point, p1: MPoint | Point): MPoint {
     const [ x0, y0 ] = ensure_mpoint(p0)
     const [ x1, y1 ] = ensure_mpoint(p1)
-    return [ add_mnumber(x0, x1), add_mnumber(y0, y1) ]
+    return [ addm(x0, x1), addm(y0, y1) ]
 }
 
-function sub_mpoint(p0: MPoint | Point, p1: MPoint | Point): MPoint {
+function sub2m(p0: MPoint | Point, p1: MPoint | Point): MPoint {
     const [ x0, y0 ] = ensure_mpoint(p0)
     const [ x1, y1 ] = ensure_mpoint(p1)
-    return [ sub_mnumber(x0, x1), sub_mnumber(y0, y1) ]
+    return [ subm(x0, x1), subm(y0, y1) ]
 }
 
 //
@@ -588,8 +588,8 @@ function rect_radial(rect: Rect, absolute: boolean = false): Rect {
 function radial_rect(p0: Point | MPoint, r0: number | Size): Rect {
     const p = ensure_mpoint(p0)
     const r = ensure_point(r0)
-    const pa = sub_mpoint(p, r)
-    const pb = add_mpoint(p, r)
+    const pa = sub2m(p, r)
+    const pb = add2m(p, r)
     return [ ...squeeze_mpoint(pa), ...squeeze_mpoint(pb) ]
 }
 
@@ -904,4 +904,4 @@ function palette(start0: string, stop0: string, lim: Limit = D.lim): (x: number)
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heaviside, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add2, sub2, mul2, div2, ensure_mnumber, add_mnumber, sub_mnumber, ensure_mpoint, add_mpoint, sub_mpoint, squeeze_mnumber, make_mpoint, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_limits, merge_values, expand_limits, expand_rect, upright_rect, upright_limits, rounder, remap_rect, resizer, rescaler, rotate_aspect, prefix_split, prefix_join }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, map_object_async, filter_object, compress_whitespace, exp, log, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heaviside, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, random, uniform, normal, ensure_point, add2, sub2, mul2, div2, ensure_mnumber, ensure_mpoint, addm, subm, add2m, sub2m, make_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_limits, merge_values, expand_limits, expand_rect, upright_rect, upright_limits, rounder, remap_rect, resizer, rescaler, rotate_aspect, prefix_split, prefix_join }

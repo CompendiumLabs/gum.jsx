@@ -2,11 +2,11 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub_mpoint, add2, sub2, mul2, div2, range, angle_direc, unit_direc, vector_angle, polar, prefix_split } from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, ensure_mnumber, ensure_mpoint, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, add2m, sub2m, add2, sub2, mul2, div2, clamp, range, angle_direc, unit_direc, vector_angle, polar, prefix_split } from '../lib/utils'
 
 import { Context, Element, Group, Rectangle } from './core'
 
-import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
+import type { Point, Limit, Grad, Attrs, MNumber, MPoint, Orient, Rounded, Direc } from '../lib/types'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
@@ -418,7 +418,7 @@ class CubicSplineCmd extends Command {
 
     args(ctx: Context): string {
         // use dir if provided, otherwise use tan
-        const dist = squeeze_mpoint(sub_mpoint(this.pos2, this.pos1)).map(abs) as Point
+        const dist = squeeze_mpoint(sub2m(this.pos2, this.pos1)).map(abs) as Point
         const tan1 = this.dir1 != null ? mul2(this.dir1, dist) : this.tan1
         const tan2 = this.dir2 != null ? mul2(this.dir2, dist) : this.tan2
         if (tan1 == null || tan2 == null) throw new Error('Spline tangent must be defined')
@@ -446,6 +446,108 @@ class CubicSplineCmd extends Command {
 // spline class
 //
 
+interface SplineFuncArgs {
+    dir1?: Grad
+    dir2?: Grad
+    curve?: number
+    closed?: boolean
+}
+
+function is_mpoint(point: Point | MPoint): point is MPoint {
+    return is_array(point[0]) || is_array(point[1])
+}
+
+function mix_mnumber(v1: number | MNumber, v2: number | MNumber, t: number): MNumber {
+    const [ x1, c1 ] = ensure_mnumber(v1)
+    const [ x2, c2 ] = ensure_mnumber(v2)
+    return [
+        (1 - t) * x1 + t * x2,
+        (1 - t) * c1 + t * c2,
+    ]
+}
+
+function mix_mpoint(p1: Point | MPoint, p2: Point | MPoint, t: number): MPoint {
+    const [ x1, y1 ] = ensure_mpoint(p1)
+    const [ x2, y2 ] = ensure_mpoint(p2)
+    return [
+        mix_mnumber(x1, x2, t),
+        mix_mnumber(y1, y2, t),
+    ]
+}
+
+function cubic_spline_tans(points: (Point | MPoint)[], closed: boolean = false): Point[] {
+    const n = points.length
+    return range(n).map(i => {
+        const i1 = (closed && i == 0    ) ? n - 1 : Math.max(0    , i - 1)
+        const i2 = (closed && i == n - 1) ? 0     : Math.min(n - 1, i + 1)
+        return squeeze_mpoint(sub2m(points[i2], points[i1]))
+    })
+}
+
+function cubic_spline_points(args: CubicSplineCmdArgs = {}): [MPoint, MPoint, MPoint, MPoint] {
+    const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 } = args ?? {}
+    if (pos1 == null || pos2 == null) throw new Error('Spline endpoints must be defined')
+
+    // use dir if provided, otherwise use tan
+    const dist = squeeze_mpoint(sub2m(pos2, pos1)).map(abs) as Point
+    const tan1a = dir1 != null ? mul2(dir1, dist) as Point : tan1
+    const tan2a = dir2 != null ? mul2(dir2, dist) as Point : tan2
+    if (tan1a == null || tan2a == null) throw new Error('Spline tangent must be defined')
+
+    // compute scaled tangents and Bernstein controls in spline coordinates
+    const stan1 = div2(mul2(tan1a, curve), 3) as Point
+    const stan2 = div2(mul2(tan2a, curve), 3) as Point
+    const cpos1 = ensure_mpoint(pos1)
+    const cpos2 = ensure_mpoint(pos2)
+    const con1 = add2m(cpos1, stan1)
+    const con2 = sub2m(cpos2, stan2)
+
+    return [ cpos1, con1, con2, cpos2 ]
+}
+
+function cubic_bezier_point(points: [Point | MPoint, Point | MPoint, Point | MPoint, Point | MPoint], t: number): MPoint {
+    const [ p0, p1, p2, p3 ] = points
+    const q0 = mix_mpoint(p0, p1, t)
+    const q1 = mix_mpoint(p1, p2, t)
+    const q2 = mix_mpoint(p2, p3, t)
+    const r0 = mix_mpoint(q0, q1, t)
+    const r1 = mix_mpoint(q1, q2, t)
+    return mix_mpoint(r0, r1, t)
+}
+
+function make_spline(points: Point[], args?: SplineFuncArgs): (t: number) => Point
+function make_spline(points: (Point | MPoint)[], args?: SplineFuncArgs): (t: number) => Point | MPoint
+function make_spline(points0: (Point | MPoint)[], args: SplineFuncArgs = {}): (t: number) => Point | MPoint {
+    const { dir1, dir2, curve, closed = false } = args
+    const points = check_array(points0)
+    const has_mpoint = points.some(is_mpoint)
+    const n = points.length
+
+    if (n < 2) throw new Error('Spline must have at least two points')
+
+    const tans = cubic_spline_tans(points, closed)
+    const num = Math.max(0, closed ? n : n - 1)
+    const splines = range(num).map(i => {
+        const ip = (closed && i == num - 1) ? 0 : i + 1
+        const d1 = (!closed && i == 0) ? dir1 : undefined
+        const d2 = (!closed && i == num - 1) ? dir2 : undefined
+        return cubic_spline_points({
+            pos1: points[i], pos2: points[ip],
+            tan1: tans[i], tan2: tans[ip],
+            dir1: d1, dir2: d2, curve,
+        })
+    })
+
+    return (t: number) => {
+        const t1 = clamp(t, [ 0, 1 ])
+        const [ i, u ] = (t1 >= 1) ?
+            [ num - 1, 1 ] :
+            [ Math.floor(t1 * num), t1 * num % 1 ]
+        const point = cubic_bezier_point(splines[i], u)
+        return has_mpoint ? point : squeeze_mpoint(point)
+    }
+}
+
 interface SplineArgs extends ElementArgs {
     points?: (MPoint | Point)[]
     dir1?: Grad
@@ -461,11 +563,7 @@ class Spline extends Path {
 
         // compute tangent directions at each point (cardinal spline)
         const n = points.length
-        const tans = range(n).map(i => {
-            const i1 = (closed && i == 0    ) ? n - 1 : Math.max(0    , i - 1)
-            const i2 = (closed && i == n - 1) ? 0     : Math.min(n - 1, i + 1)
-            return squeeze_mpoint(sub_mpoint(points[i2], points[i1]))
-        })
+        const tans = cubic_spline_tans(points, closed)
 
         // create path commands
         const move = new MoveCmd(points[0])
@@ -677,5 +775,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
-export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }
+export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, make_spline, Spline, RoundedRect, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, SplineFuncArgs }
