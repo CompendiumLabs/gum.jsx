@@ -449,13 +449,13 @@ class CubicSplineCmd extends Command {
 //
 
 interface SplineFuncArgs {
-    dir1?: Grad
-    dir2?: Grad
+    start_dir?: Grad
+    end_dir?: Grad
     curve?: number
     closed?: boolean
 }
 
-function cubic_spline_data<T extends Point | MPoint>(points: T[], { dir1, dir2, curve, closed = false }: SplineFuncArgs = {}): SplineData<T>[] {
+function cubic_spline_data<T extends Point | MPoint>(points: T[], { start_dir, end_dir, curve, closed = false }: SplineFuncArgs = {}): SplineData<T>[] {
     const n = points.length
     const tans = range(n).map(i => {
         const i1 = (closed && i == 0    ) ? n - 1 : Math.max(0    , i - 1)
@@ -471,8 +471,8 @@ function cubic_spline_data<T extends Point | MPoint>(points: T[], { dir1, dir2, 
             pos2: points[ip],
             tan1: tans[i],
             tan2: tans[ip],
-            dir1: (!closed && i == 0) ? dir1 : undefined,
-            dir2: (!closed && i == num - 1) ? dir2 : undefined,
+            dir1: (!closed && i == 0) ? start_dir : undefined,
+            dir2: (!closed && i == num - 1) ? end_dir : undefined,
             curve,
         }
     })
@@ -532,26 +532,21 @@ function spline(points: Point[], args: SplineFuncArgs = {}): (t: number) => Poin
 
 interface SplineArgs extends ElementArgs {
     points?: (MPoint | Point)[]
-    dir1?: Grad
-    dir2?: Grad
+    start_dir?: Grad
+    end_dir?: Grad
     curve?: number
     closed?: boolean
 }
 
 class Spline extends Path {
     constructor(args: SplineArgs = {}) {
-        const { points: points0, dir1, dir2, curve, closed = false, ...attr } = THEME(args, 'Spline')
+        const { points: points0, start_dir, end_dir, curve, closed = false, ...attr } = THEME(args, 'Spline')
         const points = check_array(points0)
         const n = points.length
 
-        // ensure enough data points
-        if (n < 2) {
-            throw new Error('Spline must have at least two points')
-        }
-
         // create path commands
         const move = new MoveCmd(points[0])
-        const splines = cubic_spline_data(points, { dir1, dir2, curve, closed })
+        const splines = cubic_spline_data(points, { start_dir, end_dir, curve, closed })
             .map(spline => new CubicSplineCmd(spline))
 
         // pass to Path
@@ -608,16 +603,6 @@ class RoundedRect extends Path {
         // pass to Path
         super({ children, stroke_width: border, ...attr })
         this.args = args
-    }
-
-    // intercept prect and ensure its upright
-    // otherwide CornerCmd will fail going counter-clockwise
-    // TODO: could this be yet another spec property?
-    props(ctx: Context): Attrs {
-        const { prect: prect0 } = ctx
-        const prect = upright_rect(prect0)
-        const ctx1 = ctx.clone({ prect })
-        return super.props(ctx1)
     }
 }
 
@@ -696,7 +681,7 @@ interface ArrowArgs extends GroupArgs {
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { points, start_dir, end_dir, arrow_size = 0.04, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, stroke_width = 1, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'Arrow')
+        const { points: points0, start_dir: start_dir0, end_dir: end_dir0, arrow_size = 0.04, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, stroke_width = 1, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'Arrow')
         const [ line_attr0, arrow_attr0, start_attr0, end_attr0, attr ] = prefix_split([ 'line', 'arrow', 'start', 'end' ], attr0)
 
         // arrow defaults
@@ -711,34 +696,35 @@ class Arrow extends Group {
         const end_attr = { ...arrow_attr, ...end_attr0 }
 
         // check for points
-        if (points == null) throw new Error('Must provide `points`')
+        if (points0 == null) throw new Error('Must provide `points`')
 
         // check for points
-        const [ start, start_pre, end_pre, end ] = [ points[0], points[1], points[points.length-2], points[points.length-1] ]
+        const n = points0.length
+        const [ start, start_pre, end_pre, end ] = [ points0[0], points0[1], points0[n-2], points0[n-1] ]
         if (start == null || end == null) throw new Error('Must provide both `start` and `end` points')
 
         // get the stroke offset
         const stroke_offset = 0.5 * stroke_width
 
         // infer the from arrow direction
-        const start_direc = unit_direc(start_dir ?? sub2(start_pre, start))
-        const start_angle = 180 - vector_angle(start_direc)
-        const start_pos = make_mpoint(start, mul2(start_direc, stroke_offset))
+        const start_dir = unit_direc(start_dir0 ?? sub2(start_pre, start))
+        const start_ang = 180 - vector_angle(start_dir)
+        const start_pos = make_mpoint(start, mul2(start_dir, stroke_offset))
 
         // infer the to arrow direction
-        const end_direc = unit_direc(end_dir ?? sub2(end, end_pre))
-        const end_angle = -vector_angle(end_direc)
-        const end_pos = make_mpoint(end, mul2(end_direc, -stroke_offset))
+        const end_dir = unit_direc(end_dir0 ?? sub2(end, end_pre))
+        const end_ang = -vector_angle(end_dir)
+        const end_pos = make_mpoint(end, mul2(end_dir, -stroke_offset))
 
         // make line path
-        const points_adj = [ start_pos, ...points.slice(1, -1), end_pos ]
+        const points = [ start_pos, ...points0.slice(1, -1), end_pos ]
         const line_elem = curve ?
-            new Spline({ points: points_adj, dir1: start_direc, dir2: end_direc, curve, coord, ...line_attr }) :
-            new Line({ points: points_adj, coord, ...line_attr })
+            new Spline({ points, start_dir, end_dir, curve, coord, ...line_attr }) :
+            new Line({ points, coord, ...line_attr })
 
         // make arrowheads
-        const start_elem = arrow_start ? new ArrowHead({ angle: start_angle, pos: start, rad: arrow_size, ...start_attr }) : null
-        const end_elem = arrow_end ? new ArrowHead({ angle: end_angle, pos: end, rad: arrow_size, ...end_attr }) : null
+        const start_elem = arrow_start ? new ArrowHead({ angle: start_ang, pos: start, rad: arrow_size, ...start_attr }) : null
+        const end_elem = arrow_end ? new ArrowHead({ angle: end_ang, pos: end, rad: arrow_size, ...end_attr }) : null
 
         // pass to Group
         super({ children: [ line_elem, start_elem, end_elem ], coord, ...attr })
