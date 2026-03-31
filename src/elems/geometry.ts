@@ -381,34 +381,36 @@ class CornerCmd {
     }
 }
 
-interface CubicSplineCmdArgs {
-    pos1?: Point | MPoint
-    pos2?: Point | MPoint
-    dir1?: Point
-    dir2?: Point
-    tan1?: Point
-    tan2?: Point
+interface SplineData<T extends Point | MPoint = Point | MPoint> {
+    pos1: T
+    pos2: T
+    tan1: Point
+    tan2: Point
+    dir1?: Grad
+    dir2?: Grad
     curve?: number
 }
+
+type CubicSplineCmdArgs = SplineData<Point | MPoint>
 
 class CubicSplineCmd extends Command {
     pos1: Point | MPoint
     pos2: Point | MPoint
-    dir1?: Point
-    dir2?: Point
-    tan1?: Point
-    tan2?: Point
+    dir1?: Grad
+    dir2?: Grad
+    tan1: Point
+    tan2: Point
     curve: number
 
-    constructor(args: CubicSplineCmdArgs = {}) {
-        const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 } = args ?? {}
+    constructor(args: CubicSplineCmdArgs) {
+        const { pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 } = args
 
         // pass to Command
         super('C')
 
         // additional props
-        this.pos1 = pos1!
-        this.pos2 = pos2!
+        this.pos1 = pos1
+        this.pos2 = pos2
         this.dir1 = dir1
         this.dir2 = dir2
         this.tan1 = tan1
@@ -453,17 +455,7 @@ interface SplineFuncArgs {
     closed?: boolean
 }
 
-interface SplinePoint<T extends Point | MPoint = Point | MPoint> {
-    pos1: T
-    pos2: T
-    tan1: Point
-    tan2: Point
-    dir1?: Grad
-    dir2?: Grad
-    curve?: number
-}
-
-function cubic_spline_data<T extends Point | MPoint>(points: T[], { dir1, dir2, curve, closed = false }: SplineFuncArgs = {}): SplinePoint<T>[] {
+function cubic_spline_data<T extends Point | MPoint>(points: T[], { dir1, dir2, curve, closed = false }: SplineFuncArgs = {}): SplineData<T>[] {
     const n = points.length
     const tans = range(n).map(i => {
         const i1 = (closed && i == 0    ) ? n - 1 : Math.max(0    , i - 1)
@@ -486,7 +478,7 @@ function cubic_spline_data<T extends Point | MPoint>(points: T[], { dir1, dir2, 
     })
 }
 
-function cubic_spline_points({ pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 }: SplinePoint<Point>): [Point, Point, Point, Point] {
+function cubic_spline_points({ pos1, pos2, dir1, dir2, tan1, tan2, curve = 0.5 }: SplineData<Point>): [Point, Point, Point, Point] {
 
     // use dir if provided, otherwise use tan
     const dist = squeeze_mpoint(sub2m(pos2, pos1)).map(abs) as Point
