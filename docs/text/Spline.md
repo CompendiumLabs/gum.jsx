@@ -6,7 +6,7 @@ This creates a smooth cardinal spline curve through a series of points. The tang
 
 The `curve` parameter controls the tension of the spline. Lower values (e.g., 0.5) create tighter curves with less overshoot, while higher values (e.g., 1.5) create looser, more flowing curves. The default value of 0.5 produces the canonical *Catmull-Rom* spline.
 
-In some cases, you may want to construct spline data explicitly (say to place points or labels along a spline). In this cases, there is a `spline` function that accepts the same arguments as this component but returns a spline function over `[0, 1]`.
+In some cases, you may want to construct spline data explicitly (say to place points or labels along a spline). In this cases, there is a `spline2d` function that accepts the same arguments as this component but returns a t -> (x,y) spline function over `[0, 1]`. There is also a `spline1d` function that returns an x -> y spline function.
 
 Parameters:
 - `points` — array of point coordinates (minimum of 2 required)
