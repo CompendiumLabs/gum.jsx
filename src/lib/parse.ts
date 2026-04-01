@@ -49,7 +49,7 @@ function snakeCase(s: string): string {
 }
 
 function filterChildren(items: any[]): any[] {
-  return items.flat()
+  return items.flat(Infinity)
     .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
