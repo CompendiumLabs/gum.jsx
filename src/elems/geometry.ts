@@ -601,7 +601,7 @@ class RoundedRect extends Path {
         ]
 
         // pass to Path
-        super({ children, stroke_width: border, ...attr })
+        super({ children, stroke_width: border, upright: true, ...attr })
         this.args = args
     }
 }
