@@ -131,13 +131,13 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     return computed ? `${obj}[${prop}]` : `${obj}.${prop}`
   },
   FunctionDeclaration(node) {
-    const { id, body } = node
+    const { id, params, body } = node
     const name = walkTree(id)
-    return `function ${name}() {\n${walkTree(body)}\n}`
+    return `function ${name}(${params.map(walkTree).join(', ')}) {\n${walkTree(body)}\n}`
   },
   FunctionExpression(node) {
     const { params, body } = node
-    return `(${params.map(walkTree).join(', ')}) {\n${walkTree(body)}\n}`
+    return `function(${params.map(walkTree).join(', ')}) {\n${walkTree(body)}\n}`
   },
   ArrowFunctionExpression(node) {
     const { params, body } = node

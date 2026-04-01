@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'fs'
 
 import { evaluateGum } from '../src/eval'
 
-const dirs = ['docs/code', 'docs/gala']
+const dirs = ['docs/code', 'gala/code']
 let passed = 0
 let failed = 0
 
