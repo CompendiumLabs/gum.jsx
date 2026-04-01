@@ -66,6 +66,11 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, ...args
   // parse to property tree
   const result = runJSX(code, context, debug)
 
+  // handle array result (from JSX fragments)
+  if (Array.isArray(result)) {
+    return new Svg({ children: result, ...args })
+  }
+
   // check if its actually a tree
   if (!is_element(result)) {
     if (result == null) {

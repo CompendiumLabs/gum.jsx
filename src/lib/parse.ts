@@ -327,7 +327,11 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     return { name, props }
   },
   JSXClosingElement(_node) {},
-  JSXFragment(_node) {},
+  JSXFragment(node) {
+    const { children } = node
+    const cstrings = children.map(walkTree).filter((c: any) => c != null)
+    return `[${cstrings.join(',\n')}]`
+  },
   JSXText(node) {
     if (isWhitespace(node.value)) return null
     return `${JSON.stringify(node.value)}`
