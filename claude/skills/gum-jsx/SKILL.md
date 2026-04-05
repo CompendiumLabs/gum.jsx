@@ -94,7 +94,7 @@ const points = [
   [0.25, 0.10],
 ]
 const Star = (attr) =>
-  <Spline rad={0.03} aspect closed data={aster} {...attr} />
+  <Spline rad={0.03} aspect closed points={aster} {...attr} />
 return <Box border rounded fill={gray}>
   {points.map(p => <Star pos={p} fill={yellow} />)}
 </Box>

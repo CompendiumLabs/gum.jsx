@@ -42,6 +42,7 @@ interface RasterizeArgs {
   width?: number
   height?: number
   background?: string
+  format?: 'png' | 'array'
 }
 
 interface FormatImageArgs {
@@ -66,7 +67,7 @@ function buildFitTo(width?: number, height?: number): FitTo {
 }
 
 // rasterize SVG buffer/string to PNG
-function rasterizeSvg(svg: string | Buffer, { size, width, height, background }: RasterizeArgs = {}): Buffer {
+function rasterizeSvg(svg: string | Buffer, { size, width, height, background, format = 'png' }: RasterizeArgs = {}): Buffer {
   // scale down intrinsic height
   if (size != null && width != null && height != null) {
     const [width0, height0] = size
@@ -79,7 +80,8 @@ function rasterizeSvg(svg: string | Buffer, { size, width, height, background }:
   // pass to resvg
   const fitTo = buildFitTo(width, height)
   const resvg = new Resvg(svg, { fitTo, font, background })
-  return resvg.render().asPng()
+  const result = resvg.render()
+  return format == 'png' ? result.asPng() : result.pixels
 }
 
 // kitty image protocol
