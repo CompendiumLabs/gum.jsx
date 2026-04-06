@@ -14,6 +14,7 @@ Here we collect a variety of global mathematical functions and constants. You ca
 
 - `exp(x)` — the exponential function
 - `log(x)` — the natural logarithm
+- `log10(x)` — the base 10 logarithm
 - `sin(x)` — the sine function
 - `cos(x)` — the cosine function
 - `tan(x)` — the tangent function

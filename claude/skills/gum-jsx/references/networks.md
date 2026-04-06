@@ -9,7 +9,7 @@ This encloses an element in a **Frame** at a particular position. If the `childr
 Parameters:
 - `id` — a string to be used as the node identifier
 - `children` — the element or text to be enclosed in the node box
-- `yrad` = `0.1` — the radius of the node box (will adjust to aspect)
+- `ysize` = `0.2` — the height of the node box (width will adjust to aspect)
 - `padding` = `0.1` — the padding of the node box
 - `border` = `1` — the border width of the node box
 - `rounded` = `0.05` — the radius of the corners of the node box
@@ -79,7 +79,7 @@ Prompt: A network with a node on the left saying "Hello world" and two nodes on 
 
 Generated code:
 ```jsx
-<Network aspect={1.5} node-yrad={0.15} node-rounded node-fill={gray} edge-fill={white}>
+<Network aspect={1.5} node-ysize={0.3} node-rounded node-fill={gray} edge-fill={white}>
   <Node id="hello" pos={[0.25, 0.5]} wrap={3}>Hello world</Node>
   <Node id="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</Node>
   <Node id="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>

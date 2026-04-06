@@ -44,33 +44,33 @@ return <Box margin={0.06}>
       <Mesh2D xlocs={25} ylocs={20} stroke={navy} stroke-opacity={0.05} />
 
       {/* Ceiling / support */}
-      <RoundedRect pos={[0.5, 0]} rad={[0.3, 0.08]} fill={sand} stroke={navy} stroke-width={1.5} rounded={0.1} />
+      <RoundedRect pos={[0.5, 0]} size={[0.6, 0.16]} fill={sand} stroke={navy} stroke-width={1.5} rounded={0.1} />
 
       {/* Angle arc */}
-      <Arc pos={[pivotX, pivotY]} rad={arcRad} start={90} end={rodRot} stroke={rose} stroke-width={2} />
-      <Latex pos={[pivotX + 0.04, pivotY + 0.18]} yrad={0.05} color={rose}>\theta</Latex>
+      <Arc pos={[pivotX, pivotY]} size={2 * arcRad} start={90} end={rodRot} stroke={rose} stroke-width={2} />
+      <Latex pos={[pivotX + 0.04, pivotY + 0.18]} ysize={0.1} color={rose}>\theta</Latex>
 
       {/* Equilibrium line */}
       <Line stroke={steel} stroke-width={2} stroke-dasharray={4} points={[[pivotX, pivotY], [pivotX, eqnY]]} />
-      <Dot pos={[pivotX, eqnY]} rad={0.01} color={steel} stroke-width={2}/>
+      <Dot pos={[pivotX, eqnY]} size={0.02} color={steel} stroke-width={2}/>
 
       {/* Rod */}
       <Line stroke={navy} stroke-width={2.5} points={[[pivotX, pivotY], [bobX, bobY]]} />
-      <Latex pos={[midX - 0.02, midY + 0.06]} yrad={0.05} color={navy}>\ell</Latex>
+      <Latex pos={[midX - 0.02, midY + 0.06]} ysize={0.1} color={navy}>\ell</Latex>
 
       {/* Pivot point */}
-      <Circle pos={[pivotX, pivotY]} rad={0.01} fill={slate} stroke={navy} stroke-width={1.5} />
+      <Circle pos={[pivotX, pivotY]} size={0.02} fill={slate} stroke={navy} stroke-width={1.5} />
 
       {/* Tension arrow */}
       <Arrow points={[[bobX, bobY], [tenX, tenY]]} stroke={sage} stroke-width={2} arrow-fill={sage} arrow-size={0.04} />
-      <Latex pos={[tenX + 0.06, tenY + 0.01]} yrad={0.05} color={sage}>T</Latex>
+      <Latex pos={[tenX + 0.06, tenY + 0.01]} ysize={0.1} color={sage}>T</Latex>
 
       {/* Gravity arrow */}
       <Arrow points={[[bobX, bobY], [bobX, bobY + bobRad + 0.13]]} stroke={rose} stroke-width={2} arrow-fill={rose} arrow-size={0.03} />
-      <Latex pos={[bobX + 0.09, bobY + bobRad + 0.1]} yrad={0.05} color={rose}>mg</Latex>
+      <Latex pos={[bobX + 0.09, bobY + bobRad + 0.1]} ysize={0.1} color={rose}>mg</Latex>
 
       {/* Bob */}
-      <Frame aspect={1} pos={[bobX, bobY]} rad={bobRad} padding={0.5} fill={sage} stroke={navy}border={2} shape={<Circle />}>
+      <Frame aspect={1} pos={[bobX, bobY]} size={2 * bobRad} padding={0.5} fill={sage} stroke={navy}border={2} shape={<Circle />}>
         <Latex color={white}>m</Latex>
       </Frame>
     </Frame>

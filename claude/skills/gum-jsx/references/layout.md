@@ -40,14 +40,14 @@ Generated code:
 
 *Inherits*: **Group** > **Element**
 
-Stack one or more **Element** either vertically or horizontally. There are specialized components **VStack** and **HStack** that don't take the `direc` argument. Proportional spacing between children can be specified with the `spacing` parameter. This handles child positioning and sizing, so any `pos`/`rad` arguments will be overridden.
+Stack one or more **Element** either vertically or horizontally. There are specialized components **VStack** and **HStack** that don't take the `direc` argument. Proportional spacing between children can be specified with the `spacing` parameter. This handles child positioning and sizing, so any `pos`/`size` arguments will be overridden.
 
-Elements can specify their own sizing with the `stack-size` parameter (do not use `rad`/`xrad`/`yrad` on child elements, this will be overridden). If `stack-size` is not specified and `stack-expand` is not set to `false`, space will be distributed according to the child's aspect ratio. If `stack-expand` is set to `false`, the child will be given an even share of the remaining space.
+Elements can specify their own sizing with the `stack-size` parameter, which controls the child's relative share of the available space along the stack axis (do not use `size`/`xsize`/`ysize` on child elements, this will be overridden). If `stack-size` is not specified and `stack-expand` is not set to `false`, space will be distributed according to the child's aspect ratio. If `stack-expand` is set to `false`, the child will be given an even share of the remaining space.
 
 Whenever possible, the aspect ratio of the overall stack is set so that all elements with defined aspect ratios will reach full width (in the **VStack** case) or full height (in the **HStack** case).
 
 Child parameters:
-- `stack-size` = `null` — the size of the child element
+- `stack-size` = `null` — the child's relative share of the available space along the stack axis
 - `stack-expand` = `true` — whether to expand the child to fill the remaining space
 
 Parameters:
@@ -94,7 +94,7 @@ Generated code:
     { linspace(0, 360, 10).slice(0, 9).map(th =>
       <Frame padding rounded fill>
         <Group aspect={1} spin={th}>
-          <Arrow points={[[0, 0.5], [1, 0.5]]} arrow-size={0.2} />
+          <Arrow points={[[0, 0.5], [1, 0.5]]} arrow-size={0.4} />
         </Group>
       </Frame>
     ) }
@@ -106,12 +106,12 @@ Generated code:
 
 *Inherits*: **Group** > **Element**
 
-Place copies of a common shape at various points. The radius can be specified by the `size` keyword and overridden for particular children. The default shape is a black dot.
+Place copies of a common shape at various points. Marker size is controlled with `point-size`, while the **Points** element itself can still be laid out with the normal `size`/`xsize`/`ysize` element parameters. The default shape is a black dot.
 
 Keyword arguments:
 - `points` — a list of points, where each point is either an `[x, y]` pair
-- `shape` = `Dot` — the default shape to use for children
-- `size` = `0.025` — the default radius to use for children
+- `point-shape` = `Dot` — the default shape to use for children
+- `point-size` = `0.05` — the default size to use for children
 - `...` = `{}` — additional attributes are passed to the default shape (like `stroke` or `fill`)
 
 **Example**
@@ -121,11 +121,11 @@ Prompt: A plot of three different increasing curves of varying steepness and mul
 Generated code:
 ```jsx
 <Plot xlim={[-1, 1]} ylim={[-1, 1]} grid margin={0.3} aspect xlabel="time (seconds)" ylabel="space (meters)" title="Spacetime Vibes">
-  <Points size={0.02} points={[
+  <Points point-size={0.04} points={[
     [0, 0.5], [0.5, 0], [-0.5, 0], [0, -0.5]
   ]} />
-  <Rectangle pos={[0.5, 0.5]} rad={0.1} />
-  <Circle pos={[-0.5, -0.5]} rad={0.1} />
+  <Rectangle pos={[0.5, 0.5]} size={0.2} />
+  <Circle pos={[-0.5, -0.5]} size={0.2} />
   {[0.5, 0.9, 1.5].map(a =>
     <SymLine fy={x => sin(a*x)} />
   )}

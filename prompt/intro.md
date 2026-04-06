@@ -2,7 +2,7 @@
 
 The `gum.jsx` language allows for the elegant and concise creation of SVG visualizations. It has a React-like JSX syntax. When interpreted, it produces pure SVG of a specified size. It is a library of `Element` derived components such as `Circle`, `Stack`, `Plot`, `Network`, and many more. Some of these map closely to standard SVG objects, while others are higher level abstractions and layout containers. You can add standard SVG attributes (like `fill`, `stroke`, `stroke-width`, `opacity`, etc.) to any `Element` component and they will be applied to the resulting SVG.
 
-*Proportional values*: In most cases, values are passed in proportional floating point terms. So to place an object in the center of its parent, you would specify `pos = [0.5, 0.5]`, with the size specified by `rad`. When dealing with inherently absolute concepts like `stroke-width`, standard SVG units are used, and numerical values assumed to be specified in pixels. Most `Element` objects fill the standard coordinate space `[0, 0, 1, 1]` by default. To reposition them, either pass the appropriate internal arguments (such as `pos` or `rad`) or use a layout component such as `Box` or `Stack` to arrange them.
+*Proportional values*: In most cases, values are passed in proportional floating point terms. So to place an object in the center of its parent, you would specify `pos = [0.5, 0.5]`, with the size specified by `size`. When dealing with inherently absolute concepts like `stroke-width`, standard SVG units are used, and numerical values assumed to be specified in pixels. Most `Element` objects fill the standard coordinate space `[0, 0, 1, 1]` by default. To reposition them, either pass the appropriate internal arguments (such as `pos` or `size`) or use a layout component such as `Box` or `Stack` to arrange them.
 
 *Aspect ratio*: Any `Element` object can have an aspect ratio `aspect`. If `aspect` is not defined, it will stretch to fit any box, while if `aspect` is defined it will be sized so as to fit within the specified rectangle while maintaining its aspect ratio. However, when `expand` is set to `true`, the element will be sized to cover the specified rectangle, while maintaining its aspect ratio.
 
@@ -11,7 +11,7 @@ The `gum.jsx` language allows for the elegant and concise creation of SVG visual
 *Functional approach*: Avoid explicit for loops. There are `numpy`-like functions such as `range` and `linspace` for generating arrays, `zip` for combining arrays, and `palette` for interpolating colors. Additionally, you can use `map` to generate a list of elements (such as bars for a bar plot).
 
 *Style tips*: There will be cases where a user prompt does not fully specify every detail. In these cases, use your best judgment and consider the following suggestions:
-  - Text should be legible and not overlap. Usually a text element `yrad` of about `0.1` to `0.2` works well
+  - Text should be legible and not overlap. Usually a text element `ysize` of about `0.1` to `0.2` works well
   - Points and other small features should be visible but not overwhelming. Usually a size of about `0.03` is good for small features
   - The figure should have appropriate outer margins so that extended features like tick labels do not get cut off. Usually a margin of about `0.1` to `0.2` works well. The best way to create outer margins is to wrap the final output in a `Box` or `Frame` component
   - When the aspect ratio of the figure is not determined, a good default is to use `2` for things like plots and diagrams
@@ -70,7 +70,7 @@ Note: Because this is two squares (`aspect = 1`) stacked side by side, the `HSta
 
 **Example 4: Modular Approach**
 
-Now let's cover a VERY IMPORTANT method of using custom components. We want to create modular and parameterizable components that can be reused in a variety of ways. Here we create a `Star` component that specifies its `Spline` path in internal coordinates, and we then pass the `pos`/`rad` arguments to the component to position and scale the star.
+Now let's cover a VERY IMPORTANT method of using custom components. We want to create modular and parameterizable components that can be reused in a variety of ways. Here we create a `Star` component that specifies its `Spline` path in internal coordinates, and we then pass the `pos`/`size` arguments to the component to position and scale the star.
 
 *Prompt*: Create a semi-random starfield with about 10 yellow stars.
 
@@ -89,13 +89,13 @@ const points = [
   [0.25, 0.10],
 ]
 const Star = (attr) =>
-  <Spline rad={0.03} aspect closed points={aster} {...attr} />
+  <Spline size={0.06} aspect closed points={aster} {...attr} />
 return <Box border rounded fill={gray}>
   {points.map(p => <Star pos={p} fill={yellow} />)}
 </Box>
 ```
 
-Note: By creating a reusable `Star` component that accepts `pos`/`rad` arguments, we can easily create a starfield by mapping over `points`. This offloads the logic of adding and scaling the spline coordinates in `aster` to the positions listed in `points`.
+Note: By creating a reusable `Star` component that accepts `pos`/`size` arguments, we can easily create a starfield by mapping over `points`. This offloads the logic of adding and scaling the spline coordinates in `aster` to the positions listed in `points`.
 
 **Example 5: Stacking Layouts**
 

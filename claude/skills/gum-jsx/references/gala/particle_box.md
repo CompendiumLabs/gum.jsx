@@ -53,12 +53,12 @@ return <Box padding>
 
       {/* n labels to the left */}
       {nLevels.map((n, i) =>
-        <Tex pos={[-0.3, (i + 0.5) * sp]} yrad={0.3}>{`n=${n}`}</Tex>
+        <Tex pos={[-0.3, (i + 0.5) * sp]} ysize={0.75}>{`n=${n}`}</Tex>
       )}
 
       {/* E_n labels to the right */}
       {nLevels.map((n, i) =>
-        <Tex pos={[1.25, (i + 0.5) * sp]} yrad={0.3}>{`E_{${n}}`}</Tex>
+        <Tex pos={[1.25, (i + 0.5) * sp]} ysize={0.75}>{`E_{${n}}`}</Tex>
       )}
     </Plot>
     <Tex stack-size={0.075}>{"\\psi_n(x) = \\sqrt{2/L}\\;\\sin(n\\pi x / L)"}</Tex>

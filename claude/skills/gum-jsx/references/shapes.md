@@ -17,7 +17,7 @@ Prompt: a rectangle on the left side of the figure with an aspect of roughly 1/2
 
 Generated code:
 ```jsx
-<Rectangle pos={[0.25, 0.5]} rad={[0.1, 0.2]}/>
+<Rectangle pos={[0.25, 0.5]} size={[0.2, 0.4]}/>
 ```
 
 ## Ellipse
@@ -33,8 +33,8 @@ Prompt: two ellipses, one wider and one taller
 Generated code:
 ```jsx
 <Group>
-  <Ellipse pos={[0.3, 0.2]} rad={[0.2, 0.1]} />
-  <Ellipse pos={[0.6, 0.6]} rad={[0.2, 0.25]} />
+  <Ellipse pos={[0.3, 0.2]} size={[0.4, 0.2]} />
+  <Ellipse pos={[0.6, 0.6]} size={[0.4, 0.5]} />
 </Group>
 ```
 
@@ -57,8 +57,8 @@ Prompt: elliptical and circular arcs using degree ranges
 Generated code:
 ```jsx
 <Group>
-  <Arc pos={[0.32, 0.5]} rad={[0.22, 0.16]} start={-45} end={210} stroke={blue} stroke-width={2} />
-  <Arc pos={[0.72, 0.5]} rad={0.16} start={90} end={-150} stroke={red} stroke-width={2} />
+  <Arc pos={[0.32, 0.5]} size={[0.44, 0.32]} start={-45} end={210} stroke={blue} stroke-width={2} />
+  <Arc pos={[0.72, 0.5]} size={0.32} start={90} end={-150} stroke={red} stroke-width={2} />
 </Group>
 ```
 
@@ -159,7 +159,7 @@ const points = [
 return <Frame rounded margin>
   <Spline closed stroke={blue} fill={gray} points={points} />
   <Shape stroke={red} points={points} />
-  <Points size={0.0075} points={points} />
+  <Points point-size={0.02} points={points} />
 </Frame>
 ```
 
@@ -193,9 +193,9 @@ Generated code:
 ```jsx
 <Frame rounded>
   <Group aspect={2}>
-    <Text pos={[0.2, 0.5]} yrad={0.1} wrap={4} justify="center">Blue Square</Text>
+    <Text pos={[0.2, 0.5]} ysize={0.2} wrap={4} justify="center">Blue Square</Text>
     <Arrow points={[[0.3, 0.5], [0.6, 0.5]]} />
-    <Square pos={[0.75, 0.5]} yrad={0.25} rounded fill={blue} />
+    <Square pos={[0.75, 0.5]} ysize={0.5} rounded fill={blue} />
   </Group>
 </Frame>
 ```

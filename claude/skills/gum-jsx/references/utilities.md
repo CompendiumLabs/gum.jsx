@@ -16,6 +16,7 @@ Here we collect a variety of global mathematical functions and constants. You ca
 
 - `exp(x)` — the exponential function
 - `log(x)` — the natural logarithm
+- `log10(x)` — the base 10 logarithm
 - `sin(x)` — the sine function
 - `cos(x)` — the cosine function
 - `tan(x)` — the tangent function
@@ -46,10 +47,10 @@ const ring = range(10).map(i => {
 const spokes = range(5).map(i => polar([0.32, -90 + 72 * i], center))
 
 return <Group aspect={1}>
-  <Circle pos={center} rad={0.32} stroke={darkgray} />
+  <Circle pos={center} size={0.64} stroke={darkgray} />
   <Shape points={ring} stroke={blue} stroke-width={2} />
   {spokes.map(pos => <Line points={[center, pos]} stroke={red} stroke-width={1.5} />)}
-  {ring.map(pos => <Dot pos={pos} rad={0.015} fill={blue} />)}
+  {ring.map(pos => <Dot pos={pos} size={0.03} fill={blue} />)}
 </Group>
 ```
 
@@ -85,7 +86,7 @@ Generated code:
 ```jsx
 <Plot xlim={[0, 6]} ylim={[0, 6]} xticks={7} yticks={7} margin={0.15}>
   { [ '🗻', '🚀', '🐋', '🍉', '🍩' ].map((e, i) =>
-    <Text pos={[i+1, i+1]} rad={0.4}>{e}</Text>
+    <Text pos={[i+1, i+1]} size={0.8}>{e}</Text>
   ) }
 </Plot>
 ```
@@ -121,12 +122,12 @@ Generated code:
 ```jsx
 const func = x => -sin(x)
 const pal = palette(blue, red, [-1, 1])
-const size = (x, y) => 0.1 * (1+abs(y))/2
+const size = (x, y) => 0.2 * (1+abs(y))/2
 const shape = (x, y) => <Circle fill={pal(y)} />
 const xticks = linspace(0, 2, 6).slice(1).map(x => [x*pi, `${rounder(x, 1)} π`])
 return <Plot xlim={[0, 2*pi]} ylim={[-1, 1]} aspect={1.5} xanchor={0} xaxis-tick-side="both" xticks={xticks} grid xlabel="phase" ylabel="amplitude" title="Inverted Sine Wave" margin={0.25}>
   <SymLine fy={func} />
-  <SymPoints fy={func} size={size} shape={shape} N={21}>
+  <SymPoints fy={func} point-size={size} point-shape={shape} N={21}>
   </SymPoints>
 </Plot>
 ```
