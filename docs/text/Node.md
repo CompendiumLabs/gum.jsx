@@ -7,7 +7,7 @@ This encloses an element in a **Frame** at a particular position. If the `childr
 Parameters:
 - `id` — a string to be used as the node identifier
 - `children` — the element or text to be enclosed in the node box
-- `yrad` = `0.1` — the radius of the node box (will adjust to aspect)
+- `ysize` = `0.2` — the height of the node box (width will adjust to aspect)
 - `padding` = `0.1` — the padding of the node box
 - `border` = `1` — the border width of the node box
 - `rounded` = `0.05` — the radius of the corners of the node box

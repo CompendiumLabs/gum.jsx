@@ -130,9 +130,9 @@ const SurfaceDiagram = (attr) =>
     {normals.map(([base, tip]) =>
       <Arrow points={[base, tip]} fill={purple} stroke={purple} stroke-width={2}/>
     )}
-    <Latex pos={[0.48, 0.5]} yrad={0.055} color="#9c27b0" stroke={none} font-weight={700}>S</Latex>
-    <Latex pos={[0, 0.55]} yrad={0.035} color={blue} stroke={none} font-weight={700}>\delta S</Latex>
-    <Latex pos={[0.56, 0.17]} yrad={0.035} color={purple} font-weight={700}>{"\\hat{n}"}</Latex>
+    <Latex pos={[0.48, 0.5]} ysize={0.11} color="#9c27b0" stroke={none} font-weight={700}>S</Latex>
+    <Latex pos={[0, 0.55]} ysize={0.07} color={blue} stroke={none} font-weight={700}>\delta S</Latex>
+    <Latex pos={[0.56, 0.17]} ysize={0.07} color={purple} font-weight={700}>{"\\hat{n}"}</Latex>
   </Group>
 
 const MathPanel = (attr) =>

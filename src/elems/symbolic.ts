@@ -107,16 +107,16 @@ function ensure_shapefunc(f: any): (...a: any[]) => any {
 }
 
 interface SymPointsArgs extends SymArgs, GroupArgs {
-    size?: number | ((x: number, y: number, t: number, i: number) => number)
-    shape?: any
+    point_shape?: any
+    point_size?: number | Point
 }
 
 class SymPoints extends Group {
     constructor(args: SymPointsArgs = {}) {
-        const { fx, fy, size = D.point, shape: shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
+        const { fx, fy, point_size = D.point, point_shape: point_shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
         const [ spec, attr ] = spec_split(attr0)
-        const fsize = ensure_function(size)
-        const fshap = ensure_shapefunc(shape0 ?? new Dot(attr))
+        const fsize = ensure_function(point_size)
+        const fshap = ensure_shapefunc(point_shape0 ?? new Dot(attr))
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
@@ -132,8 +132,8 @@ class SymPoints extends Group {
         // make children
         const children = enumerate(points).map(([i, [t, x, y]]) => {
             const sh = fshap(x, y, t, i)
-            const sz = sh.args.rad ?? fsize(x, y, t, i)
-            return sh.clone({ pos: [x, y], rad: sz })
+            const has_size = sh.args.size != null || sh.args.xsize != null || sh.args.ysize != null
+            return sh.clone({ pos: [x, y], ...(has_size ? {} : { size: fsize(x, y, t, i) }) })
         })
 
         // compute coords
@@ -289,7 +289,7 @@ function default_arrow(direc: number | Point): Box {
 interface FieldArgs extends GroupArgs {
     points?: Point[]
     shape?: Element
-    size?: number
+    size?: number | Point
     arrow_size?: number
 }
 
@@ -302,7 +302,7 @@ class Field extends Group {
 
         // create children
         const children = points.map(([ p, d ]) =>
-            shape.clone({ pos: p, rad: size, spin: d, ...attr })
+            shape.clone({ pos: p, size, spin: d, ...attr })
         )
 
         // pass to Group
@@ -318,10 +318,10 @@ interface SymFieldArgs extends SymArgs, GroupArgs {
 
 class SymField extends SymPoints {
     constructor(args: SymFieldArgs = {}) {
-        const { func, xlim: xlim0, ylim: ylim0, N = 10, size: size0, shape: shape0, coord: coord0, ...attr } = THEME(args, 'SymField')
+        const { func, xlim: xlim0, ylim: ylim0, N = 10, point_size: point_size0, shape: shape0, coord: coord0, ...attr } = THEME(args, 'SymField')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
         const shape = ensure_shapefunc(shape0 ?? default_arrow)
-        const size = size0 ?? 0.25 / N
+        const point_size = point_size0 ?? 0.25 / N
 
         // check for function
         if (func == null) throw new Error('`func` must be provided')
@@ -335,7 +335,7 @@ class SymField extends SymPoints {
         const coord = coord0 ?? detect_coords(xvals, yvals, xlim, ylim)
 
         // pass to SymPoints
-        super({ shape: fshap, xvals, yvals, size, coord, ...attr })
+        super({ shape: fshap, xvals, yvals, point_size, coord, ...attr })
         this.args = args
     }
 }

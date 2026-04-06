@@ -243,7 +243,7 @@ function props_repr(d: Attrs, prec: number): string {
 
 // reserved keys
 const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'upright', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
-const HELP_KEYS = [ 'pos', 'rad', 'xrad', 'yrad', 'flex', 'spin', 'orient' ]
+const HELP_KEYS = [ 'pos', 'size', 'xsize', 'ysize', 'flex', 'spin', 'orient' ]
 const OTHER_KEYS = [ 'stack_size', 'stack_expand', 'loc', 'debug' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...OTHER_KEYS ]
 
@@ -280,9 +280,9 @@ interface ElementArgs extends SpecArgs {
     unary?: boolean
     children?: any
     pos?: Point
-    rad?: number | Size
-    xrad?: number
-    yrad?: number
+    size?: number | Size
+    xsize?: number
+    ysize?: number
     flex?: boolean
     spin?: number
     orient?: number
@@ -292,14 +292,14 @@ interface ElementArgs extends SpecArgs {
 
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
-    args: ElementArgs
+    args: Attrs
     tag: string
     unary: boolean
     spec: Spec
     attr: Attrs
 
     constructor(args: ElementArgs = {}) {
-        const { tag, unary, children, pos, rad, xrad, yrad, flex, spin, orient, ...attr0 } = args
+        const { tag, unary, children, pos, size, xsize, ysize, flex, spin, orient, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
@@ -315,11 +315,11 @@ class Element {
         this.spec = spec
         this.attr = attr
 
-        // handle pos/rad conveniences
-        if (pos != null || rad != null || xrad != null || yrad != null) {
-            const has_xy = xrad != null || yrad != null
-            const rad1 = has_xy ? [ xrad ?? 0, yrad ?? 0 ] as Point : undefined
-            this.spec.rect ??= radial_rect(pos ?? D.pos, rad ?? rad1 ?? D.rad)
+        // handle pos/size conveniences
+        if (pos != null || size != null || xsize != null || ysize != null) {
+            const has_xy = xsize != null || ysize != null
+            const size1 = has_xy ? [ xsize ?? 0, ysize ?? 0 ] as Point : undefined
+            this.spec.rect ??= cbox_rect([ ...(pos ?? D.pos), ...(ensure_point(size ?? size1 ?? D.size)) ])
             if (has_xy) this.spec.expand = true
         }
 
@@ -609,7 +609,7 @@ class Svg extends Group {
     prec: number
 
     constructor(args: SvgArgs = {}) {
-        const { children: children0, size : size0 = D.size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_children(children0)
         const size_base = ensure_point(size0)
 

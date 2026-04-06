@@ -9,5 +9,5 @@ const points = [
 return <Frame rounded margin>
   <Spline closed stroke={blue} fill={gray} points={points} />
   <Shape stroke={red} points={points} />
-  <Points size={0.0075} points={points} />
+  <Points point-size={0.02} points={points} />
 </Frame>

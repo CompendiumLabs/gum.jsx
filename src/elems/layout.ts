@@ -234,7 +234,6 @@ interface StackArgs extends GroupArgs {
     even?: boolean
 }
 
-// expects list of Element or [Element, height]
 // this is written as vertical, horizonal swaps dimensions and inverts aspects
 // TODO: make native way to mimic using Spacer elements for spacing
 class Stack extends Group {
@@ -250,7 +249,7 @@ class Stack extends Group {
         const items = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
             const align = c.spec.align ?? justify
-            return c.clone({ rect, align })
+            return c.clone({ rect, align, stack_size: undefined })
         }) : []
 
         // pass to Group
@@ -403,18 +402,18 @@ class Grid extends Group {
 
 interface PointsArgs extends GroupArgs {
     points?: Point[]
-    size?: number
-    shape?: Element
+    point_size?: number | Point
+    point_shape?: Element
 }
 
 // places a bunch of clones at points
 class Points extends Group {
     constructor(args: PointsArgs = {}) {
-        const { points: points0, shape: shape0, size = D.point, ...attr0 } = THEME(args, 'Points')
+        const { points: points0, point_size = D.point, point_shape: point_shape0, ...attr0 } = THEME(args, 'Points')
         const [ spec, attr ] = spec_split(attr0)
         const points = check_array(points0)
-        const shape = shape0 ?? new Dot(attr)
-        const children = points.map((pos: Point) => shape.clone({ pos, rad: size })) ?? []
+        const shape = point_shape0 ?? new Dot(attr)
+        const children = points.map((pos: Point) => shape.clone({ pos, size: point_size })) ?? []
         super({ children, ...spec })
         this.args = args
     }
@@ -447,30 +446,30 @@ class Anchor extends Group {
     }
 }
 
-function attach_rect(side: Side, loc: number, offset: number, size: number): Rect {
-    const extent = size + offset
-    if (side == 't') return [ loc       , -extent   , loc       , -offset    ]
-    if (side == 'b') return [ loc       , 1 + offset, loc       , 1 + extent ]
-    if (side == 'l') return [ -extent   , loc       , -offset   , loc        ]
-    if (side == 'r') return [ 1 + offset, loc       , 1 + extent, loc        ]
+function attach_rect(side: Side, loc: number, offset: number, extent: number): Rect {
+    const far = extent + offset
+    if (side == 't') return [ loc       , -far      , loc       , -offset    ]
+    if (side == 'b') return [ loc       , 1 + offset, loc       , 1 + far    ]
+    if (side == 'l') return [ -far      , loc       , -offset   , loc        ]
+    if (side == 'r') return [ 1 + offset, loc       , 1 + far   , loc        ]
     throw new Error(`Unrecognized side: ${side}`)
 }
 
 interface AttachArgs extends GroupArgs {
     offset?: number
-    size?: number
+    extent?: number
     side?: Side
 }
 
 // attach a child element to the edge of a parent element
 class Attach extends Group {
     constructor(args: AttachArgs = {}) {
-        const { children: children0, side: side0 = 'top', size = 1, offset = 0, loc = 0.5, justify = 'center', ...attr } = THEME(args, 'Attach')
+        const { children: children0, side: side0 = 'top', extent = 1, offset = 0, loc = 0.5, justify = 'center', ...attr } = THEME(args, 'Attach')
         const child0 = check_singleton(children0)
         const side = norm_side(side0)
 
         // get extent and map to child
-        const rect = attach_rect(side, loc, offset, size)
+        const rect = attach_rect(side, loc, offset, extent)
         const child = child0.clone({ rect, expand: true, align: justify })
 
         // pass to Group

@@ -24,7 +24,7 @@ interface BarArgs extends RoundedRectArgs {
     stroke?: string
     label?: string
     loc?: number
-    size?: number
+    value?: number
 }
 
 class Bar extends RoundedRect {
@@ -69,17 +69,17 @@ class Bars extends Group {
 
         // handle data array case
         const bars = data != null ?
-          data.map((size: any) => new Bar({ direc, size, ...attr })) :
+          data.map((value: any) => new Bar({ direc, value, ...attr })) :
           children
 
         // make rects from sizes
         const items = bars.map((child: any, i: number) => {
-            const { loc = i, size } = child.attr
+            const { loc = i, value } = child.attr
             const rect = join_limits({
-                [direc]: [ zero, size ],
+                [direc]: [ zero, value ],
                 [idirec]: [ loc - width / 2, loc + width / 2 ],
             })
-            return child.clone({ direc, rect, ...attr })
+            return child.clone({ direc, rect, label: undefined, value: undefined, ...attr })
         })
 
         // pass to Group
@@ -340,19 +340,19 @@ class VAxis extends Axis {
 
 interface OuterLabelArgs extends ElementArgs {
     children?: (Element | string)[]
-    size?: number
+    extent?: number
     offset?: number
     side?: Side
 }
 
 class OuterLabel extends Attach {
     constructor(args: OuterLabelArgs = {}) {
-        const { children: children0, side = 'top', size = 0.1, offset, loc, justify, ...attr0 } = args
+        const { children: children0, side = 'top', extent = 0.1, offset, loc, justify, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
         const label0 = is_element(text) ? text : new Span({ children: [ text ], ...attr })
         const label = (side == 'left' || side == 'right') ? label0.clone({ rotate: -90 }) : label0
-        super({ children: [ label ], side, size, offset, loc, justify, ...spec })
+        super({ children: [ label ], side, extent, offset, loc, justify, ...spec })
         this.args = args
     }
 }
@@ -682,20 +682,20 @@ class Plot extends Box {
 
         // optional xaxis label
         if (xlabel != null) {
-            xlabel = new OuterLabel({ children: [ xlabel ], side: 'bottom', debug, size: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
+            xlabel = new OuterLabel({ children: [ xlabel ], side: 'bottom', debug, extent: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
             items.push(xlabel)
         }
 
         // optional yaxis label
         if (ylabel != null) {
             const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: [ ylabel ], rotate: -90 })
-            ylabel = new OuterLabel({ children: [ ylabel_text ], side: 'left', size: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
+            ylabel = new OuterLabel({ children: [ ylabel_text ], side: 'left', extent: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
             items.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new OuterLabel({ children: [ title ], side: 'top', size: title_size, offset: title_offset, debug, ...title_attr })
+            title = new OuterLabel({ children: [ title ], side: 'top', extent: title_size, offset: title_offset, debug, ...title_attr })
             items.push(title)
         }
 
@@ -724,8 +724,8 @@ class BarPlot extends Plot {
 
         // handle data array case
         const sibs = data != null ? data.map((child: any) => {
-            const [ label, size ] = ensure_vector(child, 2)
-            return new Bar({ label, size })
+            const [ label, value ] = ensure_vector(child, 2)
+            return new Bar({ label, value })
         }) : children
 
         // separate out bars and not-bars

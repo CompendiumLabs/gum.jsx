@@ -2,5 +2,5 @@
 const Pill = args => <Rectangle fill={white} rounded={0.3} aspect={2} {...args} />
 return <Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} grid fill={lightgray} margin={[0.25, 0.1]} aspect="auto">
   <SymLine fy={sin} stroke={blue} stroke-width={2} />
-  <SymPoints fy={sin} size={0.125} N={11} shape={x => <Pill spin={-r2d*atan(cos(x))}/>} />
+  <SymPoints fy={sin} N={11} point-size={0.25} point-shape={x => <Pill spin={-r2d*atan(cos(x))}/>} />
 </Plot>

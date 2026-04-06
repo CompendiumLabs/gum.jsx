@@ -40,7 +40,7 @@ const OrbGraph = ({ children }) =>
     <HLine loc={0} lim={[-0.75, 0.75]} stroke={ax_col} stroke-dasharray={4} />
     <VLine loc={0} lim={[-0.75, 0.75]} stroke={ax_col} stroke-dasharray={4} />
     {children}
-    <Dot pos={[0, 0]} rad={0.02} />
+    <Dot pos={[0, 0]} size={0.04} />
   </Graph>
 
 // s orbital

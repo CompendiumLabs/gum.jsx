@@ -2,16 +2,16 @@
 
 The base class for all `gum.jsx` objects. You will usually not be working with this object directly unless you are implementing your own custom elements. An **Element** has a few methods that can be overriden, each of which takes a [Context](/docs/Context) object as an argument. The vast majority of implementations will override only `props` and `inner` (for non-unary elements).
 
-The position and size of an element are specified in the internal coordinates (`coord`) of its parent, which defaults to the unit square. Rectangles are always specified in `[left, top, right, bottom]` format. You can also specify the placement by specifying `pos` and `rad` or various combinations of `xrad`/`yrad`. When not specified, `rect` defaults to the unit square.
+The position and size of an element are specified in the internal coordinates (`coord`) of its parent, which defaults to the unit square. Rectangles are always specified in `[left, top, right, bottom]` format. You can also specify the placement by specifying `pos` and `size` or various combinations of `xsize`/`ysize`. When not specified, `rect` defaults to the unit square.
 
 Parameters:
 - `tag` = `g` — the SVG tag associated with this element
 - `unary` = `false` — whether there is inner text for this element
 - `aspect` = `null` — the width to height ratio for this element
 - `pos` — the desired position of the center of the child's rectangle
-- `rad` ­— the desired radius of the child's rectangle (can be single number or pair)
-- `xrad`/`yrad` ­— specify the radius for a specific dimension (and expand the other)
-- `rect` — a fully specified rectangle to place the child in (this will override `pos`/`rad`)
+- `size` ­— the desired size of the child's rectangle (can be single number or pair)
+- `xsize`/`ysize` ­— specify the size for a specific dimension (and expand the other)
+- `rect` — a fully specified rectangle to place the child in (this will override `pos`/`size`)
 - `aspect` — the aspect ratio of the child's rectangle
 - `expand` — when `true`, instead of embedding the child within `rect`, it will make the child just large enough to fully contain `rect`
 - `align` — how to align the child when it doesn't fit exactly within `rect`, options are `left`, `right`, `center`, or a fractional position (can set vertical and horizontal separately with a pair)

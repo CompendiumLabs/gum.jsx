@@ -339,19 +339,19 @@ function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
 //
 
 interface MathSpacerArgs extends ElementArgs {
-    size?: SpacingType
+    width?: SpacingType
 }
 
 class MathSpacer extends Spacer {
     math: MathSpec
 
     constructor(args: MathSpacerArgs = {}) {
-        const { advance: advance0 = 0, vrange = EMPTY_VRANGE, size, ...attr } = THEME(args, 'MathSpacer')
+        const { advance: advance0 = 0, vrange = EMPTY_VRANGE, width, ...attr } = THEME(args, 'MathSpacer')
 
         // check aspect type
-        const advance = size != null ? SPACING[size] : advance0
+        const advance = width != null ? SPACING[width] : advance0
         if (!is_scalar(advance)) {
-            throw new Error('must specify size (thin, medium, thick) or numerical aspect')
+            throw new Error('must specify width (thin, medium, thick) or numerical aspect')
         }
 
         // pass to Spacer
@@ -873,7 +873,7 @@ class Sqrt extends Group {
         })
 
         // build optional index element
-        const indexElem = index != null ? index.clone({ pos: [ 0.6 * gutter, 0.2 * bodyHeight ], yrad: 0.2 * bodyHeight, align: 'right' }) : null
+        const indexElem = index != null ? index.clone({ pos: [ 0.6 * gutter, 0.2 * bodyHeight ], ysize: 0.4 * bodyHeight, align: 'right' }) : null
         const bodyElem = with_math(bodyBox, {}, { rect: body_rect })
 
         // compute composite metrics by preserving the body anchor
@@ -1000,30 +1000,30 @@ interface DelimArgs extends MathSymbolArgs {
     delim?: string
     side?: 'left' | 'right'
     mode?: SymbolMode
-    size?: number
+    level?: number
 }
 
 class Delim extends MathSymbol {
     constructor(args: DelimArgs = {}) {
-        const { delim, side = 'left', mode = 'math', size = 3, vshift = -0.25, ...attr } = THEME(args, 'Delim')
+        const { delim, side = 'left', mode = 'math', level = 3, vshift = -0.25, ...attr } = THEME(args, 'Delim')
         const text = get_delim_text(delim, side)
-        const font_family = delimiter_font(size)
+        const font_family = delimiter_font(level)
         const klass = side == 'left' ? 'mopen' : 'mclose'
         super({ children: [ text ], mode, klass, font_family, vshift, ...attr })
     }
 }
 
-function fit_delim_size(delim: string, side: 'left' | 'right', targetHeight: number, attr: Omit<DelimArgs, 'delim' | 'side' | 'size'>): number {
+function fit_delim_size(delim: string, side: 'left' | 'right', targetHeight: number, attr: Omit<DelimArgs, 'delim' | 'side' | 'level'>): number {
     let bestSize = 1
     let bestError = Infinity
 
-    for (let size = 1; size <= 5; size++) {
-        const candidate = new Delim({ delim, side, size, ...attr })
+    for (let level = 1; level <= 5; level++) {
+        const candidate = new Delim({ delim, side, level, ...attr })
         const height = metrics_height(candidate.math)
         const error = Math.abs(Math.log((targetHeight || 1) / (height || 1)))
         if (error < bestError) {
             bestError = error
-            bestSize = size
+            bestSize = level
         }
     }
 
@@ -1072,7 +1072,7 @@ class Bracket extends MathRow {
         const right_delim = normalize_delim(rightDelim0 ?? right_delim1)
         const [ spec, shared_attr0 ] = spec_split(attr0)
         const [ delim_attr, shared_attr ] = prefix_split([ 'delim' ], shared_attr0)
-        const { size: size0, ...delim_attr1 } = delim_attr as DelimArgs
+        const { level: level0, ...delim_attr1 } = delim_attr as DelimArgs
 
         // check child
         if (body == null) {
@@ -1082,10 +1082,10 @@ class Bracket extends MathRow {
         // auto-detect delimiter size
         const targetHeight = metrics_height(body.math)
         const baseDelimAttr = { ...shared_attr, ...delim_attr1 }
-        const leftSize = size0 ?? (left_delim != null ? fit_delim_size(left_delim, 'left', targetHeight, baseDelimAttr) : 1)
-        const rightSize = size0 ?? (right_delim != null ? fit_delim_size(right_delim, 'right', targetHeight, baseDelimAttr) : 1)
-        const left0 = left_delim != null ? new Delim({ delim: left_delim, side: 'left', size: leftSize, ...baseDelimAttr }) : null
-        const right0 = right_delim != null ? new Delim({ delim: right_delim, side: 'right', size: rightSize, ...baseDelimAttr }) : null
+        const leftSize = level0 ?? (left_delim != null ? fit_delim_size(left_delim, 'left', targetHeight, baseDelimAttr) : 1)
+        const rightSize = level0 ?? (right_delim != null ? fit_delim_size(right_delim, 'right', targetHeight, baseDelimAttr) : 1)
+        const left0 = left_delim != null ? new Delim({ delim: left_delim, side: 'left', level: leftSize, ...baseDelimAttr }) : null
+        const right0 = right_delim != null ? new Delim({ delim: right_delim, side: 'right', level: rightSize, ...baseDelimAttr }) : null
         const left = left0 != null ? fit_delim(left0, body.math) : null
         const right = right0 != null ? fit_delim(right0, body.math) : null
         const items = [ left, body, right ].filter(item => item != null)

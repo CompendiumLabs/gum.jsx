@@ -32,7 +32,7 @@ function get_side(p1: Point, p2: Point): Side {
 
 interface NodeArgs extends GroupArgs {
     id?: string
-    yrad?: number
+    ysize?: number
     rounded?: number
     padding?: number
     wrap?: number
@@ -43,7 +43,7 @@ class Node extends Frame {
     id: string | undefined
 
     constructor(args: NodeArgs = {}) {
-        const { children: children0, id, yrad = 0.1, rounded = 0.05, padding = 0.1, wrap, justify = 'center', ...attr } = THEME(args, 'Node')
+        const { children: children0, id, ysize = 0.2, rounded = 0.05, padding = 0.1, wrap, justify = 'center', ...attr } = THEME(args, 'Node')
         const [ text_attr, frame_attr ] = prefix_split([ 'text' ], attr)
         const child = check_singleton(children0)
 
@@ -51,7 +51,7 @@ class Node extends Frame {
         const inner = is_string(child) ? new Text({ children: [ child ], wrap, justify, ...text_attr }) : child
 
         // pass to Frame
-        super({ children: [ inner ], yrad, rounded, padding, ...frame_attr })
+        super({ children: [ inner ], ysize, rounded, padding, ...frame_attr })
         this.args = args
     }
 }

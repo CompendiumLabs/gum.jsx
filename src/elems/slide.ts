@@ -17,7 +17,6 @@ import type { BoxArgs } from './layout'
 
 interface LabelBoxArgs extends BoxArgs {
     label?: Element | string
-    size?: number
 }
 
 class LabelBox extends Box {
@@ -66,9 +65,9 @@ class TitleBox extends Box {
         let title_box: TextFrame | null = null
         if (title != null) {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
-            const title_rad: Size = [ 0.5, title_size ]
+            const title_size1: Size = [ 1, 2 * title_size ]
             const title_span = is_element(title) ? title : new Span({ children: [ title ] })
-            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, rad: title_rad, fill: title_fill, rounded: title_rounded, ...title_attr })
+            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, size: title_size1, fill: title_fill, rounded: title_rounded, ...title_attr })
         }
 
         // pass to Box for margin

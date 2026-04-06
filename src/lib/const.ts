@@ -42,12 +42,12 @@ const DEFAULTS = {
     loc: 0.5,
     lim: [0, 1] as Limit,
     pos: [0.5, 0.5] as Point,
-    rad: 0.5,
+    size: 1,
     rect: [0, 0, 1, 1] as Rect,
     coord: [0, 0, 1, 1] as Rect,
-    point: 0.025,
+    point: 0.05,
     N: 100,
-    size: 500,
+    svg_size: 500,
     calc_size: 16,
 }
 

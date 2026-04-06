@@ -4,7 +4,7 @@
     { linspace(0, 360, 10).slice(0, 9).map(th =>
       <Frame padding rounded fill>
         <Group aspect={1} spin={th}>
-          <Arrow points={[[0, 0.5], [1, 0.5]]} arrow-size={0.2} />
+          <Arrow points={[[0, 0.5], [1, 0.5]]} arrow-size={0.4} />
         </Group>
       </Frame>
     ) }
