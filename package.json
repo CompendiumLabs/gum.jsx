@@ -38,16 +38,14 @@
     "./prompt/*": "./prompt/*"
   },
   "scripts": {
-    "cli": "bun ./scripts/cli.ts",
-    "dev": "bun ./scripts/dev.ts",
+    "run": "bun ./scripts/gum.ts run",
+    "dev": "bun ./scripts/gum.ts dev",
     "test": "bun ./scripts/test.ts",
     "skill": "bun ./scripts/skill.ts",
     "claude": "bun run skill && bun ./scripts/claude.ts"
   },
   "bin": {
-    "gum-cli": "./scripts/cli.ts",
-    "gum-dev": "./scripts/dev.ts",
-    "gum-bot": "./scripts/bot.sh"
+    "gum": "./scripts/gum.ts"
   },
   "dependencies": {
     "@types/node": "^25.2.3",

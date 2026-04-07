@@ -11,22 +11,22 @@ In general, it makes a lot of sense to write a draft to a file, view its output,
 **Examples:**
 ```bash
 # Generate SVG from a gum.jsx snippet
-echo '<Rectangle rounded fill={blue} />' | gum-cli -f svg > output.svg
+echo '<Rectangle rounded fill={blue} />' | gum run -f svg > output.svg
 
 # Generate PNG from a gum.jsx snippet
-echo '<Rectangle rounded fill={blue} />' | gum-cli -f png > output.png
+echo '<Rectangle rounded fill={blue} />' | gum run -f png > output.png
 
 # Generate SVG from a .jsx file
-cat test.jsx | gum-cli -f svg > output.svg
+cat test.jsx | gum run -f svg > output.svg
 
 # Generate PNG from a .jsx file
-cat test.jsx | gum-cli -f png > output.png
+cat test.jsx | gum run -f png > output.png
 
 # Generate SVG from a .jsx file without output redirection
-cat test.jsx | gum-cli -f svg -o output.svg
+cat test.jsx | gum run -f svg -o output.svg
 
 # Generate PNG from a .jsx file without output redirection
-cat test.jsx | gum-cli -f png -o output.png
+cat test.jsx | gum run -f png -o output.png
 ```
 
 **CLI options:**

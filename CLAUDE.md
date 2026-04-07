@@ -21,15 +21,18 @@ cat test.jsx | bun run cli -f svg > output.svg
 # Generate PNG from a .jsx file
 cat test.jsx | bun run cli -f png > output.png
 
-# CLI options:
-# -s, --size <size>        size of the svg (default: 500)
+# Unified CLI (gum run = render, gum dev = live viewer):
+# bun scripts/gum.ts run [options] [file]
+# bun scripts/gum.ts dev [options] <file>
+
+# Run options:
+# -s, --size <size>        size of the svg (default: 1000)
 # -w, --width <width>      width of the png (default: null)
 # -h, --height <height>    height of the png (default: null)
-# -f, --format <format>    format: svg or png (default: svg)
-# -t, --theme <theme>      theme to use (default: dark)
+# -f, --format <format>    format: svg, png, or kitty (default: kitty)
+# -t, --theme <theme>      theme to use (default: light)
 # -b, --background <color> background color (default: null)
 # -o, --output <output>    output file (default: null)
-# -r, --raw                raw output (default: false)
 ```
 
 ### Testing
