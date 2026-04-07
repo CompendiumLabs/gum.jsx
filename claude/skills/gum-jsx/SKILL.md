@@ -403,7 +403,7 @@ To test the output of a particular `gum.jsx` snippet or file, you can pipe it to
 
 For one off tests, pipe the code using `echo`. It is recommended that you use single quotes as the outer delimiter, to accommodate code that includes double quotes for component properties (e.g. `justify="left"`).
 
-For more difficult tasks, use a file and `cat` it in. Using a file allows you to view and refine your code repeatedly. If you wish to avoid output redirection to a file, use the `-o` option to write to a file.
+For more difficult tasks, use a file provide the filename as an argument or `cat` it in. Using a file allows you to view and refine your code repeatedly. If you wish to avoid output redirection to a file, use the `-o` option to write to a file.
 
 In general, it makes a lot of sense to write a draft to a file, view its output, then refine the code until you're satisfied. This way you can start simple and add complexity as needed.
 
@@ -451,22 +451,26 @@ The `evaluateGum` function from `gum-jsx/eval` parses a JSX string and returns a
 ```typescript
 import { evaluateGum } from 'gum-jsx/eval'
 import { rasterizeSvg } from 'gum-jsx/render'
+import { writeFileSync } from 'fs'
 
 // parse JSX string into element tree, then render to SVG
 const tree = evaluateGum('<Rectangle rounded fill={blue} />')
 const svg = tree.svg()
 
 // render to PNG buffer
-const png = rasterizeSvg(svg)
+const png = rasterizeSvg(svg, {
+    size: tree.size,
+    background: 'white',
+})
+writeFileSync('output.png', png)
 ```
 
 The `evaluateGum` function accepts options for theme, size, and extra context variables:
 
 ```typescript
 const tree = evaluateGum(code, {
-    theme: 'light',     // 'light' or 'dark'
-    size: 500,          // SVG size (or [width, height])
-    context: { data },  // extra variables available in the JSX code
+    theme: 'light',
+    size: 500,
 })
 ```
 
@@ -478,12 +482,10 @@ You can also construct components directly by importing them from `gum-jsx` and 
 import { Svg, Rectangle, Circle, HStack, Text, blue, red, white } from 'gum-jsx'
 
 // create elements by calling constructors directly
-const rect = new Rectangle({ rounded: true, fill: blue })
+const rect = new Square({ rounded: true, fill: blue })
 const circle = new Circle({ fill: red })
-const label = new Text({ children: 'Hello', fill: white })
-
-// compose into a layout
-const layout = new HStack({ children: [rect, circle, label] })
+const label = new Text({ children: ['Hello'], fill: white })
+const layout = new HStack({ children: [rect, circle, label], spacing: 0.1 })
 
 // wrap in Svg and render
 const tree = new Svg({ children: [layout], size: 500 })
@@ -495,20 +497,4 @@ When constructing manually, note that:
 - Constants like `blue`, `red`, `none`, etc. are exported from `gum-jsx`
 - Utility functions like `range`, `linspace`, `zip` are also available from `gum-jsx`
 - Call `.svg()` on the top-level `Svg` element to get the SVG string output
-
-## Rendering to PNG
-
-Use `rasterizeSvg` from `gum-jsx/render` to convert an SVG string to a PNG buffer:
-
-```typescript
-import { rasterizeSvg } from 'gum-jsx/render'
-import { writeFileSync } from 'fs'
-
-const png = rasterizeSvg(svg, {
-    width: 800,       // output width in pixels
-    height: 600,      // output height in pixels
-    background: '#ffffff',
-})
-
-writeFileSync('output.png', png)
-```
+- The realized size of the SVG is available on the `Svg` element as `size`
