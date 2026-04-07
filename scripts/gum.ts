@@ -14,14 +14,25 @@ import type { Size } from '../src/lib/types'
 
 async function runCommand(cmd: Command) {
   const [ file ] = cmd.args
-  let { input = 'jsx', format = 'kitty', output, theme, background, size, width, height } = cmd.opts()
+  let { input, format, output, theme, background, size, width, height, update } = cmd.opts()
 
-  if (theme == 'light' && background == null) {
-    background = 'white'
+  // divert to dev command if update is on
+  if (update) {
+    devCommand(cmd)
+    return
   }
 
+  // add white background for light theme
+  if (theme == 'light' && background == null) background = 'white'
+
   // don't output kitty to file
-  if (output && format == null) format = 'png'
+  if (output != null && format == 'kitty') format = 'png'
+
+  // auto-detect format when output is a file
+  if (output != null && format == null) {
+    if (output.endsWith('.svg')) format = 'svg'
+    if (output.endsWith('.png')) format = 'png'
+  }
 
   // wait for stdin
   const code = file ? readFileSync(file, 'utf-8') : await readStdin()
@@ -78,12 +89,11 @@ interface CellRect {
 
 function devCommand(cmd: Command) {
   const [ fileArg ] = cmd.args
-  const opts = cmd.opts<{ theme: string; background?: string; size: number }>()
   const file = resolve(fileArg)
+  let { theme, background, size } = cmd.opts()
 
-  if (opts.theme == 'light' && opts.background == null) {
-    opts.background = 'white'
-  }
+  // add white background for light theme
+  if (theme == 'light' && background == null) background = 'white'
 
   if (!process.stdout.isTTY) {
     console.error('gum dev requires a TTY')
@@ -200,11 +210,11 @@ function devCommand(cmd: Command) {
   function renderFile(): void {
     try {
       const code = readFileSync(file, 'utf-8')
-      const elem = evaluateGum(code, { size: opts.size, theme: opts.theme })
+      const elem = evaluateGum(code, { size, theme })
       const svg = elem.svg()
       const [width, height] = elem.size
       const box = fitCells(width, height)
-      const png = rasterizeSvg(svg, { size: elem.size, background: opts.background })
+      const png = rasterizeSvg(svg, { size: elem.size, background })
       const imageId = nextImageId()
       const prevImageId = activeImageId
 
@@ -307,28 +317,17 @@ function devCommand(cmd: Command) {
 // main program
 
 const program = new Command()
-program.name('gum').description('gum.jsx command line tools')
-
-program.command('run')
-  .description('render gum.jsx to SVG/PNG')
+program.name('gum')
+  .description('gum.jsx command line tools')
   .argument('[file]', 'gum.jsx file to render (reads from stdin if not provided)')
-  .option('-i, --input <input>', 'input format')
-  .option('-f, --format <format>', 'format to output')
-  .option('-o, --output <output>', 'output file')
+  .option('-u, --update', 'live update display', false)
+  .option('-i, --input <input>', 'input format', 'jsx')
+  .option('-f, --format <format>', 'format to output', 'kitty')
   .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')
-  .option('-u, --update', 'live update display', false)
   .option('-s, --size <size>', 'size of the SVG', (value: string) => parseInt(value), 1000)
   .option('-w, --width <width>', 'width of the PNG', (value: string) => parseInt(value))
   .option('-h, --height <height>', 'height of the PNG', (value: string) => parseInt(value))
+  .option('-o, --output <output>', 'output file')
   .action(async function(this: Command) { await runCommand(this) })
-
-program.command('dev')
-  .description('live gum.jsx viewer')
-  .argument('<file>', 'gum.jsx file to watch')
-  .option('-t, --theme <theme>', 'theme to use', 'light')
-  .option('-b, --background <background>', 'background color')
-  .option('-s, --size <size>', 'base size of the SVG', (value: string) => parseInt(value), 1000)
-  .action(function(this: Command) { devCommand(this) })
-
 program.parse()
