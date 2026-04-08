@@ -49,20 +49,18 @@ class ErrorRender extends Error {
 // gum evaluator
 //
 
+type TableRow = Record<string, unknown>
+type LoadFileData = string | Uint8Array
+type LoadFile = (path: string, args?: LoadFileArgs) => LoadFileData
+type LoadTable = (path: string, args?: LoadTableArgs) => TableRow[]
+
 interface LoadFileArgs {
   encoding?: string | 'bytes'
 }
 
-type LoadFileData = string | Uint8Array
-type LoadFile = (path: string, args?: LoadFileArgs) => LoadFileData
-
-type TableRow = Record<string, unknown>
-
-interface LoadTableArgs<T = TableRow> extends ParseConfig<T> {
+interface LoadTableArgs extends ParseConfig<TableRow> {
   encoding?: string
 }
-
-type LoadTable = <T = TableRow>(path: string, args?: LoadTableArgs<T>) => T[]
 
 interface EvaluateArgs extends SvgArgs {
   theme?: string
@@ -71,26 +69,30 @@ interface EvaluateArgs extends SvgArgs {
   loadFile?: LoadFile
 }
 
+function parseTable(text: string, args: ParseConfig<TableRow> = {}): TableRow[] {
+  const result = Papa.parse<TableRow>(text, { header: true, dynamicTyping: true, skipEmptyLines: 'greedy', ...args })
+
+  if (result.errors.length > 0) {
+    const [ error ] = result.errors
+    const row = error.row != null ? ` at row ${error.row}` : ''
+    throw new Error(`Failed to parse table: ${error.message}${row}`)
+  }
+
+  return result.data
+}
+
 function makeLoadTable(loadFile: LoadFile): LoadTable {
-  return function loadTable<T = TableRow>(
+  return function loadTable(
     path: string,
-    { encoding = 'utf8', dynamicTyping = true, skipEmptyLines = 'greedy', ...args }: LoadTableArgs<T> = {},
-  ): T[] {
+    { encoding = 'utf8', dynamicTyping = true, skipEmptyLines = 'greedy', ...args }: LoadTableArgs = {},
+  ): TableRow[] {
     const text = loadFile(path, { encoding })
 
     if (typeof text !== 'string') {
       throw new TypeError(`loadTable("${path}") expected text from loadFile, received bytes`)
     }
 
-    const result = Papa.parse<T>(text, { header: true, dynamicTyping, skipEmptyLines, ...args })
-
-    if (result.errors.length > 0) {
-      const [ error ] = result.errors
-      const row = error.row != null ? ` at row ${error.row}` : ''
-      throw new Error(`Failed to parse table "${path}": ${error.message}${row}`)
-    }
-
-    return result.data
+    return parseTable(text, { dynamicTyping, skipEmptyLines, ...args })
   }
 }
 
