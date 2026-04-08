@@ -1,7 +1,7 @@
 // pixel images
 
 import { Element, Context, type ElementArgs } from './core'
-import { rect_box } from '../lib/utils'
+import { rect_box, is_string } from '../lib/utils'
 import { THEME } from '../lib/theme'
 import { type Attrs } from '../lib/types'
 
@@ -69,7 +69,7 @@ function getSvgAspect(attr: Attrs): number | undefined {
 
 // read bytes 16-24 (24 * 8 = 192 bits)
 // base64: cut to 32 * 6 = 192 bits
-function getPngAspect(data: string): number {
+function calcPngAspect(data: string): number {
     const [_type, base64] = data.split(',')
     const bstring = atob(base64.slice(0, 32))
     const array = Uint8Array.from(bstring, (c) => c.charCodeAt(0))
@@ -79,21 +79,27 @@ function getPngAspect(data: string): number {
     return width / height
 }
 
+type PngImageData = string | {
+    aspect: number
+    data: string
+}
+
 // base64 image url (data:image/png;base64,...)
 interface PngImageArgs extends ElementArgs {
-    data?: string
+    data?: PngImageData
 }
 
 // png data URI image
 class PngImage extends Element {
     constructor(args: PngImageArgs = {}) {
-        const { data, ...attr } = THEME(args, 'Image')
+        const { data: data0, aspect: aspect0, ...attr } = THEME(args, 'Image')
 
         // image data is required
-        if (data == null) throw new Error('Image data is required')
+        if (data0 == null) throw new Error('Image data is required')
 
         // get dataUrl and aspect
-        const aspect = getPngAspect(data)
+        const data = is_string(data0) ? data0 : data0.data
+        const aspect = aspect0 ?? (is_string(data0) ? calcPngAspect(data0) : data0.aspect)
 
         // pass to Element
         super({ tag: 'image', unary: true, href: data, aspect, ...attr })
@@ -149,4 +155,4 @@ class SvgImage extends Element {
     }
 }
 
-export { PngImage, SvgImage }
+export { PngImage, SvgImage, calcPngAspect }

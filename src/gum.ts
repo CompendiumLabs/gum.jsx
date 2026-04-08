@@ -19,7 +19,7 @@ import { SymPoints, SymLine, SymSpline, SymShape, SymFill, Field, SymField } fro
 import { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend } from './elems/plot'
 import { LabelBox, TitleBox, TitleFrame, Slide } from './elems/slide'
 import { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex } from './elems/math'
-import { PngImage, SvgImage } from './elems/image'
+import { PngImage, SvgImage, calcPngAspect } from './elems/image'
 
 const Rect = Rectangle
 
@@ -49,7 +49,7 @@ const CONTEXT = { ...CONST, ...UTILS, ...CTXS, ...ELEMS, ...CMDS }
 
 export {
     CONST, UTILS, CTXS, ELEMS, CMDS, CONTEXT,
-    setTheme, registerFont,
+    setTheme, registerFont, calcPngAspect,
     is_string, is_boolean, is_array, is_object, is_function, is_element, is_scalar,
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, light, bold,
     range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, rounder, random, uniform, normal, interp, palette, add2, sub2, mul2, div2, spline1d, spline2d,

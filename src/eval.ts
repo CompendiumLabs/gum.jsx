@@ -144,5 +144,5 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
 // export
 //
 
-export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum }
+export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum, parseTable }
 export type { EvaluateArgs, LoadFileArgs, LoadFileData, LoadFile, TableRow, LoadTableArgs, LoadTable }
