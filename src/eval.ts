@@ -1,7 +1,7 @@
 // code evaluation
 
 import * as Papa from 'papaparse'
-import type { ParseConfig, ParseResult } from 'papaparse'
+import type { ParseConfig } from 'papaparse'
 
 import { setTheme } from './lib/theme'
 import { is_element, Svg } from './elems/core'
@@ -56,11 +56,13 @@ interface LoadFileArgs {
 type LoadFileData = string | Uint8Array
 type LoadFile = (path: string, args?: LoadFileArgs) => LoadFileData
 
-interface LoadTableArgs<T = Record<string, unknown>> extends ParseConfig<T> {
+type TableRow = Record<string, unknown>
+
+interface LoadTableArgs<T = TableRow> extends ParseConfig<T> {
   encoding?: string
 }
 
-type LoadTable = <T = Record<string, unknown>>(path: string, args?: LoadTableArgs<T>) => ParseResult<T>
+type LoadTable = <T = TableRow>(path: string, args?: LoadTableArgs<T>) => T[]
 
 interface EvaluateArgs extends SvgArgs {
   theme?: string
@@ -70,17 +72,25 @@ interface EvaluateArgs extends SvgArgs {
 }
 
 function makeLoadTable(loadFile: LoadFile): LoadTable {
-  return function loadTable<T = Record<string, unknown>>(
+  return function loadTable<T = TableRow>(
     path: string,
-    { encoding = 'utf8', header = true, skipEmptyLines = 'greedy', ...args }: LoadTableArgs<T> = {},
-  ): ParseResult<T> {
+    { encoding = 'utf8', dynamicTyping = true, skipEmptyLines = 'greedy', ...args }: LoadTableArgs<T> = {},
+  ): T[] {
     const text = loadFile(path, { encoding })
 
     if (typeof text !== 'string') {
       throw new TypeError(`loadTable("${path}") expected text from loadFile, received bytes`)
     }
 
-    return Papa.parse<T>(text, { header, skipEmptyLines, ...args })
+    const result = Papa.parse<T>(text, { header: true, dynamicTyping, skipEmptyLines, ...args })
+
+    if (result.errors.length > 0) {
+      const [ error ] = result.errors
+      const row = error.row != null ? ` at row ${error.row}` : ''
+      throw new Error(`Failed to parse table "${path}": ${error.message}${row}`)
+    }
+
+    return result.data
   }
 }
 
@@ -133,4 +143,4 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
 //
 
 export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum }
-export type { EvaluateArgs, LoadFileArgs, LoadFileData, LoadFile, LoadTableArgs, LoadTable }
+export type { EvaluateArgs, LoadFileArgs, LoadFileData, LoadFile, TableRow, LoadTableArgs, LoadTable }
