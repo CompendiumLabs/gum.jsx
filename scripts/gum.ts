@@ -8,19 +8,26 @@ import { evaluateGum } from '../src/eval'
 import { rasterizeSvg, formatImage, readStdin } from '../src/render'
 import type { Size } from '../src/lib/types'
 
+interface Args {
+  file: string
+  input: string
+  format: string
+  output: string
+  theme: string
+  background: string
+  size?: Size
+  width?: number
+  height?: number
+  dev: boolean
+}
+
 //
-// run command
+// argument transform
 //
 
-async function runCommand(cmd: Command) {
+function transformArgs(cmd: Command) {
   const [ file ] = cmd.args
-  let { input, format, output, theme, background, size, width, height, update } = cmd.opts()
-
-  // divert to dev command if update is on
-  if (update) {
-    devCommand(cmd)
-    return
-  }
+  let { input, format, output, theme, background, size, width, height, dev } = cmd.opts()
 
   // add white background for light theme
   if (theme == 'light' && background == null) background = 'white'
@@ -34,15 +41,32 @@ async function runCommand(cmd: Command) {
     if (output.endsWith('.png')) format = 'png'
   }
 
+  return { file, input, format, output, theme, background, size, width, height, dev }
+}
+
+//
+// run command
+//
+
+async function runCommand(args: Args) {
+  const { file, input, format, output, theme, background, size: size0, width, height, dev } = args
+
+  // divert to dev command if update is on
+  if (dev) {
+    devCommand(args)
+    return
+  }
+
   // wait for stdin
   const code = file ? readFileSync(file, 'utf-8') : await readStdin()
 
   // evaluate gum with size
   let svg: string
+  let size: Size | undefined = size0
   if (input == 'svg') {
     svg = code
   } else if (input == 'jsx') {
-    const elem = evaluateGum(code, { size, theme })
+    const elem = evaluateGum(code, { size: size0, theme })
     size = elem.size
     svg = elem.svg()
   } else {
@@ -87,13 +111,13 @@ interface CellRect {
   row: number
 }
 
-function devCommand(cmd: Command) {
-  const [ fileArg ] = cmd.args
-  const file = resolve(fileArg)
-  let { theme, background, size } = cmd.opts()
+function devCommand(args: Args) {
+  const { file, theme, background, size } = args
 
-  // add white background for light theme
-  if (theme == 'light' && background == null) background = 'white'
+  if (file == null) {
+    console.error('gum dev requires a file')
+    process.exit(1)
+  }
 
   if (!process.stdout.isTTY) {
     console.error('gum dev requires a TTY')
@@ -320,7 +344,7 @@ const program = new Command()
 program.name('gum')
   .description('gum.jsx command line tools')
   .argument('[file]', 'gum.jsx file to render (reads from stdin if not provided)')
-  .option('-u, --update', 'live update display', false)
+  .option('-d, --dev', 'live update display', false)
   .option('-i, --input <input>', 'input format', 'jsx')
   .option('-f, --format <format>', 'format to output', 'kitty')
   .option('-t, --theme <theme>', 'theme to use', 'light')
@@ -329,5 +353,8 @@ program.name('gum')
   .option('-w, --width <width>', 'width of the PNG', (value: string) => parseInt(value))
   .option('-h, --height <height>', 'height of the PNG', (value: string) => parseInt(value))
   .option('-o, --output <output>', 'output file')
-  .action(async function(this: Command) { await runCommand(this) })
+  .action(async function(this: Command) {
+    const args = transformArgs(this)
+    await runCommand(args)
+  })
 program.parse()
