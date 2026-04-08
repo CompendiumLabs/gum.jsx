@@ -2,23 +2,25 @@
 
 import { Command } from 'commander'
 import { readFileSync, writeFileSync, watchFile, unwatchFile } from 'fs'
-import { basename, resolve } from 'path'
+import { basename, dirname, resolve } from 'path'
 
 import { evaluateGum } from '../src/eval'
+import type { LoadFile } from '../src/eval'
 import { rasterizeSvg, formatImage, readStdin } from '../src/render'
 import type { Size } from '../src/lib/types'
 
 interface Args {
-  file: string
+  file?: string
   input: string
   format: string
-  output: string
+  output?: string
   theme: string
-  background: string
+  background?: string
   size?: Size
   width?: number
   height?: number
   dev: boolean
+  loadFile: LoadFile
 }
 
 //
@@ -26,7 +28,7 @@ interface Args {
 //
 
 function transformArgs(cmd: Command) {
-  const [ file ] = cmd.args
+  const [ file0 ] = cmd.args
   let { input, format, output, theme, background, size, width, height, dev } = cmd.opts()
 
   // add white background for light theme
@@ -41,7 +43,17 @@ function transformArgs(cmd: Command) {
     if (output.endsWith('.png')) format = 'png'
   }
 
-  return { file, input, format, output, theme, background, size, width, height, dev }
+  // make loadFile function
+  const file = file0 != null ? resolve(file0) : undefined
+  const cwd = file != null ? dirname(file) : process.cwd()
+  const loadFile: LoadFile = function loadFile(path: string, { encoding = 'utf8' } = {}) {
+    const file = resolve(cwd, path)
+    return encoding == 'bytes'
+      ? readFileSync(file)
+      : readFileSync(file, encoding as BufferEncoding)
+  }
+
+  return { file, input, format, output, theme, background, size, width, height, dev, loadFile }
 }
 
 //
@@ -49,7 +61,7 @@ function transformArgs(cmd: Command) {
 //
 
 async function runCommand(args: Args) {
-  const { file, input, format, output, theme, background, size: size0, width, height, dev } = args
+  const { file, input, format, output, theme, background, size: size0, width, height, dev, loadFile } = args
 
   // divert to dev command if update is on
   if (dev) {
@@ -66,7 +78,7 @@ async function runCommand(args: Args) {
   if (input == 'svg') {
     svg = code
   } else if (input == 'jsx') {
-    const elem = evaluateGum(code, { size: size0, theme })
+    const elem = evaluateGum(code, { size: size0, theme, loadFile })
     size = elem.size
     svg = elem.svg()
   } else {
@@ -112,9 +124,9 @@ interface CellRect {
 }
 
 function devCommand(args: Args) {
-  const { file, theme, background, size } = args
+  const { file: file0, theme, background, size, loadFile } = args
 
-  if (file == null) {
+  if (file0 == null) {
     console.error('gum dev requires a file')
     process.exit(1)
   }
@@ -123,6 +135,8 @@ function devCommand(args: Args) {
     console.error('gum dev requires a TTY')
     process.exit(1)
   }
+
+  const file = resolve(file0)
 
   let closed = false
   let renderTimer: ReturnType<typeof setTimeout> | null = null
@@ -234,7 +248,7 @@ function devCommand(args: Args) {
   function renderFile(): void {
     try {
       const code = readFileSync(file, 'utf-8')
-      const elem = evaluateGum(code, { size, theme })
+      const elem = evaluateGum(code, { size, theme, loadFile })
       const svg = elem.svg()
       const [width, height] = elem.size
       const box = fitCells(width, height)
