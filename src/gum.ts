@@ -59,6 +59,6 @@ export {
 }
 
 export type { ElementConstructor }
-export type { SplineFuncArgs } from './lib/interp'
+export type { PngImageArgs, SvgImageArgs } from './elems/image'
 
 export type * from './lib/types'

@@ -86,20 +86,19 @@ type PngImageData = string | {
 
 // base64 image url (data:image/png;base64,...)
 interface PngImageArgs extends ElementArgs {
-    data?: PngImageData
+    data?: string
 }
 
 // png data URI image
 class PngImage extends Element {
     constructor(args: PngImageArgs = {}) {
-        const { data: data0, aspect: aspect0, ...attr } = THEME(args, 'Image')
+        const { data, aspect: aspect0, ...attr } = THEME(args, 'PngImage')
 
         // image data is required
-        if (data0 == null) throw new Error('Image data is required')
+        if (data == null) throw new Error('Image data is required')
 
         // get dataUrl and aspect
-        const data = is_string(data0) ? data0 : data0.data
-        const aspect = aspect0 ?? (is_string(data0) ? calcPngAspect(data0) : data0.aspect)
+        const aspect = aspect0 ?? calcPngAspect(data)
 
         // pass to Element
         super({ tag: 'image', unary: true, href: data, aspect, ...attr })
@@ -122,7 +121,7 @@ class SvgImage extends Element {
     innerSvg: string
 
     constructor(args: SvgImageArgs = {}) {
-        const { data, ...attr } = THEME(args, 'Image')
+        const { data, ...attr } = THEME(args, 'SvgImage')
 
         // image data is required
         if (data == null) throw new Error('SvgImage data is required')
@@ -156,3 +155,4 @@ class SvgImage extends Element {
 }
 
 export { PngImage, SvgImage, calcPngAspect }
+export type { PngImageArgs, SvgImageArgs }

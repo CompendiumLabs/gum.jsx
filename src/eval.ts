@@ -53,6 +53,7 @@ type TableRow = Record<string, unknown>
 type LoadFileData = string | Uint8Array
 type LoadFile = (path: string, args?: LoadFileArgs) => LoadFileData
 type LoadTable = (path: string, args?: LoadTableArgs) => TableRow[]
+type GumContext = Record<string, any>
 
 interface LoadFileArgs {
   encoding?: string | 'bytes'
@@ -64,7 +65,7 @@ interface LoadTableArgs extends ParseConfig<TableRow> {
 
 interface EvaluateArgs extends SvgArgs {
   theme?: string
-  context?: Record<string, any>
+  context?: GumContext
   debug?: boolean
   loadFile?: LoadFile
 }
@@ -145,4 +146,4 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
 //
 
 export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum, parseTable }
-export type { EvaluateArgs, LoadFileArgs, LoadFileData, LoadFile, TableRow, LoadTableArgs, LoadTable }
+export type { EvaluateArgs, LoadFileArgs, LoadFileData, LoadFile, TableRow, LoadTableArgs, LoadTable, GumContext }
