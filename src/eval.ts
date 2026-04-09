@@ -4,9 +4,11 @@ import * as Papa from 'papaparse'
 import type { ParseConfig } from 'papaparse'
 
 import { setTheme } from './lib/theme'
+import { is_string } from './lib/utils'
 import { is_element, Svg } from './elems/core'
 import type { SvgArgs } from './elems/core'
 import { runJSX } from './lib/parse'
+import { PngImage } from './elems/image'
 
 //
 // types
@@ -51,17 +53,9 @@ class ErrorRender extends Error {
 
 type TableRow = Record<string, unknown>
 type LoadFileData = string | Uint8Array
-type LoadFile = (path: string, args?: LoadFileArgs) => LoadFileData
-type LoadTable = (path: string, args?: LoadTableArgs) => TableRow[]
+type LoadFile = (path: string, encoding?: string) => LoadFileData
+type LoadTable = (path: string, args?: ParseConfig<TableRow>) => TableRow[]
 type GumContext = Record<string, any>
-
-interface LoadFileArgs {
-  encoding?: string | 'bytes'
-}
-
-interface LoadTableArgs extends ParseConfig<TableRow> {
-  encoding?: string
-}
 
 interface EvaluateArgs extends SvgArgs {
   theme?: string
@@ -71,7 +65,12 @@ interface EvaluateArgs extends SvgArgs {
 }
 
 function parseTable(text: string, args: ParseConfig<TableRow> = {}): TableRow[] {
-  const result = Papa.parse<TableRow>(text, { header: true, dynamicTyping: true, skipEmptyLines: 'greedy', ...args })
+  const result = Papa.parse<TableRow>(text, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: 'greedy',
+    ...args
+  })
 
   if (result.errors.length > 0) {
     const [ error ] = result.errors
@@ -82,18 +81,43 @@ function parseTable(text: string, args: ParseConfig<TableRow> = {}): TableRow[] 
   return result.data
 }
 
-function makeLoadTable(loadFile: LoadFile): LoadTable {
-  return function loadTable(
-    path: string,
-    { encoding = 'utf8', dynamicTyping = true, skipEmptyLines = 'greedy', ...args }: LoadTableArgs = {},
-  ): TableRow[] {
-    const text = loadFile(path, { encoding })
+function uint8ArrayToDataUrl(data: Uint8Array): string {
+  let binary = ''
+  for (const byte of data) binary += String.fromCharCode(byte)
+  const base64 = btoa(binary)
+  return `data:image/png;base64,${base64}`
 
-    if (typeof text !== 'string') {
-      throw new TypeError(`loadTable("${path}") expected text from loadFile, received bytes`)
+}
+
+interface LoadImageArgs {
+  id?: string
+}
+
+function makeContext(loadFile: LoadFile): GumContext {
+  // image loader class
+  class LoadImage {
+    constructor(args: LoadImageArgs = {}) {
+      const { id, ...attr } = args
+
+      // check for id
+      if (id == null) throw new Error('ImageLoader id is required')
+
+      // load image
+      const data = loadFile(id, 'bytes') as Uint8Array
+      const dataUrl = uint8ArrayToDataUrl(data)
+
+      // return image
+      return new PngImage({ data: dataUrl, ...attr })
     }
+  }
 
-    return parseTable(text, { dynamicTyping, skipEmptyLines, ...args })
+  return {
+    LoadImage,
+    loadTable(path: string, args: ParseConfig<TableRow> = {}): TableRow[] {
+      const text = loadFile(path)
+      if (!is_string(text)) throw new TypeError(`loadTable("${path}") expected text`)
+      return parseTable(text, args)
+    }
   }
 }
 
@@ -111,8 +135,7 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
   // create evaluation context
   const evalContext = loadFile == null ? context : {
     ...context,
-    loadFile: loadFile,
-    loadTable: makeLoadTable(loadFile),
+    ...makeContext(loadFile)
   }
 
   // parse to property tree
@@ -146,4 +169,4 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
 //
 
 export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum, parseTable }
-export type { EvaluateArgs, LoadFileArgs, LoadFileData, LoadFile, TableRow, LoadTableArgs, LoadTable, GumContext }
+export type { EvaluateArgs, LoadFileData, LoadFile, TableRow, LoadTable, GumContext }

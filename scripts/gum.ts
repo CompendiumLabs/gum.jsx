@@ -46,7 +46,7 @@ function transformArgs(cmd: Command) {
   // make loadFile function
   const file = file0 != null ? resolve(file0) : undefined
   const cwd = file != null ? dirname(file) : process.cwd()
-  const loadFile: LoadFile = function loadFile(path: string, { encoding = 'utf8' } = {}) {
+  const loadFile: LoadFile = function loadFile(path: string, encoding: string = 'utf8') {
     const file = resolve(cwd, path)
     return encoding == 'bytes'
       ? readFileSync(file)
