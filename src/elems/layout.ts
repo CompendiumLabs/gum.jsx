@@ -87,7 +87,7 @@ interface BoxArgs extends GroupArgs {
 
 class Box extends Group {
     constructor(args: BoxArgs = {}) {
-        const { children: children0, padding, margin, border, fill, shape: shape0, rounded, aspect, clip = false, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
+        const { children: children0, padding, margin, border, fill, shape: shape0, rounded, aspect, clip, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
         const children = ensure_children(children0)
 
@@ -98,7 +98,7 @@ class Box extends Group {
         const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, aspect: aspect as number | undefined, adjust })
 
         // make framing elements
-        const rect_cl = clip ? shape : undefined
+        const rect_cl = (clip === true) ? shape : clip
         const rect_bg = fill != null ? shape.clone({ fill, stroke: none, ...fill_attr }) : null
         const rect_fg = border != null ? shape.clone({ stroke_width: border, ...border_attr }) : null
 

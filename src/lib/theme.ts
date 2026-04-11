@@ -63,10 +63,6 @@ const THEME_LIGHT: ThemeLayer = {
         color: black,
     },
 
-    TitleBox: {
-        title_fill: white,
-    },
-
     Plot: {
         grid_stroke: '#ddd',
     },
@@ -88,10 +84,6 @@ const THEME_DARK: ThemeLayer = {
 
     Latex: {
         color: white,
-    },
-
-    TitleBox: {
-        title_fill: '#333',
     },
 
     Plot: {
