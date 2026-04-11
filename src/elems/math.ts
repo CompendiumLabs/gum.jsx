@@ -222,17 +222,6 @@ function padding_rect(padding: Padding | undefined): Rect {
     return padding as Rect
 }
 
-function vertical_padding(padding: Padding | undefined): Limit {
-    if (padding == null) return [ 0, 0 ]
-    if (is_scalar(padding)) return [ padding, padding ]
-    if (!Array.isArray(padding)) return [ 0, 0 ]
-    if (padding.length == 2) return [ padding[1], padding[1] ]
-    const [ _pl, pt, _pr, pb ] = padding
-    const [ pt1 ] = ensure_vector(pt, 2)
-    const [ pb1 ] = ensure_vector(pb, 2)
-    return [ pt1, pb1 ]
-}
-
 //
 // symbol lookup
 //
@@ -269,7 +258,7 @@ function inter_atom_spacing(prev: MathClass, next: MathClass): number {
     return measurement_to_em(measurement)
 }
 
-function inter_item_spacing(prev: WithMath | null, next: WithMath | null, spacing: number): number {
+function inter_item_spacing(prev: WithMath | null, next: WithMath | null): number {
     if (prev == null || next == null) return 0
     const { right: prevRight } = prev.math
     const { left: nextLeft } = next.math
@@ -669,7 +658,7 @@ type MathTextLayout = {
     right: MathClass
 }
 
-function layoutMathText(mathItems: WithMath[], spacing: number): MathTextLayout {
+function layoutMathText(mathItems: WithMath[]): MathTextLayout {
     const rowItems: WithMath[] = []
 
     // accumulate math metrics
@@ -682,7 +671,7 @@ function layoutMathText(mathItems: WithMath[], spacing: number): MathTextLayout 
         const { left: itemLeft, right: itemRight } = item.math
 
         // insert item with spacing
-        const gap = inter_item_spacing(prevItem, item, spacing)
+        const gap = inter_item_spacing(prevItem, item)
         if (gap > 0) rowItems.push(new MathSpacer({ advance: gap }))
         rowItems.push(item)
 
@@ -703,13 +692,13 @@ class MathText extends MathRow {
     items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, spacing = 0.25, inline, ...attr } = THEME(args, 'MathText')
+        const { children: children0, inline, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
         const mathItems = normalize_math_children(inputs)
 
         // compress sapcing and layout
         const spacedItems = cancel_binary_atoms(mathItems)
-        const { items, left, right } = layoutMathText(spacedItems, spacing)
+        const { items, left, right } = layoutMathText(spacedItems)
 
         // pass to Group
         super({ children: items, ...attr })

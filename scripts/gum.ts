@@ -8,13 +8,14 @@ import { evaluateGum } from '../src/eval'
 import type { LoadFile } from '../src/eval'
 import { rasterizeSvg, formatImage, readStdin } from '../src/render'
 import type { Size } from '../src/lib/types'
+import type { ThemeName } from '../src/lib/theme'
 
 interface Args {
   file?: string
   input: string
   format: string
   output?: string
-  theme: string
+  theme: ThemeName
   background?: string
   size?: Size
   width?: number

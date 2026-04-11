@@ -2,12 +2,12 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_rect, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub2m, add2, sub2, mul2, div2, clamp, range, angle_direc, unit_direc, vector_angle, polar, prefix_split } from '../lib/utils'
-import { cubic_spline_data, cubic_spline_points, spline2d } from '../lib/interp'
-
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub2m, add2, sub2, mul2, div2, angle_direc, unit_direc, vector_angle, polar, prefix_split } from '../lib/utils'
+import { cubic_spline_data } from '../lib/interp'
 import { Context, Element, Group, Rectangle } from './core'
 
 import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
+import type { SplineData } from '../lib/interp'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
@@ -382,8 +382,6 @@ class CornerCmd {
     }
 }
 
-import type { SplineData, SplineFuncArgs } from '../lib/interp'
-
 type CubicSplineCmdArgs = SplineData<Point | MPoint>
 
 class CubicSplineCmd extends Command {
@@ -453,7 +451,6 @@ class Spline extends Path {
     constructor(args: SplineArgs = {}) {
         const { points: points0, start_dir, end_dir, curve, closed = false, ...attr } = THEME(args, 'Spline')
         const points = check_array(points0)
-        const n = points.length
 
         // create path commands
         const move = new MoveCmd(points[0])

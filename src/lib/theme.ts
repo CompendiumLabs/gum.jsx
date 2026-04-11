@@ -7,6 +7,7 @@ import { map_object, is_array, is_string } from './utils'
 // base layer
 //
 
+type ThemeName = 'light' | 'dark'
 type ThemeAttrs = Record<string, any>
 type ThemeLayer = Record<string, ThemeAttrs>
 
@@ -106,7 +107,7 @@ const THEME_DARK: ThemeLayer = {
     },
 }
 
-const THEMES: Record<string, ThemeLayer> = {
+const THEMES: Record<ThemeName, ThemeLayer> = {
     light: THEME_LIGHT,
     dark: THEME_DARK,
 }
@@ -117,12 +118,8 @@ const THEMES: Record<string, ThemeLayer> = {
 
 // theme state
 let theme: ThemeLayer = THEME_LIGHT
-function setTheme(names: string | ThemeLayer | (string | ThemeLayer)[]): void {
-    const list = is_array(names) ? names as (string | ThemeLayer)[] : [names]
-    theme = list.reduce<ThemeLayer>((acc, name) => {
-        const layer = is_string(name) ? THEMES[name as string] : name as ThemeLayer
-        return { ...acc, ...layer }
-    }, {})
+function setTheme(name: ThemeName): void {
+    theme = THEMES[name]
 }
 
 // theme function
@@ -143,3 +140,4 @@ function THEME<T extends Object>(args: T, elem: string): T {
 //
 
 export { THEME, setTheme }
+export type { ThemeName }

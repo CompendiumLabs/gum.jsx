@@ -3,7 +3,7 @@
 import * as Papa from 'papaparse'
 import type { ParseConfig } from 'papaparse'
 
-import { setTheme } from './lib/theme'
+import { setTheme, type ThemeName } from './lib/theme'
 import { is_string } from './lib/utils'
 import { is_element, Svg } from './elems/core'
 import type { SvgArgs } from './elems/core'
@@ -58,7 +58,7 @@ type LoadTable = (path: string, args?: ParseConfig<TableRow>) => TableRow[]
 type GumContext = Record<string, any>
 
 interface EvaluateArgs extends SvgArgs {
-  theme?: string
+  theme?: ThemeName
   context?: GumContext
   debug?: boolean
   loadFile?: LoadFile
