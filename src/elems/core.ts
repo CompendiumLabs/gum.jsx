@@ -526,7 +526,6 @@ class ClipPath extends Group {
     }
 
     svg(ctx?: Context): string {
-        console.log(this.children[0])
         const def = super.svg(ctx)
         ctx!.meta.addDef(def)
         return ''
