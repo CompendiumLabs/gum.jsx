@@ -63,22 +63,22 @@ class Node extends Frame {
 interface EdgeArgs extends ElementArgs {
     start?: Element | string
     end?: Element | string
-    start_dir?: Side
-    end_dir?: Side
+    start_side?: Side
+    end_side?: Side
     points?: Point[]
 }
 
 class Edge extends Element {
     start: Element | string
     end: Element | string
-    start_dir?: Side
-    end_dir?: Side
+    start_side?: Side
+    end_side?: Side
     start_loc?: number
     end_loc?: number
     points: Point[]
 
     constructor(args: EdgeArgs = {}) {
-        const { start, end, start_dir, end_dir, start_loc, end_loc, points = [], curve = 2, ...attr } = THEME(args, 'Edge')
+        const { start, end, start_side, end_side, start_loc, end_loc, points = [], curve = 2, ...attr } = THEME(args, 'Edge')
 
         // check for nodes
         if (start == null || end == null) throw new Error('Both `start` or `end` must be provided')
@@ -90,8 +90,8 @@ class Edge extends Element {
         // additional props
         this.start = start
         this.end = end
-        this.start_dir = start_dir
-        this.end_dir = end_dir
+        this.start_side = start_side
+        this.end_side = end_side
         this.start_loc = start_loc
         this.end_loc = end_loc
         this.points = points
@@ -115,14 +115,14 @@ class Edge extends Element {
         const pend_center = ctx.mapPoint(end_center)
 
         // get emanation directions
-        const start_direc = this.start_dir ?? get_side(pstart_center, pend_center)
-        const end_direc = this.end_dir ?? get_side(pend_center, pstart_center)
+        const start_side = this.start_side ?? get_side(pstart_center, pend_center)
+        const end_side = this.end_side ?? get_side(pend_center, pstart_center)
 
         // get anchor points and tangent vectors
-        const start = this.start.anchor(ctx, start_direc, this.start_loc)
-        const end = this.end.anchor(ctx, end_direc, this.end_loc)
-        const start_dir = side_direc(start_direc)
-        const end_dir = mul2(side_direc(end_direc), -1)
+        const start = this.start.anchor(ctx, start_side, this.start_loc)
+        const end = this.end.anchor(ctx, end_side, this.end_loc)
+        const start_dir = side_direc(start_side)
+        const end_dir = mul2(side_direc(end_side), -1)
 
         const path = new Arrow({ points: [ start, ...this.points, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, ...attr })
         return path.svg(ctx)

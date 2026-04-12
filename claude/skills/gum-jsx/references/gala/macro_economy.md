@@ -24,10 +24,10 @@ return <Slide title="Macroeconomic Flows">
     <Node id="govt" pos={[0.8, 0.65]} ysize={0.12} fill={col.govt} fill-opacity={0.15} border-stroke={col.govt} wrap={6}>Government</Node>
 
     <Edge start="prod" end="cons" arrow />
-    <Edge start="govt" end="prod" end-dir="s" arrow curve={2.5} />
-    <Edge start="govt" end="cons" end-dir="s" arrow curve={2.5} />
-    <Edge start="trade" end="prod" end-dir="n" arrow curve={2.5} />
-    <Edge start="trade" end="cons" end-dir="n" arrow curve={2.5} />
+    <Edge start="govt" end="prod" end-side="s" arrow curve={2.5} />
+    <Edge start="govt" end="cons" end-side="s" arrow curve={2.5} />
+    <Edge start="trade" end="prod" end-side="n" arrow curve={2.5} />
+    <Edge start="trade" end="cons" end-side="n" arrow curve={2.5} />
 
     <Text pos={[0.8, 0.35]} ysize={0.05} color={col.prod}>Goods + Services →</Text>
     <Text pos={[0.8, 0.45]} ysize={0.05} color={col.cons}>← Wages, Rent, Profit</Text>

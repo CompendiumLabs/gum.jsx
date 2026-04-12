@@ -41,7 +41,7 @@ A special type of **Frame** that places a title element in a box centered on the
 
 Parameters:
 - `title` — the text or element to use as the title
-- `title-size` = `0.05` — the size of the title element
+- `title-size` = `0.1` — the size of the title element
 - `adjust` = `true` — whether to adjust the padding and margin to account for the title element
 - `border` = `1` — the outer frame border width to use
 

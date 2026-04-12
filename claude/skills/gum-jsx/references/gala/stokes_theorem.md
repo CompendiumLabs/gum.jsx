@@ -154,7 +154,7 @@ const MathPanel = (attr) =>
     <Text wrap={16} spacing={0.25}>The line integral of a vector field <Tex>F</Tex> around the closed boundary curve <Tex>\delta S</Tex> equals the surface integral of the curl of <Tex>F</Tex> over any oriented surface <Tex>S</Tex> bounded by that curve.</Text>
   </VStack>
 
-return <Slide title="Stokes' Theorem" title-size={0.07} padding={0.15}>
+return <Slide title="Stokes' Theorem" title-size={0.13} padding={0.15}>
   <HStack spacing={0.05}>
     <SurfaceDiagram />
     <MathPanel />

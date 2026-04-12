@@ -101,7 +101,7 @@ const Cell = ({ label, children }) =>
   </VStack>
 
 // main slide
-return <Slide title="Atomic Orbitals" title-size={0.04}>
+return <Slide title="Atomic Orbitals" title-size={0.08}>
   <VStack even spacing>
     <HWrap hspacing={0.2}>
       <Cell label="1s"><SOrbital /></Cell>

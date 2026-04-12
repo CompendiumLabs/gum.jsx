@@ -39,7 +39,8 @@ Use **Arrow** for creating edges between arbitrary points and for details on opt
 
 Parameters:
 - `start`/`end` — the beginning and ending element for the path
-- `start-dir`/`end-dir` — the emanation directions of the arrowheads (cardinal strings or direction vectors)
+- `start-side`/`end-side` — the attachment side of the arrowheads (cardinal strings)
+- `start-loc`/`end-loc` — the attachment location of the arrowheads (a number between 0 and 1)
 - `points` — the intermediate points to draw the spline between
 - `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
 - `arrow-size` = `0.04` — the arrowhead size to use for both arrows
@@ -84,6 +85,6 @@ Generated code:
   <Node id="test" pos={[0.75, 0.25]} wrap={6}>This is a test of wrapping capabilities</Node>
   <Node id="ball" pos={[0.75, 0.75]}><Ellipse aspect={1.5} fill={blue}/></Node>
   <Edge start="hello" end="test" />
-  <Edge start="hello" end="ball" start-dir="s" curve={3} />
+  <Edge start="hello" end="ball" start-side="s" curve={3} />
 </Network>
 ```
