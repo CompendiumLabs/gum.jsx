@@ -24,9 +24,9 @@ function align_frac(align: AlignValue): number {
     }
 }
 
-function anchor_point(rect: Rect, side: Side): Point {
+function anchor_point(rect: Rect, side: Side, loc: number): Point {
     const [ xmin, ymin, xmax, ymax] = rect
-    const [ xmid, ymid ] = rect_center(rect)
+    const [ xmid, ymid ] = [ xmin + (xmax - xmin) * loc, ymin + (ymax - ymin) * loc ]
     if (side == 'top' || side == 't') return [ xmid, ymin ]
     if (side == 'bottom' || side == 'b') return [ xmid, ymax ]
     if (side == 'right' || side == 'r') return [ xmax, ymid ]
@@ -345,9 +345,9 @@ class Element {
         return remap_rect(prect, ctx.prect, ctx.coord)
     }
 
-    anchor(ctx: Context, side: Side): Point {
+    anchor(ctx: Context, side: Side, loc: number = 0.5): Point {
         const prect = this.rect(ctx)
-        return anchor_point(prect, side)
+        return anchor_point(prect, side, loc)
     }
 
     props(ctx: Context): Attrs {

@@ -73,10 +73,12 @@ class Edge extends Element {
     end: Element | string
     start_dir?: Side
     end_dir?: Side
+    start_loc?: number
+    end_loc?: number
     points: Point[]
 
     constructor(args: EdgeArgs = {}) {
-        const { start, end, start_dir, end_dir, points = [], curve = 2, ...attr } = THEME(args, 'Edge')
+        const { start, end, start_dir, end_dir, start_loc, end_loc, points = [], curve = 2, ...attr } = THEME(args, 'Edge')
 
         // check for nodes
         if (start == null || end == null) throw new Error('Both `start` or `end` must be provided')
@@ -90,6 +92,8 @@ class Edge extends Element {
         this.end = end
         this.start_dir = start_dir
         this.end_dir = end_dir
+        this.start_loc = start_loc
+        this.end_loc = end_loc
         this.points = points
     }
 
@@ -115,8 +119,8 @@ class Edge extends Element {
         const end_direc = this.end_dir ?? get_side(pend_center, pstart_center)
 
         // get anchor points and tangent vectors
-        const start = this.start.anchor(ctx, start_direc)
-        const end = this.end.anchor(ctx, end_direc)
+        const start = this.start.anchor(ctx, start_direc, this.start_loc)
+        const end = this.end.anchor(ctx, end_direc, this.end_loc)
         const start_dir = side_direc(start_direc)
         const end_dir = mul2(side_direc(end_direc), -1)
 
