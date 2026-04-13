@@ -272,6 +272,18 @@ function ensure_ticklabel(label: Element | Label | number | [number, string], ar
     return new Label({ children: [ child ], direc, loc, ...spec })
 }
 
+function calc_tick_span(size: number = 1, side: Zone): Limit {
+    if (side == 'inner') {
+        return [ 0, size ]
+    } else if (side == 'outer') {
+        return [ 1 - size, 1 ]
+    } else if (side == 'both') {
+        return [ 0.5 - size / 2, 0.5 + size / 2 ]
+    } else {
+        throw new Error(`Invalid tick side: ${side}`)
+    }
+}
+
 type TickArgs = Label | number | [number, string]
 
 interface AxisArgs extends GroupArgs {
@@ -320,7 +332,8 @@ class Axis extends Group {
         // extract tick elements from labels
         const tick_elems = label_elems.map((l: Element) => {
             const tick = l.args.tick ?? new UnitLine({ direc: idirec })
-            return tick.clone({ tick_loc: l.args.loc, tick_span: l.args.span })
+            const span = calc_tick_span(l.args.tick_size, tick_side)
+            return tick.clone({ tick_loc: l.args.loc, tick_span: span })
         })
 
         // accumulate children
