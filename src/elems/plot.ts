@@ -120,7 +120,8 @@ interface ScaleArgs extends GroupArgs {
 
 class Scale extends Group {
     constructor(args: ScaleArgs = {}) {
-        const { children: children0, locs, direc = 'h', span = D.lim, ...attr } = THEME(args, 'Scale')
+        const { children: children0, locs, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
+        const [ spec, tick_attr ] = spec_split(attr0)
         const tick_dir = invert_orient(direc)
 
         // make tick placeholders
@@ -133,11 +134,11 @@ class Scale extends Group {
         const ticks = ticks0.map((t: Element) => {
             const { tick_loc, tick_span } = t.args
             const rect = join_limits({ [direc]: [tick_loc, tick_loc], [tick_dir]: tick_span })
-            return t.clone({ rect, expand: true })
+            return t.clone({ rect, expand: true, ...tick_attr })
         })
 
         // set coordinate system
-        super({ children: ticks, ...attr })
+        super({ children: ticks, ...spec })
         this.args = args
     }
 }
@@ -209,18 +210,19 @@ interface LabelsArgs extends GroupArgs {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args: LabelsArgs = {}) {
-        const { children: children0, direc = 'h', ...attr } = THEME(args, 'Labels')
+        const { children: children0, direc = 'h', ...attr0 } = THEME(args, 'Labels')
+        const [ spec, label_attr ] = spec_split(attr0)
         const children = ensure_children(children0)
 
         // place tick boxes using expanded lines
         const items = children.map((c: Element) => {
             const loc = c.args.loc
             const rect = join_limits({ [direc]: [ loc, loc ] })
-            return c.clone({ rect, expand: true })
+            return c.clone({ rect, expand: true, ...label_attr })
         })
 
         // pass to Group
-        super({ children: items, ...attr })
+        super({ children: items, ...spec })
         this.args = args
     }
 }
