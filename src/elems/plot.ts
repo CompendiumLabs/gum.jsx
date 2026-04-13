@@ -108,30 +108,36 @@ class HBars extends Bars {
 // axis/tick/label elements
 //
 
+function auto_array<T>(vals: number | T[] = 0, lim: Limit): (number | T)[] {
+    return is_scalar(vals) ? linspace(...lim, vals) : vals
+}
+
 interface ScaleArgs extends GroupArgs {
-    locs?: number[]
+    locs?: number | number[]
     direc?: Orient
     span?: Limit
 }
 
 class Scale extends Group {
     constructor(args: ScaleArgs = {}) {
-        const { children: children0, N, locs: locs0, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
-        const [ spec, attr ] = spec_split(attr0)
+        const { children: children0, locs, direc = 'h', span = D.lim, ...attr } = THEME(args, 'Scale')
         const tick_dir = invert_orient(direc)
 
-        // get tick locations
-        const locs = N != null ? linspace(...span, N) : locs0
-        if (locs == null) throw new Error('No tick locations provided')
+        // make tick placeholders
+        const ticks0 = children0 != null ? ensure_children(children0) :
+          auto_array(locs, span).map((t: number) =>
+            new UnitLine({ direc: tick_dir, tick_loc: t, tick_span: span })
+          )
 
-        // make tick lines
-        const children = (locs as number[]).map((t: number) => {
-            const rect = join_limits({ [direc]: [t, t], [tick_dir]: span })
-            return new UnitLine({ direc: tick_dir, rect, expand: true, ...attr })
+        // arrange tick lines
+        const ticks = ticks0.map((t: Element) => {
+            const { tick_loc, tick_span } = t.args
+            const rect = join_limits({ [direc]: [tick_loc, tick_loc], [tick_dir]: tick_span })
+            return t.clone({ rect, expand: true })
         })
 
         // set coordinate system
-        super({ children, ...spec })
+        super({ children: ticks, ...attr })
         this.args = args
     }
 }
@@ -286,9 +292,8 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children: children0, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
-        const children = ensure_children(children0)
         const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim
 
@@ -304,8 +309,10 @@ class Axis extends Group {
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        const ticks = ticks0 != null ? (is_scalar(ticks0) ? linspace(...lim, ticks0) : ticks0) : null
-        const labels = ticks != null ? ticks.map((t: TickArgs) => ensure_ticklabel(t, { direc, prec, ...label_attr })) : children
+        const labels = children != null ? ensure_children(children) :
+          auto_array(ticks0, lim).map((t: TickArgs) =>
+            ensure_ticklabel(t, { direc, prec, ...label_attr })
+          )
         const locs = labels.map((c: Element) => c.args.loc)
 
         // accumulate children
