@@ -40,7 +40,7 @@ function anchor_point(rect: Rect, side: Side, loc: number): Point {
 
 // embed a rect of given `aspect` into rect of given `size`
 function embed_size(size: Point, { aspect, expand = false }: { aspect?: number, expand?: boolean } = {}): Size {
-    if (aspect == null) return size
+    if (aspect == null || aspect == 0) return size
     const [ w0, h0 ] = size
     const [ aw, ah ] = [ abs(w0), abs(h0) ]
     const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]

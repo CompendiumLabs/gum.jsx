@@ -258,6 +258,18 @@ function get_tick_lim(lim: string | Limit): Limit {
     }
 }
 
+function get_tick_span(size: number = 1, side: Zone): Limit {
+    if (side == 'inner') {
+        return [ 0, size ]
+    } else if (side == 'outer') {
+        return [ 1 - size, 1 ]
+    } else if (side == 'both') {
+        return [ 0.5 - size / 2, 0.5 + size / 2 ]
+    } else {
+        throw new Error(`Invalid tick side: ${side}`)
+    }
+}
+
 function ensure_ticklabel(label: Element | Label | number | [number, string], args: Attrs = {}): Label {
     const { direc = 'h', prec = D.prec, ...attr } = args
 
@@ -270,18 +282,6 @@ function ensure_ticklabel(label: Element | Label | number | [number, string], ar
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
     const child = new Span({ children: [ rounder(str, prec) ], ...attr1 })
     return new Label({ children: [ child ], direc, loc, ...spec })
-}
-
-function calc_tick_span(size: number = 1, side: Zone): Limit {
-    if (side == 'inner') {
-        return [ 0, size ]
-    } else if (side == 'outer') {
-        return [ 1 - size, 1 ]
-    } else if (side == 'both') {
-        return [ 0.5 - size / 2, 0.5 + size / 2 ]
-    } else {
-        throw new Error(`Invalid tick side: ${side}`)
-    }
 }
 
 type TickArgs = Label | number | [number, string]
@@ -332,7 +332,7 @@ class Axis extends Group {
         // extract tick elements from labels
         const tick_elems = label_elems.map((l: Element) => {
             const tick = l.args.tick ?? new UnitLine({ direc: idirec })
-            const span = calc_tick_span(l.args.tick_size, tick_side)
+            const span = get_tick_span(l.args.tick_size, tick_side)
             return tick.clone({ tick_loc: l.args.loc, tick_span: span })
         })
 
@@ -390,7 +390,6 @@ class OuterLabel extends Attach {
 //
 
 interface MeshArgs extends ScaleArgs {
-    N?: number
     lim?: Limit
 }
 
@@ -418,7 +417,7 @@ interface LegendArgs extends ElementArgs {
 class Mesh extends Scale {
     constructor(args: MeshArgs = {}) {
         const { children: children0, locs: locs0, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
-        const locs = is_scalar(locs0) ? linspace(...lim, locs0) : locs0
+        const locs = auto_array(locs0, lim)
         const coord = join_limits({ [direc]: lim })
         super({ locs, direc, coord, span, ...attr })
         this.args = args
@@ -452,12 +451,12 @@ class Mesh2D extends Group {
         yspan ??= ylim
 
         // convert locs to arrays
-        xlocs = is_scalar(xlocs) ? linspace(...xlim, xlocs) : xlocs
-        ylocs = is_scalar(ylocs) ? linspace(...ylim, ylocs) : ylocs
+        xlocs = auto_array(xlocs, xlim)
+        ylocs = auto_array(ylocs, ylim)
 
         // create meshes
-        const hmesh = new HMesh({ locs: xlocs as number[], span: yspan as Limit, lim: xlim, ...attr })
-        const vmesh = new VMesh({ locs: ylocs as number[], span: xspan as Limit, lim: ylim, ...attr })
+        const hmesh = new HMesh({ locs: xlocs, span: yspan, lim: xlim, ...attr })
+        const vmesh = new VMesh({ locs: ylocs, span: xspan, lim: ylim, ...attr })
 
         // pass to Group
         super({ children: [ hmesh, vmesh ], ...attr })
@@ -575,9 +574,9 @@ class Graph extends Group {
 interface PlotArgs extends BoxArgs {
     xlim?: Limit
     ylim?: Limit
-    axis?: boolean
-    xaxis?: boolean | Element
-    yaxis?: boolean | Element
+    axis?: true
+    xaxis?: true | HAxis
+    yaxis?: true | VAxis
     xticks?: number | any[]
     yticks?: number | any[]
     xanchor?: number
@@ -663,31 +662,29 @@ class Plot extends Box {
         const fg_elems: Element[] = []
 
         // default xaxis generation
-        if (xaxis === true) {
+        if (xaxis === true) xaxis = new HAxis({ ticks: xticks, lim: xlim })
+        if (xaxis != null) {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_ylim: Limit = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
             const xaxis_rect = join_limits({ h: xlim, v: xaxis_ylim })
-            xaxis = new HAxis({ ticks: xticks, lim: xlim as Limit, rect: xaxis_rect, ...xaxis_attr })
+            xaxis = xaxis.clone({ rect: xaxis_rect, ...xaxis_attr }) as HAxis
             fg_elems.push(xaxis)
-        } else if (xaxis === false) {
-            xaxis = undefined
         }
 
         // default yaxis generation
-        if (yaxis === true) {
+        if (yaxis === true) yaxis = new VAxis({ ticks: yticks, lim: ylim })
+        if (yaxis != null) {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_xlim: Limit = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
             const yaxis_rect = join_limits({ h: yaxis_xlim, v: ylim })
-            yaxis = new VAxis({ ticks: yticks, lim: ylim as Limit, rect: yaxis_rect, ...yaxis_attr })
+            yaxis = yaxis.clone({ rect: yaxis_rect, ...yaxis_attr }) as VAxis
             fg_elems.push(yaxis)
-        } else if (yaxis === false) {
-            yaxis = undefined
         }
 
         // automatic xgrid generation
         if (xgrid != null && xgrid !== false) {
-            const locs = (xgrid === true && xaxis != null) ? (xaxis as Axis).locs : xgrid
-            const xgrid_elem = new HMesh({ locs: locs as number[], lim: xlim as Limit, rect: coord, ...xgrid_attr })
+            const locs = (xgrid === true && xaxis != null) ? xaxis.locs : xgrid
+            const xgrid_elem = new HMesh({ locs: locs as number[], lim: xlim, rect: coord, ...xgrid_attr })
             bg_elems.unshift(xgrid_elem)
         } else {
             xgrid = undefined
@@ -695,8 +692,8 @@ class Plot extends Box {
 
         // automatic ygrid generation
         if (ygrid != null && ygrid !== false) {
-            const locs = (ygrid === true && yaxis != null) ? (yaxis as Axis).locs : ygrid
-            const ygrid_elem = new VMesh({ locs: locs as number[], lim: ylim as Limit, rect: coord, ...ygrid_attr })
+            const locs = (ygrid === true && yaxis != null) ? yaxis.locs : ygrid
+            const ygrid_elem = new VMesh({ locs: locs as number[], lim: ylim, rect: coord, ...ygrid_attr })
             bg_elems.unshift(ygrid_elem)
         } else {
             ygrid = undefined

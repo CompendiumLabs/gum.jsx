@@ -17,7 +17,7 @@ type MNumber = [number, number]
 type MPoint = [MNumber, MNumber]
 
 // alignment: named position or fractional 0-1
-type Zone = 'inner' | 'outer'
+type Zone = 'inner' | 'outer' | 'both' | 'none'
 type AlignValue = Side | 'center' | 'middle' | number
 type Align = AlignValue | [AlignValue, AlignValue]
 
