@@ -10,7 +10,7 @@ Parameters:
 - `direc` — the orientation of the axis, either `v` (vertical) or `h` (horizontal)
 - `ticks` — either an integer for evenly spaced ticks, a list of tick locations, or a list of tick `[location, label]` pairs
 - `lim` = `[0, 1]` — the extent of the element along the main axis
-- `tick-side` = `'both'` — one of `'inner'` / `'outer'` / `'both'` / `'none'`, or a pair representing a numerical range in `[0, 1]`, where zero is oriented in the inner direction
+- `tick-side` = `'inner'` — one of `'inner'` / `'outer'` / `'both'` / `'none'`, or a pair representing a numerical range in `[0, 1]`, where zero is oriented in the inner direction
 - `label-side` = `'outer'` — same as `tick-side` but for the labels
 - `label-size` = `1.5` — the cross-axis extent allocated for labels
 - `label-offset` = `0.75` — the gap between the ticks and the labels
