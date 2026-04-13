@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none, blue, white } from '../lib/const'
-import { sign, abs, linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep, prefix_split, prefix_join } from '../lib/utils'
+import { sign, abs, linspace, invert_orient, join_limits, ensure_vector, is_scalar, is_string, is_object, ensure_singleton, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep, prefix_split, prefix_join } from '../lib/utils'
 import { Span } from './text'
 
 import { Element, Group, Spacer, spec_split, is_element, ensure_children } from './core'
@@ -169,6 +169,7 @@ function calcLabelJustify(direc: Orient, rot0: number): number {
 
 interface LabelArgs extends GroupArgs {
     loc?: number
+    tick?: Element
     direc?: Orient
     justify?: AlignValue
 }
@@ -177,9 +178,9 @@ class Label extends Anchor {
     loc?: number
 
     constructor(args: LabelArgs = {}) {
-        const { children: children0, loc, direc = 'h', spin = 0, justify: justify0, ...attr } = THEME(args, 'Label')
-        const child = check_singleton(children0)
-        const elem = is_string(child) ? new Span({ children: [ child ] }) : child
+        const { children: children0, loc, tick, direc = 'h', spin = 0, justify: justify0, ...attr } = THEME(args, 'Label')
+        const child = ensure_singleton(children0)
+        const elem = is_element(child) ? child : new Span({ children: [ child ?? '' ] })
         const justify = justify0 ?? calcLabelJustify(direc, spin)
         super({ children: [ elem ], spin, justify, aspect: 1, ...attr })
         this.args = args
@@ -257,11 +258,11 @@ function get_tick_lim(lim: string | Limit): Limit {
     }
 }
 
-function ensure_ticklabel(label: Element | Label | number | [number, string], args: Attrs = {}): Element {
+function ensure_ticklabel(label: Element | Label | number | [number, string], args: Attrs = {}): Label {
     const { direc = 'h', prec = D.prec, ...attr } = args
 
     // handle element cases
-    if (label instanceof Label) return label.clone(attr)
+    if (label instanceof Label) return label.clone(attr) as Label
     if (is_element(label)) return new Label({ children: [ label ], direc, loc: label.args.loc, ...attr })
 
     // handle scalar case
@@ -311,23 +312,28 @@ class Axis extends Group {
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        const labels = children != null ? ensure_children(children) :
+        const label_elems = children != null ? ensure_children(children) :
           auto_array(ticks0, lim).map((t: TickArgs) =>
             ensure_ticklabel(t, { direc, prec, ...label_attr })
           )
-        const locs = labels.map((c: Element) => c.args.loc)
+
+        // extract tick elements from labels
+        const tick_elems = label_elems.map((l: Element) => {
+            const tick = l.args.tick ?? new UnitLine({ direc: idirec })
+            return tick.clone({ tick_loc: l.args.loc, tick_span: l.args.span })
+        })
 
         // accumulate children
         const cline = new UnitLine({ direc, lim, coord, ...line_attr })
-        const scale = new Scale({ locs, direc, rect: scale_rect, coord, debug, ...tick_attr })
-        const label = new Labels({ children: labels, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
+        const scale = new Scale({ children: tick_elems, direc, rect: scale_rect, coord, debug, ...tick_attr })
+        const label = new Labels({ children: label_elems, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
 
         // pass to Group
         super({ children: [ cline, scale, label ], debug, ...attr })
         this.args = args
 
-        // additional props
-        this.locs = locs
+        // additional props (for Plot grids)
+        this.locs = label_elems.map((c: Element) => c.args.loc)
     }
 }
 

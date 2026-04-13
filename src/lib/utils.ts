@@ -71,8 +71,8 @@ function ensure_vector<T>(x: T | T[], n: number): T[] {
     }
 }
 
-function ensure_singleton<T>(x: T[] | undefined): T | null {
-    if (x == null) return null
+function ensure_singleton<T>(x: T[] | undefined): T | undefined {
+    if (x == null) return undefined
     return is_array(x) ? x[0] : x
 }
 
@@ -103,7 +103,7 @@ function check_array<T>(x: T[] | undefined, n?: number): T[] {
 }
 
 function check_string<T>(children: T[] | undefined): string {
-    const child = check_singleton(children)
+    const child = ensure_singleton(children)
     if (child == null) return ''
     if (is_scalar(child) || is_boolean(child)) return String(child)
     if (!is_string(child)) throw new Error('Child must be a string')
