@@ -264,7 +264,7 @@ function broadcast_points(pts: Point[] | number, ref: Point[], direc: 'h' | 'v')
 
 class Fill extends Shape {
     constructor(args: FillArgs = {}) {
-        const { points1, points2, direc = 'h', stroke = none, fill = gray, ...attr } = THEME(args, 'Fill')
+        const { points1, points2, direc = 'v', stroke = none, fill = gray, ...attr } = THEME(args, 'Fill')
 
         // ensure we have enough points
         if (points1 == null || points2 == null) throw new Error('Fill: must provide points1 and points2')
@@ -282,6 +282,22 @@ class Fill extends Shape {
 
         // pass to Shape
         super({ points, stroke, fill, ...attr })
+        this.args = args
+    }
+}
+
+class VFill extends Fill {
+    constructor(args: FillArgs = {}) {
+        const { ...attr } = THEME(args, 'VFill')
+        super({ direc: 'v', ...attr })
+        this.args = args
+    }
+}
+
+class HFill extends Fill {
+    constructor(args: FillArgs = {}) {
+        const { ...attr } = THEME(args, 'HFill')
+        super({ direc: 'h', ...attr })
         this.args = args
     }
 }
@@ -686,5 +702,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
+export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
 export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }

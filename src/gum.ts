@@ -11,7 +11,7 @@ import { registerFont } from './fonts/fonts'
 
 import { Context, Element, Group, Svg, Rectangle, Spacer, is_element, type ElementArgs } from './elems/core'
 import { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute } from './elems/layout'
-import { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Shape, Triangle, Fill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry'
+import { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry'
 import { spline1d, spline2d } from './lib/interp'
 import { Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic } from './elems/text'
 import { Node, Edge, Network } from './elems/network'
@@ -39,7 +39,7 @@ const CTXS = {
 }
 
 const ELEMS: Record<string, ElementConstructor> = {
-    Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Fill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, Tex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage
+    Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Fill, VFill, HFill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, Tex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage
 }
 
 const CMDS = {
