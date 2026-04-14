@@ -2,7 +2,7 @@
 
 *Inherits*: [Shape](/docs/Shape) > **Pointstring** > [Element](/docs/Element)
 
-Shades the area between two curves. Generates a closed polygon by running through `points1` forward and then through `points2` in reverse. Either list can be a constant, in which case `direc` controls how the constant is broadcast against the other curve.
+Shades the area between two curves. Generates a closed polygon by running through `points1` forward and then through `points2` in reverse. Either list can be a constant, in which case `direc` controls how the constant is broadcast against the other curve. There are specialized components **VFill** and **HFill** that don't take the `direc` argument.
 
 When both `points1` and `points2` are arrays, `direc` is ignored. When one is a constant `c`:
 - `direc="h"` (default) treats `c` as a constant x-coordinate, pairing it with each y from the other curve

@@ -1,4 +1,4 @@
-# Shapes Elements
+# Geometry Elements
 
 ## Rect
 
@@ -131,7 +131,7 @@ Generated code:
 
 *Inherits*: **Shape** > **Pointstring** > **Element**
 
-Shades the area between two curves. Generates a closed polygon by running through `points1` forward and then through `points2` in reverse. Either list can be a constant, in which case `direc` controls how the constant is broadcast against the other curve.
+Shades the area between two curves. Generates a closed polygon by running through `points1` forward and then through `points2` in reverse. Either list can be a constant, in which case `direc` controls how the constant is broadcast against the other curve. There are specialized components **VFill** and **HFill** that don't take the `direc` argument.
 
 When both `points1` and `points2` are arrays, `direc` is ignored. When one is a constant `c`:
 - `direc="h"` (default) treats `c` as a constant x-coordinate, pairing it with each y from the other curve
@@ -152,7 +152,7 @@ Generated code:
 ```jsx
 const curve = [[0, 1], [2, 3], [4, 2], [6, 5], [8, 4], [10, 6]]
 return <Graph xlim={[0, 10]} ylim={[0, 7]} aspect={phi}>
-  <Fill points1={curve} points2={0} direc="v" fill={blue} fill-opacity={0.4} />
+  <VFill points1={curve} points2={0} fill={blue} fill-opacity={0.4} />
   <Line points={curve} stroke={blue} />
 </Graph>
 ```
