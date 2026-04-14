@@ -575,8 +575,8 @@ interface PlotArgs extends BoxArgs {
     xlim?: Limit
     ylim?: Limit
     axis?: true
-    xaxis?: true | HAxis
-    yaxis?: true | VAxis
+    xaxis?: boolean | HAxis
+    yaxis?: boolean | VAxis
     xticks?: number | any[]
     yticks?: number | any[]
     xanchor?: number
@@ -663,7 +663,7 @@ class Plot extends Box {
 
         // default xaxis generation
         if (xaxis === true) xaxis = new HAxis({ ticks: xticks, lim: xlim })
-        if (xaxis != null) {
+        if (xaxis != null && xaxis !== false) {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_ylim: Limit = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
             const xaxis_rect = join_limits({ h: xlim, v: xaxis_ylim })
@@ -673,7 +673,7 @@ class Plot extends Box {
 
         // default yaxis generation
         if (yaxis === true) yaxis = new VAxis({ ticks: yticks, lim: ylim })
-        if (yaxis != null) {
+        if (yaxis != null && yaxis !== false) {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_xlim: Limit = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
             const yaxis_rect = join_limits({ h: yaxis_xlim, v: ylim })
@@ -683,7 +683,7 @@ class Plot extends Box {
 
         // automatic xgrid generation
         if (xgrid != null && xgrid !== false) {
-            const locs = (xgrid === true && xaxis != null) ? xaxis.locs : xgrid
+            const locs = (xgrid === true && xaxis != null && xaxis !== false) ? xaxis.locs : xgrid
             const xgrid_elem = new HMesh({ locs: locs as number[], lim: xlim, rect: coord, ...xgrid_attr })
             bg_elems.unshift(xgrid_elem)
         } else {
@@ -692,7 +692,7 @@ class Plot extends Box {
 
         // automatic ygrid generation
         if (ygrid != null && ygrid !== false) {
-            const locs = (ygrid === true && yaxis != null) ? yaxis.locs : ygrid
+            const locs = (ygrid === true && yaxis != null && yaxis !== false) ? yaxis.locs : ygrid
             const ygrid_elem = new VMesh({ locs: locs as number[], lim: ylim, rect: coord, ...ygrid_attr })
             bg_elems.unshift(ygrid_elem)
         } else {
