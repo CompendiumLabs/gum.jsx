@@ -134,6 +134,7 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
 
   // create evaluation context
   const evalContext = loadFile == null ? context : {
+    theme,
     ...context,
     ...makeContext(loadFile)
   }

@@ -1,8 +1,8 @@
 // geometry elements
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D, d2r } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub2m, add2, sub2, mul2, div2, angle_direc, unit_direc, vector_angle, polar, prefix_split } from '../lib/utils'
+import { DEFAULTS as D, d2r, none, gray } from '../lib/const'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub2m, add2, sub2, mul2, div2, angle_direc, unit_direc, vector_angle, polar, prefix_split} from '../lib/utils'
 import { cubic_spline_data } from '../lib/interp'
 import { Context, Element, Group, Rectangle } from './core'
 
@@ -240,6 +240,48 @@ class Triangle extends Shape {
         const attr = THEME(args, 'Triangle')
         const points: Point[] = [[0.5, 0], [1, 1], [0, 1]]
         super({ points, ...attr })
+        this.args = args
+    }
+}
+
+//
+// fill class
+//
+
+interface FillArgs extends ElementArgs {
+    points1?: Point[] | number
+    points2?: Point[] | number
+    direc?: 'h' | 'v'
+}
+
+function broadcast_points(pts: Point[] | number, ref: Point[], direc: 'h' | 'v'): Point[] {
+    if (Array.isArray(pts)) return pts
+    const c = pts
+    return direc == 'v'
+        ? ref.map(([ x, _y ]) => [ x, c ] as Point)
+        : ref.map(([ _x, y ]) => [ c, y ] as Point)
+}
+
+class Fill extends Shape {
+    constructor(args: FillArgs = {}) {
+        const { points1, points2, direc = 'h', stroke = none, fill = gray, ...attr } = THEME(args, 'Fill')
+
+        // ensure we have enough points
+        if (points1 == null || points2 == null) throw new Error('Fill: must provide points1 and points2')
+
+        // make sure the data is broadcastable
+        const a1 = Array.isArray(points1)
+        const a2 = Array.isArray(points2)
+        if (!a1 && !a2) throw new Error('Fill: at least one of points1, points2 must be an array')
+
+        // broadcast the points
+        const ref = (a1 ? points1 : points2) as Point[]
+        const pts1 = broadcast_points(points1, ref, direc)
+        const pts2 = broadcast_points(points2, ref, direc)
+        const points = [ ...pts1, ...pts2.reverse() ]
+
+        // pass to Shape
+        super({ points, stroke, fill, ...attr })
         this.args = args
     }
 }
@@ -644,5 +686,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
-export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs }
+export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }

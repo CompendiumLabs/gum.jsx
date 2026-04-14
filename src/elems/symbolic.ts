@@ -1,16 +1,24 @@
 // symbolic elements
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D } from '../lib/const'
+import { DEFAULTS as D, none, gray } from '../lib/const'
 import { zip, linspace, ensure_function, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, check_array } from '../lib/utils'
 
 import { Element, Group, spec_split } from './core'
-import { Line, Spline, Shape, Arrow, Dot } from './geometry'
+import { Line, Spline, Shape, Arrow, Dot, Fill } from './geometry'
 import { Box } from './layout'
 
 import type { Point, Limit, Rect } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
 import type { LineArgs, SplineArgs } from './geometry'
+
+//
+// utility functions
+//
+
+function not_null(arr: number[]): boolean {
+    return arr.every(x => x != null && !isNaN(x))
+}
 
 // GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
@@ -88,9 +96,7 @@ function sympath({ fx, fy, xlim, ylim, tlim, xvals, yvals, tvals, N }: SymArgs =
     }
 
     // filter out nan values
-    const data = zip(tvals, xvals, yvals).filter(
-        ([t, x, y]: number[]) => !isNaN(t) && !isNaN(x) && !isNaN(y)
-    )
+    const data = zip(tvals, xvals, yvals).filter(not_null)
 
     // return dataset
     return zip(...data) as [number[], number[], number[]]
@@ -125,9 +131,7 @@ class SymPoints extends Group {
         })
 
         // make points
-        const points = zip(tvals1, xvals1, yvals1).filter(
-            ([_t, x, y]: number[]) => (x != null) && (y != null)
-        )
+        const points = zip(tvals1, xvals1, yvals1).filter(not_null)
 
         // make children
         const children = enumerate(points).map(([i, [t, x, y]]) => {
@@ -163,9 +167,7 @@ class SymLine extends Line {
         })
 
         // get valid point pairs
-        const points = zip(xvals1, yvals1).filter(
-            ([ x, y ]: number[]) => (x != null) && (y != null)
-        ) as Point[]
+        const points = zip(xvals1, yvals1).filter(not_null)
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
@@ -194,9 +196,7 @@ class SymSpline extends Spline {
         })
 
         // get valid point pairs
-        const points = zip(xvals1, yvals1).filter(
-            ([ x, y ]: number[]) => (x != null) && (y != null)
-        ) as Point[]
+        const points = zip(xvals1, yvals1).filter(not_null)
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
@@ -225,9 +225,7 @@ class SymShape extends Shape {
         })
 
         // get valid point pairs
-        const points = zip(xvals1, yvals1).filter(
-            ([x, y]: number[]) => (x != null) && (y != null)
-        ) as Point[]
+        const points = zip(xvals1, yvals1).filter(not_null)
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
@@ -249,9 +247,9 @@ interface SymFillArgs extends SymArgsBase, GroupArgs {
     fy2?: ((t: number) => number)
 }
 
-class SymFill extends Shape {
+class SymFill extends Fill {
     constructor(args: SymFillArgs = {}) {
-        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = 'none', fill = '#f0f0f0', coord: coord0, ...attr } = THEME(args, 'SymFill')
+        const { fx1, fy1, fx2, fy2, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, stroke = none, fill = gray, coord: coord0, ...attr } = THEME(args, 'SymFill')
         const { xlim, ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
@@ -263,15 +261,14 @@ class SymFill extends Shape {
         })
 
         // get valid point pairs
-        const points = [...zip(xvals1, yvals1), ...zip(xvals2, yvals2).reverse()].filter(
-            ([x, y]: number[]) => (x != null) && (y != null)
-        ) as Point[]
+        const points1 = zip(xvals1, yvals1).filter(not_null)
+        const points2 = zip(xvals2, yvals2).filter(not_null)
 
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to Shape
-        super({ points, stroke, fill, coord, ...attr })
+        super({ points1, points2, stroke, fill, coord, ...attr })
         this.args = args
     }
 }
