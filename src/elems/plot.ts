@@ -307,7 +307,7 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0.75, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.35, label_offset = 0, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim
@@ -324,10 +324,10 @@ class Axis extends Group {
         const label_rect = join_limits({ [idirec]: label_lim })
 
         // extract tick information
-        const label_elems = children != null ? ensure_children(children) :
-          auto_array(ticks0, lim).map((t: TickArgs) =>
-            ensure_ticklabel(t, { direc, prec, ...label_attr })
-          )
+        const label_attr1 = { direc, prec, ...label_attr }
+        const label_elems = children != null ?
+          ensure_children(children).map((c: Element) => c.clone({ ...label_attr1 })) :
+          auto_array(ticks0, lim).map((t: TickArgs) => ensure_ticklabel(t, label_attr1))
 
         // extract tick elements from labels
         const tick_elems = label_elems.map((l: Element) => {
@@ -606,7 +606,7 @@ interface PlotArgs extends BoxArgs {
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
         let {
-            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const children = ensure_children(children0)
 
@@ -648,8 +648,8 @@ class Plot extends Box {
         ], attr0)
         xtick_attr = { ...xtick_attr, ...tick_attr }
         ytick_attr = { ...ytick_attr, ...tick_attr }
-        xtick_label_attr = { ...xtick_label_attr, ...tick_label_attr }
-        ytick_label_attr = { ...ytick_label_attr, ...tick_label_attr }
+        xtick_label_attr = { offset: xtick_label_offset, ...xtick_label_attr, ...tick_label_attr }
+        ytick_label_attr = { offset: ytick_label_offset, ...ytick_label_attr, ...tick_label_attr }
         xaxis_attr = { ...axis_attr, ...xaxis_attr, ...prefix_join('tick', xtick_attr), ...prefix_join('label', xtick_label_attr) }
         yaxis_attr = { ...axis_attr, ...yaxis_attr, ...prefix_join('tick', ytick_attr), ...prefix_join('label', ytick_label_attr) }
         xgrid_attr = { ...grid_attr, ...xgrid_attr }
