@@ -17,6 +17,7 @@
         "Arc",
         "Line",
         "Shape",
+        "Fill",
         "Spline",
         "Arrow"
     ],
