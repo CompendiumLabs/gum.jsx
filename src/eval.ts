@@ -1,14 +1,14 @@
 // code evaluation
 
-import * as Papa from 'papaparse'
 import type { ParseConfig } from 'papaparse'
 
 import { setTheme, type ThemeName } from './lib/theme'
 import { is_string } from './lib/utils'
+import { parseTable } from './lib/table'
 import { is_element, Svg } from './elems/core'
 import type { SvgArgs } from './elems/core'
 import { runJSX } from './lib/parse'
-import { PngImage } from './elems/image'
+import { PngImage, type PngImageArgs } from './elems/image'
 
 //
 // types
@@ -64,23 +64,6 @@ interface EvaluateArgs extends SvgArgs {
   loadFile?: LoadFile
 }
 
-function parseTable(text: string, args: ParseConfig<TableRow> = {}): TableRow[] {
-  const result = Papa.parse<TableRow>(text, {
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: 'greedy',
-    ...args
-  })
-
-  if (result.errors.length > 0) {
-    const [ error ] = result.errors
-    const row = error.row != null ? ` at row ${error.row}` : ''
-    throw new Error(`Failed to parse table: ${error.message}${row}`)
-  }
-
-  return result.data
-}
-
 function uint8ArrayToDataUrl(data: Uint8Array): string {
   let binary = ''
   for (const byte of data) binary += String.fromCharCode(byte)
@@ -89,13 +72,13 @@ function uint8ArrayToDataUrl(data: Uint8Array): string {
 
 }
 
-interface LoadImageArgs {
+interface LoadImageArgs extends PngImageArgs {
   id?: string
 }
 
 function makeContext(loadFile: LoadFile): GumContext {
   // image loader class
-  class LoadImage {
+  class LoadImage extends PngImage {
     constructor(args: LoadImageArgs = {}) {
       const { id, ...attr } = args
 
@@ -106,8 +89,8 @@ function makeContext(loadFile: LoadFile): GumContext {
       const data = loadFile(id, 'bytes') as Uint8Array
       const dataUrl = uint8ArrayToDataUrl(data)
 
-      // return image
-      return new PngImage({ data: dataUrl, ...attr })
+      // pass to PngImage
+      super({ data: dataUrl, ...attr })
     }
   }
 

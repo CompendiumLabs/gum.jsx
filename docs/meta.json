@@ -54,6 +54,8 @@
     "utilities": [
         "Math",
         "Arrays",
-        "Colors"
+        "Colors",
+        "Tables",
+        "Images"
     ]
 }
