@@ -131,3 +131,49 @@ return <Plot xlim={[0, 2*pi]} ylim={[-1, 1]} aspect={1.5} xanchor={0} xaxis-tick
   </SymPoints>
 </Plot>
 ```
+
+## Tables
+
+The `loadTable` function reads a CSV file from the host environment and parses it into an array of row objects, making it easy to drive visualizations from external data. It's only available when the host passes a `loadFile` resolver into `evaluate`, so it's typically used when running `gum` against a file on disk rather than a bare snippet.
+
+The first row of the CSV is treated as a header and each subsequent row becomes an object keyed by those column names. Numeric-looking values are automatically coerced to numbers, so `x` and `y` columns come back as numbers rather than strings.
+
+If you already have a CSV string in hand (e.g. from a fetch, a literal, or another data source), you can call `parseTable(text, args)` directly to skip the file-loading step. `parseTable` takes the same optional config and returns the same array of row objects — `loadTable` is just a thin wrapper that reads the file and forwards the text to it.
+
+Parameters:
+- `path` — path to the CSV file, resolved relative to the current `.jsx` file
+- `args` — optional Papa Parse **config** to override the defaults (`header: true`, `dynamicTyping: true`, `skipEmptyLines: 'greedy'`)
+
+**Example**
+
+Prompt: load a CSV file and plot each row as a point
+
+Generated code:
+```jsx
+return <Graph xlim={[0, 10]} ylim={[0, 10]}>
+  {loadTable('data.csv').map(({ x, y }) =>
+    <Dot pos={[x, y]} rad={0.1} fill={blue} />
+  )}
+</Graph>
+```
+
+## Images
+
+The `LoadImage` element loads a PNG file from the host environment and embeds it as a base64 data URL. It's a thin wrapper around **PngImage** that defers the file read to the host's `loadFile` resolver, so it's only available when `gum` is run against a file on disk (not bare snippets piped in via stdin).
+
+Because it extends `PngImage`, it accepts all the standard image attributes (sizing, positioning, opacity, etc.) in addition to the `id` used to locate the file.
+
+Parameters:
+- `id` — path to the PNG file, resolved relative to the current `.jsx` file
+- additional attributes are forwarded to the underlying `PngImage`
+
+**Example**
+
+Prompt: load and display a PNG file from disk
+
+Generated code:
+```jsx
+<Frame rounded clip border={2}>
+  <LoadImage id="images/photo.png" />
+</Frame>
+```
