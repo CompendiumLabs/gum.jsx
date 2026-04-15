@@ -35,13 +35,14 @@ function transformArgs(cmd: Command) {
   // add white background for light theme
   if (theme == 'light' && background == null) background = 'white'
 
-  // don't output kitty to file
-  if (output != null && format == 'kitty') format = 'png'
-
-  // auto-detect format when output is a file
-  if (output != null && format == null) {
-    if (output.endsWith('.svg')) format = 'svg'
-    if (output.endsWith('.png')) format = 'png'
+  // auto-detect format for output
+  if (format == null) {
+    if (output == null) {
+      format = 'kitty'
+    } else {
+        if (output.endsWith('.svg')) format = 'svg'
+        if (output.endsWith('.png')) format = 'png'
+    }
   }
 
   // make loadFile function
@@ -361,7 +362,7 @@ program.name('gum')
   .argument('[file]', 'gum.jsx file to render (reads from stdin if not provided)')
   .option('-d, --dev', 'live update display', false)
   .option('-i, --input <input>', 'input format', 'jsx')
-  .option('-f, --format <format>', 'format to output', 'kitty')
+  .option('-f, --format <format>', 'format to output')
   .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')
   .option('-s, --size <size>', 'size of the SVG', (value: string) => parseInt(value), 1000)

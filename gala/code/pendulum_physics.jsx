@@ -51,11 +51,11 @@ return <Box margin={0.06}>
       <Circle pos={[pivotX, pivotY]} size={0.02} fill={slate} stroke={navy} stroke-width={1.5} />
 
       {/* Tension arrow */}
-      <Arrow points={[[bobX, bobY], [tenX, tenY]]} stroke={sage} stroke-width={2} arrow-fill={sage} arrow-size={0.04} />
+      <Arrow points={[[bobX, bobY], [tenX, tenY]]} stroke={sage} stroke-width={2} arrow-fill={sage} arrow-size={0.08} />
       <Latex pos={[tenX + 0.06, tenY + 0.01]} ysize={0.1} color={sage}>T</Latex>
 
       {/* Gravity arrow */}
-      <Arrow points={[[bobX, bobY], [bobX, bobY + bobRad + 0.13]]} stroke={rose} stroke-width={2} arrow-fill={rose} arrow-size={0.03} />
+      <Arrow points={[[bobX, bobY], [bobX, bobY + bobRad + 0.13]]} stroke={rose} stroke-width={2} arrow-fill={rose} arrow-size={0.06} />
       <Latex pos={[bobX + 0.09, bobY + bobRad + 0.1]} ysize={0.1} color={rose}>mg</Latex>
 
       {/* Bob */}

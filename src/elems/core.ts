@@ -3,6 +3,7 @@
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
 import { is_scalar, abs, cos, sin, tan, cot, mul2, div2, filter_object, expand_rect, rect_box, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, vector_angle, polar, upright_rect } from '../lib/utils'
+import { random } from '../lib/rng'
 
 import type { Point, Rect, Size, AlignValue, Align, Side, Attrs, MNumber, MPoint, Spec } from '../lib/types'
 
@@ -441,7 +442,7 @@ function ensure_children(children: any): Element[] {
 }
 
 function makeUID(prefix: string): string {
-    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+    return `${prefix}-${random().toString(36).slice(2, 10)}`
 }
 
 interface GroupArgs extends ElementArgs {

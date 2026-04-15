@@ -2,8 +2,7 @@
     "core": [
         "Gum",
         "Element",
-        "Group",
-        "Context"
+        "Group"
     ],
     "layout": [
         "Box",
