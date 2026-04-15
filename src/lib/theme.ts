@@ -1,7 +1,7 @@
 // themes
 
 import { none, black, white } from './const'
-import { map_object, is_array, is_string } from './utils'
+import { map_object } from './utils'
 
 //
 // base layer

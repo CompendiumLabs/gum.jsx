@@ -9,7 +9,7 @@ import { Box, Attach } from './layout'
 import { RoundedRect } from './geometry'
 import { Span, TextFrame, TextStack } from './text'
 
-import type { AlignValue, Padding, Rounded, Point, Size } from '../lib/types'
+import type { AlignValue, Padding, Rounded, Point } from '../lib/types'
 import type { Element } from './core'
 import type { BoxArgs } from './layout'
 
