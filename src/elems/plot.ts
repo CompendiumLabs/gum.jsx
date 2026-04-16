@@ -418,7 +418,7 @@ class Mesh extends Scale {
     constructor(args: MeshArgs = {}) {
         const { children: children0, locs: locs0, direc = 'h', lim = D.lim, span = D.lim, ...attr } = THEME(args, 'Mesh')
         const locs = auto_array(locs0, lim)
-        const coord = join_limits({ [direc]: lim })
+        const coord = join_limits({ [direc]: lim, [invert_orient(direc)]: span })
         super({ locs, direc, coord, span, ...attr })
         this.args = args
     }
@@ -527,7 +527,7 @@ function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?:
     if (children.length == 0) return
 
     // pull in child coordinate system
-    const coord0 = merge_rects(children.map((c: Element) => c.spec.coord))
+    const coord0 = merge_rects(children.map((c: Element) => c.graphCoord()))
     const { xlim: xlim0, ylim: ylim0 } = resolve_limits(xlim, ylim, coord0)
 
     // expand with padding

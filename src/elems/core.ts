@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
-import { is_scalar, abs, cos, sin, tan, cot, mul2, div2, filter_object, expand_rect, rect_box, cbox_rect, rect_cbox, merge_points, ensure_vector, ensure_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, vector_angle, polar, upright_rect } from '../lib/utils'
+import { is_scalar, abs, cos, sin, tan, cot, mul2, div2, filter_object, expand_rect, rect_box, cbox_rect, rect_cbox, merge_points, merge_rects, ensure_vector, broadcast_point, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, vector_angle, polar, upright_rect } from '../lib/utils'
 import { random } from '../lib/rng'
 
 import type { Point, Rect, Size, AlignValue, Align, Side, Attrs, MNumber, MPoint, Spec } from '../lib/types'
@@ -320,7 +320,7 @@ class Element {
         if (pos != null || size != null || xsize != null || ysize != null) {
             const has_xy = xsize != null || ysize != null
             const size1 = has_xy ? [ xsize ?? 0, ysize ?? 0 ] as Point : undefined
-            this.spec.rect ??= cbox_rect([ ...(pos ?? D.pos), ...(ensure_point(size ?? size1 ?? D.size)) ])
+            this.spec.rect ??= cbox_rect([ ...(pos ?? D.pos), ...(broadcast_point(size ?? size1 ?? D.size)) ])
             if (has_xy) this.spec.expand = true
         }
 
@@ -344,6 +344,10 @@ class Element {
     rect(ctx: Context): Rect {
         const { prect } = ctx.map(this.spec)
         return remap_rect(prect, ctx.prect, ctx.coord)
+    }
+
+    graphCoord(): Rect | undefined {
+        return this.spec.rect ?? this.spec.coord
     }
 
     anchor(ctx: Context, side: Side, loc: number = 0.5): Point {
@@ -500,6 +504,16 @@ class Group extends Element {
         this.children = children
     }
 
+    graphCoord(): Rect | undefined {
+        const coord = super.graphCoord()
+        if (coord != null) return coord
+        return merge_rects(
+            this.children
+                .filter(c => c.spec.rect == null)
+                .map(c => c.graphCoord())
+        )
+    }
+
     inner(ctx: Context): string {
         const inner = this.children
             .map(c => c.svg(ctx.map(c.spec)))
@@ -612,7 +626,7 @@ class Svg extends Group {
     constructor(args: SvgArgs = {}) {
         const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_children(children0)
-        const size_base = ensure_point(size0)
+        const size_base = broadcast_point(size0)
 
         // precompute aspect info
         const aspect = aspect0 == 'auto' ? children_aspect(children) : aspect0

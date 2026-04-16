@@ -2,17 +2,21 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r, none, gray } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, sub2m, add2, sub2, mul2, div2, angle_direc, unit_direc, vector_angle, polar, prefix_split} from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, merge_points, broadcast_point, sub2m, add2, sub2, mul2, div2, angle_direc, unit_direc, vector_angle, polar, prefix_split} from '../lib/utils'
 import { cubic_spline_data } from '../lib/interp'
 import { Context, Element, Group, Rectangle } from './core'
 
-import type { Point, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
+import type { Point, Rect, Limit, Grad, Attrs, MPoint, Orient, Rounded, Direc } from '../lib/types'
 import type { SplineData } from '../lib/interp'
 import type { ElementArgs, GroupArgs, RectArgs } from './core'
 
 //
 // line classes
 //
+
+function points_graph_coord(points: (Point | MPoint)[]): Rect | undefined {
+    return merge_points(points.map(ensure_point))
+}
 
 interface LineArgs extends ElementArgs {
     points?: (Point | MPoint)[]
@@ -52,6 +56,10 @@ class Line extends Element {
             const [ x2, y2 ] = ctx.mapPoint(p2)
             return { x1, y1, x2, y2, ...attr }
         }
+    }
+
+    graphCoord(): Rect | undefined {
+        return super.graphCoord() ?? points_graph_coord(this.points)
     }
 }
 
@@ -224,6 +232,10 @@ class Pointstring extends Element {
         const pixels = this.points.map(p => ctx.mapPoint(p))
         const points = pointstring(pixels, ctx.prec)
         return { points, ...attr }
+    }
+
+    graphCoord(): Rect | undefined {
+        return super.graphCoord() ?? points_graph_coord(this.points)
     }
 }
 
@@ -506,6 +518,8 @@ interface SplineArgs extends ElementArgs {
 }
 
 class Spline extends Path {
+    points: (MPoint | Point)[]
+
     constructor(args: SplineArgs = {}) {
         const { points: points0, start_dir, end_dir, curve, closed = false, ...attr } = THEME(args, 'Spline')
         const points = check_array(points0)
@@ -518,6 +532,11 @@ class Spline extends Path {
         // pass to Path
         super({ children: [ move, ...splines ], ...attr })
         this.args = args
+        this.points = points
+    }
+
+    graphCoord(): Rect | undefined {
+        return super.graphCoord() ?? points_graph_coord(this.points)
     }
 }
 
@@ -533,7 +552,7 @@ function parse_rounded(rounded: Rounded): Point[] {
         const [ rx, ry ] = rounded
         rounded = [[rx, ry], [rx, ry], [rx, ry], [rx, ry]]
     }
-    return rounded.map(ensure_point)
+    return rounded.map(broadcast_point)
 }
 
 interface RoundedRectArgs extends ElementArgs {
