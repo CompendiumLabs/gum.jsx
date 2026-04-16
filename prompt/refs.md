@@ -117,6 +117,8 @@ These are the helper functions that are available in the library. They are not c
 - *Math*: mathematical functions
 - *Arrays*: array operations
 - *Colors*: color operations
+- *Tables*: loading data tables from CSV files
+- *Images*: loading images from PNG files
 
 # Gallery
 

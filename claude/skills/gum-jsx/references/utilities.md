@@ -146,7 +146,7 @@ Parameters:
 
 **Example**
 
-Prompt: load a CSV file and plot each row as a point
+Prompt: load "data.csv" and plot each row as a blue dot
 
 Generated code:
 ```jsx
@@ -169,11 +169,13 @@ Parameters:
 
 **Example**
 
-Prompt: load and display a PNG file from disk
+Prompt: load "image.png" and display a 2x1 clip from the center
 
 Generated code:
 ```jsx
-<Frame rounded clip border={2}>
-  <LoadImage id="images/photo.png" />
-</Frame>
+<Box rounded clip>
+  <Group aspect={2}>
+    <LoadImage id="image.png" xsize={1} />
+  </Group>
+</Box>
 ```

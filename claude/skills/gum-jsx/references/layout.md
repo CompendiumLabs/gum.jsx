@@ -92,7 +92,7 @@ Generated code:
 <Frame padding rounded>
   <Grid rows={3} spacing>
     { linspace(0, 360, 10).slice(0, 9).map(th =>
-      <Frame padding rounded fill>
+      <Frame padding rounded>
         <Group aspect={1} spin={th}>
           <Arrow points={[[0, 0.5], [1, 0.5]]} arrow-size={0.4} />
         </Group>
@@ -107,6 +107,8 @@ Generated code:
 *Inherits*: **Group** > **Element**
 
 Place copies of a common shape at various points. Marker size is controlled with `point-size`, while the **Points** element itself can still be laid out with the normal `size`/`xsize`/`ysize` element parameters. The default shape is a black dot.
+
+When used inside **Graph** or **Plot**, the point coordinates are also reported for automatic limit detection. This means point clouds can now expand plot limits without requiring `coord="auto"` on the **Points** element itself.
 
 Keyword arguments:
 - `points` — a list of points, where each point is either an `[x, y]` pair
