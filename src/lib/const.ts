@@ -18,8 +18,8 @@ const vtext = -0.15
 
 // colors
 const none = 'none'
-const black = 'black'
-const white = 'white'
+const black = '#000000'
+const white = '#ffffff'
 const gray = '#f0f0f0'
 const blue = '#1e88e5'
 const red = '#ff0d57'
