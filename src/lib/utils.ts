@@ -1,6 +1,6 @@
 // core utils
 
-import { DEFAULTS as D, d2r, r2d, pi } from './const'
+import { DEFAULTS as D, d2r, r2d } from './const'
 import { setSeed, random, uniform, normal, integer } from './rng'
 import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Angle, Direc, Size, Pair, Grad, Polar, Attrs } from './types'
 

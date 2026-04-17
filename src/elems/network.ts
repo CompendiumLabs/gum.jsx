@@ -1,7 +1,7 @@
 // network elements
 
 import { THEME } from '../lib/theme'
-import { abs, sub2, mul2, check_singleton, is_string, rect_center, side_direc, prefix_split, merge_rects, merge_points } from '../lib/utils'
+import { abs, sub2, mul2, check_singleton, is_string, rect_center, side_direc, prefix_split } from '../lib/utils'
 
 import { Context, Element, Group, ensure_children } from './core'
 import type { ElementArgs, GroupArgs } from './core'
@@ -9,7 +9,7 @@ import { Frame } from './layout'
 import { Arrow } from './geometry'
 import { Text } from './text'
 
-import type { AlignValue, Point, Rect, Side } from '../lib/types'
+import type { AlignValue, Point, Side } from '../lib/types'
 
 //
 // cardinal direction utils
