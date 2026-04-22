@@ -15,8 +15,10 @@ Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live de
 # Installation
 
 ```bash
-bun i gum-jsx
+bun i -g gum-jsx
 ```
+
+To download the skill file (which is just a zip), click on the release on the right or use `skills/gum-jsx.skill`.
 
 # Usage
 
