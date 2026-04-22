@@ -19,6 +19,7 @@
     "docs",
     "docs/text",
     "docs/code",
+    "docs/data",
     "gala/text",
     "gala/code",
     "scripts",
