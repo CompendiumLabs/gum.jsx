@@ -8,7 +8,7 @@
 <br/><br/>
 </div>
 
-A language for creating visualizations using a React-like JSX dialect that evaluates to SVG. Designed for general graphics, plots, graphs, and network diagrams.
+Gum is a JSX language for creating visualizations that evaluates to SVG. It's designed for general graphics, plots, graphs, and network diagrams.
 
 Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For Python bindings, see [gum.py](https://github.com/CompendiumLabs/gum.py).
 
@@ -60,25 +60,25 @@ You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. Yo
 Generate an SVG from a `gum.jsx` file:
 
 ```bash
-cat input.jsx | bun run cli -f svg > output.svg
+cat input.jsx | gum -f svg > output.svg
 ```
 
 Generate a PNG from a `gum.jsx` file:
 
 ```bash
-cat input.jsx | bun run cli -f png > output.png
+cat input.jsx | gum -f png > output.png
 ```
 
 Display a `gum.jsx` file in the terminal:
 ```bash
-cat input.jsx | bun run cli
+cat input.jsx | gum
 ```
 
 CLI options:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-s, --size <size>` | Image size in pixels | 500 |
+| `-s, --size <size>` | Image size in pixels | 1000 |
 | `-t, --theme <theme>` | Theme: `light` or `dark` | light |
 | `-w, --width <width>` | Width of the PNG | null |
 | `-h, --height <height>` | Height of the PNG | null |
