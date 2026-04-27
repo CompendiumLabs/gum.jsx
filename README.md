@@ -1,5 +1,5 @@
 <div align="center">
-<img src="image/logo.png" alt="logo" width="500" />
+<img src="image/logo.svg" alt="logo" width="500" />
 <br/>
 </div>
 
@@ -40,7 +40,7 @@ const svg = elem.svg()
 
 Which will produce the following:
 
-<img src="image/plot.png" alt="sine wave plot" width="750" />
+<img src="image/plot.svg" alt="sine wave plot" width="750" />
 
 You can also use JavaScript directly:
 
