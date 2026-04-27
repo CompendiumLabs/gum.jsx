@@ -134,7 +134,7 @@ class Scale extends Group {
         const ticks = ticks0.map((t: Element) => {
             const { tick_loc, tick_span } = t.args
             const rect = join_limits({ [direc]: [tick_loc, tick_loc], [tick_dir]: tick_span })
-            return t.clone({ rect, expand: true, ...tick_attr })
+            return t.clone({ rect, expand: true, tick_loc: undefined, tick_span: undefined, ...tick_attr })
         })
 
         // set coordinate system
