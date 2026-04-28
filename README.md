@@ -10,7 +10,7 @@
 
 Gum is a JSX language for creating visualizations that evaluates to SVG. It's designed for general graphics, plots, graphs, and network diagrams.
 
-Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For Python bindings, see [gum.py](https://github.com/CompendiumLabs/gum.py).
+Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For React bindings, see [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx). For Python bindings, see [gum.py](https://github.com/CompendiumLabs/gum.py).
 
 # Installation
 
