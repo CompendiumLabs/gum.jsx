@@ -401,7 +401,7 @@ There is a gallery of more complex examples available. Each is a single markdown
 
 # Using CLI commands
 
-To test the output of a particular `gum.jsx` snippet or file, you can pipe it to the `gum` command, which is assumed to be installed globally. If you have vision capabilities, this can be useful for see the actual output of the code, either in SVG or PNG format. Even without vision, one can infer properties of the output by reading the SVG output directly.
+To test the output of a particular Gum JSX snippet or file, you can pipe it to the `gum` command, which is assumed to be installed globally. If you have vision capabilities, this can be useful for see the actual output of the code, either in SVG or PNG format. Even without vision, one can infer properties of the output by reading the SVG output directly.
 
 For one off tests, pipe the code using `echo`. It is recommended that you use single quotes as the outer delimiter, to accommodate code that includes double quotes for component properties (e.g. `justify="left"`).
 
@@ -411,10 +411,10 @@ In general, it makes a lot of sense to write a draft to a file, view its output,
 
 **Examples:**
 ```bash
-# Generate SVG from a gum.jsx snippet
+# Generate SVG from a Gum JSX snippet
 echo '<Rectangle rounded fill={blue} />' | gum -f svg > output.svg
 
-# Generate PNG from a gum.jsx snippet
+# Generate PNG from a Gum JSX snippet
 echo '<Rectangle rounded fill={blue} />' | gum -f png > output.png
 
 # Generate SVG from a .jsx file
@@ -431,7 +431,7 @@ gum test.jsx -o output.png
 ```
 
 **CLI options:**
-- `file`: gum.jsx file to render (reads from stdin if not provided)
+- `file`: Gum JSX file to render (reads from stdin if not provided)
 - `-t, --theme <theme>`: theme to use (default: light)
 - `-b, --background <color>`: background color (default: white)
 - `-i, --input <input>`: input format (default: jsx)
@@ -442,9 +442,9 @@ gum test.jsx -o output.png
 - `-h, --height <height>`: height of the PNG (default: auto)
 - `-u, --update`: enable live update display
 
-# Using in TypeScript
+# Using Gum in TypeScript
 
-You can use gum.jsx directly in TypeScript/JavaScript code by importing from the `gum-jsx` package. This is useful for programmatic generation, integration into other tools, or when you want to avoid the CLI.
+There are a couple of ways to use Gum in TypeScript. You can evaluate JSX strings directly, or you can construct Gum components directly. If you want to use Gum components in React, you can use the `react-gum-jsx` package.
 
 ## Evaluating JSX strings
 
@@ -478,7 +478,7 @@ const tree = evaluateGum(code, {
 
 ## Using components directly
 
-You can also construct components directly by importing them from `gum-jsx` and calling their constructors. Each component takes a single args object.
+You can also construct Gum components directly by importing them from `gum-jsx` and calling their constructors. Each component takes a single args object.
 
 ```typescript
 import { Svg, Rectangle, Circle, HStack, Text, blue, red, white } from 'gum-jsx'
@@ -500,3 +500,38 @@ When constructing manually, note that:
 - Utility functions like `range`, `linspace`, `zip` are also available from `gum-jsx`
 - Call `.svg()` on the top-level `Svg` element to get the SVG string output
 - The realized size of the SVG is available on the `Svg` element as `size`
+
+## Using in React with `react-gum-jsx`
+
+You can use Gum components directly in React components by importing from the `react-gum-jsx` package. This is useful for creating interactive visualizations in React.
+
+Here's an example of how to use Gum in a React component. It's basically the same as what you would pass to `evaluateGum` but as a default export:
+
+```tsx
+import { blue, red } from 'gum-jsx'
+import { GUM } from 'react-gum-jsx'
+const { Frame, HStack, Square, Circle, Text } = GUM
+
+export default function Demo() {
+  return <Frame padding margin rounded>
+    <HStack padding>
+      <Square fill={blue} />
+      <Circle fill={red} />
+      <Text>Hello</Text>
+    </HStack>
+  </Frame>
+}
+```
+
+To run this in a CLI setting, just pass a file with a default export to the `gum-react` command that comes with the `react-gum-jsx` package. This takes very similar arguments to the regular `gum` command.
+
+If you are in a web setting, you'll need to wrap this export in a `<Gum>` component, which takes roughly the same arguments as `evaluateGum`. This would look like:
+
+```tsx
+import { Gum } from 'react-gum-jsx'
+<Gum size={[640, 360]}>
+  <Demo />
+</Gum>
+```
+
+If the inner component has an `aspect` it will be embedded inside the given size bounds. If it is aspectless, it will be stretched to fill the given size bounds.
