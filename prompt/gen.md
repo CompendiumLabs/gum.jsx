@@ -1,32 +1,34 @@
 # Using CLI commands
 
-To test the output of a particular Gum JSX snippet or file, you can pipe it to the `gum` command, which is assumed to be installed globally. If you have vision capabilities, this can be useful for see the actual output of the code, either in SVG or PNG format. Even without vision, one can infer properties of the output by reading the SVG output directly.
+To test the output of a particular Gum JSX snippet or file, you can pipe it to the `gum` command. If this command is not available globally, try to install the `gum-jsx` package with Bun (preferred) or NPM.
+
+If you have vision capabilities, seeing an actual image can be useful for see the actual output of the code, either in SVG or PNG format. Even without vision, one can infer properties of the output by reading the SVG output directly.
 
 For one off tests, pipe the code using `echo`. It is recommended that you use single quotes as the outer delimiter, to accommodate code that includes double quotes for component properties (e.g. `justify="left"`).
 
 For more difficult tasks, use a file provide the filename as an argument or `cat` it in. Using a file allows you to view and refine your code repeatedly. If you wish to avoid output redirection to a file, use the `-o` option to write to a file.
 
-In general, it makes a lot of sense to write a draft to a file, view its output, then refine the code until you're satisfied. This way you can start simple and add complexity as needed.
+In general, it makes a lot of sense to write a draft to a file, view its output, then refine the code until you're satisfied. This way you can start simple and add complexity as needed. When in doubt, write the output file to the same directory as the input file with the same base name but with the appropriate extension.
 
 **Examples:**
 ```bash
 # Generate SVG from a Gum JSX snippet
-echo '<Rectangle rounded fill={blue} />' | gum -f svg > output.svg
+echo '<Rectangle rounded fill={blue} />' | gum -f svg > test.svg
 
 # Generate PNG from a Gum JSX snippet
-echo '<Rectangle rounded fill={blue} />' | gum -f png > output.png
+echo '<Rectangle rounded fill={blue} />' | gum -f png > test.png
 
 # Generate SVG from a .jsx file
-cat test.jsx | gum -f svg > output.svg
+cat test.jsx | gum -f svg > test.svg
 
 # Generate PNG from a .jsx file
-cat test.jsx | gum -f png > output.png
+cat test.jsx | gum -f png > test.png
 
 # Generate SVG from a .jsx file without redirection
-gum test.jsx -o output.svg
+gum test.jsx -o test.svg
 
 # Generate PNG from a .jsx file without redirection
-gum test.jsx -o output.png
+gum test.jsx -o test.png
 ```
 
 **CLI options:**
