@@ -9,7 +9,8 @@ const htmlns = 'http://www.w3.org/1999/xhtml'
 // fonts names
 const sans = 'IBM Plex Sans'
 const mono = 'IBM Plex Mono'
-const moji = 'Noto Color Emoji'
+const moji = 'Noto Emoji'
+const cmoji = 'Noto Color Emoji'
 
 // font metrics
 const light = 300
@@ -51,4 +52,4 @@ const DEFAULTS = {
     calc_size: 16,
 }
 
-export { DEFAULTS, svgns, htmlns, sans, mono, moji, light, bold, vtext, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r }
+export { DEFAULTS, svgns, htmlns, sans, mono, moji, cmoji, light, bold, vtext, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r }
