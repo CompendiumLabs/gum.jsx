@@ -30,6 +30,8 @@ bun i gum-jsx
 
 This will install the `gum` command and the `gum-jsx` package. Add a `-g` flag to install globally. To download the skill file (which is just a zip), click on the release on the right or use `skills/gum-jsx.skill`.
 
+See [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx) for React bindings. See [gum.py](https://github.com/CompendiumLabs/gum.py) for a Python wrapper.
+
 ## Usage
 
 Write some `gum.jsx` code:
