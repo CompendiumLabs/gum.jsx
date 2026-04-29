@@ -11,7 +11,7 @@
 <p align="center">
   Gum is a JSX vector graphics language that evaluates to SVG.
   <br/>
-  It is designed for plots, diagrams, flow charts, and much more.
+  It is designed for plots, diagrams, flow charts, and more.
 </p>
 
 <p align="center">
