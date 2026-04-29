@@ -413,36 +413,28 @@ In general, it makes a lot of sense to write a draft to a file, view its output,
 
 **Examples:**
 ```bash
-# Generate SVG from a Gum JSX snippet
-echo '<Rectangle rounded fill={blue} />' | gum -f svg > test.svg
-
-# Generate PNG from a Gum JSX snippet
-echo '<Rectangle rounded fill={blue} />' | gum -f png > test.png
-
-# Generate SVG from a .jsx file
-cat test.jsx | gum -f svg > test.svg
-
-# Generate PNG from a .jsx file
-cat test.jsx | gum -f png > test.png
-
-# Generate SVG from a .jsx file without redirection
+# generate an .svg file from a .jsx file
 gum test.jsx -o test.svg
 
-# Generate PNG from a .jsx file without redirection
+# generate a .png file from a .jsx file
 gum test.jsx -o test.png
+
+# generate SVG from a Gum JSX snippet and print to stdout
+echo '<Rectangle rounded fill={blue} />' | gum
+
+# generate PNG from a Gum JSX snippet and save to file
+echo '<Rectangle rounded fill={blue} />' | gum -o test.png
 ```
 
 **CLI options:**
 - `file`: Gum JSX file to render (reads from stdin if not provided)
 - `-t, --theme <theme>`: theme to use (default: light)
 - `-b, --background <color>`: background color (default: white)
-- `-i, --input <input>`: input format (default: jsx)
-- `-f, --format <format>`: output format: svg or png (default: kitty or auto-detected)
+- `-f, --format <format>`: output format: json, svg, png, kitty (default: auto)
 - `-o, --output <output>`: output file (default: stdout)
 - `-s, --size <size>`: size of the SVG (default: 1000)
-- `-w, --width <width>`: width of the PNG (default: auto)
-- `-h, --height <height>`: height of the PNG (default: auto)
-- `-u, --update`: enable live update display
+- `-w, --width <width>`: max width of the PNG (default: null)
+- `-h, --height <height>`: max height of the PNG (default: null)
 
 # Using Gum in TypeScript
 

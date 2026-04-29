@@ -8,19 +8,29 @@
 <br/><br/>
 </div>
 
-Gum is a JSX language for creating visualizations that evaluates to SVG. It's designed for general graphics, plots, graphs, and network diagrams.
+<p align="center">
+  Gum is a JSX vector graphics language that evaluates to SVG.
+  <br/>
+  It is designed for plots, diagrams, flow charts, and much more.
+</p>
 
-Head to **[compendiumlabs.ai/gum](https://compendiumlabs.ai/gum)** for a live demo and documentation. For React bindings, see [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx). For Python bindings, see [gum.py](https://github.com/CompendiumLabs/gum.py).
+<p align="center">
+  <a href="https://compendiumlabs.ai/gum">Live Demo</a>
+  |
+  <a href="https://compendiumlabs.ai/gum/docs">Documentation</a>
+  |
+  <a href="https://compendiumlabs.ai/gum/docs/gala">Gallery</a>
+</p>
 
-# Installation
+## Installation
 
 ```bash
-bun i -g gum-jsx
+bun i gum-jsx
 ```
 
-To download the skill file (which is just a zip), click on the release on the right or use `skills/gum-jsx.skill`.
+This will install the `gum` command and the `gum-jsx` package. Add a `-g` flag to install globally. To download the skill file (which is just a zip), click on the release on the right or use `skills/gum-jsx.skill`.
 
-# Usage
+## Usage
 
 Write some `gum.jsx` code:
 
@@ -53,36 +63,37 @@ const elem = new Plot({
 const svg = elem.svg()
 ```
 
-# CLI
+## CLI
 
-You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal! For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `docs/gallery/` to try out.
+You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal. For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `gala/code/` to try out.
 
 Generate an SVG from a `gum.jsx` file:
 
 ```bash
-cat input.jsx | gum -f svg > output.svg
+gum input.jsx -o output.svg
 ```
 
 Generate a PNG from a `gum.jsx` file:
 
 ```bash
-cat input.jsx | gum -f png > output.png
+gum input.jsx -o output.png
 ```
 
 Display a `gum.jsx` file in the terminal:
 ```bash
-cat input.jsx | gum
+gum input.jsx
 ```
 
 CLI options:
 
 | Option | Description | Default |
 |--------|-------------|---------|
+| `file` | Gum JSX file to render | stdin |
 | `-s, --size <size>` | Image size in pixels | 1000 |
 | `-t, --theme <theme>` | Theme: `light` or `dark` | light |
-| `-w, --width <width>` | Width of the PNG | null |
-| `-h, --height <height>` | Height of the PNG | null |
-| `-f, --format <format>` | Format: `svg` or `png` | `svg` |
-| `-b, --background <color>` | Background color | null (transparent) |
-| `-o, --output <output>` | Output file | null (stdout) |
-| `-u, --update` | Live update display | false |
+| `-b, --background <color>` | Background color | white |
+| `-f, --format <format>` | Format: `json`, `svg`, `png`, `kitty` | auto |
+| `-o, --output <output>` | Output file | stdout |
+| `-w, --width <width>` | Max width of the PNG | auto |
+| `-h, --height <height>` | Max height of the PNG | auto |
+| `-d, --dev` | Live update display | off |

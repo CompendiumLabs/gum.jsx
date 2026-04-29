@@ -4,17 +4,18 @@ import { Command } from 'commander'
 import { readFileSync, writeFileSync, watchFile, unwatchFile } from 'fs'
 import { basename, dirname, resolve } from 'path'
 
-import { evaluateGum } from '../src/eval'
-import type { LoadFile } from '../src/eval'
+import { evaluateGum, type LoadFile } from '../src/eval'
 import { rasterizeSvg, formatImage, readStdin } from '../src/render'
+import { Element, Group, Svg } from '../src/elems/core'
 import type { Size } from '../src/lib/types'
 import type { ThemeName } from '../src/lib/theme'
 
+type OutputFormat = 'json' | 'svg' | 'png' | 'kitty'
+
 interface Args {
   file?: string
-  input: string
-  format: string
   output?: string
+  format: OutputFormat
   theme: ThemeName
   background?: string
   size?: Size
@@ -30,7 +31,7 @@ interface Args {
 
 function transformArgs(cmd: Command) {
   const [ file0 ] = cmd.args
-  let { input, format, output, theme, background, size, width, height, dev } = cmd.opts()
+  let { format, output, theme, background, size, width, height, dev } = cmd.opts()
 
   // add white background for light theme
   if (theme == 'light' && background == null) background = 'white'
@@ -55,7 +56,22 @@ function transformArgs(cmd: Command) {
       : readFileSync(file, encoding as BufferEncoding)
   }
 
-  return { file, input, format, output, theme, background, size, width, height, dev, loadFile }
+  return { file, format, output, theme, background, size, width, height, dev, loadFile }
+}
+
+//
+// convert to JSON
+//
+
+function convertToTree(elem: Element): any {
+  const type = elem.constructor.name
+  const args = elem.args
+  if (elem instanceof Group) {
+    const { children, ...args1 } = args
+    const children1 = elem.children.map(convertToTree)
+    return { type, children: children1, ...args1 }
+  }
+  return { type, ...args }
 }
 
 //
@@ -63,7 +79,7 @@ function transformArgs(cmd: Command) {
 //
 
 async function runCommand(args: Args) {
-  const { file, input, format, output, theme, background, size: size0, width, height, dev, loadFile } = args
+  const { file, format, output, theme, background, size: size0, width, height, dev, loadFile } = args
 
   // divert to dev command if update is on
   if (dev) {
@@ -75,21 +91,16 @@ async function runCommand(args: Args) {
   const code = file ? readFileSync(file, 'utf-8') : await readStdin()
 
   // evaluate gum with size
-  let svg: string
-  let size: Size | undefined = size0
-  if (input == 'svg') {
-    svg = code
-  } else if (input == 'jsx') {
-    const elem = evaluateGum(code, { size: size0, theme, loadFile })
-    size = elem.size
-    svg = elem.svg()
-  } else {
-    throw new Error(`Unsupported input format: ${input}`)
-  }
+  const elem = evaluateGum(code, { size: size0, theme, loadFile })
+  const svg = format != 'json' ? elem.svg() : ''
+  const size = elem.size
 
   // rasterize output
   let out: string | Buffer
-  if (format == 'svg') {
+  if (format == 'json') {
+    const tree = convertToTree(elem)
+    out = JSON.stringify(tree, null, 2)
+  } else if (format == 'svg') {
     out = svg
   } else if (format == 'png' || format == 'kitty') {
     const dat = rasterizeSvg(svg, { size, width, height, background })
@@ -361,7 +372,6 @@ program.name('gum')
   .description('gum.jsx command line tools')
   .argument('[file]', 'gum.jsx file to render (reads from stdin if not provided)')
   .option('-d, --dev', 'live update display', false)
-  .option('-i, --input <input>', 'input format', 'jsx')
   .option('-f, --format <format>', 'format to output')
   .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')
