@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://compendiumlabs.ai/gum">Live Demo</a>
+  <a href="https://compendiumlabs.ai/gum/studio">Live Demo</a>
   |
   <a href="https://compendiumlabs.ai/gum/docs">Documentation</a>
   |
