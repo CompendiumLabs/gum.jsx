@@ -32,7 +32,7 @@ This will install the `gum` command and the `gum-jsx` package. Add a `-g` flag t
 
 See [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx) for React bindings. See [gum.py](https://github.com/CompendiumLabs/gum.py) for a Python wrapper.
 
-## Usage
+## Library Usage
 
 Write some `gum.jsx` code:
 
@@ -65,7 +65,7 @@ const elem = new Plot({
 const svg = elem.svg()
 ```
 
-## CLI
+## Command Line
 
 You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal. For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `gala/code/` to try out.
 
