@@ -8,7 +8,7 @@ import { textMetrics, splitWords } from '../lib/text'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
-import { Context, Element, Group, spec_split, ensure_children } from './core'
+import { Context, Element, Group, spec_split, ensure_children, escape_text } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HStack, VStack } from './layout'
 import type { BoxArgs, StackArgs } from './layout'
@@ -81,7 +81,7 @@ class Span extends Element {
     }
 
     inner(_ctx: Context): string {
-        return this.text
+        return escape_text(this.text)
     }
 }
 

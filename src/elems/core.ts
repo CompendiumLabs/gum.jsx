@@ -235,10 +235,22 @@ function demangle(k: string): string {
     return k.replace('_', '-')
 }
 
+function escape_text(s: string): string {
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+}
+
+function escape_attr(s: string): string {
+    return escape_text(s)
+        .replace(/"/g, '&quot;')
+}
+
 function props_repr(d: Attrs, prec: number): string {
     return Object.entries(d)
         .filter(([_k, v]) => v != null)
-        .map(([k, v]) => `${demangle(k)}="${rounder(v, prec)}"`)
+        .map(([k, v]) => `${demangle(k)}="${escape_attr(rounder(v, prec))}"`)
         .join(' ')
 }
 
@@ -756,5 +768,5 @@ class Spacer extends Element {
 // exports
 //
 
-export { Context, Element, Group, Svg, Rectangle, Spacer, Mask, ClipPath, Style, Metadata, is_element, ensure_children, spec_split, align_frac }
+export { Context, Element, Group, Svg, Rectangle, Spacer, Mask, ClipPath, Style, Metadata, is_element, ensure_children, spec_split, align_frac, escape_text }
 export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }

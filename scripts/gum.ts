@@ -79,7 +79,7 @@ function convertToTree(elem: Element): any {
 //
 
 async function runCommand(args: Args) {
-  const { file, format, output, theme, background, size: size0, width, height, dev, loadFile } = args
+  const { file, format, output, theme, background, size: size0 = 1000, width, height, dev, loadFile } = args
 
   // divert to dev command if update is on
   if (dev) {
@@ -137,7 +137,7 @@ interface CellRect {
 }
 
 function devCommand(args: Args) {
-  const { file: file0, theme, background, size, loadFile } = args
+  const { file: file0, theme, background, size = 2000, loadFile } = args
 
   if (file0 == null) {
     console.error('gum dev requires a file')
@@ -375,7 +375,7 @@ program.name('gum')
   .option('-f, --format <format>', 'format to output')
   .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')
-  .option('-s, --size <size>', 'size of the SVG', (value: string) => parseInt(value), 1000)
+  .option('-s, --size <size>', 'size of the SVG', (value: string) => parseInt(value))
   .option('-w, --width <width>', 'width of the PNG', (value: string) => parseInt(value))
   .option('-h, --height <height>', 'height of the PNG', (value: string) => parseInt(value))
   .option('-o, --output <output>', 'output file')
