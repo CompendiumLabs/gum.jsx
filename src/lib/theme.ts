@@ -2,12 +2,12 @@
 
 import { none, black, white } from './const'
 import { map_object } from './utils'
+import type { ThemeName } from './types'
 
 //
 // base layer
 //
 
-type ThemeName = 'light' | 'dark'
 type ThemeAttrs = Record<string, any>
 type ThemeLayer = Record<string, ThemeAttrs>
 

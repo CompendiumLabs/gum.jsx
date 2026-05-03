@@ -59,7 +59,7 @@ You can also use JavaScript directly:
 ```javascript
 import { Svg, Box, Text, Circle, Plot, SymLine, pi, sin } from 'gum'
 const elem = new Plot({
-  children: new SymLine({ fy: sin, stroke: blue, stroke_width: 2 }),
+  children: [ new SymLine({ fy: sin, stroke: blue, stroke_width: 2 }) ],
   xlim: [0, 2*pi], ylim: [-1.5, 1.5], grid: true, margin: [0.2, 0.1], aspect: 2,
 })
 const svg = elem.svg()

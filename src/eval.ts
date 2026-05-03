@@ -9,6 +9,7 @@ import { is_element, Svg } from './elems/core'
 import type { SvgArgs } from './elems/core'
 import { runJSX } from './lib/parse'
 import { PngImage, type PngImageArgs } from './elems/image'
+import type { LoadFile } from './lib/types'
 
 //
 // types
@@ -52,8 +53,6 @@ class ErrorRender extends Error {
 //
 
 type TableRow = Record<string, unknown>
-type LoadFileData = string | Uint8Array
-type LoadFile = (path: string, encoding?: string) => LoadFileData
 type LoadTable = (path: string, args?: ParseConfig<TableRow>) => TableRow[]
 type GumContext = Record<string, any>
 
@@ -153,4 +152,4 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
 //
 
 export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum, parseTable }
-export type { EvaluateArgs, LoadFileData, LoadFile, TableRow, LoadTable, GumContext }
+export type { EvaluateArgs, TableRow, LoadTable, GumContext }

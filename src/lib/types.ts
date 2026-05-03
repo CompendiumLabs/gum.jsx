@@ -53,4 +53,24 @@ type Spec = {
     rotate_adjust?: boolean
 }
 
-export type { Point, Rect, Limit, Size, Grad, Polar, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Side0, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec }
+// command line arguments
+type ThemeName = 'light' | 'dark'
+type OutputFormat = 'json' | 'svg' | 'png' | 'kitty'
+type LoadFileData = string | Uint8Array
+type LoadFile = (path: string, encoding?: string) => LoadFileData
+
+interface CliArgs {
+  file?: string
+  output?: string
+  format: OutputFormat
+  theme: ThemeName
+  background?: string
+  size?: Size
+  width?: number
+  height?: number
+  dev: boolean
+  loadFile: LoadFile
+}
+
+
+export type { Point, Rect, Limit, Size, Grad, Polar, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Side0, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec, ThemeName, OutputFormat, LoadFileData, LoadFile, CliArgs }
