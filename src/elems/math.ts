@@ -1157,7 +1157,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath 
             const { body: body0, index: index0 } = tree
             const body = convert_tree(body0, attr)
             const index = index0 ? convert_tree(index0, attr) : null
-            return new Sqrt({ children: [ body ], index })
+            return new Sqrt({ children: [ body ], index, ...attr })
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
             const body = convert_tree(body0, attr)
