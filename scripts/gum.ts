@@ -88,7 +88,7 @@ async function runCommand(args: CliArgs) {
   } else if (format == 'svg') {
     out = svg
   } else if (format == 'png' || format == 'kitty') {
-    const dat = rasterizeSvg(svg, { size, width, height, background })
+    const dat = await rasterizeSvg(svg, { size, width, height, background })
     out = (format == 'kitty') ? (formatImage(dat) + '\n') : dat
   } else {
     throw new Error(`Unsupported output format: ${format}`)

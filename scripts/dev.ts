@@ -51,6 +51,7 @@ function devCommand(args: CliArgs) {
   let closed = false
   let renderTimer: ReturnType<typeof setTimeout> | null = null
   let pendingFullRender = true
+  let rendering = false
   let activeImageId: number | null = null
   let activeBox: CellRect | null = null
   let activeSize: Size | null = null
@@ -155,14 +156,14 @@ function devCommand(args: CliArgs) {
     moveCursor(process.stdout.rows ?? 24, 1)
   }
 
-  function renderFile(): void {
+  async function renderFile(): Promise<void> {
     try {
       const code = readFileSync(file, 'utf-8')
       const elem = evaluateGum(code, { size, theme, loadFile })
       const svg = elem.svg()
       const [width, height] = elem.size
       const box = fitCells(width, height)
-      const png = rasterizeSvg(svg, { size: elem.size, background })
+      const png = await rasterizeSvg(svg, { size: elem.size, background })
       const imageId = nextImageId()
       const prevImageId = activeImageId
 
@@ -217,14 +218,24 @@ function devCommand(args: CliArgs) {
     moveCursor(process.stdout.rows ?? 24, 1)
   }
 
-  function flushRender(): void {
+  async function flushRender(): Promise<void> {
     renderTimer = null
 
-    if (pendingFullRender) {
-      pendingFullRender = false
-      renderFile()
-    } else {
-      updateLayout()
+    // if a render is in flight, bail; finishing render will reschedule if needed
+    if (rendering) return
+
+    rendering = true
+    try {
+      if (pendingFullRender) {
+        pendingFullRender = false
+        await renderFile()
+      } else {
+        updateLayout()
+      }
+    } finally {
+      rendering = false
+      // a request arrived during the await — fire it
+      if (pendingFullRender && renderTimer == null) scheduleRender(true)
     }
   }
 

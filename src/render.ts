@@ -1,48 +1,20 @@
-// Parse markdown and extract gum.jsx code blocks
+// Rasterize SVG to PNG via node-canvas
 
-import { Resvg } from '@resvg/resvg-js'
+import { createCanvas, loadImage, registerFont } from 'canvas'
 
 import type { Size } from './lib/types'
-import { sans, mono } from './lib/const'
-import { is_browser } from './lib/utils'
-import { FONT_PATHS, FONT_DATA } from './fonts/fonts'
+import { FONT_PATHS } from './fonts/fonts'
 
-// differs between browser WASM and node
-const fontArgs = is_browser() ?
-  { fontBuffers: Object.values(FONT_DATA) } :
-  { fontFiles: Object.values(FONT_PATHS) }
-
-// store font arguments for resvg conversion
-const font = {
-  ...fontArgs,
-  loadSystemFonts: false,
-  defaultFontFamily: sans,
-  sansSerifFamily: sans,
-  monospaceFamily: mono,
+// register bundled fonts so SVG <text> resolves consistently
+for (const [ family, path ] of Object.entries(FONT_PATHS)) {
+  registerFont(path, { family })
 }
-
-interface FitToWidth {
-  mode: 'width'
-  value: number
-}
-
-interface FitToHeight {
-  mode: 'height'
-  value: number
-}
-
-interface FitToOriginal {
-  mode: 'original'
-}
-
-type FitTo = FitToWidth | FitToHeight | FitToOriginal
 
 interface RasterizeArgs {
   size?: Size
   width?: number
   height?: number
   background?: string
-  format?: 'png' | 'array'
 }
 
 interface FormatImageArgs {
@@ -54,34 +26,46 @@ interface FormatImageArgs {
   cursorMovement?: boolean
 }
 
-// build fitTo object from width/height options
-function buildFitTo(width?: number, height?: number): FitTo {
-  if (height != null && width != null) {
-    return { mode: 'width', value: width } // prefer width when both specified
-  } else if (height != null) {
-    return { mode: 'height', value: height }
-  } else if (width != null) {
-    return { mode: 'width', value: width }
-  }
-  return { mode: 'original' }
-}
+async function rasterizeSvg(svg: string | Buffer, { size, width, height, background }: RasterizeArgs = {}): Promise<Buffer> {
+  const buf = typeof svg === 'string' ? Buffer.from(svg) : svg
+  const img = await loadImage(buf)
+  const w0 = size?.[0] ?? img.width
+  const h0 = size?.[1] ?? img.height
 
-// rasterize SVG buffer/string to PNG
-function rasterizeSvg(svg: string | Buffer, { size, width, height, background, format = 'png' }: RasterizeArgs = {}): Buffer {
-  // scale down intrinsic height
-  if (size != null && width != null && height != null) {
-    const [width0, height0] = size
-    const scaleW = width / width0
-    const scaleH = height / height0
+  // if both width and height given, scale to fit within (prefer smaller scale)
+  if (width != null && height != null) {
+    const scaleW = width / w0
+    const scaleH = height / h0
     if (scaleW < scaleH) height = undefined
     else width = undefined
   }
 
-  // pass to resvg
-  const fitTo = buildFitTo(width, height)
-  const resvg = new Resvg(svg, { fitTo, font, background })
-  const result = resvg.render()
-  return format == 'png' ? result.asPng() : result.pixels
+  // pick output dimensions; preserve aspect when only one of width/height given
+  let outW: number, outH: number
+  if (width != null) {
+    outW = width
+    outH = Math.round(width * h0 / w0)
+  } else if (height != null) {
+    outH = height
+    outW = Math.round(height * w0 / h0)
+  } else {
+    outW = w0
+    outH = h0
+  }
+
+  // create canvas
+  const canvas = createCanvas(outW, outH)
+  const ctx = canvas.getContext('2d')
+
+  // fill background
+  if (background != null) {
+    ctx.fillStyle = background
+    ctx.fillRect(0, 0, outW, outH)
+  }
+
+  // draw image to canvas and return PNG buffer
+  ctx.drawImage(img, 0, 0, outW, outH)
+  return canvas.toBuffer('image/png')
 }
 
 // kitty image protocol
