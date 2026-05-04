@@ -208,7 +208,8 @@ Parameters:
 - `start-dir` / `end-dir` — the direction of the arrowheads at the start and end
 - `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
 - `arrow-size` = `0.04` — size of the arrowhead
-- `curve` = `null` — curvature factor forwarded to the spline (`null` or zero means straight line)
+- `curve` = `null` — curvature factor forwarded to the **Spline** (`null` or zero means straight line)
+- `rounded` = `null` — corner radius for a city-block path through `points`. When set, the shaft is a **RoundedLine** (takes precedence over `curve`)
 
 Subunit names:
 - `line` — forwarded to the shaft line
@@ -227,5 +228,41 @@ Generated code:
     <Arrow points={[[0.3, 0.5], [0.6, 0.5]]} />
     <Square pos={[0.75, 0.5]} ysize={0.5} rounded fill={blue} />
   </Group>
+</Frame>
+```
+
+## RoundedLine
+
+*Inherits*: **Path** > **Element**
+
+The `RoundedLine` element draws a polyline through a series of points with rounded corners at each interior vertex. It is most useful for *city-block* (right-angle) routes — for instance, edges in a network diagram that you want to bend cleanly around obstacles rather than curving with **Spline**. Spline curvature along an otherwise-straight `points` route produces undulating bumps; `RoundedLine` keeps the straight segments straight and only rounds the turns.
+
+Each interior vertex is replaced by a quarter-arc whose back-off along each adjacent segment is `radius` (in coord space). For axis-aligned segments this renders as a quarter-ellipse that scales naturally with the coordinate system. If a segment is shorter than twice the radius, the corner is automatically clamped so adjacent corners can never overlap.
+
+For straight-line polylines (no corner rounding) use **Line**. For smooth curves through points use **Spline**.
+
+Parameters:
+- `points` — array of point coordinates (minimum of 2 required)
+- `radius` = `0.05` — corner back-off distance in coord space, applied at each interior vertex
+
+**Example**
+
+Prompt: a city-block route in blue with rounded corners, with the underlying
+
+Generated code:
+```jsx
+// vertices marked as black dots to show how the corners are rounded
+const points = [
+  [0.10, 0.20],
+  [0.40, 0.20],
+  [0.40, 0.80],
+  [0.70, 0.80],
+  [0.70, 0.50],
+  [0.90, 0.50],
+]
+return <Frame margin>
+  <Line opacity={0.3} points={points} />
+  <RoundedLine stroke={blue} stroke-width={2} radius={0.08} points={points} />
+  <Points point-size={0.015} points={points} />
 </Frame>
 ```

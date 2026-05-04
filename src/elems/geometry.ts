@@ -775,11 +775,12 @@ interface ArrowArgs extends GroupArgs {
     arrow_end?: boolean
     arrow_size?: number
     curve?: number
+    rounded?: number
 }
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { points: points0, start_dir: start_dir0, end_dir: end_dir0, arrow_size = 0.08, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, stroke_width = 1, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'Arrow')
+        const { points: points0, start_dir: start_dir0, end_dir: end_dir0, arrow_size = 0.08, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, rounded, stroke_width = 1, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'Arrow')
         const [ line_attr0, arrow_attr0, start_attr0, end_attr0, attr ] = prefix_split([ 'line', 'arrow', 'start', 'end' ], attr0)
 
         // arrow defaults
@@ -814,9 +815,11 @@ class Arrow extends Group {
         const end_ang = -vector_angle(end_dir)
         const end_pos = make_mpoint(end, mul2(end_dir, -stroke_offset))
 
-        // make line path
+        // make line path: prefer rounded city-block over spline curve over straight
         const points = [ start_pos, ...points0.slice(1, -1), end_pos ]
-        const line_elem = curve ?
+        const line_elem = (rounded != null) ?
+            new RoundedLine({ points, radius: rounded, coord, ...line_attr }) :
+            curve ?
             new Spline({ points, start_dir, end_dir, curve, coord, ...line_attr }) :
             new Line({ points, coord, ...line_attr })
 

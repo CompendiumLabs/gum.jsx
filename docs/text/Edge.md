@@ -13,4 +13,5 @@ Parameters:
 - `points` — the intermediate points to draw the spline between
 - `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
 - `arrow-size` = `0.04` — the arrowhead size to use for both arrows
-- `curve` = `2` — curvature factor forwarded to the spline
+- `curve` = `2` — curvature factor forwarded to the [Spline](/docs/Spline)
+- `rounded` = `null` — corner radius for a city-block path using [RoundedLine](/docs/RoundedLine)

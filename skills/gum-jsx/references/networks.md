@@ -61,18 +61,19 @@ Parameters:
 - `points` — the intermediate points to draw the spline between
 - `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
 - `arrow-size` = `0.04` — the arrowhead size to use for both arrows
-- `curve` = `2` — curvature factor forwarded to the spline
+- `curve` = `2` — curvature factor forwarded to the **Spline**
+- `rounded` = `null` — corner radius for a city-block path using **RoundedLine**
 
 **Example**
 
-Prompt: Two boxes with text in them that have black borders and gray interiors. The box in the upper left says "hello" and the box in the lower right says "world!". The arrowhead from "Hello" is filled in red and the arrowhead to "World!" is filled in blue.
+Prompt: Two boxes with text in them that have black borders and gray interiors. The box in the upper left says "hello" and the box in the lower right says "world!". There is a city-block path connecting the two boxes. The arrowhead from "Hello" is filled in red and the arrowhead to "World!" is filled in blue.
 
 Generated code:
 ```jsx
-<Network aspect node-fill={gray} edge-arrow>
+<Network aspect node-fill={gray} edge-arrow edge-rounded={0.025}>
   <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
   <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge start="hello" end="world" start-fill={red} end-fill={blue} />
+  <Edge start="hello" end="world" start-fill={red} end-fill={blue} points={[[0.25, 0.5], [0.75, 0.5]]}/>
 </Network>
 ```
 

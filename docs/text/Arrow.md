@@ -13,7 +13,8 @@ Parameters:
 - `start-dir` / `end-dir` — the direction of the arrowheads at the start and end
 - `arrow` / `arrow-start` / `arrow-end` — toggles whether the respective arrowheads are included. Defaults to `true` for `arrow-end` and `false` for `arrow-start`, meaning a directed graph edge
 - `arrow-size` = `0.04` — size of the arrowhead
-- `curve` = `null` — curvature factor forwarded to the spline (`null` or zero means straight line)
+- `curve` = `null` — curvature factor forwarded to the [Spline](/docs/Spline) (`null` or zero means straight line)
+- `rounded` = `null` — corner radius for a city-block path through `points`. When set, the shaft is a [RoundedLine](/docs/RoundedLine) (takes precedence over `curve`)
 
 Subunit names:
 - `line` — forwarded to the shaft line
