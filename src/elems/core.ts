@@ -257,7 +257,7 @@ function props_repr(d: Attrs, prec: number): string {
 // reserved keys
 const SPEC_KEYS = [ 'rect', 'aspect', 'expand', 'align', 'upright', 'rotate', 'rotate_adjust', 'invar', 'coord' ]
 const HELP_KEYS = [ 'pos', 'size', 'xsize', 'ysize', 'flex', 'spin', 'orient' ]
-const EXTR_KEYS = [ 'stack_size', 'stack_expand' ]
+const EXTR_KEYS = [ 'stack_size' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...EXTR_KEYS ]
 
 function spec_split(attr: Attrs, extended: boolean = true): [Attrs, Attrs] {

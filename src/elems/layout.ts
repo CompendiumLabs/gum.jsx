@@ -150,7 +150,7 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
     // adjust for direction (invert aspect if horizontal)
     const items = children.map(c => {
         const size = c.attr.stack_size ?? (even ? 1 / children.length : null)
-        const expd = c.attr.stack_expand ?? (c.attr.stack_size == null)
+        const expd = c.attr.stack_size == null
         const aspect = expd ? c.spec.aspect : undefined
         return { size, aspect } as StackChild
     })
