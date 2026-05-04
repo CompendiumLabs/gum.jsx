@@ -11,7 +11,7 @@ import { registerFont } from './fonts/fonts'
 
 import { Context, Element, Group, Svg, Rectangle, Spacer, is_element, type ElementArgs } from './elems/core'
 import { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute } from './elems/layout'
-import { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow } from './elems/geometry'
+import { Line, UnitLine, VLine, HLine, Square, Ellipse, Arc, Circle, Dot, Ray, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd, Spline, RoundedRect, RoundedLine, ArrowHead, Arrow } from './elems/geometry'
 import { spline1d, spline2d } from './lib/interp'
 import { Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic } from './elems/text'
 import { Node, Edge, Network } from './elems/network'
@@ -39,7 +39,7 @@ const RAND = {
 }
 
 const ELEMS: Record<string, ElementConstructor> = {
-    Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Fill, VFill, HFill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, Tex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage
+    Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, RoundedLine, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Fill, VFill, HFill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, Tex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage
 }
 
 const CONTEXT = { ...CONST, ...UTILS, ...RAND, ...ELEMS }
@@ -51,8 +51,8 @@ export {
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, sans, mono, moji, cmoji, light, bold,
     range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, rounder, interp, palette, add2, sub2, mul2, div2, spline1d, spline2d,
     setSeed, random, uniform, normal, integer,
-    Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Fill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage,
-    Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd,
+    Element, Group, Svg, Box, Frame, Stack, HWrap, VStack, HStack, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, Rectangle, Rect, RoundedRect, RoundedLine, Square, Ellipse, Arc, Circle, Dot, Shape, Path, Spline, Triangle, Fill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymShape, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, Latex, MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, PngImage, SvgImage,
+    Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd,
 }
 
 export type { ElementConstructor }

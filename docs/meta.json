@@ -18,7 +18,8 @@
         "Shape",
         "Fill",
         "Spline",
-        "Arrow"
+        "Arrow",
+        "RoundedLine"
     ],
     "text": [
         "Text",

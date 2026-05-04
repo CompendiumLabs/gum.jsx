@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, d2r, none, gray } from '../lib/const'
-import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, merge_points, broadcast_point, sub2m, add2, sub2, mul2, div2, angle_direc, unit_direc, vector_angle, polar, prefix_split} from '../lib/utils'
+import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, squeeze_mpoint, merge_points, broadcast_point, sub2m, add2, sub2, mul2, div2, norm, angle_direc, unit_direc, vector_angle, polar, prefix_split} from '../lib/utils'
 import { cubic_spline_data } from '../lib/interp'
 import { Context, Element, Group, Rectangle } from './core'
 
@@ -452,6 +452,78 @@ class CornerCmd {
     }
 }
 
+// rounds one interior vertex of a polyline. takes the previous point, the
+// corner, and the next point, and emits an L-to-entry + arc-to-exit. unlike
+// CornerCmd (which is for rectangle traversal), the corner point is given
+// explicitly and the radius is the back-off distance along each adjacent
+// segment in coord space.
+class RoundedCornerCmd {
+    pa: Point | MPoint
+    pb: Point | MPoint
+    pc: Point | MPoint
+    radius: number
+
+    constructor(pa: Point | MPoint, pb: Point | MPoint, pc: Point | MPoint, radius: number) {
+        this.pa = pa
+        this.pb = pb
+        this.pc = pc
+        this.radius = radius
+    }
+
+    data(ctx: Context): string {
+        const ppa = ctx.mapPoint(this.pa)
+        const ppb = ctx.mapPoint(this.pb)
+        const ppc = ctx.mapPoint(this.pc)
+
+        // pixel-space directions
+        const din = sub2(ppb, ppa) as Point
+        const dout = sub2(ppc, ppb) as Point
+        const lin = norm(din)
+        const lout = norm(dout)
+
+        // collinear / degenerate: just draw a line to the corner
+        const cross = din[0] * dout[1] - din[1] * dout[0]
+        if (lin < 1e-9 || lout < 1e-9 || abs(cross) < 1e-9 * lin * lout) {
+            return `L ${rounder(ppb[0], ctx.prec)},${rounder(ppb[1], ctx.prec)}`
+        }
+
+        // unit directions
+        const uin = div2(din, lin) as Point
+        const uout = div2(dout, lout) as Point
+
+        // pixel-space radius components for axis-aligned mapping
+        const [ rxp, ryp ] = ctx.mapSize([ this.radius, this.radius ]).map(abs) as Point
+
+        // back-off magnitudes in pixel space along each segment direction
+        // (for axis-aligned segments this collapses to rxp or ryp)
+        const back_in = Math.sqrt((uin[0] * rxp) ** 2 + (uin[1] * ryp) ** 2)
+        const back_out = Math.sqrt((uout[0] * rxp) ** 2 + (uout[1] * ryp) ** 2)
+
+        // clamp so adjacent corners can't overlap and we don't overshoot
+        const r_in = Math.min(back_in, lin / 2)
+        const r_out = Math.min(back_out, lout / 2)
+
+        // entry/exit points in pixel space
+        const entry = sub2(ppb, mul2(uin, r_in)) as Point
+        const exit = add2(ppb, mul2(uout, r_out)) as Point
+
+        // arc radii: the distance from the corner to the entry/exit along each
+        // axis. for axis-aligned segments this gives rx = back_in, ry = back_out
+        // (or vice versa), which renders a clean quarter-ellipse aligned with
+        // the coord-space scaling.
+        const arc_rx = Math.max(abs(ppb[0] - entry[0]), abs(exit[0] - ppb[0]))
+        const arc_ry = Math.max(abs(ppb[1] - entry[1]), abs(exit[1] - ppb[1]))
+
+        // sweep: positive cross product = clockwise turn in screen space
+        const sweep = cross > 0 ? 1 : 0
+
+        return (
+            `L ${rounder(entry[0], ctx.prec)},${rounder(entry[1], ctx.prec)} ` +
+            `A ${rounder(arc_rx, ctx.prec)},${rounder(arc_ry, ctx.prec)} 0 0 ${sweep} ${rounder(exit[0], ctx.prec)},${rounder(exit[1], ctx.prec)}`
+        )
+    }
+}
+
 type CubicSplineCmdArgs = SplineData<Point | MPoint>
 
 class CubicSplineCmd extends Command {
@@ -592,6 +664,47 @@ class RoundedRect extends Path {
 }
 
 //
+// rounded line class
+//
+
+interface RoundedLineArgs extends ElementArgs {
+    points?: (Point | MPoint)[]
+    radius?: number
+}
+
+// polyline with rounded corners — useful for city-block / right-angle routes
+// (e.g. network edges) where a Spline produces ugly curvature along the
+// straight segments. each interior vertex is replaced by a quarter-arc whose
+// back-off along each adjacent segment is `radius` (in coord space).
+class RoundedLine extends Path {
+    points: (Point | MPoint)[]
+
+    constructor(args: RoundedLineArgs = {}) {
+        const { points: points0, radius = 0.05, fill = none, ...attr } = THEME(args, 'RoundedLine')
+        const points = check_array(points0)
+
+        // build path commands: Move, then for each interior vertex a rounded
+        // corner, then a final Line to the last point
+        const corners = points.slice(1, -1).map(
+            (p, i) => new RoundedCornerCmd(points[i], p, points[i + 2], radius)
+        )
+        const children = [
+            new MoveCmd(points[0]),
+            ...corners,
+            new LineCmd(points[points.length - 1]),
+        ]
+
+        super({ children, fill, ...attr })
+        this.args = args
+        this.points = points
+    }
+
+    graphCoord(): Rect | undefined {
+        return super.graphCoord() ?? points_graph_coord(this.points)
+    }
+}
+
+//
 // arc classe
 //
 
@@ -721,5 +834,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, CubicSplineCmd, Spline, RoundedRect, ArrowHead, Arrow }
-export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }
+export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd, Spline, RoundedRect, RoundedLine, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, RoundedLineArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }
