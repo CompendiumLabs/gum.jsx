@@ -404,8 +404,10 @@ class ArcCmd extends Command {
 
     args(ctx: Context): string {
         const [ x1, y1 ] = ctx.mapPoint(this.pos)
-        const [ rx, ry ] = ctx.mapSize(this.rad).map(abs)
-        return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large ? 1 : 0} ${this.sweep ? 1 : 0} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
+        const [ rx0, ry0 ] = ctx.mapSize(this.rad)
+        const [ rx, ry ] = [ abs(rx0), abs(ry0) ]
+        const sweep = rx0 * ry0 < 0 ? !this.sweep : this.sweep
+        return `${rounder(rx, ctx.prec)},${rounder(ry, ctx.prec)} 0 ${this.large ? 1 : 0} ${sweep ? 1 : 0} ${rounder(x1, ctx.prec)},${rounder(y1, ctx.prec)}`
     }
 }
 

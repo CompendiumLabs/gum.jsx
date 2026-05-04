@@ -7,7 +7,7 @@ import { Span } from './text'
 
 import { Element, Group, Spacer, spec_split, is_element, ensure_children } from './core'
 import { Box, Frame, Attach, HStack, VStack, Anchor } from './layout'
-import { RoundedRect, UnitLine, HLine } from './geometry'
+import { RoundedRect, UnitLine, HLine, Arc } from './geometry'
 
 import type { Point, Rect, Limit, Attrs, Orient, Rounded, Zone, AlignValue, Side } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
@@ -555,7 +555,8 @@ class Graph extends Group {
         // map coordinate system to all elements
         const items = children.map((e: any) => {
             if (e.spec.rect != null) {
-                return new Group({ children: [ e ], coord })
+                const child = e instanceof Arc && flip ? e.clone({ upright: false }) : e
+                return new Group({ children: [ child ], coord })
             } else {
                 return e.clone({ coord })
             }
