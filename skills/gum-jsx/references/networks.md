@@ -18,14 +18,31 @@ Parameters:
 
 **Example**
 
-Prompt: Two boxes with text in them that have black borders and gray interiors. The box in the upper left says "hello" and the box in the lower right says "world!".
+Prompt: A simple connected network where each rounded node contains an emoji icon stacked above a text label. The example shows idea → design → launch.
 
 Generated code:
 ```jsx
-<Network aspect node-fill={gray}>
-  <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
-  <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge start="hello" end="world" />
+<Network aspect={2} node-fill={gray} node-rounded node-padding node-ysize={0.35}>
+  <Node id="idea" pos={[0.2, 0.5]}>
+    <VStack spacing={0.15}>
+      <Text>💡</Text>
+      <Text stack-size={0.25}>Idea</Text>
+    </VStack>
+  </Node>
+  <Node id="design" pos={[0.5, 0.5]}>
+    <VStack spacing={0.15}>
+      <Text>🎨</Text>
+      <Text stack-size={0.25}>Design</Text>
+    </VStack>
+  </Node>
+  <Node id="launch" pos={[0.8, 0.5]}>
+    <VStack spacing={0.15}>
+      <Text>🚀</Text>
+      <Text stack-size={0.25}>Launch</Text>
+    </VStack>
+  </Node>
+  <Edge start="idea" end="design" />
+  <Edge start="design" end="launch" />
 </Network>
 ```
 
