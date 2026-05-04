@@ -455,8 +455,7 @@ class CornerCmd {
 // rounds one interior vertex of a polyline. takes the previous point, the
 // corner, and the next point, and emits an L-to-entry + arc-to-exit. unlike
 // CornerCmd (which is for rectangle traversal), the corner point is given
-// explicitly and the radius is the back-off distance along each adjacent
-// segment in coord space.
+// explicitly and the radius is rendered as a circular pixel-space fillet.
 class RoundedCornerCmd {
     pa: Point | MPoint
     pb: Point | MPoint
@@ -491,35 +490,34 @@ class RoundedCornerCmd {
         const uin = div2(din, lin) as Point
         const uout = div2(dout, lout) as Point
 
-        // pixel-space radius components for axis-aligned mapping
+        // Pixel-space radius. Use the smaller mapped axis so non-square
+        // contexts keep corners circular rather than stretching them.
         const [ rxp, ryp ] = ctx.mapSize([ this.radius, this.radius ]).map(abs) as Point
+        const radius0 = Math.min(rxp, ryp)
 
-        // back-off magnitudes in pixel space along each segment direction
-        // (for axis-aligned segments this collapses to rxp or ryp)
-        const back_in = Math.sqrt((uin[0] * rxp) ** 2 + (uin[1] * ryp) ** 2)
-        const back_out = Math.sqrt((uout[0] * rxp) ** 2 + (uout[1] * ryp) ** 2)
+        // Fit a circular fillet tangent to both segments. For right-angle
+        // city-block paths, tangent length equals radius.
+        const cos_turn = Math.max(-1, Math.min(1, uin[0] * uout[0] + uin[1] * uout[1]))
+        const turn = Math.acos(cos_turn)
+        const tan_half = Math.tan(turn / 2)
+        if (tan_half < 1e-9) {
+            return `L ${rounder(ppb[0], ctx.prec)},${rounder(ppb[1], ctx.prec)}`
+        }
 
         // clamp so adjacent corners can't overlap and we don't overshoot
-        const r_in = Math.min(back_in, lin / 2)
-        const r_out = Math.min(back_out, lout / 2)
+        const radius = Math.min(radius0, lin / (2 * tan_half), lout / (2 * tan_half))
+        const backoff = radius * tan_half
 
         // entry/exit points in pixel space
-        const entry = sub2(ppb, mul2(uin, r_in)) as Point
-        const exit = add2(ppb, mul2(uout, r_out)) as Point
-
-        // arc radii: the distance from the corner to the entry/exit along each
-        // axis. for axis-aligned segments this gives rx = back_in, ry = back_out
-        // (or vice versa), which renders a clean quarter-ellipse aligned with
-        // the coord-space scaling.
-        const arc_rx = Math.max(abs(ppb[0] - entry[0]), abs(exit[0] - ppb[0]))
-        const arc_ry = Math.max(abs(ppb[1] - entry[1]), abs(exit[1] - ppb[1]))
+        const entry = sub2(ppb, mul2(uin, backoff)) as Point
+        const exit = add2(ppb, mul2(uout, backoff)) as Point
 
         // sweep: positive cross product = clockwise turn in screen space
         const sweep = cross > 0 ? 1 : 0
 
         return (
             `L ${rounder(entry[0], ctx.prec)},${rounder(entry[1], ctx.prec)} ` +
-            `A ${rounder(arc_rx, ctx.prec)},${rounder(arc_ry, ctx.prec)} 0 0 ${sweep} ${rounder(exit[0], ctx.prec)},${rounder(exit[1], ctx.prec)}`
+            `A ${rounder(radius, ctx.prec)},${rounder(radius, ctx.prec)} 0 0 ${sweep} ${rounder(exit[0], ctx.prec)},${rounder(exit[1], ctx.prec)}`
         )
     }
 }
@@ -674,8 +672,8 @@ interface RoundedLineArgs extends ElementArgs {
 
 // polyline with rounded corners — useful for city-block / right-angle routes
 // (e.g. network edges) where a Spline produces ugly curvature along the
-// straight segments. each interior vertex is replaced by a quarter-arc whose
-// back-off along each adjacent segment is `radius` (in coord space).
+// straight segments. each interior vertex is replaced by a circular arc whose
+// radius is derived from `radius` in coord space and clamped in pixel space.
 class RoundedLine extends Path {
     points: (Point | MPoint)[]
 

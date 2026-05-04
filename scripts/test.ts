@@ -53,6 +53,11 @@ function assertGraphArrowHeadForward(svg: string) {
     if (dot(shaft, head) <= 0) throw new Error('Arrow head points opposite the shaft')
 }
 
+function assertRoundedLineCornerCircular(svg: string) {
+    const [ rx, ry ] = matchNumbers(svg, /<path d="[^"]* A ([-\d.]+),([-\d.]+) /, 'Missing rounded corner arc')
+    if (Math.abs(rx - ry) > 1e-6) throw new Error(`RoundedLine corner arc is skewed: ${rx},${ry}`)
+}
+
 const dirs = ['docs/code', 'gala/code']
 let passed = 0
 let failed = 0
@@ -84,6 +89,18 @@ try {
 } catch (e: any) {
     const { message = 'Unknown error' } = e
     console.error(`FAIL regression Graph Arrow wide aspect: ${message}`)
+    failed++
+}
+
+try {
+    const code = '<Frame aspect={4}><RoundedLine points={[[0.1,0.2],[0.5,0.2],[0.5,0.8]]} radius={0.1} /></Frame>'
+    const elem = evaluateGum(code, { size: 500, theme: 'dark', loadFile })
+    assertRoundedLineCornerCircular(elem.svg())
+    console.log('PASS regression RoundedLine circular corners')
+    passed++
+} catch (e: any) {
+    const { message = 'Unknown error' } = e
+    console.error(`FAIL regression RoundedLine circular corners: ${message}`)
     failed++
 }
 
