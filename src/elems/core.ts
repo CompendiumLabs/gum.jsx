@@ -58,51 +58,54 @@ function rotate_rect(size: Size, rotate: number, { aspect, expand = false, rotat
 
     // unpack inputs
     const [ w0, h0 ] = size
+    const [ aw0, ah0 ] = [ abs(w0), abs(h0) ]
+    const [ sw, sh ] = [ heavisign(w0), heavisign(h0) ]
     const theta = d2r * rotate
 
     // trig compute
     const COS = abs(cos(theta))
     const SIN = abs(sin(theta))
 
-    // rotate rect
-    let [ w, h ] = size
+    // Fit using absolute extents, then restore signs so flipped coordinate
+    // systems preserve their orientation on each axis independently.
+    let [ w, h ] = [ aw0, ah0 ]
     if (aspect != null) {
         // this has an exact solution
         const DW = aspect * COS + SIN
         const DH = aspect * SIN + COS
         const agg = expand ? abs_max : abs_min
-        h = agg(w0 / DW, h0 / DH)
+        h = agg(aw0 / DW, ah0 / DH)
         w = h * aspect
     } else {
         // this has some degeneracy, which we resolve with maximal area
         // max Area = w * h
         // st  C * w + S * h <= w0
         //     C * h + S * w <= h0
-        const paspect = abs(w0 / h0)
+        const paspect = aw0 / ah0
         const TAN = abs(tan(theta))
         const COT = abs(cot(theta))
         const [ TL, TH ] = [ Math.min(TAN, COT), Math.max(TAN, COT) ]
         if (paspect < TL) {
-            w = w0 / (2 * COS)
-            h = w0 / (2 * SIN)
+            w = aw0 / (2 * COS)
+            h = aw0 / (2 * SIN)
         } else if (paspect > TH) {
-            w = h0 / (2 * SIN)
-            h = h0 / (2 * COS)
+            w = ah0 / (2 * SIN)
+            h = ah0 / (2 * COS)
         } else {
             const denom = COS * COS - SIN * SIN
             if (abs(denom) < tol) {
                 // this uses a leontieff objective
-                const t = abs_min(w0, h0) / (COS + SIN)
+                const t = abs_min(aw0, ah0) / (COS + SIN)
                 w = h = t
             } else {
-                w = (w0 * COS - h0 * SIN) / denom
-                h = (h0 * COS - w0 * SIN) / denom
+                w = (aw0 * COS - ah0 * SIN) / denom
+                h = (ah0 * COS - aw0 * SIN) / denom
             }
         }
     }
 
     // return base and rotated rect sizes
-    return [ w, h ]
+    return [ sw * w, sh * h ]
 }
 
 function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string {
