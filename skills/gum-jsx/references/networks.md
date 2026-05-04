@@ -71,9 +71,9 @@ Prompt: Two boxes with text in them that have black borders and gray interiors. 
 Generated code:
 ```jsx
 <Network aspect node-fill={gray} edge-arrow edge-rounded={0.025}>
-  <Node id="hello" pos={[0.25, 0.25]}>Hello</Node>
-  <Node id="world" pos={[0.75, 0.75]}>World!</Node>
-  <Edge start="hello" end="world" start-fill={red} end-fill={blue} points={[[0.25, 0.5], [0.75, 0.5]]}/>
+  <Node id="hello" pos={[0.3, 0.25]}>Hello</Node>
+  <Node id="world" pos={[0.7, 0.75]}>World!</Node>
+  <Edge start="hello" end="world" points={[[0.3, 0.5], [0.7, 0.5]]}/>
 </Network>
 ```
 

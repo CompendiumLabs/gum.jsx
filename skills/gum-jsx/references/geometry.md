@@ -48,7 +48,7 @@ Parameters:
 - `start` — first angle in degrees
 - `end` — second angle in degrees
 
-Angles follow gum's usual screen-space convention: `0` points right and `90` points down. The two angles are treated as an interval; their order does not change the drawn arc.
+Angles follow the current coordinate system: `0` points right and positive angles follow positive y. In the default screen coordinate system, `90` points down; inside a default **Graph**, where y is flipped upward, `90` points up. The two angles are treated as an interval; their order does not change the drawn arc.
 
 **Example**
 
@@ -237,7 +237,7 @@ Generated code:
 
 The `RoundedLine` element draws a polyline through a series of points with rounded corners at each interior vertex. It is most useful for *city-block* (right-angle) routes — for instance, edges in a network diagram that you want to bend cleanly around obstacles rather than curving with **Spline**. Spline curvature along an otherwise-straight `points` route produces undulating bumps; `RoundedLine` keeps the straight segments straight and only rounds the turns.
 
-Each interior vertex is replaced by a quarter-arc whose back-off along each adjacent segment is `radius` (in coord space). For axis-aligned segments this renders as a quarter-ellipse that scales naturally with the coordinate system. If a segment is shorter than twice the radius, the corner is automatically clamped so adjacent corners can never overlap.
+Each interior vertex is replaced by a circular arc whose radius is derived from `radius` in coord space. When the coordinate system is not square, `RoundedLine` uses the smaller mapped axis so corners stay circular in pixel space instead of stretching into ellipses. If a segment is too short for the requested radius, the corner is automatically clamped so adjacent corners can never overlap.
 
 For straight-line polylines (no corner rounding) use **Line**. For smooth curves through points use **Spline**.
 
