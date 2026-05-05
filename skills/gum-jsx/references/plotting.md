@@ -51,6 +51,16 @@ Subunits:
 - `label`/`xlabel`/`ylabel` — the axis label elements
 - `title` — the plot title element
 
+Title:
+- `title-size` = `0.075` — the size of the title element
+- `title-offset` = `0.05` — the offset of the title element from the top of the plot
+
+Labels:
+- `label-size` = `0.05` — the size of the label elements
+- `label-offset` = `0.125` — the offset of the label elements from the axis
+- `xlabel-size`/`ylabel-size` — the size of the x/y label element (overrides `label-size`)
+- `xlabel-offset`/`ylabel-offset` — the offset of the x/y label element from the axis (overrides `label-offset`)
+
 **Example**
 
 Prompt: plot an inverted sine wave with ticks labeled in multiples of π. There is a faint dashed grid. The x-axis is labeled "phase" and the y-axis is labeled "amplitude". The title is "Inverted Sine Wave".

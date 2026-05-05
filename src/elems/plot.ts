@@ -599,15 +599,15 @@ interface PlotArgs extends BoxArgs {
     ylabel_offset?: number
     xtick_size?: number
     ytick_size?: number
-    padding?: number
     margin?: number
+    padding?: number
     debug?: boolean
 }
 
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
         let {
-            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [ 0.11, 0.18 ], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding = 0, margin = 0, aspect: aspect0 = 'auto', clip, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = 0.125, title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, aspect: aspect0 = 'auto', clip, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const children = ensure_children(children0)
 
