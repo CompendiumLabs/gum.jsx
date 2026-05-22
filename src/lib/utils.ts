@@ -2,7 +2,7 @@
 
 import { DEFAULTS as D, d2r, r2d } from './const'
 import { setSeed, random, uniform, normal, integer } from './rng'
-import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Angle, Direc, Size, Pair, Grad, Polar, Attrs } from './types'
+import type { Point, Rect, Limit, RGBA, MNumber, MPoint, Orient, Side, Side0, Direc, Size, Pair, Grad, Complex, Attrs } from './types'
 
 //
 // environment tests
@@ -462,6 +462,54 @@ function div2(p0: number | Pair, p1: number | Pair): Pair {
 }
 
 //
+// complex arithmetic
+//
+
+function ensure_complex(z: number | Complex): Complex {
+    return is_scalar(z) ? [ z, 0 ] as Complex : z
+}
+
+function addc(z: number | Complex, w: number | Complex): Complex {
+    const [ x, y ] = ensure_complex(z)
+    const [ u, v ] = ensure_complex(w)
+    return [ x + u, y + v ]
+}
+
+function subc(z: number | Complex, w: number | Complex): Complex {
+    const [ x, y ] = ensure_complex(z)
+    const [ u, v ] = ensure_complex(w)
+    return [ x - u, y - v ]
+}
+
+function mulc(z: number | Complex, w: number | Complex): Complex {
+    const [ x, y ] = ensure_complex(z)
+    const [ u, v ] = ensure_complex(w)
+    return [ x * u - y * v, x * v + y * u ]
+}
+
+function divc(z: number | Complex, w: number | Complex): Complex {
+    const [ x, y ] = ensure_complex(z)
+    const [ u, v ] = ensure_complex(w)
+    const denom = norm([ u, v ], 2)
+    return [ (x * u + y * v) / denom, (y * u - x * v) / denom ]
+}
+
+function conjc(z: number | Complex): Complex {
+    const [ x, y ] = ensure_complex(z)
+    return [ x, -y ]
+}
+
+function normc(z: number | Complex): number {
+    const [ x, y ] = ensure_complex(z)
+    return norm([ x, y ], 2)
+}
+
+function argc(z: number | Complex): number {
+    const [ x, y ] = ensure_complex(z)
+    return atan2(y, x)
+}
+
+//
 // metaposition arithmetic
 //
 
@@ -913,4 +961,4 @@ function binary_search(arr: number[], t: number): number {
 // export
 //
 
-export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_pair, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, log10, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heaviside, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, setSeed, random, uniform, normal, integer, add2, sub2, mul2, div2, ensure_number, ensure_point, ensure_mnumber, ensure_mpoint, addm, subm, add2m, sub2m, make_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, polard, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_limits, merge_values, expand_limits, expand_rect, upright_rect, upright_limits, rounder, remap_rect, resizer, rescaler, rotate_aspect, prefix_split, prefix_join, binary_search }
+export { is_browser, is_boolean, is_scalar, is_string, is_number, is_object, is_function, is_array, is_singleton, is_point, ensure_vector, ensure_pair, ensure_singleton, ensure_function, check_singleton, check_array, check_string, gzip, zip, reshape, split, concat, squeeze, slice, intersperse, sum, prod, mean, all, any, cumsum, norm, normalize, range, linspace, enumerate, repeat, padvec, meshgrid, lingrid, map_object, filter_object, compress_whitespace, exp, log, log10, sin, cos, tan, cot, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, isNan, isInf, minimum, maximum, heaviside, heavisign, abs_min, abs_max, min, max, clamp, rescale, sigmoid, logit, smoothstep, identity, invert, setSeed, random, uniform, normal, integer, add2, sub2, mul2, div2, addc, subc, mulc, divc, conjc, normc, argc, ensure_number, ensure_point, ensure_mnumber, ensure_mpoint, addm, subm, add2m, sub2m, make_mpoint, squeeze_mnumber, squeeze_mpoint, rect_size, rect_dims, rect_center, rect_radius, rect_aspect, rect_radial, norm_angle, split_limits, vector_angle, angle_direc, polar, polard, side_direc, unit_direc, norm_side, rgba_repr, interp, palette, detect_coords, resolve_limits, join_limits, invert_orient, aspect_invariant, flip_rect, radial_rect, box_rect, rect_box, cbox_rect, rect_cbox, merge_rects, merge_points, merge_limits, merge_values, expand_limits, expand_rect, upright_rect, upright_limits, rounder, remap_rect, resizer, rescaler, rotate_aspect, prefix_split, prefix_join, binary_search }

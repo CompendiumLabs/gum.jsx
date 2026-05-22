@@ -32,6 +32,7 @@ const yellow = '#ffb300'
 const purple = '#9c27b0'
 const lightgray = '#f6f6f6'
 const darkgray = '#888888'
+const slate = '#1e252e'
 
 // math
 const e = Math.E
@@ -55,4 +56,4 @@ const DEFAULTS = {
     calc_size: 16,
 }
 
-export { DEFAULTS, svgns, htmlns, sans, mono, moji, cmoji, light, regular, bold, vtext, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, e, pi, phi, r2d, d2r }
+export { DEFAULTS, svgns, htmlns, sans, mono, moji, cmoji, light, regular, bold, vtext, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, slate, e, pi, phi, r2d, d2r }

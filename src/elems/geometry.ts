@@ -126,6 +126,31 @@ class CoordLine extends Line {
     }
 }
 
+interface SegmentsArgs extends ElementArgs {
+  edges?: [Point, Point][]
+}
+
+class Segments extends Element {
+  edges: [Point, Point][]
+
+  constructor(args: SegmentsArgs = {}) {
+    const { edges = [], ...attr } = args
+    super({ tag: 'path', unary: true, ...attr })
+    this.args = args
+    this.edges = edges
+  }
+
+  props(ctx: Context): Attrs {
+    const attr = super.props(ctx)
+    const d = this.edges.map(([e0, e1]) => {
+      const [p0, p1] = ctx.mapPoint(e0)
+      const [q0, q1] = ctx.mapPoint(e1)
+      return `M ${rounder(p0, ctx.prec)},${rounder(p1, ctx.prec)} L ${rounder(q0, ctx.prec)},${rounder(q1, ctx.prec)}`
+    }).join(' ')
+    return { d, ...attr }
+  }
+}
+
 //
 // shape classes
 //
@@ -835,5 +860,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd, Spline, RoundedRect, RoundedLine, ArrowHead, Arrow }
-export type { LineArgs, UnitLineArgs, CoordLineArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, RoundedLineArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }
+export { Line, UnitLine, VLine, HLine, CoordLine, Segments, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd, Spline, RoundedRect, RoundedLine, ArrowHead, Arrow }
+export type { LineArgs, UnitLineArgs, CoordLineArgs, SegmentsArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, RoundedLineArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }
