@@ -50,6 +50,10 @@ const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
     text: 'KaTeX_Main',
 }
 
+const TEX_FONT_FAMILY: Record<string, FontFamily | undefined> = {
+    mathbb: 'KaTeX_AMS',
+}
+
 //
 // constants
 //
@@ -1130,6 +1134,11 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath 
         } else if (type == 'text') {
             const { body } = tree
             return convert_tree(body, attr)
+        } else if (type == 'font') {
+            const { font, body } = tree
+            const font_family = TEX_FONT_FAMILY[font]
+            const font_attr = font_family == null ? {} : { font_family }
+            return convert_tree(body, { ...attr, ...font_attr })
         } else if (type == 'accent') {
             const { label, base: base0 } = tree
             const base = convert_tree(base0, attr)

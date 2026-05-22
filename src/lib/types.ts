@@ -9,6 +9,7 @@ type Grad = [number, number]
 type Polar = [number | Size, number]
 type Complex = [number, number]
 type Pair = Point | Size | Limit | Grad | Complex
+type Vector = number[]
 
 // color
 type RGBA = [number, number, number, number]
@@ -73,4 +74,4 @@ interface CliArgs {
 }
 
 
-export type { Point, Rect, Limit, Size, Grad, Polar, Complex, Pair, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Side0, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec, ThemeName, OutputFormat, LoadFileData, LoadFile, CliArgs }
+export type { Point, Rect, Limit, Size, Grad, Polar, Complex, Pair, Vector, RGBA, MNumber, MPoint, AlignValue, Align, Zone, Side, Side0, Orient, Angle, Direc, RoundedValue, Padding, Rounded, Attrs, Spec, ThemeName, OutputFormat, LoadFileData, LoadFile, CliArgs }

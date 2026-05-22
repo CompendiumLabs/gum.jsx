@@ -53,6 +53,13 @@ declare module 'katex' {
         body: TreeNode[]
     }
 
+    export type TreeFont = {
+        type: 'font'
+        mode: SymbolMode
+        font: string
+        body: TreeNode
+    }
+
     export type TreeSupSub = {
         type: 'supsub'
         base: TreeNode | null
@@ -115,6 +122,7 @@ declare module 'katex' {
         | TreeOp
         | TreeKern
         | TreeText
+        | TreeFont
         | TreeStyling
         | TreeAccent
         | TreeSupSub
