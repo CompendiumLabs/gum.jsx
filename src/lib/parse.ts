@@ -291,8 +291,14 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     return body.map(walkTree).join('\n')
   },
   MethodDefinition(node) {
-    const { key, value } = node
-    return `${walkTree(key)}${walkTree(value)}`
+    const { key, value, computed, static: isStatic, kind } = node
+    const prefix = isStatic ? 'static ' : ''
+    const name = computed ? `[${walkTree(key)}]` : walkTree(key)
+    const params = value.params.map(walkTree).join(', ')
+    const body = walkTree(value.body)
+    if (kind == 'get') return `${prefix}get ${name}() ${body}`
+    if (kind == 'set') return `${prefix}set ${name}(${params}) ${body}`
+    return `${prefix}${name}(${params}) ${body}`
   },
   JSXIdentifier(node) {
     return node.name
