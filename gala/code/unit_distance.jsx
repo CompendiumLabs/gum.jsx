@@ -86,8 +86,8 @@ const title = <Latex>{"\\mathbb{Q}(i, \\zeta_3)"}</Latex>
 return <TitleBox border={2} rounded={0.02} clip margin title={title} title-size={0.075}>
   <Graph aspect={1} coord={[-bound, -bound, bound, bound]}>
     <Mesh2D locs={gridLocs} opacity={0.15} />
-    <Segments edges={edges} stroke={blue} opacity={0.75} />
-    <Points points={samples} point-size={0.075} fill={yellow} stroke-opacity={0.5} />
+    <Segments edges={edges} stroke="#2730ff" opacity={0.75} />
+    <Points points={samples} point-size={0.075} fill="#f39a18" stroke-opacity={0.25} />
   </Graph>
   <Group rect={[0.025, 0.925, 0.975, 0.975]}>
     <Latex align="left">{`n = ${n}`}</Latex>
