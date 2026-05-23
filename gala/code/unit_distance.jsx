@@ -1,8 +1,12 @@
 // get coefficient bounds
 const maxCoeff = 2
 const coeffs = range(-maxCoeff, maxCoeff + 1)
+const gridLocs = range(-4*maxCoeff, 4*maxCoeff + 1)
 const deltaCoeffs = range(-1, 2)
-const bound = maxCoeff * (1 + sqrt(3)) * 1.15
+
+// get bounding box for plotting
+const bound0 = maxCoeff * (1 + sqrt(3))
+const bound = bound0 * 1.1
 
 // define basis vectors
 const I = [0, 1]
@@ -24,7 +28,7 @@ function isUnitDelta([a, b, c, d]) {
     a*a + b*b + c*c + d*d - a*c - b*d == 1
 }
 
-// check if delta is positive
+// check if delta is positive (avoid double counting)
 function positive([a, b, c, d]) {
   return a > 0 ||
     (a == 0 && b > 0) ||
@@ -60,12 +64,19 @@ const edgeDeltas = deltaCoeffs.flatMap(a =>
 ).filter(isUnitDelta).filter(positive)
 
 // build displayed edges
-const edges = nodes.flatMap(n =>
-  edgeDeltas
-    .map(d => nodeMap.get(key(addn(n.coef, d))))
-    .filter(m => m != null)
-    .map(m => [n.pos, m.pos])
+const edges = nodes.flatMap(n => edgeDeltas
+  .map(d => nodeMap.get(key(addn(n.coef, d))))
+  .filter(m => m != null)
+  .map(m => [n.pos, m.pos])
 )
+
+// get resulting sizes
+const n = nodes.length
+const m = edges.length
+
+// get approximate scaling
+const delta = log(m) / log(n)
+const delta1 = rounder(delta, 2)
 
 // prepare data for plotting
 const samples = nodes.map(n => n.pos)
@@ -74,8 +85,10 @@ const title = <Latex>{"\\mathbb{Q}(i, \\zeta_3)"}</Latex>
 // plot the data
 return <TitleBox border={2} rounded={0.02} clip margin title={title} title-size={0.075}>
   <Graph aspect={1} coord={[-bound, -bound, bound, bound]}>
-    <Mesh2D locs={20} opacity={0.15} />
+    <Mesh2D locs={gridLocs} opacity={0.15} />
     <Segments edges={edges} stroke={blue} opacity={0.75} />
     <Points points={samples} point-size={0.075} fill={yellow} stroke-opacity={0.5} />
   </Graph>
+  <Latex pos={[0.03, 0.95]} ysize={0.05} align="left">{`n = ${n}`}</Latex>
+  <Latex pos={[0.97, 0.95]} ysize={0.05} align="right">{`\\\\nu = ${m} \\\\approx n^{${delta1}}`}</Latex>
 </TitleBox>
