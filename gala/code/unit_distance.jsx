@@ -89,6 +89,8 @@ return <TitleBox border={2} rounded={0.02} clip margin title={title} title-size=
     <Segments edges={edges} stroke={blue} opacity={0.75} />
     <Points points={samples} point-size={0.075} fill={yellow} stroke-opacity={0.5} />
   </Graph>
-  <Latex pos={[0.03, 0.95]} ysize={0.05} align="left">{`n = ${n}`}</Latex>
-  <Latex pos={[0.97, 0.95]} ysize={0.05} align="right">{`\\\\nu = ${m} \\\\approx n^{${delta1}}`}</Latex>
+  <Group rect={[0.025, 0.925, 0.975, 0.975]}>
+    <Latex align="left">{`n = ${n}`}</Latex>
+    <Latex align="right">{`\\\\nu = ${m} \\\\approx n^{${delta1}} `}</Latex>
+  </Group>
 </TitleBox>
