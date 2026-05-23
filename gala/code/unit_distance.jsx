@@ -75,8 +75,7 @@ const title = <Latex>{"\\mathbb{Q}(i, \\zeta_3)"}</Latex>
 return <TitleBox border={2} rounded={0.02} clip margin title={title} title-size={0.075}>
   <Graph aspect={1} coord={[-bound, -bound, bound, bound]}>
     <Mesh2D locs={20} opacity={0.15} />
-    <Segments edges={edges} stroke={blue} opac
-    ity={0.75} />
+    <Segments edges={edges} stroke={blue} opacity={0.75} />
     <Points points={samples} point-size={0.075} fill={yellow} stroke-opacity={0.5} />
   </Graph>
 </TitleBox>
