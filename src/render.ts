@@ -5,6 +5,7 @@ import { createCanvas, registerFont, Image, type ImageData as CanvasImageData } 
 import type { Size } from './lib/types'
 import { FONT_PATHS } from './fonts/fonts'
 import { light, regular, bold } from './lib/const'
+import { formatImage, readStdin, type FormatImageArgs } from './lib/term'
 import { fitSize } from './eval'
 
 // register bundled fonts so SVG <text> resolves consistently
@@ -33,15 +34,6 @@ interface RasterizePixelArgs extends RasterizeBaseArgs {
 
 type RasterizeArgs = RasterizePngArgs | RasterizePixelArgs
 
-interface FormatImageArgs {
-  imageId?: number | null
-  placementId?: number | null
-  chunkSize?: number
-  columns?: number
-  rows?: number
-  cursorMovement?: boolean
-}
-
 function rasterizeSvg(svg: string | Buffer, args: RasterizePixelArgs): CanvasImageData
 function rasterizeSvg(svg: string | Buffer, args?: RasterizePngArgs): Buffer
 function rasterizeSvg(svg: string | Buffer, { size, background, pixelData }: RasterizeArgs = {}): Buffer | CanvasImageData {
@@ -67,44 +59,6 @@ function rasterizeSvg(svg: string | Buffer, { size, background, pixelData }: Ras
   // draw image to canvas and return the requested raster representation
   ctx.drawImage(img, 0, 0, outW, outH)
   return pixelData ? ctx.getImageData(0, 0, outW, outH) : canvas.toBuffer('image/png')
-}
-
-// kitty image protocol
-function formatImage(
-  pngBuffer: Buffer,
-  { imageId = null, placementId = null, chunkSize = 4096, columns, rows, cursorMovement = true }: FormatImageArgs = {}
-): string {
-  const base64 = pngBuffer.toString('base64')
-  const head = [ 'f=100', 'a=T', 'q=1' ]
-
-  if (imageId != null) head.push(`i=${imageId}`)
-  if (placementId != null) head.push(`p=${placementId}`)
-  if (columns != null) head.push(`c=${columns}`)
-  if (rows != null) head.push(`r=${rows}`)
-  if (!cursorMovement) head.push('C=1')
-
-  let result = ''
-  for (let i = 0; i < base64.length; i += chunkSize) {
-    const chunk = base64.slice(i, i + chunkSize)
-    const isFirst = i === 0
-    const isLast = i + chunkSize >= base64.length
-    const control = isFirst
-      ? [ ...head, `m=${isLast ? 0 : 1}` ].join(',')
-      : `m=${isLast ? 0 : 1}`
-
-    result += `\x1b_G${control};${chunk}\x1b\\`
-  }
-
-  return result
-}
-
-// read from stdin
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = []
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk)
-  }
-  return Buffer.concat(chunks).toString('utf-8')
 }
 
 export { rasterizeSvg, formatImage, readStdin }
