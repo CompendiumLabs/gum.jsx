@@ -71,8 +71,8 @@ function renderMath(tex: string, displayMode: boolean, globalOpts: Options): str
   const code = `<Latex${displayMode ? '' : ' inline'}>{${JSON.stringify(tex)}}</Latex>`
   const opts = {
     ...globalOpts,
-    height: globalOpts.height ?? (displayMode ? 100 : 40),
-    width: globalOpts.width ?? (displayMode ? 1000 : 600)
+    height: globalOpts.height ?? (displayMode ? 75 : 40),
+    width: globalOpts.width ?? (displayMode ? 750 : 600)
   }
 
   try {
