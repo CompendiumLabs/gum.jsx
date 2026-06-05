@@ -92,7 +92,7 @@ async function runCommand(args: CliArgs) {
       const elem1 = elem.clone({ width: rasterWidth, height: rasterHeight })
       svg = elem1.svg()
     }
-    const dat = await rasterizeSvg(svg, { background })
+    const dat = rasterizeSvg(svg, { background })
     out = (format == 'kitty') ? (formatImage(dat) + '\n') : dat
   } else {
     throw new Error(`Unsupported output format: ${format}`)

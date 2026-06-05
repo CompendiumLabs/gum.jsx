@@ -86,6 +86,10 @@ const THEME_DARK: ThemeLayer = {
         color: white,
     },
 
+    MathRule: {
+        fill: white,
+    },
+
     Plot: {
         grid_stroke: '#555',
     },

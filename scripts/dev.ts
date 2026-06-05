@@ -163,7 +163,7 @@ function devCommand(args: CliArgs) {
       const svg = elem.svg()
       const [width, height] = elem.size
       const box = fitCells(width, height)
-      const png = await rasterizeSvg(svg, { size: elem.size, background })
+      const png = rasterizeSvg(svg, { size: elem.size, background })
       const imageId = nextImageId()
       const prevImageId = activeImageId
 

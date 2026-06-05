@@ -147,9 +147,9 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, loadFil
   return result
 }
 
-function fitSize([ w0, h0 ]: Size, rasterSize?: Size | number): Size {
-  if (rasterSize == null) return [ w0, h0 ]
-  const [ maxW, maxH ] = ensure_pair(rasterSize)
+function fitSize([ w0, h0 ]: Size, maxSize?: Size | number): Size {
+  if (maxSize == null) return [ w0, h0 ]
+  const [ maxW, maxH ] = ensure_pair(maxSize)
   const scale = Math.min(maxW / w0, maxH / h0)
   return [
     Math.max(1, Math.round(w0 * scale)),

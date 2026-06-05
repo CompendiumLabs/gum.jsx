@@ -1,11 +1,10 @@
 // Rasterize SVG to PNG via node-canvas
 
-import { createCanvas, loadImage, registerFont, type ImageData as CanvasImageData } from 'canvas'
+import { createCanvas, registerFont, Image, type ImageData as CanvasImageData } from 'canvas'
 
 import type { Size } from './lib/types'
 import { FONT_PATHS } from './fonts/fonts'
 import { light, regular, bold } from './lib/const'
-import { is_string } from './lib/utils'
 import { fitSize } from './eval'
 
 // register bundled fonts so SVG <text> resolves consistently
@@ -21,7 +20,6 @@ for (const [ family, path ] of Object.entries(FONT_PATHS)) {
 
 interface RasterizeBaseArgs {
   size?: Size
-  rasterSize?: Size
   background?: string
 }
 
@@ -44,13 +42,17 @@ interface FormatImageArgs {
   cursorMovement?: boolean
 }
 
-async function rasterizeSvg(svg: string | Buffer, args: RasterizePixelArgs): Promise<CanvasImageData>
-async function rasterizeSvg(svg: string | Buffer, args?: RasterizePngArgs): Promise<Buffer>
-async function rasterizeSvg(svg: string | Buffer, { size, rasterSize, background, pixelData }: RasterizeArgs = {}): Promise<Buffer | CanvasImageData> {
-  const buf = is_string(svg) ? Buffer.from(svg) : svg
-  const img = await loadImage(buf)
-  const imgSize = size ?? [ img.width, img.height ]
-  const [ outW, outH ] = fitSize(imgSize, rasterSize)
+function rasterizeSvg(svg: string | Buffer, args: RasterizePixelArgs): CanvasImageData
+function rasterizeSvg(svg: string | Buffer, args?: RasterizePngArgs): Buffer
+function rasterizeSvg(svg: string | Buffer, { size, background, pixelData }: RasterizeArgs = {}): Buffer | CanvasImageData {
+  // create image object
+  const buf = Buffer.isBuffer(svg) ? svg : Buffer.from(svg)
+  const img = new Image()
+  img.src = buf
+
+  // get image size
+  const imgSize: Size = [ img.width, img.height ]
+  const [ outW, outH ] = fitSize(imgSize, size)
 
   // create canvas
   const canvas = createCanvas(outW, outH)
