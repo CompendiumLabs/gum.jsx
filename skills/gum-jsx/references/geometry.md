@@ -90,11 +90,11 @@ return <Box margin>
 </Box>
 ```
 
-## Shape
+## Polygon
 
 *Inherits*: **Pointstring** > **Element**
 
-The `Shape` element draws a closed polygon through a series of points. It accepts a list of two or more points and connects them with straight line segments, automatically closing the shape by connecting the last point back to the first.
+The `Polygon` element draws a closed polygon through a series of points. It accepts a list of two or more points and connects them with straight line segments, automatically closing the shape by connecting the last point back to the first.
 
 For open multiple-segment paths, use **Line** instead.
 
@@ -110,7 +110,7 @@ Generated code:
 const hexagon = linspace(0, 2*pi, 8, false).map(t => polar(t))
 return <Box fill="#bbb" rounded padding margin>
   <Graph xlim={[-1, 1]} ylim={[-1, 1]} aspect={1}>
-    <Shape points={hexagon} fill="#CC0202" stroke={white} stroke_width={20} spin={180/8} />
+    <Polygon points={hexagon} fill="#CC0202" stroke={white} stroke_width={20} spin={180/8} />
     <Text pos={[0, 0]} xsize={1.5} color={white} font-weight={bold}>STOP</Text>
   </Graph>
 </Box>
@@ -118,7 +118,7 @@ return <Box fill="#bbb" rounded padding margin>
 
 ## Fill
 
-*Inherits*: **Shape** > **Pointstring** > **Element**
+*Inherits*: **Polygon** > **Pointstring** > **Element**
 
 Shades the area between two curves. Generates a closed polygon by running through `points1` forward and then through `points2` in reverse. Either list can be a constant, in which case `direc` controls how the constant is broadcast against the other curve. There are specialized components **VFill** and **HFill** that don't take the `direc` argument.
 
@@ -178,7 +178,7 @@ const points = [
 return <Frame rounded margin>
   <Group>
     <Spline closed stroke={blue} fill={gray} points={points} />
-    <Shape stroke={red} points={points} />
+    <Polygon stroke={red} points={points} />
     <Points point-size={0.02} points={points} />
   </Group>
 </Frame>

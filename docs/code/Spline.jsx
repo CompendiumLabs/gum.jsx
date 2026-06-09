@@ -9,7 +9,7 @@ const points = [
 return <Frame rounded margin>
   <Group>
     <Spline closed stroke={blue} fill={gray} points={points} />
-    <Shape stroke={red} points={points} />
+    <Polygon stroke={red} points={points} />
     <Points point-size={0.02} points={points} />
   </Group>
 </Frame>

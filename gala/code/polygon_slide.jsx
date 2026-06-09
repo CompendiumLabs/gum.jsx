@@ -5,7 +5,7 @@ const shapes = [
 ]
 
 const RegularPolygon = ({ n, ...args }) =>
-  <SymShape {...args} aspect
+  <SymPoly {...args} aspect
     xlim={[-1, 1]} ylim={[-1, 1]}
     tvals={linspace(0, 2*pi, n, false)}
     f={t => polar(t+pi/2*(n-2)/n)}

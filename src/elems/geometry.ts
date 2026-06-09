@@ -263,15 +263,15 @@ class Pointstring extends Element {
     }
 }
 
-class Shape extends Pointstring {
+class Polygon extends Pointstring {
     constructor(args: PointstringArgs = {}) {
-        const attr = THEME(args, 'Shape')
+        const attr = THEME(args, 'Polygon')
         super({ tag: 'polygon', ...attr })
         this.args = args
     }
 }
 
-class Triangle extends Shape {
+class Triangle extends Polygon {
     constructor(args: ElementArgs = {}) {
         const attr = THEME(args, 'Triangle')
         const points: Point[] = [[0.5, 0], [1, 1], [0, 1]]
@@ -298,7 +298,7 @@ function broadcast_points(pts: Point[] | number, ref: Point[], direc: 'h' | 'v')
         : ref.map(([ _x, y ]) => [ c, y ] as Point)
 }
 
-class Fill extends Shape {
+class Fill extends Polygon {
     constructor(args: FillArgs = {}) {
         const { points1, points2, direc = 'v', stroke = none, fill = gray, ...attr } = THEME(args, 'Fill')
 
@@ -316,7 +316,7 @@ class Fill extends Shape {
         const pts2 = broadcast_points(points2, ref, direc)
         const points = [ ...pts1, ...pts2.reverse() ]
 
-        // pass to Shape
+        // pass to Polygon
         super({ points, stroke, fill, ...attr })
         this.args = args
     }
@@ -860,5 +860,5 @@ class Arrow extends Group {
 // exports
 //
 
-export { Line, UnitLine, VLine, HLine, CoordLine, Segments, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Shape, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd, Spline, RoundedRect, RoundedLine, ArrowHead, Arrow }
+export { Line, UnitLine, VLine, HLine, CoordLine, Segments, Square, Ellipse, Arc, Circle, Dot, Ray, Pointstring, Polygon, Triangle, Fill, VFill, HFill, Path, Command, MoveCmd, LineCmd, ArcCmd, CornerCmd, RoundedCornerCmd, CubicSplineCmd, Spline, RoundedRect, RoundedLine, ArrowHead, Arrow }
 export type { LineArgs, UnitLineArgs, CoordLineArgs, SegmentsArgs, ArcArgs, DotArgs, RayArgs, SplineArgs, RoundedRectArgs, RoundedLineArgs, ArrowHeadArgs, ArrowArgs, CubicSplineCmdArgs, FillArgs }

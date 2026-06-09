@@ -24,14 +24,14 @@ These are the raw layout components that assist you in arranging elements in a f
 
 These are the basic geometric shapes that can be used to create more complex figures. Both `Rect` and `Ellipse` are aspectless by default but can be given an aspect ratio to control their shape (i.e., a circle is an `Ellipse` with an aspect of `1`).
 
-`Line` is actually more general than just a single straight line. It can be used to draw piecewise linear paths by passing a list of points. For the case of simple unit lines, use `UnitLine` and its specialized variants `VLine` and `HLine` instead. For closed paths, either pass `closed` to `Line` or use `Shape` instead.
+`Line` is actually more general than just a single straight line. It can be used to draw piecewise linear paths by passing a list of points. For the case of simple unit lines, use `UnitLine` and its specialized variants `VLine` and `HLine` instead. For closed paths, either pass `closed` to `Line` or use `Polygon` instead.
 
 For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of control points and draws a smooth cubic spline through them. You can control the tension of the spline with the `curve` parameter (default is `0.5`). This also accepts a `closed` parameter to draw a closed spline.
 
 **Components**:
 - *Rect*: a rectangle
 - *Ellipse*: an ellipse
-- *Line*/*Shape*: a piecewise linear path (possibly closed)
+- *Line*/*Polygon*: a piecewise linear path (possibly closed)
 - *Spline*: a multi-segment Bézier spline (possibly closed)
 - *UnitLine*/*VLine*/*HLine*: a single unit line
 - *Arrow*: a straight line arrow between two points
@@ -75,7 +75,7 @@ These clearly extend their non-`Sym` counterparts by adding the ability to plot 
 
 **Components**:
 - *SymPoints*: plot points functionally
-- *SymLine*/*SymShape*: plot a curve functionally (possibly closed)
+- *SymLine*/*SymPoly*: plot a curve functionally (possibly closed)
 - *SymSpline*: plot a Bézier spline functionally (possibly closed)
 - *SymFill*: plot a filled area between two functions
 
@@ -131,7 +131,7 @@ There is a gallery of more complex examples available. Each is a single markdown
 - [Metal Grid](references/gala/metal_grid.md): a stylized grid of metal squares (**Grid**, **Spline**, **Frame**)
 - [Pendulum Physics](references/gala/pendulum_physics.md): a physics diagram of a pendulum (**Arc**, **Arrow**, **Line**, **Latex**)
 - [Plot Manual](references/gala/plot_manual.md): a simple example of a plot manual diagram (**Plot**, **Axis**, **Mesh**)
-- [Polygon Slide](references/gala/polygon_slide.md): a simple example of a polygon slide diagram (**SymShape**, **Grid**, **Stack**)
+- [Polygon Slide](references/gala/polygon_slide.md): a simple example of a polygon slide diagram (**SymPoly**, **Grid**, **Stack**)
 - [Punk Rock](references/gala/punk_rock.md): a logo-style text block (**TextFrame**, **Stack**)
 - [Set Theory](references/gala/set_theory.md): a mathematical diagram of nested sets (**Text**, **Frame**, **Group**)
 - [Slick Bars](references/gala/slick_bars.md): a bar chart with a custom plot style (**Plot**, **Bars**, **Span**)

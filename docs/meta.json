@@ -15,7 +15,7 @@
         "Ellipse",
         "Arc",
         "Line",
-        "Shape",
+        "Polygon",
         "Fill",
         "Spline",
         "Arrow",
@@ -36,7 +36,7 @@
     "symbolic": [
         "SymPoints",
         "SymLine",
-        "SymShape",
+        "SymPoly",
         "SymSpline",
         "SymFill"
     ],

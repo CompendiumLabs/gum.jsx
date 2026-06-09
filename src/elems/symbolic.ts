@@ -5,7 +5,7 @@ import { DEFAULTS as D, none, gray } from '../lib/const'
 import { zip, linspace, ensure_function, detect_coords, resolve_limits, is_scalar, vector_angle, enumerate, lingrid, check_array } from '../lib/utils'
 
 import { Element, Group, spec_split } from './core'
-import { Line, Spline, Shape, Arrow, Dot, Fill } from './geometry'
+import { Line, Spline, Polygon, Arrow, Dot, Fill } from './geometry'
 import { Box } from './layout'
 
 import type { Point, Limit, Rect } from '../lib/types'
@@ -20,7 +20,7 @@ function not_null(arr: number[]): boolean {
     return arr.every(x => x != null && !isNaN(x))
 }
 
-// GRAPHABLE ELEMENTS: SymPoints, SymLine, SymShape, SymSpline, SymFill, SymField
+// GRAPHABLE ELEMENTS: SymPoints, SymLine, SymPoly, SymSpline, SymFill, SymField
 // these should take xlim/ylim/coord and give precedence to xlim/ylim over coord
 // they should compute their coordinate limits and report them in coord (for Graph)
 
@@ -212,15 +212,15 @@ class SymSpline extends Spline {
 }
 
 //
-// symshape class
+// sympoly class
 //
 
-interface SymShapeArgs extends SymArgs, ElementArgs {
+interface SymPolyArgs extends SymArgs, ElementArgs {
 }
 
-class SymShape extends Shape {
-    constructor(args: SymShapeArgs = {}) {
-        const { f, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymShape')
+class SymPoly extends Polygon {
+    constructor(args: SymPolyArgs = {}) {
+        const { f, fx, fy, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr } = THEME(args, 'SymPoly')
         const { h: xlim, v: ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
@@ -234,7 +234,7 @@ class SymShape extends Shape {
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to Shape
+        // pass to Polygon
         super({ points, coord, ...attr })
         this.args = args
     }
@@ -273,7 +273,7 @@ class SymFill extends Fill {
         // compute real limits
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
-        // pass to Shape
+        // pass to Fill
         super({ points1, points2, stroke, fill, coord, ...attr })
         this.args = args
     }
@@ -347,5 +347,5 @@ class SymField extends SymPoints {
 // exports
 //
 
-export { SymPoints, SymLine, SymSpline, SymShape, SymFill, Field, SymField }
-export type { SymArgsBase, SymArgs, SymPointsArgs, SymLineArgs, SymSplineArgs, SymShapeArgs, SymFillArgs, FieldArgs, SymFieldArgs }
+export { SymPoints, SymLine, SymSpline, SymPoly, SymFill, Field, SymField }
+export type { SymArgsBase, SymArgs, SymPointsArgs, SymLineArgs, SymSplineArgs, SymPolyArgs, SymFillArgs, FieldArgs, SymFieldArgs }

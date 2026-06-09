@@ -1,6 +1,6 @@
 # Fill
 
-*Inherits*: [Shape](/docs/Shape) > **Pointstring** > [Element](/docs/Element)
+*Inherits*: [Polygon](/docs/Polygon) > **Pointstring** > [Element](/docs/Element)
 
 Shades the area between two curves. Generates a closed polygon by running through `points1` forward and then through `points2` in reverse. Either list can be a constant, in which case `direc` controls how the constant is broadcast against the other curve. There are specialized components **VFill** and **HFill** that don't take the `direc` argument.
 

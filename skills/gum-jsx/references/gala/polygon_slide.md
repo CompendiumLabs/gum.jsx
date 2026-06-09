@@ -1,6 +1,6 @@
 # Polygon Slide
 
-This one is built in a nicely modular way. The key move is the local `RegularPolygon` component, which wraps **SymShape** and hides the circle parameterization with `fx={cos}`, `fy={sin}`, and `tvals`. Once that helper exists, the slide can generate six examples by simply mapping over `[n, name]` pairs.
+This one is built in a nicely modular way. The key move is the local `RegularPolygon` component, which wraps **SymPoly** and hides the circle parameterization with `fx={cos}`, `fy={sin}`, and `tvals`. Once that helper exists, the slide can generate six examples by simply mapping over `[n, name]` pairs.
 
 The overall composition is handled with layout elements rather than manual positioning. A **Slide** provides the title text, and a **Grid** lays out the six cards in two rows. Each card is just a `Frame` plus a `VStack`, which keeps the polygon and its label in a consistent proportion. Notice how we set `stack-size` on the text so it doesn't get too tall.
 
@@ -16,7 +16,7 @@ const shapes = [
 ]
 
 const RegularPolygon = ({ n, ...args }) =>
-  <SymShape {...args} aspect
+  <SymPoly {...args} aspect
     xlim={[-1, 1]} ylim={[-1, 1]}
     tvals={linspace(0, 2*pi, n, false)}
     f={t => polar(t+pi/2*(n-2)/n)}
