@@ -30,10 +30,10 @@ function ansi(text: string, { fg = null, bg = null, bold = false, italic = false
 
 // kitty image protocol
 function formatImage(
-  pngBuffer: Buffer,
+  png: Buffer | string,
   { imageId = null, placementId = null, chunkSize = 4096, columns, rows, cursorMovement = true }: FormatImageArgs = {}
 ): string {
-  const base64 = pngBuffer.toString('base64')
+  const base64 = typeof png === 'string' ? png : png.toString('base64')
   const head = [ 'f=100', 'a=T', 'q=1' ]
 
   if (imageId != null) head.push(`i=${imageId}`)
