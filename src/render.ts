@@ -5,7 +5,7 @@ import { createCanvas, registerFont, Image, type ImageData as CanvasImageData, t
 import type { Size } from './lib/types'
 import { FONT_PATHS } from './fonts/fonts'
 import { light, regular, bold } from './lib/const'
-import { formatImage, readStdin, type FormatImageArgs } from './lib/term'
+import { formatImage, formatPixels, readStdin, type FormatImageArgs } from './lib/term'
 import { fitSize } from './eval'
 
 // register bundled fonts so SVG <text> resolves consistently
@@ -66,5 +66,5 @@ function rasterizePixels(svg: string | Buffer, { size, background }: RasterizeAr
   return ctx.getImageData(0, 0, canvas.width, canvas.height)
 }
 
-export { rasterizeSvg, rasterizePixels, formatImage, readStdin }
+export { rasterizeSvg, rasterizePixels, formatImage, formatPixels, readStdin }
 export type { RasterizeArgs, FormatImageArgs }

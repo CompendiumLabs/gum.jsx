@@ -29,13 +29,25 @@ function ansi(text: string, { fg = null, bg = null, bold = false, italic = false
 }
 
 // kitty image protocol
-function formatImage(
-  png: Buffer | string,
-  { imageId = null, placementId = null, chunkSize = 4096, columns, rows, cursorMovement = true }: FormatImageArgs = {}
+function formatData(
+  data: Buffer | string,
+  {
+    format,
+    width,
+    height,
+    imageId = null,
+    placementId = null,
+    chunkSize = 4096,
+    columns,
+    rows,
+    cursorMovement = true
+  }: FormatImageArgs & { format: number, width?: number, height?: number }
 ): string {
-  const base64 = typeof png === 'string' ? png : png.toString('base64')
-  const head = [ 'f=100', 'a=T', 'q=1' ]
+  const base64 = typeof data === 'string' ? data : data.toString('base64')
+  const head = [ `f=${format}`, 'a=T', 'q=1' ]
 
+  if (width != null) head.push(`s=${width}`)
+  if (height != null) head.push(`v=${height}`)
   if (imageId != null) head.push(`i=${imageId}`)
   if (placementId != null) head.push(`p=${placementId}`)
   if (columns != null) head.push(`c=${columns}`)
@@ -57,6 +69,19 @@ function formatImage(
   return result
 }
 
+function formatImage(png: Buffer | string, args: FormatImageArgs = {}): string {
+  return formatData(png, { ...args, format: 100 })
+}
+
+function formatPixels(
+  pixels: Buffer | string,
+  size: [number, number],
+  args: FormatImageArgs = {}
+): string {
+  const [ width, height ] = size
+  return formatData(pixels, { ...args, format: 32, width, height })
+}
+
 // read from stdin
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = []
@@ -67,4 +92,4 @@ async function readStdin(): Promise<string> {
 }
 
 export type { Color, FormatImageArgs }
-export { ANSI_LO, ANSI_HI, ansi, formatImage, readStdin }
+export { ANSI_LO, ANSI_HI, ansi, formatImage, formatPixels, readStdin }
