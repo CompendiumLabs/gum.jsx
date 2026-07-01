@@ -1,6 +1,6 @@
 // Rasterize SVG to PNG via node-canvas
 
-import { createCanvas, registerFont, Image, type ImageData as CanvasImageData } from 'canvas'
+import { createCanvas, registerFont, Image, type ImageData as CanvasImageData, type Canvas as CanvasType, type CanvasRenderingContext2D as CanvasRenderingContext2DType } from 'canvas'
 
 import type { Size } from './lib/types'
 import { FONT_PATHS } from './fonts/fonts'
@@ -19,24 +19,17 @@ for (const [ family, path ] of Object.entries(FONT_PATHS)) {
   }
 }
 
-interface RasterizeBaseArgs {
+interface RasterizeArgs {
   size?: Size
   background?: string
 }
 
-interface RasterizePngArgs extends RasterizeBaseArgs {
-  pixel_data?: false
+interface RasterizeResult {
+  canvas: CanvasType
+  ctx: CanvasRenderingContext2DType
 }
 
-interface RasterizePixelArgs extends RasterizeBaseArgs {
-  pixel_data: true
-}
-
-type RasterizeArgs = RasterizePngArgs | RasterizePixelArgs
-
-function rasterizeSvg(svg: string | Buffer, args: RasterizePixelArgs): CanvasImageData
-function rasterizeSvg(svg: string | Buffer, args?: RasterizePngArgs): Buffer
-function rasterizeSvg(svg: string | Buffer, { size, background, pixel_data }: RasterizeArgs = {}): Buffer | CanvasImageData {
+function drawSvgCanvas(svg: string | Buffer, { size, background }: RasterizeArgs = {}): RasterizeResult {
   // create image object
   const buf = Buffer.isBuffer(svg) ? svg : Buffer.from(svg)
   const img = new Image()
@@ -58,8 +51,20 @@ function rasterizeSvg(svg: string | Buffer, { size, background, pixel_data }: Ra
 
   // draw image to canvas and return the requested raster representation
   ctx.drawImage(img, 0, 0, outW, outH)
-  return pixel_data ? ctx.getImageData(0, 0, outW, outH) : canvas.toBuffer('image/png')
+
+  // return the canvas and context
+  return { canvas, ctx }
 }
 
-export { rasterizeSvg, formatImage, readStdin }
-export type { RasterizeBaseArgs, RasterizePngArgs, RasterizePixelArgs, RasterizeArgs, FormatImageArgs }
+function rasterizeSvg(svg: string | Buffer, { size, background }: RasterizeArgs = {}): Buffer {
+  const { canvas } = drawSvgCanvas(svg, { size, background })
+  return canvas.toBuffer('image/png')
+}
+
+function rasterizePixels(svg: string | Buffer, { size, background }: RasterizeArgs = {}): CanvasImageData {
+  const { canvas, ctx } = drawSvgCanvas(svg, { size, background })
+  return ctx.getImageData(0, 0, canvas.width, canvas.height)
+}
+
+export { rasterizeSvg, rasterizePixels, formatImage, readStdin }
+export type { RasterizeArgs, FormatImageArgs }

@@ -41,6 +41,7 @@
   "scripts": {
     "gum": "bun ./scripts/gum.ts",
     "gumd": "bun ./scripts/gumd.ts",
+    "bench:render": "bun ./scripts/bench-render.ts",
     "test": "bun ./scripts/test.ts",
     "skill": "bun ./scripts/skill.ts && cd skills && rm -f gum-jsx.skill && zip -r gum-jsx.skill gum-jsx",
     "claude": "bun run skill && bun ./scripts/claude.ts"

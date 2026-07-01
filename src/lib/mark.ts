@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 import { Marked } from 'marked'
 import type { Tokens, RendererObject, TokenizerAndRendererExtension } from 'marked'
 
-import { rasterizeSvg, type RasterizePngArgs } from '../render'
+import { rasterizeSvg, type RasterizeArgs } from '../render'
 import { evaluateGum } from '../eval'
 import { ansi, formatImage } from './term'
 import type { Size, ThemeName } from './types'
@@ -217,7 +217,7 @@ export function createRenderer(globalOpts: Options = {}): RendererObject {
         } else if (ext == 'svg') {
           const svg = readFileSync(href, 'utf8')
           const opts = parseOptions(text ?? '')
-          const png = rasterizeSvg(svg, opts as RasterizePngArgs)
+          const png = rasterizeSvg(svg, opts)
           return formatImage(png)
         } else if (ext == 'jsx') {
           const data = readFileSync(href, 'utf8')
