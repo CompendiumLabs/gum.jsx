@@ -18,9 +18,9 @@ These are the raw layout components that assist you in arranging elements in a f
 - *Grid*: arrange elements in a grid of specified size
 - *Points*: arrange one element at each of a list of locations
 
-## Shapes
+## Geometry
 
-**File**: [shapes](references/shapes.md)
+**File**: [geometry](references/geometry.md)
 
 These are the basic geometric shapes that can be used to create more complex figures. Both `Rect` and `Ellipse` are aspectless by default but can be given an aspect ratio to control their shape (i.e., a circle is an `Ellipse` with an aspect of `1`).
 
@@ -31,9 +31,10 @@ For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of
 **Components**:
 - *Rect*: a rectangle
 - *Ellipse*: an ellipse
-- *Line*/*Polygon*: a piecewise linear path (possibly closed)
+- *Line*/*Polygon*/*Fill*: a piecewise linear path (possibly closed)
 - *Spline*: a multi-segment Bézier spline (possibly closed)
 - *UnitLine*/*VLine*/*HLine*: a single unit line
+- *RoundedLine*: a single unit line with rounded corners
 - *Arrow*: a straight line arrow between two points
 
 ## Text
