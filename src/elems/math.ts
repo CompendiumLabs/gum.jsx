@@ -11,7 +11,6 @@ import { __parse as parse_tex } from 'katex'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
 import type { Padding, Point, Rect, Limit, Align, Attrs } from '../lib/types'
-import { VStack } from './layout'
 import type { StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
@@ -43,7 +42,8 @@ type WithMath<E extends Element = Element> = E & {
 // fonts
 //
 
-const OP_SYMBOL_FONT: FontFamily = 'KaTeX_Size1'
+const OP_TEXT_FONT: FontFamily = 'KaTeX_Size1'
+const OP_DISPLAY_FONT: FontFamily = 'KaTeX_Size2'
 
 const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
     math: 'KaTeX_Math',
@@ -60,6 +60,46 @@ const TEX_FONT_FAMILY: Record<string, FontFamily | undefined> = {
 
 const MATH_AXIS = 0.25
 const INLINE_SHIFT = -0.1
+
+// script placement (em, y-down, relative to the math axis)
+const SUP_BOTTOM = -0.15  // superscript baseline height above the axis
+const SUB_BOTTOM = 0.45   // subscript baseline depth below the axis
+const SUP_DROP = 0.35     // sup baseline drop below the top of a tall base
+const SUB_DROP = 0.05     // sub baseline drop below the bottom of a tall base
+const SCRIPT_GAP = 0.2    // minimum vertical gap between sup and sub
+const TALL_BASE = 1.05    // base height beyond which scripts track the base edges
+
+//
+// math styles
+//
+
+// TeX-style size regimes: scripts descend one level, fraction contents descend
+// in inline styles, and glyph scale is fixed per level rather than derived
+// from the surrounding geometry
+type MathStyle = 'display' | 'text' | 'script' | 'scriptscript'
+
+const STYLE_SCALE: Record<MathStyle, number> = {
+    display: 1,
+    text: 1,
+    script: 0.7,
+    scriptscript: 0.5,
+}
+
+function script_style(style: MathStyle): MathStyle {
+    return (style == 'display' || style == 'text') ? 'script' : 'scriptscript'
+}
+
+function frac_style(style: MathStyle): MathStyle {
+    return style == 'display' ? 'text' : script_style(style)
+}
+
+function is_script_style(style: MathStyle): boolean {
+    return style == 'script' || style == 'scriptscript'
+}
+
+function relative_scale(outer: MathStyle, inner: MathStyle): number {
+    return STYLE_SCALE[inner] / STYLE_SCALE[outer]
+}
 
 //
 // symbols and spacing
@@ -181,6 +221,18 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
     return with_math(element)
 }
 
+// scale an element's inline metrics uniformly: children in smaller styles are
+// laid out at relative scale, and rendering follows the metrics
+function scale_math<E extends Element>(element: WithMath<E>, scale: number): WithMath<E> {
+    if (scale == 1) return element
+    const { advance, vrange: [ ylo, yhi ], vanchor } = element.math
+    return with_math(element, {
+        advance: scale * advance,
+        vrange: [ scale * ylo, scale * yhi ],
+        vanchor: scale * vanchor,
+    })
+}
+
 function span_metrics_aspect({ advance, vrange: [ ylo, yhi ] }: TextMetrics): number | undefined {
     const height = yhi - ylo
     return height > 0 ? advance / height : undefined
@@ -255,18 +307,14 @@ function measurement_to_em(d: Measurement): number {
     return d.number * (scale[d.unit] ?? 0)
 }
 
-function inter_atom_spacing(prev: MathClass, next: MathClass): number {
-    const table = SPACING_TABLE[prev]
-    const measurement = table?.[next]
-    if (measurement == null) return 0
-    return measurement_to_em(measurement)
-}
-
-function inter_item_spacing(prev: WithMath | null, next: WithMath | null): number {
+function inter_item_spacing(prev: WithMath | null, next: WithMath | null, script: boolean = false): number {
     if (prev == null || next == null) return 0
     const { right: prevRight } = prev.math
     const { left: nextLeft } = next.math
-    return inter_atom_spacing(prevRight, nextLeft)
+    const measurement = SPACING_TABLE[prevRight]?.[nextLeft]
+    if (measurement == null) return 0
+    if (script && measurement != THINSPACE) return 0
+    return measurement_to_em(measurement)
 }
 
 //
@@ -617,6 +665,7 @@ class MathRule extends Group {
 interface MathTextArgs extends GroupArgs {
     spacing?: number
     inline?: boolean
+    style?: MathStyle
 }
 
 type MathLeaf = Element | string | number | boolean | null | undefined
@@ -662,7 +711,7 @@ type MathTextLayout = {
     right: MathClass
 }
 
-function layoutMathText(mathItems: WithMath[]): MathTextLayout {
+function layoutMathText(mathItems: WithMath[], script: boolean = false): MathTextLayout {
     const rowItems: WithMath[] = []
 
     // accumulate math metrics
@@ -675,7 +724,7 @@ function layoutMathText(mathItems: WithMath[]): MathTextLayout {
         const { left: itemLeft, right: itemRight } = item.math
 
         // insert item with spacing
-        const gap = inter_item_spacing(prevItem, item)
+        const gap = inter_item_spacing(prevItem, item, script)
         if (gap > 0) rowItems.push(new MathSpacer({ advance: gap }))
         rowItems.push(item)
 
@@ -696,13 +745,13 @@ class MathText extends MathRow {
     items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, inline, ...attr } = THEME(args, 'MathText')
+        const { children: children0, inline, style = 'text', ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
         const mathItems = normalize_math_children(inputs)
 
         // compress sapcing and layout
         const spacedItems = cancel_binary_atoms(mathItems)
-        const { items, left, right } = layoutMathText(spacedItems)
+        const { items, left, right } = layoutMathText(spacedItems, is_script_style(style))
 
         // pass to Group
         super({ children: items, ...attr })
@@ -726,14 +775,69 @@ class MathText extends MathRow {
 // sup/sub
 //
 
+// place sup and sub in a shared inline box after the base: each script hangs
+// from its baseline (bottom edge) at a fixed axis-relative position, tracking
+// the base edges when the base is tall (TeX Appendix G, by eye)
+function layout_scripts(base: WithMath, sup: WithMath | null, sub: WithMath | null, rel: number): WithMath | null {
+    if (sup == null && sub == null) return null
+
+    // drop rules only engage for tall bases
+    const [ blo, bhi ] = metrics_bounds(base.math)
+    const tall = (bhi - blo) > TALL_BASE
+
+    // place superscript by its bottom edge
+    let dySup = 0
+    if (sup != null) {
+        const [ , shi ] = metrics_bounds(sup.math)
+        const bottom = Math.min(SUP_BOTTOM, tall ? blo + SUP_DROP * rel : Infinity)
+        dySup = bottom - shi
+    }
+
+    // place subscript by its bottom edge
+    let dySub = 0
+    if (sub != null) {
+        const [ , shi ] = metrics_bounds(sub.math)
+        const bottom = Math.max(SUB_BOTTOM, tall ? bhi + SUB_DROP * rel : -Infinity)
+        dySub = bottom - shi
+    }
+
+    // enforce a minimum gap between the two scripts
+    if (sup != null && sub != null) {
+        const [ , suphi ] = metrics_bounds(sup.math)
+        const [ sublo ] = metrics_bounds(sub.math)
+        const deficit = SCRIPT_GAP * rel - ((dySub + sublo) - (dySup + suphi))
+        if (deficit > 0) dySub += deficit
+    }
+
+    // assemble the shared script box in anchor-relative coordinates
+    const placed = [ [ sup, dySup ], [ sub, dySub ] ]
+        .filter((pair): pair is [ WithMath, number ] => pair[0] != null)
+    const children = placed.map(([ item, dy ]) => with_math(item, {}, { rect: metrics_rect(item.math, 0, dy) }))
+    const advance = max(placed.map(([ item ]) => item.math.advance)) ?? 0
+    const [ ylo, yhi ] = merge_limits(placed.map(([ item, dy ]) => {
+        const [ lo, hi ] = metrics_bounds(item.math)
+        return [ dy + lo, dy + hi ] as Limit
+    }))
+
+    // wrap in a group anchored at the base axis
+    const metrics: InlineMetrics = { advance, vrange: [ 0, yhi - ylo ], vanchor: -ylo }
+    const coord: Rect = [ 0, ylo, advance, yhi ]
+    const group = new Group({ children, coord, aspect: metrics_aspect(metrics) })
+    return with_math(group, { left: 'none', right: 'none', ...metrics })
+}
+
 interface SupSubArgs extends StackArgs {
     sup?: MathLeaf
     sub?: MathLeaf
+    style?: MathStyle
+    limits?: boolean
+    hspacing?: number
+    vspacing?: number
 }
 
 class SupSub extends MathRow {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0, sub: sub0, hspacing = 0.025, vspacing = 0.05, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0, sub: sub0, style = 'text', limits = false, hspacing = 0.025, vspacing = 0.1, ...attr } = THEME(args, 'SupSub')
         const child = ensure_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -742,22 +846,29 @@ class SupSub extends MathRow {
             throw new Error('SupSub must have exactly one child')
         }
 
-        // handle missing scripts
-        const sup = normalize_math_leaf(sup0) ?? new MathSpacer()
-        const sub = normalize_math_leaf(sub0) ?? new MathSpacer()
+        // scripts render one style level down
+        const rel = relative_scale(style, script_style(style))
+        const sup0m = normalize_math_leaf(sup0)
+        const sub0m = normalize_math_leaf(sub0)
+        const sup = sup0m != null ? scale_math(sup0m, rel) : null
+        const sub = sub0m != null ? scale_math(sub0m, rel) : null
 
-        // layout script side
-        const scripts = new VStack({
-            children: [ sup, sub ], justify: 'left', spacing: vspacing, even: true
-        })
+        let items: WithMath[]
+        if (limits) {
+            // display limits: scripts stacked above and below the base
+            const colItems = [ sup, base, sub ].filter((item): item is WithMath => item != null)
+            const col = new MathCol({ children: colItems, justify: 'center', spacing: vspacing })
 
-        // set metrics on side
-        const advance = scripts.spec.aspect ?? 0
-        const side = with_math(scripts, inherit_metrics(base, { advance }))
-
-        // construct full row
-        const spacer = new MathSpacer({ advance: hspacing })
-        const items = side != null ? [ base, spacer, side ] : [ base ]
+            // keep the anchor on the base axis
+            const [ blo ] = metrics_bounds(base.math)
+            const supHeight = sup != null ? metrics_height(sup.math) + vspacing : 0
+            items = [ with_math(col, { vanchor: supHeight - blo }) ]
+        } else {
+            // side scripts: shared box placed after the base
+            const scripts = layout_scripts(base, sup, sub, rel)
+            const spacer = new MathSpacer({ advance: hspacing })
+            items = scripts != null ? [ base, spacer, scripts ] : [ base ]
+        }
 
         // pass to MathRow
         super({ children: items, ...attr })
@@ -781,20 +892,26 @@ interface FracArgs extends GroupArgs {
     right?: Element | null
     padding?: Padding
     rule_size?: number
+    style?: MathStyle
 }
 
 class Frac extends MathCol {
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.033, ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, padding = 0.1, rule_size = 0.033, style = 'display', ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
-        const numer = normalize_math_leaf(numer0)
-        const denom = normalize_math_leaf(denom0)
+        const numer1 = normalize_math_leaf(numer0)
+        const denom1 = normalize_math_leaf(denom0)
 
         // check children
-        if (numer == null || denom == null) {
+        if (numer1 == null || denom1 == null) {
             throw new Error('Frac must have exactly two children')
         }
+
+        // fraction contents render one style level down in inline styles
+        const rel = relative_scale(style, frac_style(style))
+        const numer = scale_math(numer1, rel)
+        const denom = scale_math(denom1, rel)
 
         // get math metrics
         const numMetrics = numer.math
@@ -1094,16 +1211,52 @@ class Bracket extends MathRow {
 }
 
 //
+// large operators
+//
+
+// text metrics normalize oversized glyphs into a 1em line box; restore the
+// glyph to its natural design size and box it by its ink extent, centered on
+// the math axis (TeX Rule 13)
+function fit_op(span0: MathSpan): WithMath<MathSpan> {
+    const source = span0.metrics
+    const [ vlo, vhi ] = source.vrange
+    const [ rlo, rhi ] = source.raw_vrange ?? source.vrange
+    const vspan = vhi - vlo
+    const rspan = rhi - rlo
+    if (vspan <= 0 || rspan <= 0) return ensure_math(span0)
+
+    // natural ink height at a 1em font
+    const scale = 1 / vspan
+    const height = scale * rspan
+
+    // rescale metrics so the ink spans an axis-centered box
+    const shift = -0.5 * height - scale * rlo
+    const vrange: Limit = [ shift + scale * vlo, shift + scale * vhi ]
+    const raw_vrange: Limit = [ -0.5 * height, 0.5 * height ]
+    const metrics: TextMetrics = { advance: scale * source.advance, vrange, raw_vrange }
+
+    // clone with the ink box as both coordinate frame and layout box
+    const out = span0.clone() as WithMath<MathSpan>
+    const aspect = metrics.advance / height
+    out.metrics = metrics
+    out.spec.coord = [ 0, -0.5 * height, 1, 0.5 * height ]
+    out.spec.aspect0 = aspect
+    out.spec.aspect = out.spec.rotate_invar ? aspect : rotate_aspect(aspect, out.spec.rotate)
+    out.math = inherit_metrics(span0, { advance: metrics.advance, vrange: raw_vrange, vanchor: 0 })
+    return out
+}
+
+//
 // parse katex tree
 //
 
 const EMPTY_MATH = new MathSpacer()
 
-function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath {
+function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: MathStyle = 'display'): WithMath {
     if (tree == null) return EMPTY_MATH
 
     if (is_array(tree)) {
-        const row = new MathText({ children: tree.map(node => convert_tree(node, attr)) })
+        const row = new MathText({ children: tree.map(node => convert_tree(node, attr, style)), style })
         return row.children.length > 0 ? row : EMPTY_MATH
     }
 
@@ -1121,55 +1274,63 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath 
             return new MathSymbol({ children: [ text ], mode, family, ...attr })
         } else if (type == 'ordgroup') {
             const { body } = tree
-            return convert_tree(body, attr)
+            return convert_tree(body, attr, style)
         } else if (type == 'op') {
             const { mode, name } = tree
             const entry = get_symbol_entry(mode, name)
             if (entry != null) {
-                return new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family: OP_SYMBOL_FONT, ...attr })
+                const font_family = style == 'display' ? OP_DISPLAY_FONT : OP_TEXT_FONT
+                const span = new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family, ...attr })
+                return fit_op(span)
             } else {
                 const name1 = name.slice(1)
                 return new MathSymbol({ children: [ name1 ], mode: 'text', klass: 'mop', ...attr })
             }
         } else if (type == 'text') {
             const { body } = tree
-            return convert_tree(body, attr)
+            return convert_tree(body, attr, style)
         } else if (type == 'font') {
             const { font, body } = tree
             const font_family = TEX_FONT_FAMILY[font]
             const font_attr = font_family == null ? {} : { font_family }
-            return convert_tree(body, { ...attr, ...font_attr })
+            return convert_tree(body, { ...attr, ...font_attr }, style)
         } else if (type == 'accent') {
             const { label, base: base0 } = tree
-            const base = convert_tree(base0, attr)
+            const base = convert_tree(base0, attr, style)
             return new Accent({ children: [ base ], label, ...attr })
         } else if (type == 'kern') {
             const { dimension } = tree
             const em = measurement_to_em(dimension)
             return new MathSpacer({ advance: em })
+        } else if (type == 'styling') {
+            const { style: style1, body } = tree
+            return scale_math(convert_tree(body, attr, style1), relative_scale(style, style1))
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
-            const base = convert_tree(base0, attr)
-            const sup = sup0 ? convert_tree(sup0, attr) : null
-            const sub = sub0 ? convert_tree(sub0, attr) : null
-            return new SupSub({ children: [ base ], sup, sub, ...attr })
+            const sstyle = script_style(style)
+            const base = convert_tree(base0, attr, style)
+            const sup = sup0 ? convert_tree(sup0, attr, sstyle) : null
+            const sub = sub0 ? convert_tree(sub0, attr, sstyle) : null
+            const limits = style == 'display' && base0 != null && !is_array(base0) && base0.type == 'op' && (base0.limits ?? false)
+            return new SupSub({ children: [ base ], sup, sub, style, limits, ...attr })
         } else if (type == 'genfrac') {
             const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
-            const numer = convert_tree(numer0, attr)
-            const denom = convert_tree(denom0, attr)
-            const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine, ...attr })
+            const fstyle = frac_style(style)
+            const numer = convert_tree(numer0, attr, fstyle)
+            const denom = convert_tree(denom0, attr, fstyle)
+            const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine, style, ...attr })
             if (leftDelim != null || rightDelim != null) {
                 return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, ...attr })
             }
             return frac
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
-            const body = convert_tree(body0, attr)
-            const index = index0 ? convert_tree(index0, attr) : null
+            const body = convert_tree(body0, attr, style)
+            const index = index0 ? convert_tree(index0, attr, 'scriptscript') : null
             return new Sqrt({ children: [ body ], index, ...attr })
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
-            const body = convert_tree(body0, attr)
+            const body = convert_tree(body0, attr, style)
             return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode, ...attr })
         }
     }
@@ -1183,9 +1344,14 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}): WithMath 
 // katex parser and component
 //
 
+interface LatexArgs extends ElementArgs {
+    inline?: boolean
+    style?: MathStyle
+}
+
 class Latex extends MathText {
-    constructor(args: ElementArgs = {}) {
-        const { children, inline, ...attr0 } = THEME(args, 'Latex')
+    constructor(args: LatexArgs = {}) {
+        const { children, inline, style = inline ? 'text' : 'display', ...attr0 } = THEME(args, 'Latex')
         const tex = check_string(children)
         const [ spec, attr ] = spec_split(attr0)
 
@@ -1193,7 +1359,7 @@ class Latex extends MathText {
         const elems: WithMath[] = []
         try {
             const tree = parse_tex(tex)
-            const items = tree.map(tree => convert_tree(tree, attr))
+            const items = tree.map(tree => convert_tree(tree, attr, style))
             elems.push(...items)
         } catch (e) {
             const error = new MathSpan({ children: [ tex ], color: red })
@@ -1201,13 +1367,13 @@ class Latex extends MathText {
         }
 
         // pass to MathText
-        super({ children: elems, inline, ...spec })
+        super({ children: elems, inline, style, ...spec })
         this.args = args
     }
 }
 
 class Tex extends Latex {
-    constructor({ inline = true, ...args }: ElementArgs = {}) {
+    constructor({ inline = true, ...args }: LatexArgs = {}) {
         super({ inline, ...args })
     }
 }
@@ -1217,4 +1383,4 @@ class Tex extends Latex {
 //
 
 export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex }
-export type { MathClass, MathSpec, InlineMetrics, FontFamily, MathSymbolArgs, MathTextArgs }
+export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathTextArgs }
