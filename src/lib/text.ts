@@ -137,10 +137,22 @@ function textVertical(text: string, { font_family = sans, font_weight = light }:
     return fontVertical(font, text)
 }
 
+// italic correction: how far the final glyph's ink overhangs its advance width
+function textItalic(text: string, { font_family = sans, font_weight = light }: TextSizerArgs = {}): number {
+    const font = textFont(font_family, font_weight)
+    const glyphs = font.stringToGlyphs(text)
+    const last = glyphs[glyphs.length - 1]
+    if (last == null) return 0
+    const { xMax = 0, advanceWidth = 0 } = last
+    const units = font.unitsPerEm ?? 1000
+    return Math.max(0, (xMax - advanceWidth) / units)
+}
+
 type TextMetrics = {
     advance: number
     vrange: Limit
     raw_vrange?: Limit
+    italic?: number
 }
 
 const EMPTY_VRANGE: Limit = [ 0, 0 ]
@@ -158,7 +170,7 @@ const DEFAULT_METRICS: TextMetrics = {
     raw_vrange: DEFAULT_VRANGE,
 }
 
-function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics): TextMetrics {
+function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ], italic = 0 }: TextMetrics): TextMetrics {
     const yrange = ymax - ymin
     const line_height = Math.max(1, yrange)
     const font_height = 1 / line_height
@@ -167,16 +179,18 @@ function normalizeTextMetrics({ advance, vrange: [ ymin, ymax ] }: TextMetrics):
     return {
         advance: advance / line_height,
         vrange: [ baseline - font_height, baseline ],
-        raw_vrange: [ glyph_top + ymin * font_height, glyph_top + ymax * font_height ],
+        raw_vrange: [ baseline - ymax * font_height, baseline - ymin * font_height ],
+        italic: italic / line_height,
     }
 }
 
 function textMetrics(text: string, args: TextSizerArgs = {}): TextMetrics {
-    if (text == '\n') return { advance: 0, vrange: [ 0, 1 ], raw_vrange: [ 0, 1 ] }
+    if (text == '\n') return { advance: 0, vrange: [ 0, 1 ], raw_vrange: [ 0, 1 ], italic: 0 }
     const text1 = compress_whitespace(text)
     const advance = textSizer(text1, args)
     const vrange = textVertical(text1, args)
-    return normalizeTextMetrics({ advance, vrange })
+    const italic = textItalic(text1, args)
+    return normalizeTextMetrics({ advance, vrange, italic })
 }
 
 //
@@ -235,6 +249,6 @@ function mergeStrings(items: any[]): any[] {
 // exports
 //
 
-export { is_emoji, textMetrics, textSizer, textVertical, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
+export { is_emoji, textMetrics, textSizer, textVertical, textItalic, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
 export { DEFAULT_METRICS, EMPTY_METRICS, DEFAULT_VRANGE, EMPTY_VRANGE }
 export type { TextMetrics }

@@ -30,9 +30,10 @@ type MathSpec = {
     advance: number
     vrange: Limit
     vanchor: number
+    italic: number  // superscript overhang past advance (TeX italic correction)
 }
 
-type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'>
+type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic'>>
 
 type WithMath<E extends Element = Element> = E & {
     math: MathSpec
@@ -159,18 +160,19 @@ const DEFAULT_INLINE_METRICS: InlineMetrics = {
     vanchor: MATH_AXIS,
 }
 
-function make_math({ left, right, advance, vrange, vanchor }: Partial<MathSpec>): MathSpec {
+function make_math({ left, right, advance, vrange, vanchor, italic }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
         advance: advance ?? EMPTY_INLINE_METRICS.advance,
         vrange: vrange ?? EMPTY_INLINE_METRICS.vrange,
         vanchor: vanchor ?? EMPTY_INLINE_METRICS.vanchor,
+        italic: italic ?? 0,
     }
 }
 
-function text_inline_metrics({ advance, vrange }: TextMetrics): InlineMetrics {
-    return { advance, vrange, vanchor: MATH_AXIS }
+function text_inline_metrics({ advance, vrange, italic }: TextMetrics): InlineMetrics {
+    return { advance, vrange, vanchor: MATH_AXIS, italic }
 }
 
 function metrics_bounds({ vrange: [ ylo, yhi ], vanchor }: InlineMetrics): Limit {
@@ -225,11 +227,12 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
 // laid out at relative scale, and rendering follows the metrics
 function scale_math<E extends Element>(element: WithMath<E>, scale: number): WithMath<E> {
     if (scale == 1) return element
-    const { advance, vrange: [ ylo, yhi ], vanchor } = element.math
+    const { advance, vrange: [ ylo, yhi ], vanchor, italic } = element.math
     return with_math(element, {
         advance: scale * advance,
         vrange: [ scale * ylo, scale * yhi ],
         vanchor: scale * vanchor,
+        italic: scale * italic,
     })
 }
 
@@ -777,13 +780,15 @@ class MathText extends MathRow {
 
 // place sup and sub in a shared inline box after the base: each script hangs
 // from its baseline (bottom edge) at a fixed axis-relative position, tracking
-// the base edges when the base is tall (TeX Appendix G, by eye)
+// the base edges when the base is tall; the superscript alone is shifted right
+// by the base's italic correction (TeX Appendix G, by eye)
 function layout_scripts(base: WithMath, sup: WithMath | null, sub: WithMath | null, rel: number): WithMath | null {
     if (sup == null && sub == null) return null
 
     // drop rules only engage for tall bases
     const [ blo, bhi ] = metrics_bounds(base.math)
     const tall = (bhi - blo) > TALL_BASE
+    const { italic } = base.math
 
     // place superscript by its bottom edge
     let dySup = 0
@@ -810,11 +815,11 @@ function layout_scripts(base: WithMath, sup: WithMath | null, sub: WithMath | nu
     }
 
     // assemble the shared script box in anchor-relative coordinates
-    const placed = [ [ sup, dySup ], [ sub, dySub ] ]
-        .filter((pair): pair is [ WithMath, number ] => pair[0] != null)
-    const children = placed.map(([ item, dy ]) => with_math(item, {}, { rect: metrics_rect(item.math, 0, dy) }))
-    const advance = max(placed.map(([ item ]) => item.math.advance)) ?? 0
-    const [ ylo, yhi ] = merge_limits(placed.map(([ item, dy ]) => {
+    const placed = [ [ sup, italic, dySup ], [ sub, 0, dySub ] ]
+        .filter((triple): triple is [ WithMath, number, number ] => triple[0] != null)
+    const children = placed.map(([ item, dx, dy ]) => with_math(item, {}, { rect: metrics_rect(item.math, dx, dy) }))
+    const advance = max(placed.map(([ item, dx ]) => dx + item.math.advance)) ?? 0
+    const [ ylo, yhi ] = merge_limits(placed.map(([ item, , dy ]) => {
         const [ lo, hi ] = metrics_bounds(item.math)
         return [ dy + lo, dy + hi ] as Limit
     }))
@@ -855,8 +860,12 @@ class SupSub extends MathRow {
 
         let items: WithMath[]
         if (limits) {
-            // display limits: scripts stacked above and below the base
-            const colItems = [ sup, base, sub ].filter((item): item is WithMath => item != null)
+            // display limits: scripts stacked above and below the base, with the
+            // italic correction splitting them (sup right, sub left) as in TeX Rule 13a
+            const { italic } = base.math
+            const supPad = sup != null && italic > 0 ? new MathBox({ children: [ sup ], padding: [ italic, 0, 0, 0 ] }) : sup
+            const subPad = sub != null && italic > 0 ? new MathBox({ children: [ sub ], padding: [ 0, 0, italic, 0 ] }) : sub
+            const colItems = [ supPad, base, subPad ].filter((item): item is WithMath => item != null)
             const col = new MathCol({ children: colItems, justify: 'center', spacing: vspacing })
 
             // keep the anchor on the base axis
@@ -1211,39 +1220,42 @@ class Bracket extends MathRow {
 }
 
 //
-// large operators
+// math operator
 //
 
-// text metrics normalize oversized glyphs into a 1em line box; restore the
-// glyph to its natural design size and box it by its ink extent, centered on
-// the math axis (TeX Rule 13)
-function fit_op(span0: MathSpan): WithMath<MathSpan> {
-    const source = span0.metrics
-    const [ vlo, vhi ] = source.vrange
-    const [ rlo, rhi ] = source.raw_vrange ?? source.vrange
-    const vspan = vhi - vlo
-    const rspan = rhi - rlo
-    if (vspan <= 0 || rspan <= 0) return ensure_math(span0)
+// large operator symbol: text metrics normalize oversized glyphs into a 1em
+// line box, so restore the glyph to its natural design size and box it by its
+// ink extent, centered on the math axis (TeX Rule 13)
+class MathOp extends MathSymbol {
+    constructor(args: MathSymbolArgs = {}) {
+        const { klass = 'mop', ...attr } = THEME(args, 'MathOp')
+        super({ klass, ...attr })
+        this.args = args
 
-    // natural ink height at a 1em font
-    const scale = 1 / vspan
-    const height = scale * rspan
+        // recover ink extents above/below the baseline at a 1em font (y-up)
+        const { advance: advance0, vrange: [ vlo, vhi ], raw_vrange: [ rlo, rhi ] = [ vlo, vhi ], italic: italic0 = 0 } = this.metrics
+        const fh = vhi - vlo
+        if (fh <= 0) return
+        const ymax = (vhi - rlo) / fh
+        const ymin = (vhi - rhi) / fh
+        const height = ymax - ymin
+        const advance = advance0 / fh
+        const italic = italic0 / fh
+        if (height <= 0) return
 
-    // rescale metrics so the ink spans an axis-centered box
-    const shift = -0.5 * height - scale * rlo
-    const vrange: Limit = [ shift + scale * vlo, shift + scale * vhi ]
-    const raw_vrange: Limit = [ -0.5 * height, 0.5 * height ]
-    const metrics: TextMetrics = { advance: scale * source.advance, vrange, raw_vrange }
+        // baseline position that centers the ink on the axis, in anchor coords
+        // (Span places text using a 1em box that ends at the baseline)
+        const baseline = 0.5 * (ymax + ymin)
+        const raw_vrange: Limit = [ -0.5 * height, 0.5 * height ]
+        this.metrics = { advance, vrange: [ baseline - 1, baseline ], raw_vrange, italic }
 
-    // clone with the ink box as both coordinate frame and layout box
-    const out = span0.clone() as WithMath<MathSpan>
-    const aspect = metrics.advance / height
-    out.metrics = metrics
-    out.spec.coord = [ 0, -0.5 * height, 1, 0.5 * height ]
-    out.spec.aspect0 = aspect
-    out.spec.aspect = out.spec.rotate_invar ? aspect : rotate_aspect(aspect, out.spec.rotate)
-    out.math = inherit_metrics(span0, { advance: metrics.advance, vrange: raw_vrange, vanchor: 0 })
-    return out
+        // use the ink box as both coordinate frame and layout box
+        const aspect = advance / height
+        this.spec.coord = [ 0, -0.5 * height, 1, 0.5 * height ]
+        this.spec.aspect0 = aspect
+        this.spec.aspect = this.spec.rotate_invar ? aspect : rotate_aspect(aspect, this.spec.rotate)
+        this.math = make_math({ left: this.math.left, right: this.math.right, advance, vrange: raw_vrange, vanchor: 0, italic })
+    }
 }
 
 //
@@ -1280,8 +1292,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const entry = get_symbol_entry(mode, name)
             if (entry != null) {
                 const font_family = style == 'display' ? OP_DISPLAY_FONT : OP_TEXT_FONT
-                const span = new MathSymbol({ children: [ name ], mode, klass: 'mop', font_family, ...attr })
-                return fit_op(span)
+                return new MathOp({ children: [ name ], mode, font_family, ...attr })
             } else {
                 const name1 = name.slice(1)
                 return new MathSymbol({ children: [ name1 ], mode: 'text', klass: 'mop', ...attr })
@@ -1382,5 +1393,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathTextArgs }

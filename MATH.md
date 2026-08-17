@@ -24,16 +24,17 @@ type MathSpec = {
     advance: number      // width in em
     vrange: Limit        // vertical ink extent [lo, hi] in em (y-down)
     vanchor: number      // anchor line position within vrange
+    italic: number       // superscript overhang past advance (TeX italic correction), usually 0
 }
 ```
 
-This is essentially TeX's `(width, height, depth)` box model plus atom classes, with one twist: instead of height/depth measured from a baseline, we store a `vrange` and a `vanchor`. The anchor is the **math axis** (the line through the middle of `=` and the fraction bar), not the text baseline. `metrics_bounds` re-expresses `vrange` relative to the anchor, and all horizontal layout aligns anchors at `y = 0`.
+This is essentially TeX's `(width, height, depth)` box model plus atom classes, with one twist: instead of height/depth measured from a baseline, we store a `vrange` and a `vanchor`. The anchor is the **math axis** (the line through the middle of `=` and the fraction bar), not the text baseline. `metrics_bounds` re-expresses `vrange` relative to the anchor, and all horizontal layout aligns anchors at `y = 0`. The `italic` field is TeX's italic correction: superscripts (only) are shifted right by it, so scripts clear slanted glyphs like ∫ and *f*. Compound elements have `italic = 0`, matching TeX, where only character nuclei carry one.
 
 Key functions:
 
 - `ensure_math(element)` lifts any gum element into the protocol. A `Span` gets real font metrics; an arbitrary element (a `Square`, a `Plot`, anything) gets `advance = aspect`, a default 1em `vrange`, and an anchor at the math axis (`MATH_AXIS = 0.25` above the baseline). **This is the mixing mechanism**: any gum element can appear mid-formula and will be sized to 1em and centered on the axis.
-- `with_math(element, patch, args)` clones an element while updating its `MathSpec` — layout is done functionally, by re-wrapping children with explicit rects.
-- Text metrics come from `lib/text.ts`, which measures actual glyph ink bounds (`yMin`/`yMax`) via opentype.js — not TeX font metric tables.
+- `with_math(element, patch, args)` clones an element while updating its `MathSpec` — layout is done functionally, by re-wrapping children with explicit rects. **Important:** `clone` re-runs the element's constructor, so anything an element needs to survive layout must be produced *by its constructor* (from `args`), not patched onto an instance afterward. This is why `MathOp` is a class rather than a fix-up function.
+- Text metrics come from `lib/text.ts`, which measures actual glyph geometry via opentype.js — ink bounds (`yMin`/`yMax`), advance, and italic overhang (`xMax − advance`) — not TeX font metric tables. Tall glyphs (taller than 1em) are normalized into a 1em line box by `normalizeTextMetrics`; `raw_vrange` records where the ink actually sits inside that box.
 
 ## Layout primitives
 
@@ -60,7 +61,7 @@ Built from the primitives:
 
 - `lib/symbols.ts` is KaTeX's symbol table (de-flowed): TeX control sequence → font, atom family, and replacement character. `MathSymbol` looks up the entry, picks the font (`KaTeX_Math` italic for math-mode ordinals, `KaTeX_Main` otherwise, `KaTeX_AMS` for `\mathbb` etc.), and maps the family to an atom class.
 - The KaTeX TTF fonts (Math Italic, Main, AMS, Size1–4) are bundled alongside the IBM Plex text fonts in `src/fonts/fonts.ts` and measured with opentype.js like any other font.
-- Named operators (`\sin`, `\lim`) render as upright text; symbol operators (`\sum`, `\int`) render from `KaTeX_Size1` in text style and `KaTeX_Size2` in display style, restored to their natural design size by `fit_op` (text metrics normally normalize oversized glyphs into a 1em line box) and centered on the math axis.
+- Named operators (`\sin`, `\lim`) render as upright text; symbol operators (`\sum`, `\int`) are `MathOp` elements — a `MathSymbol` from `KaTeX_Size1` (text style) or `KaTeX_Size2` (display style) whose constructor undoes the tall-glyph normalization, boxes the glyph by its ink, and places its baseline so the ink is centered on the math axis (TeX Rule 13). The KaTeX operator glyphs are designed so this puts the baseline exactly 0.25em below the axis.
 
 ## Math styles
 
@@ -80,7 +81,7 @@ Style descent rules (TeX Appendix G, simplified):
 - In display style, symbol operators use the large-size font, and operators flagged `limits` in the AST place their scripts above/below (`SupSub` with `limits: true`, laid out as a centered `MathCol` anchored on the base's axis).
 - `\displaystyle` etc. (`styling` nodes) switch the style mid-formula.
 
-Script placement (`layout_scripts`) hangs each script from its bottom edge at a fixed axis-relative position (`SUP_BOTTOM`, `SUB_BOTTOM`); for bases taller than an em (fractions, bracketed groups, big operators) the scripts instead track the base's top and bottom edges (`SUP_DROP`, `SUB_DROP`), with a minimum vertical gap between the two. The sup/sub pair shares one inline box built with the same `with_math` + `metrics_rect` machinery as everything else. The placement constants live at the top of `math.ts` and are tuned by eye, not copied from TFM parameters.
+Script placement (`layout_scripts`) hangs each script from its bottom edge at a fixed axis-relative position (`SUP_BOTTOM`, `SUB_BOTTOM`); for bases taller than an em (fractions, bracketed groups, big operators) the scripts instead track the base's top and bottom edges (`SUP_DROP`, `SUB_DROP`), with a minimum vertical gap between the two. The superscript is additionally shifted right by the base's `italic` correction (Rule 18a); in the `limits` layout the sup moves right and the sub left by the full correction so their centers split it (Rule 13a). The sup/sub pair shares one inline box built with the same `with_math` + `metrics_rect` machinery as everything else. The placement constants live at the top of `math.ts` and are tuned by eye, not copied from TFM parameters.
 
 ## Error handling
 
@@ -108,7 +109,6 @@ The original version of this renderer had no notion of TeX's size regimes, and n
 Style-related refinements deliberately left out, in case they become worth doing:
 
 - **Cramped styles** (used under fraction bars and radicals to lower superscripts slightly).
-- **Italic correction** on script attachment — TeX offsets superscripts on slanted glyphs (most visibly ∫) horizontally; scripts currently attach at a uniform `hspacing`.
 - **`genfrac` size overrides** (`\dfrac`/`\tfrac` carry an explicit style in the AST that could feed straight into the `style` prop).
 - **TFM-exact shift parameters** — placement constants are tuned by eye, which is the intended trade.
 
@@ -134,7 +134,8 @@ Unknown nodes should render a visible red placeholder (like the parse-error path
 - **Inline baseline integration is a fudge.** `MathText` shifts its coord by a constant `INLINE_SHIFT = -0.1` when `inline` is set (the `Tex` element). The real issue is that `Text`/`TextLine` has no baseline concept — lines are even VStacks — so math can't share a true baseline with surrounding prose. The `MathSpec` anchor machinery is exactly what `Text` layout would need; unifying them (giving `TextLine` anchor alignment) would delete the hack and improve mixed text generally. This is the most valuable *non-math* payoff of the math work.
 - **Ink-bound metrics vs design metrics.** Measuring real glyph extents is mostly a feature (tight boxes, honest centering), but it makes layout twitchy: an `x`-height base vs an ascender base changes script geometry. With style-based fixed script scales this mostly stops mattering, but keep in mind that TeX's height/depth are *design* values chosen for consistency, and a per-font floor/ceiling on `vrange` (e.g. min height = x-height) may be worth adding for uniform script placement across bases.
 - **`ensure_math` on non-text elements** centers them on the axis with a fixed 1em height. Consider letting arbitrary elements opt into the protocol declaratively — e.g. a `math` prop or a `MathBox`-style wrapper exposing `advance`/`vanchor` — so a diagram embedded in a formula can say "align my second row to the axis." Formalizing `MathSpec` as a public interface is what makes "more capable than TeX" real rather than incidental.
-- **`Delim` uses raw font glyphs for `(`, `)` up to Size4** then rescales; extreme sizes (tall matrices) will get noticeably thin strokes. If that starts to matter, draw large delimiters as paths (the `Sqrt` approach) rather than adding KaTeX's glyph-stacking.
+- **`Delim` sizing works, but not the way the code says.** `fit_delim`/`with_text_metrics` patch metrics onto a cloned instance, and those patches are then discarded when `MathRow` re-clones the element for layout (see the `clone` note above). What actually happens is that the delimiter's *normalized* 1em-line-box metrics get stretched over the target rect, which — because the tall-glyph normalization squeezes ink to exactly fill the box — makes the ink fill the body height. The result is right; the mechanism is accidental, and `fit_delim_size`'s "error" metric is comparing normalized heights that all equal 1. Delimiters should get the same treatment as `MathOp`: a `Delim` constructor that computes ink-true metrics itself, then a principled size choice. Extreme sizes (tall matrices) will also get thin strokes from rescaling; if that starts to matter, draw large delimiters as paths (the `Sqrt` approach) rather than adding KaTeX's glyph-stacking.
+- **`Span`'s `vshift` is applied inconsistently for tall glyphs** — metrics shift by `vshift` in box units, but `props` shifts the SVG baseline by `vshift × font_height`; these agree only when the glyph fits in 1em. `MathOp` sidesteps this by choosing metrics that cancel `vshift` out; a cleaner `Span` would remove the need.
 
 ## Recommended sequence
 
