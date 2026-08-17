@@ -1,9 +1,11 @@
 #! /usr/bin/env bun
 
 import { join, basename } from 'path'
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs'
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from 'fs'
 
 import { evaluateGum } from '../src/eval'
+import { FONT_PATHS } from '../src/fonts/fonts'
+import { light, regular, bold } from '../src/lib/const'
 
 const dataDir = 'docs/data'
 function loadFile(path: string, encoding: string = 'utf8') {
@@ -66,12 +68,37 @@ function escapeHtml(s: string): string {
         .replace(/"/g, '&quot;')
 }
 
+// bundle the fonts the svg output references (same registry the rasterizer uses)
+// and emit @font-face rules for them
+function writeFonts(): string {
+    const fontDir = join(reportDir, 'fonts')
+    mkdirSync(fontDir, { recursive: true })
+    const rules: string[] = []
+    const addFace = (family: string, path: string, weight?: number) => {
+        const file = basename(path)
+        copyFileSync(path, join(fontDir, file))
+        const weightRule = weight != null ? ` font-weight: ${weight};` : ''
+        rules.push(`@font-face { font-family: "${family}"; src: url("fonts/${file}");${weightRule} }`)
+    }
+    for (const [ family, path ] of Object.entries(FONT_PATHS)) {
+        if (typeof path == 'string') {
+            addFace(family, path)
+        } else {
+            addFace(family, path.light, light)
+            addFace(family, path.regular, regular)
+            addFace(family, path.bold, bold)
+        }
+    }
+    return rules.join('\n')
+}
+
+// svg files are written standalone for inspection, but inlined into the page
+// so they can use the page's @font-face declarations
 function makeCard(result: Result): string {
-    const { dir, file, code, svg, error } = result
-    const name = file.replace(/\.jsx$/, '')
+    const { file, code, svg, error } = result
     const status = error == null ? 'pass' : 'fail'
     const body = error == null
-        ? `<div class="image"><img src="${dir}/${name}.svg" loading="lazy"></div>`
+        ? `<div class="image">${svg}</div>`
         : `<div class="error">${escapeHtml(error ?? '')}</div>`
     return `<div class="card ${status}">
   <div class="head"><span class="name">${escapeHtml(file)}</span><span class="status ${status}">${status.toUpperCase()}</span></div>
@@ -82,7 +109,7 @@ function makeCard(result: Result): string {
 
 function makeSection(dir: string, items: Result[]): string {
     const cards = items.map(makeCard).join('\n')
-    return `<h2>${escapeHtml(dir)}</h2>\n<div class="grid">\n${cards}\n</div>`
+    return `<h2 id="${escapeHtml(dir)}">${escapeHtml(dir)}</h2>\n<div class="grid">\n${cards}\n</div>`
 }
 
 function writeReport() {
@@ -96,6 +123,7 @@ function writeReport() {
     }
 
     // fill in template
+    const fonts = writeFonts()
     const summary = `<span class="pass">${passed} passed</span>, ` +
         `<span class="fail">${failed} failed</span> &mdash; ${new Date().toLocaleString()}`
     const sections = dirs
@@ -103,6 +131,7 @@ function writeReport() {
         .join('\n')
     const template = readFileSync(templatePath, 'utf-8')
     const html = template
+        .replace('{{fonts}}', fonts)
         .replace('{{summary}}', summary)
         .replace('{{sections}}', sections)
 
