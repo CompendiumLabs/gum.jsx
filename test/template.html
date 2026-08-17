@@ -1,43 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html data-theme="dark">
 <head>
 <meta charset="utf-8">
 <title>gum.jsx test report</title>
 <style>
 {{fonts}}
+  :root {
+    --bg: #1a1a1a; --fg: #ddd; --muted: #999; --faint: #888;
+    --card: #222; --border: #333; --code-bg: #1d1d1d; --code-fg: #bbb;
+    --pass: #6c6; --pass-bg: #1d3a1d; --fail: #e66; --fail-bg: #3a1d1d; --fail-border: #a44;
+  }
+  [data-theme="light"] {
+    --bg: #f4f4f4; --fg: #222; --muted: #666; --faint: #777;
+    --card: #fff; --border: #ddd; --code-bg: #f7f7f7; --code-fg: #444;
+    --pass: #2a7; --pass-bg: #e3f5ea; --fail: #c33; --fail-bg: #fbe5e5; --fail-border: #d88;
+  }
+  [data-theme="dark"] .theme-light { display: none; }
+  [data-theme="light"] .theme-dark { display: none; }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #1a1a1a;
-    color: #ddd;
+    background: var(--bg);
+    color: var(--fg);
     font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
     padding: 2rem;
   }
+  header { display: flex; justify-content: space-between; align-items: flex-start; }
   h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 0.5rem; }
   h2 {
     font-size: 1.1rem; font-weight: 600; margin: 2rem 0 1rem;
-    padding-bottom: 0.4rem; border-bottom: 1px solid #333;
+    padding-bottom: 0.4rem; border-bottom: 1px solid var(--border);
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   }
-  .summary { color: #999; margin-bottom: 1rem; }
-  .summary .pass { color: #6c6; }
-  .summary .fail { color: #e66; }
+  .summary { color: var(--muted); margin-bottom: 1rem; }
+  .summary .pass { color: var(--pass); }
+  .summary .fail { color: var(--fail); }
+  .toggle {
+    background: var(--card); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0.35rem 0.9rem; font-size: 0.85rem; cursor: pointer;
+    font-family: inherit;
+  }
+  .toggle:hover { border-color: var(--muted); }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1rem;
   }
   .card {
-    background: #222;
-    border: 1px solid #333;
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
   }
-  .card.fail { border-color: #a44; }
+  .card.fail { border-color: var(--fail-border); }
   .head {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 0.5rem 0.75rem; border-bottom: 1px solid #333;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
   }
   .name {
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -47,33 +67,76 @@
     font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
     padding: 0.15rem 0.5rem; border-radius: 999px;
   }
-  .status.pass { background: #1d3a1d; color: #6c6; }
-  .status.fail { background: #3a1d1d; color: #e66; }
-  .image {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    padding: 1rem; min-height: 12rem;
+  .status.pass { background: var(--pass-bg); color: var(--pass); }
+  .status.fail { background: var(--fail-bg); color: var(--fail); }
+  .controls { display: flex; align-items: center; gap: 0.6rem; }
+
+  /* code/image switch */
+  .switch { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; user-select: none; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .track {
+    width: 1.7rem; height: 0.95rem; border-radius: 999px; position: relative;
+    background: var(--border); transition: background 0.15s;
   }
-  .image svg { width: auto; height: auto; max-width: 100%; max-height: 16rem; }
+  .switch .track::after {
+    content: ''; position: absolute; top: 0.12rem; left: 0.12rem;
+    width: 0.7rem; height: 0.7rem; border-radius: 50%;
+    background: var(--card); transition: transform 0.15s;
+  }
+  .switch input:checked + .track { background: var(--pass); }
+  .switch input:checked + .track::after { transform: translateX(0.75rem); }
+  .switch-label { font-size: 0.7rem; color: var(--faint); }
+
+  /* image / code views share a fixed-height box so cards never resize; the
+     image fits inside it and long code scrolls within it */
+  .view { height: 18rem; display: flex; flex-direction: column; overflow: hidden; }
+  .image {
+    flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .image svg { width: auto; height: auto; max-width: 100%; max-height: 100%; }
+  .code { display: none; flex: 1; min-height: 0; overflow: auto; }
+  .card:has(.show-code:checked) .image { display: none; }
+  .card:has(.show-code:checked) .code { display: block; }
   .error {
-    color: #e66; padding: 1rem;
+    color: var(--fail); padding: 1rem;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;
   }
-  details { border-top: 1px solid #333; }
-  details summary {
-    padding: 0.4rem 0.75rem; cursor: pointer;
-    color: #888; font-size: 0.75rem; user-select: none;
-  }
-  details pre {
-    padding: 0.75rem; overflow-x: auto; background: #1d1d1d;
+
+  /* shiki dual-theme output: pick the palette matching the page theme */
+  .code pre {
+    margin: 0; padding: 0.75rem 1rem; height: 100%;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 0.75rem; line-height: 1.5; color: #bbb;
+    font-size: 0.75rem; line-height: 1.55; tab-size: 4;
+    white-space: pre-wrap; word-break: break-word;
+    background: var(--code-bg) !important;
   }
+  [data-theme="dark"] .shiki, [data-theme="dark"] .shiki span { color: var(--shiki-dark); }
+  [data-theme="light"] .shiki, [data-theme="light"] .shiki span { color: var(--shiki-light); }
 </style>
 </head>
 <body>
-<h1>gum.jsx test report</h1>
-<p class="summary">{{summary}}</p>
+<header>
+  <div>
+    <h1>gum.jsx test report</h1>
+    <p class="summary">{{summary}}</p>
+  </div>
+  <button class="toggle" id="toggle" type="button"></button>
+</header>
 {{sections}}
+<script>
+  const root = document.documentElement
+  const button = document.getElementById('toggle')
+  const label = () => { button.textContent = root.dataset.theme == 'dark' ? '☀ light' : '☾ dark' }
+  const saved = localStorage.getItem('gum-report-theme')
+  if (saved == 'light' || saved == 'dark') root.dataset.theme = saved
+  label()
+  button.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme == 'dark' ? 'light' : 'dark'
+    localStorage.setItem('gum-report-theme', root.dataset.theme)
+    label()
+  })
+</script>
 </body>
 </html>

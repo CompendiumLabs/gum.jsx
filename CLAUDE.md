@@ -47,7 +47,7 @@ Test examples are in `docs/code/`, `gala/code/`, and `test/code/` (targeted feat
 bun scripts/test.ts
 ```
 
-Pass `--report` to also render every example to SVG and generate a visual report at `test/report/index.html` (from the `test/template.html` template; the SVGs are inlined into the page and the bundled fonts are copied alongside with `@font-face` rules so math renders correctly; the report directory is generated and gitignored):
+Pass `--report` to also render every example in both themes to SVG (`test/report/<docs|gala|test>/<light|dark>/`) and generate a visual report at `test/report/index.html` with a light/dark toggle and a per-card image/code switch (from the `test/template.html` template; both renders are inlined into the page, code is syntax-highlighted at build time with `shiki`, and the bundled fonts are copied alongside with `@font-face` rules so math renders correctly; the report directory is generated and gitignored):
 ```bash
 bun scripts/test.ts --report
 ```

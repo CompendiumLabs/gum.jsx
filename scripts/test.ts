@@ -1,7 +1,9 @@
 #! /usr/bin/env bun
 
-import { join, basename } from 'path'
+import { join, basename, dirname } from 'path'
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from 'fs'
+
+import { createHighlighter } from 'shiki'
 
 import { evaluateGum } from '../src/eval'
 import { FONT_PATHS } from '../src/fonts/fonts'
@@ -19,38 +21,55 @@ function loadFile(path: string, encoding: string = 'utf8') {
 // run examples
 //
 
+type Theme = 'light' | 'dark'
+const themes: Theme[] = ['light', 'dark']
+
+type Render = {
+    svg?: string
+    error?: string
+}
+
 type Result = {
     dir: string
     file: string
     path: string
     code: string
-    svg?: string
-    error?: string
+    renders: Record<Theme, Render>
 }
 
 const dirs = ['docs/code', 'gala/code', 'test/code']
 const report = process.argv.includes('--report')
 const results: Result[] = []
 
+function render(code: string, theme: Theme): Render {
+    try {
+        const elem = evaluateGum(code, { size: 500, theme, loadFile })
+        return { svg: elem.svg() }
+    } catch (e: any) {
+        const { message = 'Unknown error' } = e
+        return { error: message }
+    }
+}
+
 for (const dir of dirs) {
     const files = readdirSync(dir).filter(f => f.endsWith('.jsx')).sort()
     for (const file of files) {
         const path = join(dir, file)
         const code = readFileSync(path, 'utf-8')
-        try {
-            const elem = evaluateGum(code, { size: 500, theme: 'dark', loadFile })
-            const svg = elem.svg()
+        const renders = { light: render(code, 'light'), dark: render(code, 'dark') }
+        const errors = themes.filter(t => renders[t].error != null)
+        if (errors.length == 0) {
             console.log(`PASS ${path}`)
-            results.push({ dir, file, path, code, svg })
-        } catch (e: any) {
-            const { message = 'Unknown error' } = e
-            console.error(`FAIL ${path}: ${message}`)
-            results.push({ dir, file, path, code, error: message })
+        } else {
+            const detail = errors.map(t => `${t}: ${renders[t].error}`).join('; ')
+            console.error(`FAIL ${path}: ${detail}`)
         }
+        results.push({ dir, file, path, code, renders })
     }
 }
 
-const passed = results.filter(r => r.error == null).length
+const isPass = (r: Result) => themes.every(t => r.renders[t].error == null)
+const passed = results.filter(isPass).length
 const failed = results.length - passed
 
 //
@@ -92,42 +111,71 @@ function writeFonts(): string {
     return rules.join('\n')
 }
 
+// syntax highlighting is done at build time; shiki's dual-theme output carries
+// both palettes as css variables, so the page's theme toggle selects one
+type Highlight = (code: string) => string
+
+async function makeHighlighter(): Promise<Highlight> {
+    const highlighter = await createHighlighter({ langs: ['jsx'], themes: ['github-light', 'github-dark'] })
+    return (code: string) => highlighter.codeToHtml(code, {
+        lang: 'jsx',
+        themes: { light: 'github-light', dark: 'github-dark' },
+        defaultColor: false,
+    })
+}
+
 // svg files are written standalone for inspection, but inlined into the page
-// so they can use the page's @font-face declarations
-function makeCard(result: Result): string {
-    const { file, code, svg, error } = result
-    const status = error == null ? 'pass' : 'fail'
-    const body = error == null
-        ? `<div class="image">${svg}</div>`
-        : `<div class="error">${escapeHtml(error ?? '')}</div>`
+// so they can use the page's @font-face declarations; both themes are inlined
+// and the page toggle picks which one is visible; the code view swaps in for
+// the image via a per-card switch
+function makeCard(result: Result, highlight: Highlight): string {
+    const { file, code, renders } = result
+    const status = isPass(result) ? 'pass' : 'fail'
+    const images = themes.map(theme => {
+        const { svg, error } = renders[theme]
+        const inner = error == null ? svg : `<div class="error">${escapeHtml(error ?? '')}</div>`
+        return `<div class="image theme-${theme}">${inner}</div>`
+    }).join('\n  ')
     return `<div class="card ${status}">
-  <div class="head"><span class="name">${escapeHtml(file)}</span><span class="status ${status}">${status.toUpperCase()}</span></div>
-  ${body}
-  <details><summary>code</summary><pre>${escapeHtml(code.trim())}</pre></details>
+  <div class="head">
+    <span class="name">${escapeHtml(file)}</span>
+    <span class="controls">
+      <label class="switch" title="show code"><input type="checkbox" class="show-code"><span class="track"></span><span class="switch-label">code</span></label>
+      <span class="status ${status}">${status.toUpperCase()}</span>
+    </span>
+  </div>
+  <div class="view">
+  ${images}
+  <div class="code">${highlight(code.trim())}</div>
+  </div>
 </div>`
 }
 
-function makeSection(dir: string, items: Result[]): string {
-    const cards = items.map(makeCard).join('\n')
+function makeSection(dir: string, items: Result[], highlight: Highlight): string {
+    const cards = items.map(item => makeCard(item, highlight)).join('\n')
     return `<h2 id="${escapeHtml(dir)}">${escapeHtml(dir)}</h2>\n<div class="grid">\n${cards}\n</div>`
 }
 
-function writeReport() {
-    // write rendered svg files
+async function writeReport() {
+    // write rendered svg files, one subdirectory per theme (docs/light, docs/dark, ...)
     for (const result of results) {
-        const { dir, file, svg } = result
-        if (svg == null) continue
-        const outDir = join(reportDir, dir)
-        mkdirSync(outDir, { recursive: true })
-        writeFileSync(join(outDir, file.replace(/\.jsx$/, '.svg')), svg)
+        const { dir, file, renders } = result
+        for (const theme of themes) {
+            const { svg } = renders[theme]
+            if (svg == null) continue
+            const outDir = join(reportDir, dirname(dir), theme)
+            mkdirSync(outDir, { recursive: true })
+            writeFileSync(join(outDir, file.replace(/\.jsx$/, '.svg')), svg)
+        }
     }
 
     // fill in template
     const fonts = writeFonts()
+    const highlight = await makeHighlighter()
     const summary = `<span class="pass">${passed} passed</span>, ` +
         `<span class="fail">${failed} failed</span> &mdash; ${new Date().toLocaleString()}`
     const sections = dirs
-        .map(dir => makeSection(dir, results.filter(r => r.dir == dir)))
+        .map(dir => makeSection(dir, results.filter(r => r.dir == dir), highlight))
         .join('\n')
     const template = readFileSync(templatePath, 'utf-8')
     const html = template
@@ -143,7 +191,7 @@ function writeReport() {
 if (report) {
     rmSync(reportDir, { recursive: true, force: true })
     mkdirSync(reportDir, { recursive: true })
-    writeReport()
+    await writeReport()
 }
 
 console.log()
