@@ -42,9 +42,14 @@ Run type checking:
 bun tsc --noEmit
 ```
 
-Test examples are in `docs/code/` and `docs/gala/`. Run the full test suite:
+Test examples are in `docs/code/`, `gala/code/`, and `test/code/` (targeted feature tests, one per file). Run the full test suite:
 ```bash
 bun scripts/test.ts
+```
+
+Pass `--report` to also render every example to SVG and generate a visual report at `test/report/index.html` (from the `test/template.html` template; the report directory is generated and gitignored):
+```bash
+bun scripts/test.ts --report
 ```
 
 Or test a single file:
