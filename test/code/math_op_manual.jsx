@@ -12,6 +12,6 @@
   <SupSub sup="2"><MathOp>\sin</MathOp></SupSub>
   <MathSymbol>x</MathSymbol>
   <MathSymbol>+</MathSymbol>
-  <SupSub sup="n" sub="i=0"><MathOp style="text">\prod</MathOp></SupSub>
+  <SupSub sup="n" sub="i=0"><MathOp inline>\prod</MathOp></SupSub>
   <SupSub sub="i"><MathSymbol>y</MathSymbol></SupSub>
 </MathText>

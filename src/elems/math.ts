@@ -1,7 +1,7 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { black, red } from '../lib/const'
+import { none, black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Element, Group, Spacer, spec_split, ensure_children } from './core'
@@ -61,7 +61,6 @@ const TEX_FONT_FAMILY: Record<string, FontFamily | undefined> = {
 //
 
 const MATH_AXIS = 0.25
-const INLINE_SHIFT = -0.1
 const STRUT: Limit = [ -0.5, 0.5 ]  // minimum line box around the axis for top-level math
 
 // TeX font parameters (Computer Modern, in em) that drive Appendix G layout;
@@ -69,6 +68,7 @@ const STRUT: Limit = [ -0.5, 0.5 ]  // minimum line box around the axis for top-
 const TEX = {
     x_height: 0.431,
     rule: 0.04,         // default rule thickness
+    frac_rule: 0.03,    // lighter fraction bar
     sup1: 0.413,        // sup shift, display
     sup2: 0.363,        // sup shift, text and scripts
     sup3: 0.289,        // sup shift, cramped styles
@@ -808,10 +808,11 @@ class MathRule extends Group {
     math: MathSpec
 
     constructor(args: MathRuleArgs = {}) {
-        const { advance = 1, thickness = 0.033, rounded = 0.5, fill = black, ...attr } = THEME(args, 'MathRule')
+        const { advance = 1, thickness = 0.033, rounded = 0, fill = black, ...attr } = THEME(args, 'MathRule')
 
-        // make center bar
-        const bar = thickness > 0 ? new RoundedRect({ rect: [ 0, 0, advance, thickness ], fill, rounded }) : null
+        // Rules are filled shapes, not outlined shapes. Disabling the inherited
+        // SVG stroke avoids a second, slightly larger bar around the fill.
+        const bar = thickness > 0 ? new RoundedRect({ rect: [ 0, 0, advance, thickness ], fill, rounded, stroke: none }) : null
 
         // compute layout metrics
         const metrics: InlineMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
@@ -833,7 +834,6 @@ class MathRule extends Group {
 
 interface MathTextArgs extends GroupArgs {
     spacing?: number
-    inline?: boolean
     style?: MathStyle
     strut?: boolean
 }
@@ -932,7 +932,7 @@ class MathText extends MathRow {
     items: WithMath[]
 
     constructor(args: MathTextArgs = {}) {
-        const { children: children0, inline, style = 'text', strut = false, ...attr } = THEME(args, 'MathText')
+        const { children: children0, style = 'text', strut = false, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
         const mathItems = normalize_math_children(inputs, style)
 
@@ -945,13 +945,6 @@ class MathText extends MathRow {
         // pass to Group
         super({ children: items, ...attr })
         this.args = args
-
-        // HACK: shift coord for inline text alignment
-        if (inline && this.spec.coord != null) {
-            const [x1, y1, x2, y2] = this.spec.coord as Rect
-            const shift = INLINE_SHIFT * (y2 - y1)
-            this.spec.coord = [x1, y1 + shift, x2, y2 + shift]
-        }
 
         // set math metrics
         this.items = mathItems
@@ -1151,7 +1144,7 @@ class Frac extends Group {
     math: MathSpec
 
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.rule, style = 'display', ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.frac_rule, style = 'display', ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
         const nstyle = frac_num_style(style)
@@ -1174,7 +1167,8 @@ class Frac extends Group {
         const display = style_size(style) == 'display'
         const numShift = display ? (has_bar ? TEX.num1 : TEX.num3) : TEX.num2
         const denShift = display ? TEX.denom1 : TEX.denom2
-        const clearance = (has_bar ? (display ? 3 : 1) : (display ? 7 : 3)) * TEX.rule + pad_y
+        const rule_spacing = has_bar ? rule_size : TEX.rule
+        const clearance = (has_bar ? (display ? 3 : 1) : (display ? 7 : 3)) * rule_spacing + pad_y
         const half = has_bar ? 0.5 * rule_size : 0
 
         // numerator: baseline MATH_AXIS - shift, pushed up to clear the bar
@@ -1222,7 +1216,6 @@ function layout_line_decoration(body: WithMath, side: LineDecorationSide, thickn
     const rule = new MathRule({
         advance: body.math.advance,
         thickness,
-        rounded: 0,
         ...(color != null ? { fill: color } : {}),
     })
     const line_anchor = edge + direction * 3.5 * thickness
@@ -1678,7 +1671,7 @@ class Latex extends MathText {
         const elems = [ parse_math(tex, attr, style) ]
 
         // pass to MathText
-        super({ children: elems, inline, style, strut, ...spec })
+        super({ children: elems, style, strut, ...spec })
         this.args = args
     }
 }

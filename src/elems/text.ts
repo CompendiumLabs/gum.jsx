@@ -89,6 +89,8 @@ interface ElemSpanArgs extends GroupArgs {
     spacing?: boolean | number
 }
 
+const INLINE_MATH_SHIFT = -0.1
+
 class ElemSpan extends Group {
     constructor(args: ElemSpanArgs = {}) {
         const { children: children0, spacing: spacing0 = true, ...attr } = args
@@ -97,6 +99,17 @@ class ElemSpan extends Group {
         const aspect0 = child0.spec.aspect ?? 1
         const aspect = aspect0 + spacing
         const child = child0.clone({ align: 'left' })
+
+        // HStack centers arbitrary embedded elements, while math coordinates
+        // are centered on the math axis. Align math to the surrounding text
+        // baseline here, where it is actually being used inline, rather than
+        // changing the standalone Latex element selected by `inline`.
+        if ('math' in child && child.spec.coord != null) {
+            const [ x1, y1, x2, y2 ] = child.spec.coord
+            const shift = INLINE_MATH_SHIFT * (y2 - y1)
+            child.spec.coord = [ x1, y1 + shift, x2, y2 + shift ]
+        }
+
         super({ children: [ child ], aspect, ...attr })
     }
 }

@@ -9,5 +9,6 @@ For math-to-math neighbors, spacing is derived from atom classes like `mord`, `m
 Parameters:
 - `children` — math items, nested arrays of math items, or ordinary `Element`s
 - `spacing` = `0.25` — default spacing used between non-math neighbors and mixed math/non-math neighbors
-- `vshift` = `0.1` — vertical shift applied to the rendered row
+- `style` = `text` — TeX style used when parsing string and scalar children
+- `strut` = `false` — reserve a minimum top-level math line box
 - all usual stack layout parameters are also accepted
