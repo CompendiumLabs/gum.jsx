@@ -4,13 +4,13 @@ import { THEME } from '../lib/theme'
 import { none, black, red } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Element, Group, Spacer, spec_split, ensure_children } from './core'
-import { CoordLine, RoundedRect } from './geometry'
+import { Context, Element, Group, Spacer, spec_split, ensure_children } from './core'
+import { RoundedRect } from './geometry'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
 
-import type { Padding, Point, Rect, Limit, Align, Attrs } from '../lib/types'
+import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
 import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
@@ -800,7 +800,7 @@ class MathBox extends Group {
 interface MathRuleArgs extends GroupArgs {
     advance?: number
     thickness?: number
-    rounded?: number
+    rounded?: Rounded
     fill?: string
 }
 
@@ -1278,71 +1278,174 @@ class Overline extends Group {
 interface SqrtArgs extends GroupArgs {
     index?: Element | null
     padding?: Padding
+    rule_size?: number
+    line_width?: number
     style?: MathStyle
+}
+
+const RADICAL_FONTS: FontFamily[] = [
+    'KaTeX_Main',
+    'KaTeX_Size1',
+    'KaTeX_Size2',
+    'KaTeX_Size3',
+    'KaTeX_Size4',
+]
+
+interface RadicalSpanArgs extends MathSpanArgs {
+    fit_width?: boolean
+    fit_aspect?: number
+}
+
+// SVG text normally scales uniformly with its font size. The tall fallback
+// needs KaTeX's behavior instead: grow vertically while retaining the Size4
+// surd's advance. textLength constrains that one exceptional glyph's width.
+class RadicalSpan extends MathSpan {
+    fit_width: boolean
+
+    constructor(args: RadicalSpanArgs = {}) {
+        const { fit_width = false, fit_aspect, ...attr } = args
+        super(attr)
+        this.args = args
+        this.fit_width = fit_width
+        if (fit_aspect != null) {
+            this.spec.aspect = fit_aspect
+            this.spec.aspect0 = fit_aspect
+        }
+    }
+
+    props(ctx: Context): Attrs {
+        const attr = super.props(ctx)
+        if (!this.fit_width) return attr
+        const [ x1, , x2 ] = ctx.prect
+        return {
+            ...attr,
+            textLength: Math.abs(x2 - x1),
+            lengthAdjust: 'spacingAndGlyphs',
+        }
+    }
+}
+
+function radical_glyph(font_family: FontFamily, color: string | undefined): WithMath<RadicalSpan> {
+    return new RadicalSpan({
+        children: [ '\u221a' ],
+        font_family,
+        center: true,
+        ...(color != null ? { color } : {}),
+    })
+}
+
+// Pick the first natural KaTeX surd that covers the requested height. Beyond
+// Size4, keep its TeX-like horizontal proportions and stretch only vertically;
+// this is the same role played by KaTeX's tall-radical SVG fallback.
+function fit_radical(height: number, color: string | undefined): WithMath<RadicalSpan> {
+    let glyph = radical_glyph(RADICAL_FONTS[0], color)
+
+    for (const font of RADICAL_FONTS) {
+        glyph = radical_glyph(font, color)
+        if (metrics_height(glyph.math) >= height) return glyph
+    }
+
+    const naturalHeight = metrics_height(glyph.math)
+    const scale = height / naturalHeight
+    const [ lo, hi ] = metrics_bounds(glyph.math)
+    const aspect = glyph.math.advance / height
+    const fitted = glyph.clone({ fit_width: true, fit_aspect: aspect }) as RadicalSpan
+    const stretched = with_math(fitted, {
+        vrange: [ scale * lo, scale * hi ],
+        vanchor: 0,
+    })
+    return stretched
 }
 
 class Sqrt extends Group {
     math: MathSpec
 
     constructor(args: SqrtArgs = {}) {
-        const { children, index = null, color, padding = [0, 0.1, 0.1, 0.1], line_width = 0.05, style = 'text', ...attr } = THEME(args, 'Sqrt')
+        const {
+            children,
+            index = null,
+            color,
+            padding = 0,
+            rule_size: ruleSize0,
+            line_width: lineWidth,
+            style = 'text',
+            ...attr
+        } = THEME(args, 'Sqrt')
         const child = check_singleton(children)
         const body = normalize_math_leaf(child, cramped_style(style))
+        const ruleSize = ruleSize0 ?? lineWidth ?? TEX.rule
 
         // check child
         if (body == null) {
             throw new Error('Sqrt must have exactly one child')
         }
 
-        // build math-aware body box, floored to the strut line box (TeX's smallest
-        // radical is a fixed glyph; only taller bodies grow the radical)
-        const [ blo, bhi ] = metrics_bounds(body.math)
-        const [ pl, pt, pr, pb ] = padding_rect(padding)
-        const floored: Rect = [ pl, pt + Math.max(0, blo - STRUT[0]), pr, pb + Math.max(0, STRUT[1] - bhi) ]
-        const bodyBox = new MathBox({ children: [ body ], padding: floored })
+        // TeX Rule 11: the radicand is cramped, with a style-dependent gap
+        // below the rule. The smallest delimiter is still a full text surd.
+        const bodyBox = new MathBox({ children: [ body ], padding })
         const bodyHeight = metrics_height(bodyBox.math)
         const bodyWidth = bodyBox.math.advance
+        const phi = style_size(style) == 'display' ? TEX.x_height : ruleSize
+        let clearance = ruleSize + 0.25 * phi
+        const effectiveBodyHeight = Math.max(bodyHeight, TEX.x_height)
+        const minRadicalHeight = effectiveBodyHeight + clearance + ruleSize
+        const radical = fit_radical(minRadicalHeight, color)
+        const radicalHeight = metrics_height(radical.math)
 
-        // compute layout metrics
-        const gutter = 0.5 * bodyHeight
-        const width = gutter + bodyWidth
-        const body_rect: Rect = [ gutter, 0, width, bodyHeight ]
-        const coord: Rect = [ 0, 0, width, bodyHeight ]
-
-        // build radical around the boxed body
-        const radical = new CoordLine({
-            points: [
-                [ 0, 0.6 * bodyHeight ],
-                [ 0.1 * gutter, 0.5 * bodyHeight ],
-                [ 0.42 * gutter, 0.9 * bodyHeight ],
-                [ gutter, 0 ],
-                [ width, 0 ],
-            ],
-            coord,
-            line_width,
-            stroke: color,
-            stroke_linecap: 'round',
-            stroke_linejoin: 'round',
-        })
-
-        // build optional index element
-        const indexElem = index != null ? index.clone({ pos: [ 0.6 * gutter, 0.2 * bodyHeight ], ysize: 0.4 * bodyHeight, align: 'right' }) : null
-        const bodyElem = with_math(bodyBox, {}, { rect: body_rect })
-
-        // compute composite metrics by preserving the body anchor
-        const metrics: InlineMetrics = {
-            advance: width,
-            vrange: [ 0, bodyHeight ],
-            vanchor: bodyBox.math.vanchor,
+        // A natural delimiter is often taller than the minimum. Split that
+        // extra room above and below the body, as TeX/KaTeX do.
+        const radicalDepth = radicalHeight - ruleSize
+        if (radicalDepth > effectiveBodyHeight + clearance) {
+            clearance = 0.5 * (clearance + radicalDepth - effectiveBodyHeight)
         }
-        const aspect = metrics_aspect(metrics)
+
+        // Preserve the body's anchor. The surd and the square rule meet with a
+        // small overlap so rasterization cannot open a seam at their joint.
+        const [ bodyTop ] = metrics_bounds(bodyBox.math)
+        const ruleTop = bodyTop - clearance - ruleSize
+        const [ radicalTop ] = metrics_bounds(radical.math)
+        const radicalY = ruleTop - radicalTop
+        const radicalWidth = radical.math.advance
+        const overlap = Math.min(0.5 * ruleSize, radicalWidth)
+        const rule = new MathRule({
+            advance: overlap + bodyWidth,
+            thickness: ruleSize,
+            rounded: [ 0.5, 0, 0, 0.5 ],
+            ...(color != null ? { fill: color } : {}),
+        })
+        const [ ruleLo ] = metrics_bounds(rule.math)
+        const ruleY = ruleTop - ruleLo
+
+        const placed: Placed[] = [
+            { item: radical, x: 0, y: radicalY },
+            { item: rule, x: radicalWidth - overlap, y: ruleY },
+            { item: bodyBox, x: radicalWidth, y: 0 },
+        ]
+
+        // TeX always sets a root index in scriptscript style. Keep it inside
+        // the surd's horizontal advance, aligned with the upper-left shoulder.
+        if (index != null) {
+            const index0 = ensure_math(index)
+            const indexElem = scale_math(index0, relative_scale(style, 'scriptscript'))
+            const [ , indexBottom ] = metrics_bounds(indexElem.math)
+            const right = 0.65 * radicalWidth
+            const bottom = ruleTop + 0.55 * radicalHeight
+            placed.push({
+                item: indexElem,
+                x: Math.max(0, right - indexElem.math.advance),
+                y: bottom - indexBottom,
+            })
+        }
+
+        const root = place_items(placed, [ 0, 0 ], 'mord')
+        const { coord, aspect } = root.spec
 
         // pass to Group
-        super({ children: [ bodyElem, indexElem, radical ], coord, aspect, ...attr })
+        super({ children: root.children, coord, aspect, ...attr })
         this.args = args
 
         // set math metrics
-        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
+        this.math = root.math
     }
 }
 
