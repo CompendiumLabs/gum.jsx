@@ -114,8 +114,40 @@ declare module 'katex' {
         right: string
     }
 
+    export type TreeSpacing = {
+        type: 'spacing'
+        mode: SymbolMode
+        text: string
+    }
+
+    export type TreeMClass = {
+        type: 'mclass'
+        mode: SymbolMode
+        mclass: 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
+        body: TreeNode[]
+        isCharacterBox: boolean
+    }
+
+    export type TreeLap = {
+        type: 'lap'
+        mode: SymbolMode
+        alignment: 'llap' | 'rlap' | 'clap'
+        body: TreeNode
+    }
+
+    export type TreeHtmlMathml = {
+        type: 'htmlmathml'
+        mode: SymbolMode
+        html: TreeNode[]
+        mathml: TreeNode[]
+    }
+
     export type TreeNode =
         | TreeAtom
+        | TreeSpacing
+        | TreeMClass
+        | TreeLap
+        | TreeHtmlMathml
         | TreeTextOrd
         | TreeMathOrd
         | TreeOrdGroup

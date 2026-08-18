@@ -31,9 +31,10 @@ type MathSpec = {
     vrange: Limit
     vanchor: number
     italic: number  // superscript overhang past advance (TeX italic correction)
+    hrange?: Limit  // horizontal ink range from the cursor origin, when it differs from [0, advance] (TeX \rlap etc.)
 }
 
-type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic'>>
+type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'hrange'>>
 
 type WithMath<E extends Element = Element> = E & {
     math: MathSpec
@@ -178,7 +179,7 @@ const DEFAULT_INLINE_METRICS: InlineMetrics = {
     vanchor: MATH_AXIS,
 }
 
-function make_math({ left, right, advance, vrange, vanchor, italic }: Partial<MathSpec>): MathSpec {
+function make_math({ left, right, advance, vrange, vanchor, italic, hrange }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
@@ -186,6 +187,7 @@ function make_math({ left, right, advance, vrange, vanchor, italic }: Partial<Ma
         vrange: vrange ?? EMPTY_INLINE_METRICS.vrange,
         vanchor: vanchor ?? EMPTY_INLINE_METRICS.vanchor,
         italic: italic ?? 0,
+        hrange,
     }
 }
 
@@ -201,16 +203,21 @@ function metrics_height({ vrange: [ ylo, yhi ] }: InlineMetrics): number {
     return yhi - ylo
 }
 
+function metrics_hrange({ advance, hrange }: InlineMetrics): Limit {
+    return hrange ?? [ 0, advance ]
+}
+
+// the ink box aspect: width from hrange (advance unless overhanging), height from vrange
 function metrics_aspect(metrics: InlineMetrics): number | undefined {
-    const { advance } = metrics
+    const [ xlo, xhi ] = metrics_hrange(metrics)
     const height = metrics_height(metrics)
-    return height > 0 ? advance / height : undefined
+    return height > 0 ? (xhi - xlo) / height : undefined
 }
 
 function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rect {
-    const { advance } = metrics
+    const [ xlo, xhi ] = metrics_hrange(metrics)
     const [ ylo, yhi ] = metrics_bounds(metrics)
-    return [ x, y + ylo, x + advance, y + yhi ]
+    return [ x + xlo, y + ylo, x + xhi, y + yhi ]
 }
 
 function inherit_metrics(source: WithMath | MathSpec, patch: Partial<MathSpec> = {}): MathSpec {
@@ -245,17 +252,29 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
 // laid out at relative scale, and rendering follows the metrics
 function scale_math<E extends Element>(element: WithMath<E>, scale: number): WithMath<E> {
     if (scale == 1) return element
-    const { advance, vrange: [ ylo, yhi ], vanchor, italic } = element.math
+    const { advance, vrange: [ ylo, yhi ], vanchor, italic, hrange } = element.math
     return with_math(element, {
         advance: scale * advance,
         vrange: [ scale * ylo, scale * yhi ],
         vanchor: scale * vanchor,
         italic: scale * italic,
+        hrange: hrange != null ? [ scale * hrange[0], scale * hrange[1] ] : undefined,
     })
 }
 
 function ensure_math_children(children: Element[]): WithMath[] {
     return children.map(child => ensure_math(child))
+}
+
+// make an element opaque to row flattening: a MathText splices the items of
+// nested MathText rows, which would discard any metrics patched onto the row
+// itself (scaling, zero advance, class overrides). A single-item row is just
+// that item; longer rows are wrapped in a MathRow carrying their metrics
+function seal_math(element: WithMath): WithMath {
+    if (!(element instanceof MathText)) return element
+    if (element.items.length == 1) return element.items[0]
+    const { left, right } = element.math
+    return with_math(new MathRow({ children: [ element ] }), { left, right })
 }
 
 function inline_padding(padding: Padding | undefined): Point {
@@ -583,15 +602,20 @@ function layoutMathRow(items: WithMath[]): InlineLayout {
 
     // compute placements
     let xmax = 0
-    const children = items.map(item => {
+    const rects = items.map(item => {
         const { advance: x } = item.math
         xmax += x
-        return with_math(item, {}, { rect: metrics_rect(item.math, xmax - x, 0) })
+        return metrics_rect(item.math, xmax - x, 0)
     })
+    const children = items.map((item, i) => with_math(item, {}, { rect: rects[i] }))
+
+    // the ink hull covers the advance plus any overhang from the items
+    const [ xlo, xhi ] = merge_limits([ [ 0, advance ], ...rects.map(([ x1, , x2 ]) => [ x1, x2 ] as Limit) ])
+    const hrange: Limit | undefined = (xlo == 0 && xhi == advance) ? undefined : [ xlo, xhi ]
 
     // compute layout metrics
-    const metrics: InlineMetrics = { advance, vrange, vanchor: 0 }
-    const coord = join_limits({ h: [ 0, advance ], v: vrange })
+    const metrics: InlineMetrics = { advance, vrange, vanchor: 0, hrange }
+    const coord = join_limits({ h: [ xlo, xhi ], v: vrange })
     const aspect = metrics_aspect(metrics)
 
     // return layout
@@ -1423,8 +1447,10 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const { mode, text, family } = tree
             return new MathSymbol({ children: [ text ], mode, family, ...attr })
         } else if (type == 'ordgroup') {
+            // a braced group is a single Ord atom for spacing (TeX Rule 20)
             const { body } = tree
-            return convert_tree(body, attr, style)
+            const inner = seal_math(convert_tree(body, attr, style))
+            return with_math(inner, { left: 'mord', right: 'mord' })
         } else if (type == 'op') {
             const { name, limits } = tree
             return new MathOp({ children: [ name ], style, limits, ...attr })
@@ -1444,9 +1470,30 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const { dimension } = tree
             const em = measurement_to_em(dimension)
             return new MathSpacer({ advance: em })
+        } else if (type == 'spacing') {
+            const { mode, text } = tree
+            const entry = get_symbol_entry(mode, text)
+            if (entry?.replace == null) return EMPTY_MATH
+            return new MathSymbol({ children: [ text ], mode, ...attr })
+        } else if (type == 'mclass') {
+            const { mclass, body } = tree
+            const inner = seal_math(convert_tree(body, attr, style))
+            return with_math(inner, { left: mclass, right: mclass })
+        } else if (type == 'lap') {
+            // zero-advance box with content overhanging right (rlap), left (llap), or both (clap)
+            const { alignment, body } = tree
+            const inner = seal_math(convert_tree(body, attr, style))
+            const [ xlo, xhi ] = metrics_hrange(inner.math)
+            const shift = alignment == 'rlap' ? 0 : alignment == 'llap' ? -inner.math.advance : -0.5 * inner.math.advance
+            return with_math(inner, { advance: 0, hrange: [ xlo + shift, xhi + shift ] })
+        } else if (type == 'htmlmathml') {
+            // katex renders these differently for html and mathml; follow html
+            const { html } = tree
+            return convert_tree(html, attr, style)
         } else if (type == 'styling') {
             const { style: style1, body } = tree
-            return scale_math(convert_tree(body, attr, style1), relative_scale(style, style1))
+            const inner = seal_math(convert_tree(body, attr, style1))
+            return scale_math(inner, relative_scale(style, style1))
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
             const sstyle = script_style(style)

@@ -91,6 +91,6 @@ return <TitleBox border={2} rounded={0.02} clip margin title={title} title-size=
   </Graph>
   <Group rect={[0.025, 0.925, 0.975, 0.975]}>
     <Latex align="left">{`n = ${n}`}</Latex>
-    <Latex align="right">{`\\\\nu = ${m} \\\\approx n^{${delta1}} `}</Latex>
+    <Latex align="right">{`\\nu = ${m} \\approx n^{${delta1}} `}</Latex>
   </Group>
 </TitleBox>
