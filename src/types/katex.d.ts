@@ -82,6 +82,12 @@ declare module 'katex' {
         body: TreeNode
     }
 
+    export type TreeOverline = {
+        type: 'overline'
+        mode: SymbolMode
+        body: TreeNode
+    }
+
     export type TreeStyling = {
         type: 'styling'
         style: 'display' | 'text' | 'script' | 'scriptscript'
@@ -164,6 +170,7 @@ declare module 'katex' {
         | TreeStyling
         | TreeAccent
         | TreeUnderline
+        | TreeOverline
         | TreeSupSub
         | TreeGenFrac
         | TreeSqrt

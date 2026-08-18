@@ -71,6 +71,7 @@ const TEX = {
     rule: 0.04,         // default rule thickness
     sup1: 0.413,        // sup shift, display
     sup2: 0.363,        // sup shift, text and scripts
+    sup3: 0.289,        // sup shift, cramped styles
     sub1: 0.15,         // sub shift, no sup
     sub2: 0.247,        // sub shift, with sup
     sup_drop: 0.386,    // sup baseline below top of tall base
@@ -93,32 +94,71 @@ const TEX = {
 // math styles
 //
 
-// TeX-style size regimes: scripts descend one level, fraction contents descend
-// in inline styles, and glyph scale is fixed per level rather than derived
-// from the surrounding geometry
-type MathStyle = 'display' | 'text' | 'script' | 'scriptscript'
+// TeX's eight styles pair four size regimes with cramped/uncramped vertical
+// layout. Cramping preserves glyph size but changes script placement and is
+// inherited by superscripts; subscripts and fraction denominators are cramped.
+type MathSizeStyle = 'display' | 'text' | 'script' | 'scriptscript'
+type MathStyle = MathSizeStyle | `${MathSizeStyle}-cramped`
 
-const STYLE_SCALE: Record<MathStyle, number> = {
+const STYLE_SCALE: Record<MathSizeStyle, number> = {
     display: 1,
     text: 1,
     script: 0.7,
     scriptscript: 0.5,
 }
 
-function script_style(style: MathStyle): MathStyle {
-    return (style == 'display' || style == 'text') ? 'script' : 'scriptscript'
+function style_size(style: MathStyle): MathSizeStyle {
+    const suffix = '-cramped'
+    return style.endsWith(suffix) ? style.slice(0, -suffix.length) as MathSizeStyle : style as MathSizeStyle
 }
 
-function frac_style(style: MathStyle): MathStyle {
-    return style == 'display' ? 'text' : script_style(style)
+function is_cramped_style(style: MathStyle): boolean {
+    return style.endsWith('-cramped')
+}
+
+function make_style(size: MathSizeStyle, cramped: boolean): MathStyle {
+    return cramped ? `${size}-cramped` : size
+}
+
+function cramped_style(style: MathStyle): MathStyle {
+    return make_style(style_size(style), true)
+}
+
+function next_script_size(style: MathStyle): MathSizeStyle {
+    const size = style_size(style)
+    return (size == 'display' || size == 'text') ? 'script' : 'scriptscript'
+}
+
+function sup_style(style: MathStyle): MathStyle {
+    return make_style(next_script_size(style), is_cramped_style(style))
+}
+
+function sub_style(style: MathStyle): MathStyle {
+    return make_style(next_script_size(style), true)
+}
+
+function next_frac_size(style: MathStyle): MathSizeStyle {
+    const size = style_size(style)
+    if (size == 'display') return 'text'
+    if (size == 'text') return 'script'
+    return 'scriptscript'
+}
+
+function frac_num_style(style: MathStyle): MathStyle {
+    return make_style(next_frac_size(style), is_cramped_style(style))
+}
+
+function frac_den_style(style: MathStyle): MathStyle {
+    return make_style(next_frac_size(style), true)
 }
 
 function is_script_style(style: MathStyle): boolean {
-    return style == 'script' || style == 'scriptscript'
+    const size = style_size(style)
+    return size == 'script' || size == 'scriptscript'
 }
 
 function relative_scale(outer: MathStyle, inner: MathStyle): number {
-    return STYLE_SCALE[inner] / STYLE_SCALE[outer]
+    return STYLE_SCALE[style_size(inner)] / STYLE_SCALE[style_size(outer)]
 }
 
 //
@@ -567,8 +607,9 @@ class MathOp extends MathSymbol {
 
         // look up operator entry
         const { name, symbol, limits: limits1 } = get_op_entry(text)
+        const display = style_size(style) == 'display'
         const props = symbol ?
-            { mode: 'math' as SymbolMode, center: true, font_family: style == 'display' ? OP_DISPLAY_FONT : OP_TEXT_FONT } :
+            { mode: 'math' as SymbolMode, center: true, font_family: display ? OP_DISPLAY_FONT : OP_TEXT_FONT } :
             { mode: 'text' as SymbolMode, center: false }
 
         // pass to MathSymbol
@@ -577,7 +618,7 @@ class MathOp extends MathSymbol {
 
         // set limits flag
         const limits = limits0 ?? limits1
-        this.limits = limits && style == 'display'
+        this.limits = limits && display
     }
 }
 
@@ -985,7 +1026,7 @@ function layout_scripts(base: WithMath, sup: WithMath | null, sub: WithMath | nu
     let dsup = 0
     if (sup != null) {
         const [ , d ] = baseline_extents(sup, rel)
-        const p = style == 'display' ? TEX.sup1 : TEX.sup2
+        const p = style == 'display' ? TEX.sup1 : is_cramped_style(style) ? TEX.sup3 : TEX.sup2
         supShift = Math.max(u, p, d + 0.25 * TEX.x_height)
         dsup = d
     }
@@ -1055,13 +1096,16 @@ class SupSub extends MathRow {
             throw new Error('SupSub must have exactly one child')
         }
 
-        // scripts render one style level down
-        const sstyle = script_style(style)
-        const rel = relative_scale(style, sstyle)
-        const sup0m = normalize_math_leaf(sup0, sstyle)
-        const sub0m = normalize_math_leaf(sub0, sstyle)
+        // scripts render one size level down; superscripts inherit crampedness
+        // while subscripts are always cramped (TeX's eight-style transition table)
+        const supStyle = sup_style(style)
+        const subStyle = sub_style(style)
+        const rel = relative_scale(style, supStyle)
+        const subRel = relative_scale(style, subStyle)
+        const sup0m = normalize_math_leaf(sup0, supStyle)
+        const sub0m = normalize_math_leaf(sub0, subStyle)
         const sup = sup0m != null ? scale_math(sup0m, rel) : null
-        const sub = sub0m != null ? scale_math(sub0m, rel) : null
+        const sub = sub0m != null ? scale_math(sub0m, subRel) : null
 
         // limits stack over/under (by default when the base is a display-style
         // operator that takes them); side scripts follow the base plus script space
@@ -1110,9 +1154,10 @@ class Frac extends Group {
         const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.rule, style = 'display', ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
-        const fstyle = frac_style(style)
-        const numer1 = normalize_math_leaf(numer0, fstyle)
-        const denom1 = normalize_math_leaf(denom0, fstyle)
+        const nstyle = frac_num_style(style)
+        const dstyle = frac_den_style(style)
+        const numer1 = normalize_math_leaf(numer0, nstyle)
+        const denom1 = normalize_math_leaf(denom0, dstyle)
 
         // check children
         if (numer1 == null || denom1 == null) {
@@ -1120,12 +1165,13 @@ class Frac extends Group {
         }
 
         // fraction contents render one style level down in inline styles
-        const rel = relative_scale(style, frac_style(style))
+        const rel = relative_scale(style, nstyle)
+        const drel = relative_scale(style, dstyle)
         const numer = scale_math(numer1, rel)
-        const denom = scale_math(denom1, rel)
+        const denom = scale_math(denom1, drel)
 
         // style parameters: baseline shifts and clearance from the bar
-        const display = style == 'display'
+        const display = style_size(style) == 'display'
         const numShift = display ? (has_bar ? TEX.num1 : TEX.num3) : TEX.num2
         const denShift = display ? TEX.denom1 : TEX.denom2
         const clearance = (has_bar ? (display ? 3 : 1) : (display ? 7 : 3)) * TEX.rule + pad_y
@@ -1158,12 +1204,33 @@ class Frac extends Group {
 }
 
 //
-// underline
+// over/underline
 //
 
-interface UnderlineArgs extends GroupArgs {
+interface LineDecorationArgs extends GroupArgs {
     thickness?: number
     color?: string
+    style?: MathStyle
+}
+
+type LineDecorationSide = 'over' | 'under'
+
+function layout_line_decoration(body: WithMath, side: LineDecorationSide, thickness: number, color?: string): WithMath<Group> {
+    const [ top, bottom ] = metrics_bounds(body.math)
+    const edge = side == 'over' ? top : bottom
+    const direction = side == 'over' ? -1 : 1
+    const rule = new MathRule({
+        advance: body.math.advance,
+        thickness,
+        rounded: 0,
+        ...(color != null ? { fill: color } : {}),
+    })
+    const line_anchor = edge + direction * 3.5 * thickness
+    const padding: Limit = side == 'over' ? [ thickness, 0 ] : [ 0, thickness ]
+    return place_items([
+        { item: body, x: 0, y: 0 },
+        { item: rule, x: 0, y: line_anchor },
+    ], padding, 'mord')
 }
 
 // TeX Rule 10: keep the body's baseline and top fixed, then place a rule
@@ -1171,32 +1238,43 @@ interface UnderlineArgs extends GroupArgs {
 class Underline extends Group {
     math: MathSpec
 
-    constructor(args: UnderlineArgs = {}) {
-        const { children, thickness = TEX.rule, color, ...attr } = THEME(args, 'Underline')
+    constructor(args: LineDecorationArgs = {}) {
+        const { children, thickness = TEX.rule, color, style = 'text', ...attr } = THEME(args, 'Underline')
         const child = check_singleton(children)
-        const body = normalize_math_leaf(child)
+        const body = normalize_math_leaf(child, style)
 
         if (body == null) {
             throw new Error('Underline must have exactly one child')
         }
 
-        const [ , bottom ] = metrics_bounds(body.math)
-        const rule = new MathRule({
-            advance: body.math.advance,
-            thickness,
-            rounded: 0,
-            ...(color != null ? { fill: color } : {}),
-        })
-        const line_anchor = bottom + 3.5 * thickness
-        const underlined = place_items([
-            { item: body, x: 0, y: 0 },
-            { item: rule, x: 0, y: line_anchor },
-        ], [ 0, thickness ], 'mord')
+        const underlined = layout_line_decoration(body, 'under', thickness, color)
 
         const { coord, aspect } = underlined.spec
         super({ children: underlined.children, coord, aspect, ...attr })
         this.args = args
         this.math = underlined.math
+    }
+}
+
+// TeX Rule 9 mirrors underline above the body, but first lays out the body in
+// the cramped version of the surrounding style.
+class Overline extends Group {
+    math: MathSpec
+
+    constructor(args: LineDecorationArgs = {}) {
+        const { children, thickness = TEX.rule, color, style = 'text', ...attr } = THEME(args, 'Overline')
+        const child = check_singleton(children)
+        const body = normalize_math_leaf(child, cramped_style(style))
+
+        if (body == null) {
+            throw new Error('Overline must have exactly one child')
+        }
+
+        const overlined = layout_line_decoration(body, 'over', thickness, color)
+        const { coord, aspect } = overlined.spec
+        super({ children: overlined.children, coord, aspect, ...attr })
+        this.args = args
+        this.math = overlined.math
     }
 }
 
@@ -1207,15 +1285,16 @@ class Underline extends Group {
 interface SqrtArgs extends GroupArgs {
     index?: Element | null
     padding?: Padding
+    style?: MathStyle
 }
 
 class Sqrt extends Group {
     math: MathSpec
 
     constructor(args: SqrtArgs = {}) {
-        const { children, index = null, color, padding = [0, 0.1, 0.1, 0.1], line_width = 0.05, ...attr } = THEME(args, 'Sqrt')
+        const { children, index = null, color, padding = [0, 0.1, 0.1, 0.1], line_width = 0.05, style = 'text', ...attr } = THEME(args, 'Sqrt')
         const child = check_singleton(children)
-        const body = normalize_math_leaf(child)
+        const body = normalize_math_leaf(child, cramped_style(style))
 
         // check child
         if (body == null) {
@@ -1539,16 +1618,16 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             return scale_math(inner, relative_scale(style, style1))
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
-            const sstyle = script_style(style)
+            const supStyle = sup_style(style)
+            const subStyle = sub_style(style)
             const base = convert_tree(base0, attr, style)
-            const sup = sup0 ? convert_tree(sup0, attr, sstyle) : null
-            const sub = sub0 ? convert_tree(sub0, attr, sstyle) : null
+            const sup = sup0 ? convert_tree(sup0, attr, supStyle) : null
+            const sub = sub0 ? convert_tree(sub0, attr, subStyle) : null
             return new SupSub({ children: [ base ], sup, sub, style, ...attr })
         } else if (type == 'genfrac') {
             const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
-            const fstyle = frac_style(style)
-            const numer = convert_tree(numer0, attr, fstyle)
-            const denom = convert_tree(denom0, attr, fstyle)
+            const numer = convert_tree(numer0, attr, frac_num_style(style))
+            const denom = convert_tree(denom0, attr, frac_den_style(style))
             const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine, style, ...attr })
             if (leftDelim != null || rightDelim != null) {
                 return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, ...attr })
@@ -1557,12 +1636,16 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
         } else if (type == 'underline') {
             const { body: body0 } = tree
             const body = convert_tree(body0, attr, style)
-            return new Underline({ children: [ body ], ...attr })
+            return new Underline({ children: [ body ], style, ...attr })
+        } else if (type == 'overline') {
+            const { body: body0 } = tree
+            const body = convert_tree(body0, attr, cramped_style(style))
+            return new Overline({ children: [ body ], style, ...attr })
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
-            const body = convert_tree(body0, attr, style)
+            const body = convert_tree(body0, attr, cramped_style(style))
             const index = index0 ? convert_tree(index0, attr, 'scriptscript') : null
-            return new Sqrt({ children: [ body ], index, ...attr })
+            return new Sqrt({ children: [ body ], index, style, ...attr })
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
             const body = convert_tree(body0, attr, style)
@@ -1610,5 +1693,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Underline, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
