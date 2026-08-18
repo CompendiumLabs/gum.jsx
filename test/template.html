@@ -53,7 +53,11 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   }
+  .card:hover { border-color: var(--muted); box-shadow: 0 0.35rem 1.2rem #0002; transform: translateY(-1px); }
+  .card:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; }
   .card.fail { border-color: var(--fail-border); }
   .head {
     display: flex; justify-content: space-between; align-items: center;
@@ -69,7 +73,7 @@
   }
   .status.pass { background: var(--pass-bg); color: var(--pass); }
   .status.fail { background: var(--fail-bg); color: var(--fail); }
-  .controls { display: flex; align-items: center; gap: 0.6rem; }
+  .controls { display: flex; align-items: center; gap: 0.75rem; }
 
   /* code/image switch */
   .switch { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; user-select: none; }
@@ -87,17 +91,13 @@
   .switch input:checked + .track::after { transform: translateX(0.75rem); }
   .switch-label { font-size: 0.7rem; color: var(--faint); }
 
-  /* image / code views share a fixed-height box so cards never resize; the
-     image fits inside it and long code scrolls within it */
-  .view { height: 18rem; display: flex; flex-direction: column; overflow: hidden; }
+  /* Summary cards are image-only and stay a consistent height. */
+  .card-view { height: 18rem; display: flex; flex-direction: column; overflow: hidden; }
   .image {
     flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
     padding: 1rem;
   }
   .image svg { width: auto; height: auto; max-width: 100%; max-height: 100%; }
-  .code { display: none; flex: 1; min-height: 0; overflow: auto; }
-  .card:has(.show-code:checked) .image { display: none; }
-  .card:has(.show-code:checked) .code { display: block; }
   .error {
     color: var(--fail); padding: 1rem;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -108,12 +108,49 @@
   .code pre {
     margin: 0; padding: 0.75rem 1rem; height: 100%;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 0.75rem; line-height: 1.55; tab-size: 4;
+    font-size: 0.9rem; line-height: 1.55; tab-size: 4;
     white-space: pre-wrap; word-break: break-word;
     background: var(--code-bg) !important;
   }
   [data-theme="dark"] .shiki, [data-theme="dark"] .shiki span { color: var(--shiki-dark); }
   [data-theme="light"] .shiki, [data-theme="light"] .shiki span { color: var(--shiki-light); }
+
+  /* Large image/code dialog shared by every card. */
+  .modal {
+    width: min(1100px, calc(100vw - 3rem));
+    height: min(850px, calc(100vh - 3rem));
+    max-width: none; max-height: none; margin: auto; padding: 0;
+    color: var(--fg); background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 1rem 4rem #0008;
+  }
+  .modal[open] { display: flex; flex-direction: column; }
+  .modal::backdrop { background: #000a; backdrop-filter: blur(2px); }
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    flex: none; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border);
+  }
+  .modal-view { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+  .modal-images { display: flex; flex: 1; min-width: 0; min-height: 0; }
+  .modal .image { width: 100%; height: 100%; padding: 2rem; }
+  .modal .image svg { width: 100%; height: 100%; }
+  .modal .code { display: none; flex: 1; min-width: 0; min-height: 0; overflow: auto; }
+  .modal.show-code .modal-images { display: none; }
+  .modal.show-code .code { display: block; }
+  .close {
+    width: 1.8rem; height: 1.8rem; border: 0; border-radius: 50%;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font: 1.25rem/1 inherit;
+  }
+  .close:hover { color: var(--fg); background: var(--border); }
+  .close:focus-visible { outline: 2px solid var(--pass); outline-offset: 1px; }
+
+  @media (max-width: 600px) {
+    body { padding: 1rem; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .modal { width: calc(100vw - 1rem); height: calc(100vh - 1rem); }
+    .modal .image { padding: 1rem; }
+  }
 </style>
 </head>
 <body>
@@ -125,6 +162,20 @@
   <button class="toggle" id="toggle" type="button"></button>
 </header>
 {{sections}}
+<dialog class="modal" id="example-modal" aria-labelledby="modal-name">
+  <div class="modal-head">
+    <span class="name" id="modal-name"></span>
+    <span class="controls">
+      <label class="switch" title="show code"><input type="checkbox" id="show-code"><span class="track"></span><span class="switch-label">code</span></label>
+      <span class="status" id="modal-status"></span>
+      <button class="close" id="modal-close" type="button" aria-label="close">&times;</button>
+    </span>
+  </div>
+  <div class="modal-view">
+    <div class="modal-images" id="modal-images"></div>
+    <div class="code" id="modal-code"></div>
+  </div>
+</dialog>
 <script>
   const root = document.documentElement
   const button = document.getElementById('toggle')
@@ -136,6 +187,53 @@
     root.dataset.theme = root.dataset.theme == 'dark' ? 'light' : 'dark'
     localStorage.setItem('gum-report-theme', root.dataset.theme)
     label()
+  })
+
+  const modal = document.getElementById('example-modal')
+  const modalName = document.getElementById('modal-name')
+  const modalStatus = document.getElementById('modal-status')
+  const modalImages = document.getElementById('modal-images')
+  const modalCode = document.getElementById('modal-code')
+  const showCode = document.getElementById('show-code')
+  const close = document.getElementById('modal-close')
+  let activeCard = null
+
+  const openExample = card => {
+    const name = card.querySelector('.name')
+    const status = card.querySelector('.status')
+    const code = card.querySelector('.code-template')
+
+    activeCard = card
+    modalName.textContent = name.textContent
+    modalStatus.textContent = status.textContent
+    modalStatus.className = status.className
+    modalImages.replaceChildren(...[...card.querySelectorAll('.image')].map(image => image.cloneNode(true)))
+    modalCode.replaceChildren(code.content.cloneNode(true))
+    showCode.checked = false
+    modal.classList.remove('show-code')
+    modal.showModal()
+    close.focus()
+  }
+
+  for (const card of document.querySelectorAll('.card')) {
+    card.addEventListener('click', () => openExample(card))
+    card.addEventListener('keydown', event => {
+      if (event.key != 'Enter' && event.key != ' ') return
+      event.preventDefault()
+      openExample(card)
+    })
+  }
+
+  showCode.addEventListener('change', () => modal.classList.toggle('show-code', showCode.checked))
+  close.addEventListener('click', () => modal.close())
+  modal.addEventListener('click', event => {
+    if (event.target == modal) modal.close()
+  })
+  modal.addEventListener('close', () => {
+    modalImages.replaceChildren()
+    modalCode.replaceChildren()
+    activeCard?.focus()
+    activeCard = null
   })
 </script>
 </body>

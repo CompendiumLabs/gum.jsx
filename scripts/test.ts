@@ -126,8 +126,8 @@ async function makeHighlighter(): Promise<Highlight> {
 
 // svg files are written standalone for inspection, but inlined into the page
 // so they can use the page's @font-face declarations; both themes are inlined
-// and the page toggle picks which one is visible; the code view swaps in for
-// the image via a per-card switch
+// and the page toggle picks which one is visible. Code is kept in an inert
+// template until the card is opened in the shared example dialog.
 function makeCard(result: Result, highlight: Highlight): string {
     const { file, code, renders } = result
     const status = isPass(result) ? 'pass' : 'fail'
@@ -136,19 +136,16 @@ function makeCard(result: Result, highlight: Highlight): string {
         const inner = error == null ? svg : `<div class="error">${escapeHtml(error ?? '')}</div>`
         return `<div class="image theme-${theme}">${inner}</div>`
     }).join('\n  ')
-    return `<div class="card ${status}">
+    return `<article class="card ${status}" tabindex="0" role="button" aria-haspopup="dialog">
   <div class="head">
     <span class="name">${escapeHtml(file)}</span>
-    <span class="controls">
-      <label class="switch" title="show code"><input type="checkbox" class="show-code"><span class="track"></span><span class="switch-label">code</span></label>
-      <span class="status ${status}">${status.toUpperCase()}</span>
-    </span>
+    <span class="status ${status}">${status.toUpperCase()}</span>
   </div>
-  <div class="view">
+  <div class="card-view">
   ${images}
-  <div class="code">${highlight(code.trim())}</div>
   </div>
-</div>`
+  <template class="code-template">${highlight(code.trim())}</template>
+</article>`
 }
 
 function makeSection(dir: string, items: Result[], highlight: Highlight): string {
