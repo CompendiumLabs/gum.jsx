@@ -259,9 +259,10 @@ const handlers: Record<string, (node: ASTNode) => any> = {
     return `\`${items.join('')}\``
   },
   TemplateElement(node) {
+    // re-emitted inside backticks, so keep the raw (still-escaped) source
     const { value } = node
-    const { cooked } = value
-    return cooked
+    const { raw } = value
+    return raw
   },
   BlockStatement(node) {
     const { body } = node
@@ -319,9 +320,11 @@ const handlers: Record<string, (node: ASTNode) => any> = {
   },
   JSXAttribute(node) {
     const { name, value } = node
+    // JSX string attributes are raw (no escape processing), unlike JS literals
+    const raw = value?.type == 'Literal' ? JSON.stringify(value.value) : walkTree(value)
     return {
       key: snakeCase(walkTree(name)),
-      value: walkTree(value) ?? true
+      value: raw ?? true
     }
   },
   JSXMemberExpression(_node) {},

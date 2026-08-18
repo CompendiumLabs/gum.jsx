@@ -2,7 +2,7 @@
 
 *Inherits*: [HStack](/docs/HStack) > [Group](/docs/Group) > [Element](/docs/Element)
 
-Arranges math items in a horizontal row with automatic inter-atom spacing. Strings, numbers, and booleans are automatically converted to math symbols, nested **MathText** is flattened, and ordinary gum [Element](/docs/Element) values can be mixed inline as well.
+Arranges math items in a horizontal row with automatic inter-atom spacing. Strings and numbers are parsed as LaTeX (as in [Latex](/docs/Latex)), nested **MathText** is flattened, and ordinary gum [Element](/docs/Element) values can be mixed inline as well.
 
 For math-to-math neighbors, spacing is derived from atom classes like `mord`, `mbin`, and `mrel`. For mixed or non-math neighbors, the fallback `spacing` value is used.
 

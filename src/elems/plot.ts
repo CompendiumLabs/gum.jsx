@@ -296,7 +296,6 @@ interface AxisArgs extends GroupArgs {
     label_offset?: number
     label_justify?: AlignValue
     label_loc?: number
-    discrete?: boolean
     prec?: number
     debug?: boolean
 }
@@ -307,7 +306,7 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0, label_justify: label_justify0, label_loc, discrete = false, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0, label_justify: label_justify0, label_loc, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
         const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim

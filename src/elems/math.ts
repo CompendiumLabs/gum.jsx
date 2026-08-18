@@ -491,6 +491,78 @@ class MathSymbol extends MathSpan {
 }
 
 //
+// math operator
+//
+
+// operators whose scripts stack as limits in display style (from katex's
+// functions/op.js); other symbol operators (\int, ...) and named functions
+// (\sin, ...) take side scripts
+const OP_SYMBOL_LIMITS = [
+    '\\coprod', '\\bigvee', '\\bigwedge', '\\biguplus', '\\bigcap', '\\bigcup', '\\intop', '\\prod', '\\sum',
+    '\\bigotimes', '\\bigoplus', '\\bigodot', '\\bigsqcup', '\\smallint',
+]
+const OP_NAME_LIMITS = [ '\\det', '\\gcd', '\\inf', '\\lim', '\\max', '\\min', '\\Pr', '\\sup' ]
+
+// unicode big operators map to their command names
+const OP_UNICODE: Record<string, string> = {
+    '\u220F': '\\prod', '\u2210': '\\coprod', '\u2211': '\\sum', '\u22c0': '\\bigwedge', '\u22c1': '\\bigvee',
+    '\u22c2': '\\bigcap', '\u22c3': '\\bigcup', '\u2a00': '\\bigodot', '\u2a01': '\\bigoplus', '\u2a02': '\\bigotimes',
+    '\u2a04': '\\biguplus', '\u2a06': '\\bigsqcup', '\u222b': '\\int', '\u222c': '\\iint', '\u222d': '\\iiint',
+    '\u222e': '\\oint', '\u222f': '\\oiint', '\u2230': '\\oiiint',
+}
+
+interface OpEntry {
+    name: string
+    symbol: boolean
+    limits: boolean
+}
+
+// classify an operator by command name (`\sum`), unicode glyph (`∑`), or plain
+// text (`lim`, `argmax`); unknown names fall back to named (text) operators
+function get_op_entry(text: string): OpEntry {
+    const name0 = OP_UNICODE[text] ?? text
+    if (get_symbol_entry('math', name0)?.family == 'op-token') {
+        return { name: name0, symbol: true, limits: OP_SYMBOL_LIMITS.includes(name0) }
+    }
+    const name = name0.startsWith('\\') ? name0.slice(1) : name0
+    const limits = OP_NAME_LIMITS.includes(`\\${name}`)
+    return { name, symbol: false, limits }
+}
+
+interface MathOpArgs extends MathSymbolArgs {
+    style?: MathStyle
+    limits?: boolean
+}
+
+// large operator or named function: symbol operators (∑, ∫, ...) are glyphs
+// centered on the axis (TeX Rule 13) at the size for the given style, while
+// named operators (lim, sin, ...) are upright text on the baseline. `limits`
+// overrides the operator's intrinsic flag; scripts stack as limits only in
+// display style (TeX Rule 13a), which `SupSub` reads from `this.limits`
+class MathOp extends MathSymbol {
+    limits: boolean
+
+    constructor(args: MathOpArgs = {}) {
+        const { children, style = 'display', limits: limits0, klass = 'mop', ...attr } = THEME(args, 'MathOp')
+        const text = check_string(children)
+
+        // look up operator entry
+        const { name, symbol, limits: limits1 } = get_op_entry(text)
+        const props = symbol ?
+            { mode: 'math' as SymbolMode, center: true, font_family: style == 'display' ? OP_DISPLAY_FONT : OP_TEXT_FONT } :
+            { mode: 'text' as SymbolMode, center: false }
+
+        // pass to MathSymbol
+        super({ children: [ name ], klass, ...props, ...attr })
+        this.args = args
+
+        // set limits flag
+        const limits = limits0 ?? limits1
+        this.limits = limits && style == 'display'
+    }
+}
+
+//
 // math row
 //
 
@@ -703,20 +775,33 @@ interface MathTextArgs extends GroupArgs {
 
 type MathLeaf = Element | string | number | boolean | null | undefined
 
-function normalize_math_leaf(child: MathLeaf): WithMath | undefined {
+// parse a TeX string into math elements in the given style, rendering the raw
+// text in red on a parse error (as Latex does)
+function parse_math(tex: string, attr: Attrs = {}, style: MathStyle = 'display'): WithMath {
+    try {
+        const tree = parse_tex(tex)
+        return convert_tree(tree, attr, style)
+    } catch (e) {
+        return new MathSpan({ children: [ tex ], color: red })
+    }
+}
+
+// elements pass through the inline protocol; strings, numbers, and booleans
+// are parsed as TeX in the given style
+function normalize_math_leaf(child: MathLeaf, style: MathStyle = 'text'): WithMath | undefined {
     if (child == null) {
         return
     } else if (child instanceof Element) {
         return ensure_math(child)
     } else if (is_scalar(child) || is_string(child) || is_boolean(child)) {
         const text = String(child)
-        return new MathSymbol({ children: [ text ] })
+        return parse_math(text, {}, style)
     } else {
         throw new Error(`Unknown math leaf type: ${typeof child}`)
     }
 }
 
-function normalize_math_children(children0: Element | Element[]): WithMath[] {
+function normalize_math_children(children0: Element | Element[], style: MathStyle = 'text'): WithMath[] {
     const children = is_array(children0) ? children0 : [ children0 ]
     const out: WithMath[] = []
 
@@ -724,13 +809,15 @@ function normalize_math_children(children0: Element | Element[]): WithMath[] {
         if (child == null) {
             continue
         } else if (is_array(child)) {
-            out.push(...normalize_math_children(child))
+            out.push(...normalize_math_children(child, style))
             continue
-        } else if (child instanceof MathText) {
-            out.push(...child.items)
+        }
+        const elem = normalize_math_leaf(child, style)
+        if (elem == null) {
+            continue
+        } else if (elem instanceof MathText) {
+            out.push(...elem.items)
         } else {
-            const elem = normalize_math_leaf(child)
-            if (elem == null) continue
             out.push(elem)
         }
     }
@@ -782,7 +869,7 @@ class MathText extends MathRow {
     constructor(args: MathTextArgs = {}) {
         const { children: children0, inline, style = 'text', strut = false, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
-        const mathItems = normalize_math_children(inputs)
+        const mathItems = normalize_math_children(inputs, style)
 
         // compress spacing and layout, with an optional strut (TeX \strut)
         // guaranteeing a minimum line box for top-level math
@@ -935,9 +1022,9 @@ interface SupSubArgs extends StackArgs {
 
 class SupSub extends MathRow {
     constructor(args: SupSubArgs = {}) {
-        const { children, sup: sup0, sub: sub0, style = 'text', limits = false, ...attr } = THEME(args, 'SupSub')
+        const { children, sup: sup0, sub: sub0, style = 'text', limits: limits0, ...attr } = THEME(args, 'SupSub')
         const child = ensure_singleton(children)
-        const base = normalize_math_leaf(child)
+        const base = normalize_math_leaf(child, style)
 
         // check child
         if (base == null) {
@@ -945,13 +1032,16 @@ class SupSub extends MathRow {
         }
 
         // scripts render one style level down
-        const rel = relative_scale(style, script_style(style))
-        const sup0m = normalize_math_leaf(sup0)
-        const sub0m = normalize_math_leaf(sub0)
+        const sstyle = script_style(style)
+        const rel = relative_scale(style, sstyle)
+        const sup0m = normalize_math_leaf(sup0, sstyle)
+        const sub0m = normalize_math_leaf(sub0, sstyle)
         const sup = sup0m != null ? scale_math(sup0m, rel) : null
         const sub = sub0m != null ? scale_math(sub0m, rel) : null
 
-        // limits stack over/under; side scripts follow the base plus script space
+        // limits stack over/under (by default when the base is a display-style
+        // operator that takes them); side scripts follow the base plus script space
+        const limits = limits0 ?? (base instanceof MathOp && base.limits)
         let items: WithMath[]
         if (limits) {
             items = [ layout_limits(base, sup, sub, rel) ]
@@ -996,8 +1086,9 @@ class Frac extends Group {
         const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.rule, style = 'display', ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
-        const numer1 = normalize_math_leaf(numer0)
-        const denom1 = normalize_math_leaf(denom0)
+        const fstyle = frac_style(style)
+        const numer1 = normalize_math_leaf(numer0, fstyle)
+        const denom1 = normalize_math_leaf(denom0, fstyle)
 
         // check children
         if (numer1 == null || denom1 == null) {
@@ -1306,19 +1397,6 @@ class Bracket extends MathRow {
 }
 
 //
-// math operator
-//
-
-// large operator symbol: an operator-class glyph centered on the axis (TeX Rule 13)
-class MathOp extends MathSymbol {
-    constructor(args: MathSymbolArgs = {}) {
-        const { klass = 'mop', center = true, ...attr } = THEME(args, 'MathOp')
-        super({ klass, center, ...attr })
-        this.args = args
-    }
-}
-
-//
 // parse katex tree
 //
 
@@ -1348,15 +1426,8 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const { body } = tree
             return convert_tree(body, attr, style)
         } else if (type == 'op') {
-            const { mode, name } = tree
-            const entry = get_symbol_entry(mode, name)
-            if (entry != null) {
-                const font_family = style == 'display' ? OP_DISPLAY_FONT : OP_TEXT_FONT
-                return new MathOp({ children: [ name ], mode, font_family, ...attr })
-            } else {
-                const name1 = name.slice(1)
-                return new MathSymbol({ children: [ name1 ], mode: 'text', klass: 'mop', ...attr })
-            }
+            const { name, limits } = tree
+            return new MathOp({ children: [ name ], style, limits, ...attr })
         } else if (type == 'text') {
             const { body } = tree
             return convert_tree(body, attr, style)
@@ -1382,8 +1453,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const base = convert_tree(base0, attr, style)
             const sup = sup0 ? convert_tree(sup0, attr, sstyle) : null
             const sub = sub0 ? convert_tree(sub0, attr, sstyle) : null
-            const limits = style == 'display' && base0 != null && !is_array(base0) && base0.type == 'op' && (base0.limits ?? false)
-            return new SupSub({ children: [ base ], sup, sub, style, limits, ...attr })
+            return new SupSub({ children: [ base ], sup, sub, style, ...attr })
         } else if (type == 'genfrac') {
             const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
             const fstyle = frac_style(style)
@@ -1427,16 +1497,8 @@ class Latex extends MathText {
         const tex = check_string(children)
         const [ spec, attr ] = spec_split(attr0)
 
-        // parse to AST
-        const elems: WithMath[] = []
-        try {
-            const tree = parse_tex(tex)
-            const items = tree.map(tree => convert_tree(tree, attr, style))
-            elems.push(...items)
-        } catch (e) {
-            const error = new MathSpan({ children: [ tex ], color: red })
-            elems.push(error)
-        }
+        // parse and convert to math elements
+        const elems = [ parse_math(tex, attr, style) ]
 
         // pass to MathText
         super({ children: elems, inline, style, strut, ...spec })
@@ -1455,4 +1517,4 @@ class Tex extends Latex {
 //
 
 export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex }
-export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathTextArgs }
+export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
