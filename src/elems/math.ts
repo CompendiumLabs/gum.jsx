@@ -1158,6 +1158,49 @@ class Frac extends Group {
 }
 
 //
+// underline
+//
+
+interface UnderlineArgs extends GroupArgs {
+    thickness?: number
+    color?: string
+}
+
+// TeX Rule 10: keep the body's baseline and top fixed, then place a rule
+// below its ink with a three-rule gap and one extra rule of trailing depth.
+class Underline extends Group {
+    math: MathSpec
+
+    constructor(args: UnderlineArgs = {}) {
+        const { children, thickness = TEX.rule, color, ...attr } = THEME(args, 'Underline')
+        const child = check_singleton(children)
+        const body = normalize_math_leaf(child)
+
+        if (body == null) {
+            throw new Error('Underline must have exactly one child')
+        }
+
+        const [ , bottom ] = metrics_bounds(body.math)
+        const rule = new MathRule({
+            advance: body.math.advance,
+            thickness,
+            rounded: 0,
+            ...(color != null ? { fill: color } : {}),
+        })
+        const line_anchor = bottom + 3.5 * thickness
+        const underlined = place_items([
+            { item: body, x: 0, y: 0 },
+            { item: rule, x: 0, y: line_anchor },
+        ], [ 0, thickness ], 'mord')
+
+        const { coord, aspect } = underlined.spec
+        super({ children: underlined.children, coord, aspect, ...attr })
+        this.args = args
+        this.math = underlined.math
+    }
+}
+
+//
 // sqrt
 //
 
@@ -1511,6 +1554,10 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
                 return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, ...attr })
             }
             return frac
+        } else if (type == 'underline') {
+            const { body: body0 } = tree
+            const body = convert_tree(body0, attr, style)
+            return new Underline({ children: [ body ], ...attr })
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
             const body = convert_tree(body0, attr, style)
@@ -1563,5 +1610,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Underline, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
