@@ -113,10 +113,9 @@ function rotate_repr(rotate: number, pos: Point, prec: number = D.prec): string 
     return `rotate(${rounder(rotate, prec)}, ${rounder(x, prec)}, ${rounder(y, prec)})`
 }
 
-function adjust_rotate(rotate: number, prect: Rect, coord: Rect): number {
+function adjust_rotate(rotate: number, psize: Size, coord: Rect): number {
     if (rotate == 0) return rotate
     const csize = rect_size(coord)
-    const psize = rect_size(prect)
     const proj = div2(psize, csize)
     const vec = polard(rotate, proj)
     return vector_angle(vec)
@@ -209,11 +208,18 @@ class Context {
         const prect0 = this.mapRect(rect ?? this.coord, offset)
         const [ x0, y0, w0, h0 ] = rect_cbox(prect0)
 
-        // possibly adjust rotate for aspect ratio
-        const rotate1 = rotate_adjust ? adjust_rotate(rotate, prect0, coord) : rotate
+        // degenerate (zero-size) dimensions inherit their orientation from the parent
+        const [ pw, ph ] = rect_size(this.prect)
+        const [ sw, sh ] = [ heavisign(w0 || pw), heavisign(h0 || ph) ]
+
+        // possibly adjust rotate for aspect ratio (fall back to aspect frame if degenerate)
+        const degen = (w0 == 0 || h0 == 0) && aspect != null
+        const frame: Size = degen ? [ sw * aspect, sh ] : [ w0, h0 ]
+        const rotate1 = rotate_adjust ? adjust_rotate(rotate, frame, coord) : rotate
 
         // rotate rect inside
-        const [ w, h ] = rotate_rect([ w0, h0 ], rotate1, { aspect, expand, rotate_invar })
+        const [ w1, h1 ] = rotate_rect([ abs(w0), abs(h0) ], rotate1, { aspect, expand, rotate_invar })
+        const [ w, h ] = [ sw * w1, sh * h1 ]
         const transform = rotate1 ? rotate_repr(rotate1, [ x0, y0 ], this.prec) : undefined
 
         // broadcast align into [ halign, valign ] components
@@ -457,7 +463,7 @@ function children_rect(children: Element[], offset: boolean = false): Rect | und
         const { prect } = ctx.map(spec)
         const prect0 = ctx.mapRect(c.spec.rect ?? ctx.coord, offset)
         const rot0 = c.spec.rotate ?? 0
-        const rot1 = c.spec.rotate_adjust ? adjust_rotate(rot0, prect0, c.spec.coord ?? D.coord) : rot0
+        const rot1 = c.spec.rotate_adjust ? adjust_rotate(rot0, rect_size(prect0), c.spec.coord ?? D.coord) : rot0
         const rot = c.spec.rotate_invar ? 0 : rot1
         return rotated_vertices(prect, rot)
     })

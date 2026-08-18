@@ -43,7 +43,7 @@ const results: Result[] = []
 
 function render(code: string, theme: Theme): Render {
     try {
-        const elem = evaluateGum(code, { size: 500, theme, loadFile })
+        const elem = evaluateGum(code, { size: 1000, theme, loadFile })
         return { svg: elem.svg() }
     } catch (e: any) {
         const { message = 'Unknown error' } = e

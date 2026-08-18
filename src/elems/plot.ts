@@ -7,7 +7,7 @@ import { Span } from './text'
 
 import { Element, Group, Spacer, spec_split, is_element, ensure_children } from './core'
 import { Box, Frame, Attach, HStack, VStack, Anchor } from './layout'
-import { RoundedRect, UnitLine, HLine, Arc } from './geometry'
+import { RoundedRect, UnitLine, HLine, Arc, ArrowHead } from './geometry'
 
 import type { Point, Rect, Limit, Attrs, Orient, Rounded, Zone, AlignValue, Side } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
@@ -296,6 +296,11 @@ interface AxisArgs extends GroupArgs {
     label_offset?: number
     label_justify?: AlignValue
     label_loc?: number
+    arrow_left?: boolean
+    arrow_right?: boolean
+    arrow_top?: boolean
+    arrow_bottom?: boolean
+    arrow_size?: number
     prec?: number
     debug?: boolean
 }
@@ -306,8 +311,9 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0, label_justify: label_justify0, label_loc, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
-        const [ label_attr, tick_attr, line_attr, attr ] = prefix_split([ 'label', 'tick', 'line' ], attr0)
+        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0, label_justify: label_justify0, label_loc, arrow_left = false, arrow_right = false, arrow_top = false, arrow_bottom = false, arrow_size = 2, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const [ label_attr, tick_attr, line_attr, arrow_attr0, attr ] = prefix_split([ 'label', 'tick', 'line', 'arrow' ], attr0)
+        const [ arrow_left_attr, arrow_right_attr, arrow_top_attr, arrow_bottom_attr, arrow_attr ] = prefix_split([ 'left', 'right', 'top', 'bottom' ], arrow_attr0)
         const tick_lim = get_tick_lim(tick_side)
         const [ tick_lo, tick_hi ] = tick_lim
 
@@ -335,13 +341,29 @@ class Axis extends Group {
             return tick.clone({ tick_loc: l.args.loc, tick_span: span })
         })
 
+        // make arrowheads at the axis ends (sized relative to the cross-axis extent)
+        // as with tick_side, top/bottom follow the flipped Plot orientation (top is the high end)
+        const arrow_head = (loc: number, angle: number, attr1: Attrs) => {
+            const { size = arrow_size, ...attr2 } = { ...arrow_attr, ...attr1 }
+            const pos: Point = direc == 'v' ? [ 0.5, loc ] : [ loc, 0.5 ]
+            const size1 = direc == 'v' ? { xsize: size } : { ysize: size }
+            return new ArrowHead({ angle, pos, ...size1, ...attr2 })
+        }
+        const arrows = direc == 'v' ? [
+            arrow_bottom ? arrow_head(0, 90, arrow_bottom_attr) : null,
+            arrow_top ? arrow_head(1, -90, arrow_top_attr) : null,
+        ] : [
+            arrow_left ? arrow_head(0, 180, arrow_left_attr) : null,
+            arrow_right ? arrow_head(1, 0, arrow_right_attr) : null,
+        ]
+
         // accumulate children
         const cline = new UnitLine({ direc, lim, coord, ...line_attr })
         const scale = new Scale({ children: tick_elems, direc, rect: scale_rect, coord, debug, ...tick_attr })
         const label = new Labels({ children: label_elems, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
 
         // pass to Group
-        super({ children: [ cline, scale, label ], debug, ...attr })
+        super({ children: [ cline, scale, label, ...arrows ], debug, ...attr })
         this.args = args
 
         // additional props (for Plot grids)

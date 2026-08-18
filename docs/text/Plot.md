@@ -19,7 +19,7 @@ Parameters:
 - `clip` = `false` — clip graph contents to specified coordinates
 
 Subunits:
-- `axis`/`xaxis`/`yaxis` — the axes, including lines, ticks, and tick labels
+- `axis`/`xaxis`/`yaxis` — the axes, including lines, ticks, tick labels, and arrowheads (for instance, `axis-arrow-right` and `axis-arrow-top` add arrowheads to the ends of the axes)
 - `grid`/`xgrid`/`ygrid` — the grid lines arrayed under the graph
 - `label`/`xlabel`/`ylabel` — the axis label elements
 - `title` — the plot title element
