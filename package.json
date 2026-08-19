@@ -32,6 +32,8 @@
     ".": "./src/gum.ts",
     "./eval": "./src/eval.ts",
     "./render": "./src/render.ts",
+    "./math": "./src/math.ts",
+    "./mark": "./src/mark.ts",
     "./meta": "./src/meta.ts",
     "./fonts/*": "./src/fonts/*",
     "./docs/*": "./docs/*",
@@ -40,7 +42,8 @@
   },
   "scripts": {
     "gum": "bun ./scripts/gum.ts",
-    "gumd": "bun ./scripts/gumd.ts",
+    "math": "bun ./scripts/math.ts",
+    "mark": "bun ./scripts/mark.ts",
     "bench:render": "bun ./scripts/bench-render.ts",
     "test": "bun ./scripts/test.ts",
     "skill": "bun ./scripts/skill.ts && cd skills && rm -f gum-jsx.skill && zip -r gum-jsx.skill gum-jsx",
@@ -48,7 +51,8 @@
   },
   "bin": {
     "gum": "./scripts/gum.ts",
-    "gumd": "./scripts/gumd.ts"
+    "gum-down": "./scripts/mark.ts",
+    "gum-tex": "./scripts/math.ts"
   },
   "dependencies": {
     "@types/node": "^25.2.3",

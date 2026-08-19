@@ -98,3 +98,73 @@ CLI options:
 | `-o, --output <output>` | Output file | stdout |
 | `-r, --raster-size <size>` | Max rasterized PNG size | auto |
 | `-d, --dev` | Live update display | off |
+
+## Math Rendering
+
+The LaTeX pipeline is also available standalone as a lightweight alternative to MathJax/KaTeX for server-side math rendering. The `size` argument is the font size in pixels, so the output is sized naturally to the math (plus optional `padding` in em):
+
+```javascript
+import { mathToSvg, mathToPng, mathToKitty } from 'gum/math'
+const svg = mathToSvg('\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', { size: 24 })
+const png = mathToPng('e^{i\\pi} + 1 = 0', { size: 32, inline: true, padding: 0.5, background: 'white', scale: 2 })
+```
+
+Options: `inline` (text style rather than display style), `size` (font size in px), `padding` (em), `color`, `background`, `theme` (`light`/`dark`), and `scale` (raster scale factor for PNG). There is also `mathToElement`, which returns the `Svg` element itself.
+
+The same is available from the command line with `gum-tex`:
+
+```bash
+gum-tex '\sum_{n=1}^\infty \frac{1}{n^2} = \frac{\pi^2}{6}' -o sum.svg
+gum-tex -s 32 -t dark -o euler.png < euler.tex
+gum-tex 'E = mc^2'   # display in the terminal
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `tex` | LaTeX source | `--file` or stdin |
+| `-i, --inline` | Inline (text) style rather than display style | off |
+| `-F, --file <file>` | Read LaTeX source from file | |
+| `-s, --size <size>` | Font size in pixels | 24 |
+| `-p, --padding <padding>` | Padding around the math in em | 0.25 |
+| `-t, --theme <theme>` | Theme: `light` or `dark` | light |
+| `-c, --color <color>` | Text color | theme color |
+| `-b, --background <color>` | Background color (`none` for transparent) | white (light theme) |
+| `-x, --scale <scale>` | Raster scale factor for PNG/kitty output | 1 |
+| `-f, --format <format>` | Format: `svg`, `png`, `kitty` | auto |
+| `-o, --output <output>` | Output file | stdout |
+
+## Markdown Display
+
+There is also a Markdown-to-terminal renderer that displays fenced `gum` code blocks, image links (`.png`, `.svg`, `.jsx`), and TeX math (`$...$` and `$$...$$`) inline as kitty images, with ANSI styling for the rest:
+
+````markdown
+# Sine wave
+
+The function $\sin(x)$ looks like this:
+
+```gum width=600 height=300
+<Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} aspect={2}>
+  <SymLine fy={sin} stroke={blue} />
+</Plot>
+```
+````
+
+Display it with `gum-down` (code block options `width=`, `height=`, and `theme=` override the global settings):
+
+```bash
+gum-down notes.md -t light -w 800
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `file` | Markdown file to render | stdin |
+| `-t, --theme <theme>` | Theme: `light` or `dark` | dark |
+| `-w, --width <pixels>` | Max width for gum blocks (and math) | 1000 (math: 750/600) |
+| `-H, --height <pixels>` | Max height for gum blocks (and math) | 500 (math: 75/40) |
+
+Or from JavaScript:
+
+```javascript
+import { displayMarkdown } from 'gum/mark'
+process.stdout.write(displayMarkdown(markdown, { theme: 'light', width: 800 }))
+```

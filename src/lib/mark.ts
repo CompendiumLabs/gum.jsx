@@ -1,24 +1,22 @@
 // Custom marked renderer for terminal output with gum.jsx support
 
 import { readFileSync } from 'fs'
-import { Marked } from 'marked'
 import type { Tokens, RendererObject, TokenizerAndRendererExtension } from 'marked'
 
-import { rasterizeSvg, type RasterizeArgs } from '../render'
-import { evaluateGum } from '../eval'
+import { rasterizeSvg } from '../render'
+import { evaluateGum, fitSize } from '../eval'
+import { mathToElement } from '../math'
 import { ansi, formatImage } from './term'
 import type { Size, ThemeName } from './types'
 
 const HEADING_COLORS = ['magenta', 'blue', 'green', 'red', 'cyan', 'yellow']
 
 interface Options {
-    width?: number
-    height?: number
-    theme?: ThemeName
-    size?: Size
-    font?: any
-    imageId?: number
-  }
+  width?: number      // max width in pixels for gum blocks, images, and math
+  height?: number     // max height in pixels for gum blocks, images, and math
+  theme?: ThemeName   // theme for gum blocks and math
+  imageId?: number    // kitty image id
+}
 
 interface MathToken extends Tokens.Generic {
   type: 'math'
@@ -50,40 +48,43 @@ function isGumLang(lang: string): boolean {
   return lang === 'gum' || lang === 'gum.jsx'
 }
 
-function displayMarkdown(content: string, opts: Options = {}): string {
-  const marked = new Marked({
-    renderer: createRenderer(opts),
-    extensions: createMathExtensions(opts)
-  })
-  return marked.parse(content) as string
+// Max pixel box from width/height options (either may be omitted)
+function maxSize({ width, height }: Options): Size | undefined {
+  if (width == null && height == null) return undefined
+  return [ width ?? Infinity, height ?? Infinity ]
 }
 
-function displayGum(code: string, { theme = 'dark', width = 1000, height = 500, imageId }: { theme?: ThemeName, width?: number, height?: number, imageId?: number } = {}): string {
-  const size: Size = [width, height]
+function displayGum(code: string, { theme = 'dark', width = 1000, height = 500, imageId }: Options = {}): string {
+  const size: Size = [ width, height ]
   const elem = evaluateGum(code, { theme, size })
   const svg = elem.svg()
   const png = rasterizeSvg(svg)
   return formatImage(png, { imageId }) + '\n'
 }
 
-function renderMath(tex: string, displayMode: boolean, globalOpts: Options): string {
+function displaySvg(svg: string, { imageId, ...opts }: Options = {}): string {
+  const png = rasterizeSvg(svg, { size: maxSize(opts) })
+  return formatImage(png, { imageId })
+}
+
+// Render math scaled to fit the given box (defaults differ for display/inline)
+function renderMath(tex: string, displayMode: boolean, { theme = 'dark', imageId, ...opts }: Options): string {
   const fallback = displayMode ? `$$\n${tex}\n$$` : `$${tex}$`
-  const code = `<Latex${displayMode ? '' : ' inline'}>{${JSON.stringify(tex)}}</Latex>`
-  const opts = {
-    ...globalOpts,
-    height: globalOpts.height ?? (displayMode ? 75 : 40),
-    width: globalOpts.width ?? (displayMode ? 750 : 600)
-  }
+  const width = opts.width ?? (displayMode ? 750 : 600)
+  const height = opts.height ?? (displayMode ? 75 : 40)
 
   try {
-    return displayGum(code, opts).trimEnd()
+    const elem = mathToElement(tex, { inline: !displayMode, theme })
+    const size = fitSize(elem.size, [ width, height ])
+    const png = rasterizeSvg(elem.svg(), { size })
+    return formatImage(png, { imageId })
   } catch {
     return ansi(fallback, { fg: 'gray' })
   }
 }
 
 // Create Marked extensions for TeX math delimiters.
-export function createMathExtensions(globalOpts: Options = {}): TokenizerAndRendererExtension[] {
+function createMathExtensions(globalOpts: Options = {}): TokenizerAndRendererExtension[] {
   return [
     {
       name: 'math',
@@ -135,7 +136,7 @@ export function createMathExtensions(globalOpts: Options = {}): TokenizerAndRend
 }
 
 // Create renderer with given global options
-export function createRenderer(globalOpts: Options = {}): RendererObject {
+function createRenderer(globalOpts: Options = {}): RendererObject {
   return {
     // Block elements
     heading({ tokens, depth }: Tokens.Heading): string {
@@ -201,7 +202,7 @@ export function createRenderer(globalOpts: Options = {}): RendererObject {
 
     link({ href, tokens }: Tokens.Link): string {
       const text = this.parser.parseInline(tokens)
-      return `[${ansi(text, { fg: 'blue' })}](${ansi(href, { fg: 'gray' })}`
+      return `[${ansi(text, { fg: 'blue' })}](${ansi(href, { fg: 'gray' })})`
     },
 
     image({ href, text }: Tokens.Image): string {
@@ -216,12 +217,11 @@ export function createRenderer(globalOpts: Options = {}): RendererObject {
           return formatImage(png)
         } else if (ext == 'svg') {
           const svg = readFileSync(href, 'utf8')
-          const opts = parseOptions(text ?? '')
-          const png = rasterizeSvg(svg, opts)
-          return formatImage(png)
+          const opts = { ...globalOpts, ...parseOptions(text ?? '') }
+          return displaySvg(svg, opts)
         } else if (ext == 'jsx') {
           const data = readFileSync(href, 'utf8')
-          const opts = parseOptions(text ?? '')
+          const opts = { ...globalOpts, ...parseOptions(text ?? '') }
           return displayGum(data, opts)
         } else {
           return ansi(`[Unsupported image type: ${ext}]`, { fg: 'gray' })
@@ -249,4 +249,5 @@ export function createRenderer(globalOpts: Options = {}): RendererObject {
   }
 }
 
-export { displayMarkdown }
+export type { Options }
+export { parseOptions, createRenderer, createMathExtensions }

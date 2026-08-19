@@ -34,6 +34,25 @@ gum test.jsx -o test.png
 # -o, --output <output>    output file (default: null)
 ```
 
+### Math CLI
+
+The LaTeX pipeline is exposed standalone via `src/math.ts` (`mathToElement`, `mathToSvg`, `mathToPng`, `mathToKitty`; exported as `gum/math`) and the `gum-tex` CLI (`scripts/math.ts`). Font `size` is in pixels and `padding` is in em, so output is sized naturally to the math:
+
+```bash
+# Render LaTeX to SVG/PNG (or kitty terminal image if no output/format given)
+gum-tex '\frac{1}{2}' -o half.svg
+bun scripts/math.ts -s 32 -t dark -o eq.png < eq.tex
+```
+
+### Markdown CLI
+
+`src/mark.ts` (`displayMarkdown`; exported as `gum/mark`) renders Markdown to ANSI terminal text with fenced `gum` blocks, `.png`/`.svg`/`.jsx` images, and `$...$`/`$$...$$` math shown as kitty images. The `gum-down` CLI (`scripts/mark.ts`) wraps it:
+
+```bash
+# Display a markdown file in a kitty-compatible terminal
+gum-down README.md -t light -w 800
+```
+
 ### Testing
 
 Run type checking:
@@ -148,6 +167,8 @@ Key functions for rect manipulation:
 - `src/defaults.ts` - `DEFAULTS`, `THEME()` function, and theme management
 - `src/eval.ts` - Code evaluation and element validation
 - `src/render.ts` - SVG rendering to PNG via node-canvas
+- `src/math.ts` - Standalone LaTeX → SVG/PNG/kitty rendering (`mathToSvg`, `mathToPng`, ...)
+- `src/mark.ts` - Markdown → terminal rendering with embedded gum/math (`displayMarkdown`)
 
 **Element modules (`src/elems/`):**
 - `core.ts` - `Context`, `Element`, `Group`, `Svg`, `Rect`, plus `prefix_split`, `spec_split`, `align_frac`, `is_element`
@@ -168,9 +189,12 @@ Key functions for rect manipulation:
 - `parse.ts` - JSX parser (Acorn) and AST walker
 - `meta.ts` - Documentation metadata loading
 - `term.ts` - Terminal utilities (stdin, Kitty protocol)
+- `mark.ts` - Marked renderer and math extensions for terminal Markdown output
 
 **Scripts:**
 - `scripts/gum.ts` - The CLI for running the `gum` command
+- `scripts/math.ts` - The `gum-tex` CLI for rendering LaTeX to SVG/PNG
+- `scripts/mark.ts` - The `gum-down` CLI for displaying Markdown in the terminal
 - `scripts/dev.ts` - The development server for running the `gum` command
 - `scripts/skill.ts` - Creates a ZIP file for the Claude skill
 - `scripts/test.ts` - Runs all `docs/code/` and `gala/code/` examples as a test suite
