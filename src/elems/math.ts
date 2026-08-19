@@ -1,7 +1,7 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { none, black, red } from '../lib/const'
+import { none, black, red, maxis } from '../lib/const'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Spacer, spec_split, ensure_children } from './core'
@@ -60,7 +60,7 @@ const TEX_FONT_FAMILY: Record<string, FontFamily | undefined> = {
 // constants
 //
 
-const MATH_AXIS = 0.25
+const MATH_AXIS = maxis
 const STRUT: Limit = [ -0.5, 0.5 ]  // minimum line box around the axis for top-level math
 
 // TeX font parameters (Computer Modern, in em) that drive Appendix G layout;

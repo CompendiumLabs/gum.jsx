@@ -2,7 +2,7 @@
 
 import type { Attrs, AlignValue, Rect, Limit } from '../lib/types'
 import { THEME } from '../lib/theme'
-import { none, bold, vtext } from '../lib/const'
+import { none, bold, vtext, maxis } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 import type { TextMetrics } from '../lib/text'
@@ -89,28 +89,49 @@ interface ElemSpanArgs extends GroupArgs {
     spacing?: boolean | number
 }
 
-const INLINE_MATH_SHIFT = -0.1
+// math elements carry inline metrics (advance, ink extents around the math
+// axis) in em units; the line box is 1em tall with the text baseline at
+// 1 + vtext, so the math axis sits maxis above that
+const INLINE_MATH_AXIS = 1 + vtext - maxis
+
+// the subset of math metrics needed for inline placement (see MathSpec)
+interface InlineMath {
+    advance: number
+    vrange: Limit
+    vanchor: number
+    hrange?: Limit
+}
+
+// place a math element in a 1em line box by its inline metrics: 1em of math
+// is 1 line height, the axis is pinned to the text axis, and tall formulas
+// overflow the line rather than shrinking to fit it (as in TeX). returns the
+// ink width in em along with the positioned child
+function place_inline_math(child: Element, spacing: number): [ Element, number ] {
+    const { advance, vrange: [ ylo, yhi ], vanchor, hrange } = (child as Element & { math: InlineMath }).math
+    const [ xlo, xhi ] = hrange ?? [ 0, advance ]
+    const width = xhi - xlo
+    const aspect = width + spacing
+    const xfrac = aspect > 0 ? width / aspect : 1
+    const y0 = INLINE_MATH_AXIS + (ylo - vanchor)
+    const y1 = INLINE_MATH_AXIS + (yhi - vanchor)
+    const rect: Rect = [ 0, y0, xfrac, y1 ]
+    return [ child.clone({ rect, align: 'left' }), aspect ]
+}
 
 class ElemSpan extends Group {
     constructor(args: ElemSpanArgs = {}) {
         const { children: children0, spacing: spacing0 = true, ...attr } = args
         const child0 = check_singleton(children0)
         const spacing = is_boolean(spacing0) ? (spacing0 ? 0.25 : 0) : spacing0
-        const aspect0 = child0.spec.aspect ?? 1
-        const aspect = aspect0 + spacing
-        const child = child0.clone({ align: 'left' })
 
-        // HStack centers arbitrary embedded elements, while math coordinates
-        // are centered on the math axis. Align math to the surrounding text
-        // baseline here, where it is actually being used inline, rather than
-        // changing the standalone Latex element selected by `inline`.
-        if ('math' in child && child.spec.coord != null) {
-            const [ x1, y1, x2, y2 ] = child.spec.coord
-            const shift = INLINE_MATH_SHIFT * (y2 - y1)
-            child.spec.coord = [ x1, y1 + shift, x2, y2 + shift ]
-        }
+        // HStack centers arbitrary embedded elements in the line box, while
+        // math is aligned to the surrounding text by its metrics
+        const [ child, aspect ] = 'math' in child0 ?
+            place_inline_math(child0, spacing) :
+            [ child0.clone({ align: 'left' }), (child0.spec.aspect ?? 1) + spacing ]
 
         super({ children: [ child ], aspect, ...attr })
+        this.args = args
     }
 }
 
