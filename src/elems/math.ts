@@ -847,7 +847,7 @@ function parse_math(tex: string, attr: Attrs = {}, style: MathStyle = 'display')
         const tree = parse_tex(tex)
         return convert_tree(tree, attr, style)
     } catch (e) {
-        return new MathSpan({ children: [ tex ], color: red })
+        return new MathSpan({ children: [ tex ], color: red, font_family: 'KaTeX_Main' })
     }
 }
 

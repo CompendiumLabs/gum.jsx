@@ -28,10 +28,31 @@ async function loadFontFamily(path: FontPath): Promise<FontData> {
     if (is_string(path)) {
         return await loadFont(path)
     } else {
+        const [ light, regular, bold ] = await Promise.all([
+            loadFont(path.light), loadFont(path.regular), loadFont(path.bold),
+        ])
+        return { light, regular, bold }
+    }
+}
+
+// synchronous variants (node only): used to load fonts on demand at first use
+// @ts-ignore
+const fs_sync = is_browser() ? null : await import('fs')
+
+function loadFontSync(path: string): ArrayBuffer {
+    if (fs_sync == null) throw new Error('Synchronous font loading is only available in node')
+    const { buffer } = fs_sync.readFileSync(path)
+    return buffer
+}
+
+function loadFontFamilySync(path: FontPath): FontData {
+    if (is_string(path)) {
+        return loadFontSync(path)
+    } else {
         return {
-            light: await loadFont(path.light),
-            regular: await loadFont(path.regular),
-            bold: await loadFont(path.bold),
+            light: loadFontSync(path.light),
+            regular: loadFontSync(path.regular),
+            bold: loadFontSync(path.bold),
         }
     }
 }
@@ -91,28 +112,75 @@ const FONT_PATHS: Record<string, FontPath> = {
 // font registry (populated by loadFonts / registerFont)
 //
 
+// named groups: text fonts are what ordinary gum text uses, math fonts are the
+// KaTeX faces used by Latex/Tex; loading everything is the default but a math-
+// only host (e.g. gum/math in the browser) can load just MATH_FONTS
+const TEXT_FONTS: string[] = [ sans, mono, moji ]
+const MATH_FONTS: string[] = [ 'KaTeX_Math', 'KaTeX_Main', 'KaTeX_AMS', 'KaTeX_Size1', 'KaTeX_Size2', 'KaTeX_Size3', 'KaTeX_Size4' ]
 const CORE_FONTS: string[] = Object.keys(FONT_PATHS)
+
 const FONT_DATA: Record<string, FontData> = {}
 const FONTS: Record<string, FontEntry> = {}
 
-async function loadFontEntry(name: string, path: FontPath): Promise<void> {
-    const data = await loadFontFamily(path)
+function setFontEntry(name: string, data: FontData): void {
     FONT_DATA[name] = data
     FONTS[name] = parseFontFamily(data)
 }
 
-// load all core fonts (memoized, so this is cheap to call repeatedly)
-let fontsReady: Promise<void> | null = null
-function loadFonts(): Promise<void> {
-    fontsReady ??= Promise.all(
-        CORE_FONTS.map(name => loadFontEntry(name, FONT_PATHS[name]))
-    ).then(() => {})
-    return fontsReady
+function loadFontEntrySync(name: string, path: FontPath): void {
+    setFontEntry(name, loadFontFamilySync(path))
 }
 
-// check whether the core fonts are available for text measurement
-function fontsLoaded(): boolean {
-    return CORE_FONTS.every(name => name in FONTS)
+// one memoized promise per family, so partial loads (e.g. math only) followed
+// by a full loadFonts() only fetch what is still missing
+const FONT_PENDING: Map<string, Promise<void>> = new Map()
+
+function loadFontEntry(name: string, path: FontPath): Promise<void> {
+    let pending = FONT_PENDING.get(name)
+    if (pending == null) {
+        pending = loadFontFamily(path).then(data => setFontEntry(name, data))
+        pending.catch(() => FONT_PENDING.delete(name)) // allow retry after failure
+        FONT_PENDING.set(name, pending)
+    }
+    return pending
+}
+
+function ensure_names(names: string | string[]): string[] {
+    return is_string(names) ? [ names ] : names
+}
+
+// load fonts by family name (default: all core fonts); memoized per family
+function loadFonts(names: string | string[] = CORE_FONTS): Promise<void> {
+    return Promise.all(ensure_names(names).map(name => {
+        const path = FONT_PATHS[name]
+        if (path == null) return Promise.reject(new Error(`Unknown font family: ${name}`))
+        return loadFontEntry(name, path)
+    })).then(() => {})
+}
+
+function loadMathFonts(): Promise<void> {
+    return loadFonts(MATH_FONTS)
+}
+
+function loadTextFonts(): Promise<void> {
+    return loadFonts(TEXT_FONTS)
+}
+
+// check whether the given fonts (default: all core fonts) are available for text measurement
+function fontsLoaded(names: string | string[] = CORE_FONTS): boolean {
+    return ensure_names(names).every(name => name in FONTS)
+}
+
+// get a loaded font entry; in node, core fonts are loaded on demand from disk
+// (synchronously), so hosts never need to await loadFonts() there; in the
+// browser the font must have been loaded beforehand, otherwise returns null
+function getFont(name: string): FontEntry | null {
+    const font = FONTS[name]
+    if (font != null) return font
+    const path = FONT_PATHS[name]
+    if (path == null || is_browser()) return null
+    loadFontEntrySync(name, path)
+    return FONTS[name]
 }
 
 //
@@ -121,24 +189,13 @@ function fontsLoaded(): boolean {
 
 async function registerFont(name: string, path: string): Promise<void> {
     FONT_PATHS[name] = path
+    FONT_PENDING.delete(name)
     await loadFontEntry(name, path)
-}
-
-//
-// initial load: in node the fonts are local files so we load them eagerly;
-// in the browser we start the download immediately but do not block module
-// evaluation, so hosts must `await loadFonts()` before evaluating gum code
-//
-
-if (is_browser()) {
-    loadFonts().catch(() => {})
-} else {
-    await loadFonts()
 }
 
 //
 // exports
 //
 
-export { FONT_PATHS, FONT_DATA, FONTS, loadFonts, fontsLoaded, registerFont }
+export { FONT_PATHS, FONT_DATA, FONTS, TEXT_FONTS, MATH_FONTS, CORE_FONTS, getFont, loadFonts, loadMathFonts, loadTextFonts, fontsLoaded, registerFont }
 export type { FontWeight, FontSet, FontEntry }

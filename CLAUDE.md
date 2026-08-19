@@ -79,6 +79,15 @@ gum docs/code/box.jsx -o test.svg
 
 ## Architecture
 
+### Fonts
+
+Text layout measures real glyph metrics with opentype.js, so the fonts (`src/fonts/fonts.ts`: IBM Plex Sans/Mono, Noto Emoji, and the KaTeX faces from the `katex` package) must be loaded before elements are constructed. Loading is per family and memoized:
+
+- **node**: nothing to do — fonts are read from disk on first use (`getFont`), so `gum-tex 'x^2'` only parses the KaTeX faces it touches.
+- **browser**: fonts are fetched, so hosts must `await loadFonts()` (all core fonts), `await loadMathFonts()` (just the KaTeX faces, ~190 kB — enough for `Latex`/`Tex`/`gum/math`), `loadTextFonts()`, or `loadFonts([...names])` before evaluating. `gum/math` kicks off `loadMathFonts()` on import without blocking. A missing font throws `Font not loaded: '<family>'` from `textFont`.
+
+The SVG output references fonts by family name only; a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw.
+
 ### Component System
 
 The library is built around a class hierarchy split across element modules:

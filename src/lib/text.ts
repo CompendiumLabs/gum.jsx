@@ -7,7 +7,7 @@ import type { Font } from 'opentype.js'
 import { DEFAULTS as D, sans, moji, light, regular } from './const'
 import { is_string, compress_whitespace, sum, zip, max, min } from './utils'
 import { wrapWidths } from './wrap'
-import { FONTS, fontsLoaded, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
+import { getFont, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
 
 import type { Limit } from './types'
 
@@ -68,7 +68,7 @@ function arrayEquals(a: number[], b: number[]): boolean {
 
 function emojiSizer(text: string): number {
     // get emoji font
-    const font0 = FONTS[moji]
+    const font0 = getFont(moji)
     if (font0 == null) return 1.25
     const font = is_font_set(font0) ? font0.light : font0
 
@@ -106,10 +106,9 @@ type TextSizerArgs = {
 
 function textFont(font_family: string, font_weight: number): Font {
     // get font info
-    const font = FONTS[font_family]
+    const font = getFont(font_family)
     if (font == null) {
-        if (!fontsLoaded()) throw new Error('Fonts not loaded: await loadFonts() before evaluating')
-        throw new Error(`Unknown font family: ${font_family}`)
+        throw new Error(`Font not loaded: '${font_family}' (await loadFonts(['${font_family}']), loadMathFonts(), or loadFonts() before evaluating)`)
     }
 
     // match the static face browser font matching would select

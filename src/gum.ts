@@ -7,7 +7,7 @@ import './types/katex.d.ts'
 import { setTheme } from './lib/theme'
 import { sans, mono, moji, cmoji, light, regular, bold, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, slate, e, pi, phi, r2d, d2r } from './lib/const'
 import { is_scalar, is_string, is_boolean, is_object, is_function, is_array, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, norm, range, linspace, enumerate, repeat, meshgrid, lingrid, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, min, max, clamp, rescale, normalize, sigmoid, logit, smoothstep, setSeed, random, uniform, normal, integer, interp, palette, polar, polard, rounder, add2, sub2, mul2, div2, addn, subn, muln, divn, addc, subc, mulc, divc, conjc, normc, argc } from './lib/utils'
-import { loadFonts, fontsLoaded, registerFont } from './fonts/fonts'
+import { loadFonts, loadMathFonts, loadTextFonts, fontsLoaded, registerFont } from './fonts/fonts'
 import { is_emoji } from './lib/text'
 
 import { Context, Element, Group, Svg, Rectangle, Spacer, is_element, type ElementArgs } from './elems/core'
@@ -47,7 +47,7 @@ const CONTEXT = { ...CONST, ...UTILS, ...RAND, ...ELEMS }
 
 export {
     ELEMS, CONTEXT, Context,
-    setTheme, loadFonts, fontsLoaded, registerFont, calcPngAspect, parseTable,
+    setTheme, loadFonts, loadMathFonts, loadTextFonts, fontsLoaded, registerFont, calcPngAspect, parseTable,
     is_string, is_boolean, is_array, is_object, is_function, is_element, is_scalar, is_emoji,
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, slate, sans, mono, moji, cmoji, light, regular, bold,
     range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, polard, rounder, interp, palette, add2, sub2, mul2, div2, addn, subn, muln, divn, addc, subc, mulc, divc, conjc, normc, argc, spline1d, spline2d,

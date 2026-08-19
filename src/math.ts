@@ -10,6 +10,13 @@ import { Latex } from './elems/math'
 import { none } from './lib/const'
 import { setTheme, type ThemeName } from './lib/theme'
 import type { Size } from './lib/types'
+import { is_browser } from './lib/utils'
+import { loadMathFonts } from './fonts/fonts'
+
+// math layout only needs the KaTeX faces; in the browser start that download
+// on import (without blocking), hosts must still `await loadMathFonts()` before
+// calling mathToSvg; in node the fonts are loaded from disk on first use
+if (is_browser()) loadMathFonts().catch(() => {})
 
 //
 // types
@@ -81,5 +88,5 @@ function mathToSvg(tex: string, args: MathArgs = {}): string {
 // exports
 //
 
-export { mathToElement, mathToSvg }
+export { mathToElement, mathToSvg, loadMathFonts }
 export type { MathArgs }
