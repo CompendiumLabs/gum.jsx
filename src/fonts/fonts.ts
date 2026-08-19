@@ -3,26 +3,6 @@ import { is_browser, is_string } from '../lib/utils'
 import { sans, mono, moji } from '../lib/const'
 
 //
-// object utils
-//
-
-function map_object<T, U>(obj: Record<string, T>, fn: (v: T) => U): Record<string, U> {
-    return Object.fromEntries(
-        Object.entries(obj).map(([ k, v ]) => [ k, fn(v) ])
-    )
-}
-
-async function map_object_async<T, U>(obj: Record<string, T>, fn: (v: T) => Promise<U>): Promise<Record<string, U>> {
-    return Object.fromEntries(
-        await Promise.all(
-            Object.entries(obj).map(
-                async ([ k, v ]) => [ k, await fn(v) ]
-            )
-        )
-    )
-}
-
-//
 // load font data as arraybuffer
 //
 
@@ -107,22 +87,58 @@ const FONT_PATHS: Record<string, FontPath> = {
     'KaTeX_Size4': (await import('katex/dist/fonts/KaTeX_Size4-Regular.ttf')).default,
 }
 
-// load and parse font data
-const FONT_DATA: Record<string, FontData> = await map_object_async(FONT_PATHS, loadFontFamily)
-const FONTS: Record<string, FontEntry> = map_object(FONT_DATA, parseFontFamily)
+//
+// font registry (populated by loadFonts / registerFont)
+//
+
+const CORE_FONTS: string[] = Object.keys(FONT_PATHS)
+const FONT_DATA: Record<string, FontData> = {}
+const FONTS: Record<string, FontEntry> = {}
+
+async function loadFontEntry(name: string, path: FontPath): Promise<void> {
+    const data = await loadFontFamily(path)
+    FONT_DATA[name] = data
+    FONTS[name] = parseFontFamily(data)
+}
+
+// load all core fonts (memoized, so this is cheap to call repeatedly)
+let fontsReady: Promise<void> | null = null
+function loadFonts(): Promise<void> {
+    fontsReady ??= Promise.all(
+        CORE_FONTS.map(name => loadFontEntry(name, FONT_PATHS[name]))
+    ).then(() => {})
+    return fontsReady
+}
+
+// check whether the core fonts are available for text measurement
+function fontsLoaded(): boolean {
+    return CORE_FONTS.every(name => name in FONTS)
+}
 
 //
 // allow additional fonts to be loaded
 //
 
-async function registerFont(name: string, path: string) {
+async function registerFont(name: string, path: string): Promise<void> {
     FONT_PATHS[name] = path
-    FONT_DATA[name] = await loadFontFamily(path)
-    FONTS[name] = parseFontFamily(FONT_DATA[name])
+    await loadFontEntry(name, path)
+}
+
+//
+// initial load: in node the fonts are local files so we load them eagerly;
+// in the browser we start the download immediately but do not block module
+// evaluation, so hosts must `await loadFonts()` before evaluating gum code
+//
+
+if (is_browser()) {
+    loadFonts().catch(() => {})
+} else {
+    await loadFonts()
 }
 
 //
 // exports
 //
 
-export { FONT_PATHS, FONT_DATA, FONTS, registerFont, FontWeight, FontSet, FontEntry }
+export { FONT_PATHS, FONT_DATA, FONTS, loadFonts, fontsLoaded, registerFont }
+export type { FontWeight, FontSet, FontEntry }

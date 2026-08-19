@@ -7,7 +7,7 @@ import type { Font } from 'opentype.js'
 import { DEFAULTS as D, sans, moji, light, regular } from './const'
 import { is_string, compress_whitespace, sum, zip, max, min } from './utils'
 import { wrapWidths } from './wrap'
-import { FONTS, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
+import { FONTS, fontsLoaded, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
 
 import type { Limit } from './types'
 
@@ -107,6 +107,10 @@ type TextSizerArgs = {
 function textFont(font_family: string, font_weight: number): Font {
     // get font info
     const font = FONTS[font_family]
+    if (font == null) {
+        if (!fontsLoaded()) throw new Error('Fonts not loaded: await loadFonts() before evaluating')
+        throw new Error(`Unknown font family: ${font_family}`)
+    }
 
     // match the static face browser font matching would select
     if (!is_font_set(font)) return font
