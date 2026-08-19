@@ -7,6 +7,7 @@ import { FONT_PATHS } from './fonts/fonts'
 import { light, regular, bold } from './lib/const'
 import { formatImage, formatPixels, readStdin, type FormatImageArgs } from './lib/term'
 import { fitSize } from './eval'
+import { mathToElement, type MathArgs } from './math'
 
 // register bundled fonts so SVG <text> resolves consistently
 for (const [ family, path ] of Object.entries(FONT_PATHS)) {
@@ -66,5 +67,33 @@ function rasterizePixels(svg: string | Buffer, { size, background }: RasterizeAr
   return ctx.getImageData(0, 0, canvas.width, canvas.height)
 }
 
-export { rasterizeSvg, rasterizePixels, formatImage, formatPixels, readStdin }
-export type { RasterizeArgs, FormatImageArgs }
+//
+// math rasterization
+//
+
+interface MathPngArgs extends MathArgs {
+  scale?: number         // raster scale factor (pixels per svg pixel)
+}
+
+interface MathKittyArgs extends MathPngArgs, FormatImageArgs {}
+
+function mathToPng(tex: string, args: MathPngArgs = {}): Buffer {
+  const { scale = 1, ...margs } = args
+  const elem = mathToElement(tex, margs)
+  const [ w, h ] = elem.size
+  const svg = elem.svg()
+  return rasterizeSvg(svg, { size: [ Math.round(scale * w), Math.round(scale * h) ] })
+}
+
+function mathToKitty(tex: string, args: MathKittyArgs = {}): string {
+  const { imageId, placementId, chunkSize, columns, rows, cursorMovement, ...pargs } = args
+  const png = mathToPng(tex, pargs)
+  return formatImage(png, { imageId, placementId, chunkSize, columns, rows, cursorMovement })
+}
+
+//
+// exports
+//
+
+export { rasterizeSvg, rasterizePixels, formatImage, formatPixels, readStdin, mathToPng, mathToKitty }
+export type { RasterizeArgs, FormatImageArgs, MathPngArgs, MathKittyArgs }

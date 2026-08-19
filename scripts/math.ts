@@ -5,8 +5,8 @@
 import { Command } from 'commander'
 import { readFileSync, writeFileSync } from 'fs'
 
-import { mathToSvg, mathToPng, mathToKitty } from '../src/math'
-import { readStdin } from '../src/render'
+import { mathToSvg } from '../src/math'
+import { mathToPng, mathToKitty, readStdin } from '../src/render'
 
 //
 // argument transform

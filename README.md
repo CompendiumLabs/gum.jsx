@@ -104,7 +104,8 @@ CLI options:
 The LaTeX pipeline is also available standalone as a lightweight alternative to MathJax/KaTeX for server-side math rendering. By default the output is sized naturally to the math at `font_size` pixels per em (plus optional `padding` in em); alternatively pass `size` (a number or `[width, height]`) to fit the math into a box of that size:
 
 ```javascript
-import { mathToSvg, mathToPng, mathToKitty } from 'gum/math'
+import { mathToSvg } from 'gum/math'
+import { mathToPng, mathToKitty } from 'gum/render'
 const svg = mathToSvg('\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', { font_size: 24 })
 const png = mathToPng('e^{i\\pi} + 1 = 0', { font_size: 32, inline: true, padding: 0.5, background: 'white', scale: 2 })
 const fit = mathToSvg('E = mc^2', { size: 400 })  // fit into a 400×400 box

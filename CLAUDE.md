@@ -36,7 +36,7 @@ gum test.jsx -o test.png
 
 ### Math CLI
 
-The LaTeX pipeline is exposed standalone via `src/math.ts` (`mathToElement`, `mathToSvg`, `mathToPng`, `mathToKitty`; exported as `gum/math`) and the `gum-tex` CLI (`scripts/math.ts`). By default output is sized naturally to the math at `font_size` pixels per em (with `padding` in em); `size` instead fits the math into an overall box:
+The LaTeX pipeline is exposed standalone via `src/math.ts` (`mathToElement`, `mathToSvg`; exported as `gum/math`, browser-safe) and `src/render.ts` (`mathToPng`, `mathToKitty`; exported as `gum/render`, node only) and the `gum-tex` CLI (`scripts/math.ts`). By default output is sized naturally to the math at `font_size` pixels per em (with `padding` in em); `size` instead fits the math into an overall box:
 
 ```bash
 # Render LaTeX to SVG/PNG (or kitty terminal image if no output/format given)
@@ -168,7 +168,7 @@ Key functions for rect manipulation:
 - `src/defaults.ts` - `DEFAULTS`, `THEME()` function, and theme management
 - `src/eval.ts` - Code evaluation and element validation
 - `src/render.ts` - SVG rendering to PNG via node-canvas
-- `src/math.ts` - Standalone LaTeX → SVG/PNG/kitty rendering (`mathToSvg`, `mathToPng`, ...)
+- `src/math.ts` - Standalone LaTeX → SVG rendering (`mathToElement`, `mathToSvg`); PNG/kitty output lives in `src/render.ts` (`mathToPng`, `mathToKitty`)
 - `src/mark.ts` - Markdown → terminal rendering with embedded gum/math (`displayMarkdown`)
 
 **Element modules (`src/elems/`):**

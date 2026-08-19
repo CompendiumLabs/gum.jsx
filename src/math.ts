@@ -1,4 +1,4 @@
-// Standalone LaTeX → SVG/PNG rendering
+// Standalone LaTeX → SVG rendering (see render.ts for PNG/kitty output)
 //
 // A lightweight alternative to MathJax/KaTeX for server-side math rendering.
 // The TeX string is parsed (with katex's parser) into gum.jsx math elements
@@ -9,8 +9,6 @@ import { Box } from './elems/layout'
 import { Latex } from './elems/math'
 import { none } from './lib/const'
 import { setTheme, type ThemeName } from './lib/theme'
-import { rasterizeSvg, formatImage } from './render'
-import type { FormatImageArgs } from './lib/term'
 import type { Size } from './lib/types'
 
 //
@@ -28,12 +26,6 @@ interface MathArgs {
   strut?: boolean        // enforce a minimum line box around the axis
   [key: string]: any     // other attributes forwarded to Latex
 }
-
-interface MathPngArgs extends MathArgs {
-  scale?: number         // raster scale factor (pixels per svg pixel)
-}
-
-interface MathKittyArgs extends MathPngArgs, FormatImageArgs {}
 
 const DEFAULT_FONT_SIZE = 24
 
@@ -85,23 +77,9 @@ function mathToSvg(tex: string, args: MathArgs = {}): string {
   return elem.svg()
 }
 
-function mathToPng(tex: string, args: MathPngArgs = {}): Buffer {
-  const { scale = 1, ...margs } = args
-  const elem = mathToElement(tex, margs)
-  const [ w, h ] = elem.size
-  const svg = elem.svg()
-  return rasterizeSvg(svg, { size: [ Math.round(scale * w), Math.round(scale * h) ] })
-}
-
-function mathToKitty(tex: string, args: MathKittyArgs = {}): string {
-  const { imageId, placementId, chunkSize, columns, rows, cursorMovement, ...pargs } = args
-  const png = mathToPng(tex, pargs)
-  return formatImage(png, { imageId, placementId, chunkSize, columns, rows, cursorMovement })
-}
-
 //
 // exports
 //
 
-export { mathToElement, mathToSvg, mathToPng, mathToKitty }
-export type { MathArgs, MathPngArgs, MathKittyArgs }
+export { mathToElement, mathToSvg }
+export type { MathArgs }
