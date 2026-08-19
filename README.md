@@ -101,21 +101,23 @@ CLI options:
 
 ## Math Rendering
 
-The LaTeX pipeline is also available standalone as a lightweight alternative to MathJax/KaTeX for server-side math rendering. The `size` argument is the font size in pixels, so the output is sized naturally to the math (plus optional `padding` in em):
+The LaTeX pipeline is also available standalone as a lightweight alternative to MathJax/KaTeX for server-side math rendering. By default the output is sized naturally to the math at `font_size` pixels per em (plus optional `padding` in em); alternatively pass `size` (a number or `[width, height]`) to fit the math into a box of that size:
 
 ```javascript
 import { mathToSvg, mathToPng, mathToKitty } from 'gum/math'
-const svg = mathToSvg('\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', { size: 24 })
-const png = mathToPng('e^{i\\pi} + 1 = 0', { size: 32, inline: true, padding: 0.5, background: 'white', scale: 2 })
+const svg = mathToSvg('\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', { font_size: 24 })
+const png = mathToPng('e^{i\\pi} + 1 = 0', { font_size: 32, inline: true, padding: 0.5, background: 'white', scale: 2 })
+const fit = mathToSvg('E = mc^2', { size: 400 })  // fit into a 400×400 box
 ```
 
-Options: `inline` (text style rather than display style), `size` (font size in px), `padding` (em), `color`, `background`, `theme` (`light`/`dark`), and `scale` (raster scale factor for PNG). There is also `mathToElement`, which returns the `Svg` element itself.
+Options: `inline` (text style rather than display style), `font_size` (px per em), `size` (overall box, overrides `font_size`), `padding` (em), `color`, `background`, `theme` (`light`/`dark`), and `scale` (raster scale factor for PNG). There is also `mathToElement`, which returns the `Svg` element itself.
 
 The same is available from the command line with `gum-tex`:
 
 ```bash
 gum-tex '\sum_{n=1}^\infty \frac{1}{n^2} = \frac{\pi^2}{6}' -o sum.svg
-gum-tex -s 32 -t dark -o euler.png < euler.tex
+gum-tex -S 32 -t light -o euler.png < euler.tex
+gum-tex 'E = mc^2' -s 400 -o emc.png   # fit into a 400px box
 gum-tex 'E = mc^2'   # display in the terminal
 ```
 
@@ -124,11 +126,12 @@ gum-tex 'E = mc^2'   # display in the terminal
 | `tex` | LaTeX source | `--file` or stdin |
 | `-i, --inline` | Inline (text) style rather than display style | off |
 | `-F, --file <file>` | Read LaTeX source from file | |
-| `-s, --size <size>` | Font size in pixels | 24 |
+| `-s, --size <size>` | Overall size to fit the math into (overrides font size) | natural |
+| `-S, --font-size <size>` | Font size in pixels | 100 |
 | `-p, --padding <padding>` | Padding around the math in em | 0.25 |
-| `-t, --theme <theme>` | Theme: `light` or `dark` | light |
+| `-t, --theme <theme>` | Theme: `light` or `dark` | dark |
 | `-c, --color <color>` | Text color | theme color |
-| `-b, --background <color>` | Background color (`none` for transparent) | white (light theme) |
+| `-b, --background <color>` | Background color (`none` for transparent) | white for light theme |
 | `-x, --scale <scale>` | Raster scale factor for PNG/kitty output | 1 |
 | `-f, --format <format>` | Format: `svg`, `png`, `kitty` | auto |
 | `-o, --output <output>` | Output file | stdout |

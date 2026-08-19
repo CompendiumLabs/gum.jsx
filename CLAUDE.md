@@ -36,12 +36,13 @@ gum test.jsx -o test.png
 
 ### Math CLI
 
-The LaTeX pipeline is exposed standalone via `src/math.ts` (`mathToElement`, `mathToSvg`, `mathToPng`, `mathToKitty`; exported as `gum/math`) and the `gum-tex` CLI (`scripts/math.ts`). Font `size` is in pixels and `padding` is in em, so output is sized naturally to the math:
+The LaTeX pipeline is exposed standalone via `src/math.ts` (`mathToElement`, `mathToSvg`, `mathToPng`, `mathToKitty`; exported as `gum/math`) and the `gum-tex` CLI (`scripts/math.ts`). By default output is sized naturally to the math at `font_size` pixels per em (with `padding` in em); `size` instead fits the math into an overall box:
 
 ```bash
 # Render LaTeX to SVG/PNG (or kitty terminal image if no output/format given)
 gum-tex '\frac{1}{2}' -o half.svg
-bun scripts/math.ts -s 32 -t dark -o eq.png < eq.tex
+bun scripts/math.ts -S 32 -t dark -o eq.png < eq.tex
+gum-tex 'E = mc^2' -s 400 -o emc.png   # fit into a 400px box
 ```
 
 ### Markdown CLI

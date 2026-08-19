@@ -19,7 +19,8 @@ import type { Size } from './lib/types'
 
 interface MathArgs {
   inline?: boolean       // text style (inline) rather than display style
-  size?: number          // font size in pixels
+  font_size?: number     // font size in pixels (ignored if size is given)
+  size?: number | Size   // overall size to fit the math into (overrides font_size)
   padding?: number       // padding around the math in em
   color?: string         // text color (defaults to theme color)
   background?: string    // background color (default: transparent)
@@ -34,17 +35,18 @@ interface MathPngArgs extends MathArgs {
 
 interface MathKittyArgs extends MathPngArgs, FormatImageArgs {}
 
-const DEFAULT_SIZE = 24
+const DEFAULT_FONT_SIZE = 24
 
 //
 // element construction
 //
 
-// build an Svg element whose dimensions are the natural size of the math at the
-// given font size: the viewBox is the math box (in em units scaled by size), so
-// glyphs render at exactly `size` pixels per em
+// build an Svg element sized to the math: by default the natural size at the
+// given font size (the viewBox is the math box in em units scaled by font_size,
+// so glyphs render at exactly `font_size` pixels per em); if `size` is given,
+// the math is instead fit into that box preserving its aspect ratio
 function mathToElement(tex: string, args: MathArgs = {}): Svg {
-  const { inline, size = DEFAULT_SIZE, padding = 0, color, background, theme = 'light', strut = true, ...attr } = args
+  const { inline, font_size = DEFAULT_FONT_SIZE, size, padding = 0, color, background, theme = 'light', strut = true, ...attr } = args
 
   // set theme for color defaults
   setTheme(theme)
@@ -69,9 +71,9 @@ function mathToElement(tex: string, args: MathArgs = {}): Svg {
     adjust: false,
   }) : latex
 
-  // size svg to the math box
-  const outer: Size = [ size * (width + 2 * padding), size * (height + 2 * padding) ]
-  return new Svg({ children: [ child ], size: outer })
+  // size svg to the math box (or fit into the given size by aspect)
+  const natural: Size = [ font_size * (width + 2 * padding), font_size * (height + 2 * padding) ]
+  return new Svg({ children: [ child ], size: size ?? natural })
 }
 
 //

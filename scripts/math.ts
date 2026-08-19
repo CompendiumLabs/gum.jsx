@@ -14,7 +14,7 @@ import { readStdin } from '../src/render'
 
 function transformArgs(cmd: Command) {
   const [ tex0 ] = cmd.args
-  let { file, format, output, theme, background, size, padding, inline, scale, color } = cmd.opts()
+  let { file, format, output, theme, background, size, fontSize, padding, inline, scale, color } = cmd.opts()
 
   // add white background for light theme
   if (theme == 'light' && background == null) background = 'white'
@@ -30,7 +30,7 @@ function transformArgs(cmd: Command) {
     }
   }
 
-  return { tex: tex0, file, format, output, theme, background, size, padding, inline, scale, color }
+  return { tex: tex0, file, format, output, theme, background, size, fontSize, padding, inline, scale, color }
 }
 
 //
@@ -38,14 +38,14 @@ function transformArgs(cmd: Command) {
 //
 
 async function runCommand(args: ReturnType<typeof transformArgs>) {
-  const { tex: tex0, file, format, output, theme, background, size, padding, inline, scale, color } = args
+  const { tex: tex0, file, format, output, theme, background, size, fontSize, padding, inline, scale, color } = args
 
   // get tex source: argument, file, or stdin
   const tex1 = tex0 ?? (file != null ? readFileSync(file, 'utf-8') : await readStdin())
   const tex = tex1.trim()
 
   // render math
-  const margs = { theme, background, size, padding, inline, color }
+  const margs = { theme, background, size, font_size: fontSize, padding, inline, color }
   let out: string | Buffer
   if (format == 'svg') {
     out = mathToSvg(tex, margs)
@@ -77,7 +77,8 @@ program.name('gum-tex')
   .option('-t, --theme <theme>', 'theme to use: light or dark', 'dark')
   .option('-c, --color <color>', 'text color (defaults to theme color)')
   .option('-b, --background <color>', 'background color ("none" for transparent; default: white for light theme)')
-  .option('-s, --size <size>', 'font size in pixels', (value: string) => parseFloat(value), 100)
+  .option('-s, --size <size>', 'overall size to fit the math into (overrides font size)', (value: string) => parseFloat(value))
+  .option('-S, --font-size <size>', 'font size in pixels', (value: string) => parseFloat(value), 100)
   .option('-p, --padding <padding>', 'padding around the math in em', (value: string) => parseFloat(value), 0.25)
   .option('-x, --scale <scale>', 'raster scale factor for png/kitty output', (value: string) => parseFloat(value), 1)
   .option('-o, --output <output>', 'output file')
