@@ -202,7 +202,7 @@ Key functions for rect manipulation:
 - `plot.ts` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
 - `network.ts` - `ArrowSpline`, `Node`, `Edge`, `Network`
 - `symbolic.ts` - `SymPoints`, `SymLine`, `SymSpline`, `SymPoly`, `SymFill`, `SymField`
-- `math.ts` - `MathSpan`, `MathText`, `MathArray`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
+- `math.ts` - `MathSpan`, `MathText`, `MathArray`, `MathBrace`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
 - `katex.ts` - `Latex`
 - `image.ts` - `Image`
 - `slide.ts` - `TitleBox`, `TitleFrame`, `Slide`
@@ -316,5 +316,14 @@ separators. It follows LaTeX's own metrics (`\arraystretch`, `\arraycolsep`, `\j
 the per-row strut), so its height and depth match katex's to within a hundredth of an em.
 From JSX it takes a flat list of cells plus `ncol` and reshapes them, the way `Grid` does,
 since the JSX evaluator flattens nested array children.
+
+`MathBrace`/`HorizBrace` implement the `horizBrace` node behind `\overbrace` and
+`\underbrace`. No font carries a stretchy brace glyph, so the brace is drawn: four
+quarter circles (a hook at each end, a peak in the middle) joined by straight runs,
+emitted as a **filled** polygon. Math shapes must be filled rather than stroked because
+`stroke-width` is a pixel attribute that does not scale with the coordinate system — the
+same reason `MathRule` fills a rectangle. Note that a `Polygon` maps its points through
+its *own* context, whose coord defaults to the unit square, so it needs an explicit
+`coord` to draw in em.
 
 The goal is not always perfectly replicating what LaTeX/KaTeX do. We want the implementation to be simple and easy to understand, and to be able to use the full power of gum.jsx to create complex layouts.

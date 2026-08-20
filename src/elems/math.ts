@@ -1,19 +1,20 @@
 // math components
 
 import { THEME } from '../lib/theme'
-import { none, black, red, maxis } from '../lib/const'
+import { none, black, red, maxis, d2r } from '../lib/const'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, textHasGlyphs, type TextMetrics } from '../lib/text'
 import { StrictError, strictError } from '../lib/strict'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
+import { Polygon } from './geometry'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
 import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
 import type { SpanArgs } from './text'
-import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
+import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode, TreeHorizBrace } from 'katex'
 
 //
 // types
@@ -1036,6 +1037,153 @@ class MathArray extends Group {
 }
 
 //
+// horizontal brace
+//
+
+// katex draws its stretchy braces as SVG paths (no font has a stretchy brace
+// glyph) sized 548/1000 em tall; the kerns come from its horizBrace builder
+const BRACE_HEIGHT = 0.548
+const BRACE_MIN_WIDTH = 1.6   // katex sets this as a css min-width on the brace
+const BRACE_THICKNESS = 0.05
+const BRACE_KERN = 0.1        // between the body and the brace
+const BRACE_LABEL_KERN = 0.2  // between the brace and its label
+const BRACE_SAMPLES = 12      // points per quarter turn
+
+// centerline of a horizontal brace pointing up: a hook curling down at each
+// end and a peak in the middle, joined by straight runs. It is four quarter
+// circles of radius r, so the brace stands 2r tall and wants 4r of width --
+// below that the straight runs vanish and the radius shrinks to fit
+function brace_centerline(width: number, height: number): Point[] {
+    const r = Math.min(0.5 * height, 0.25 * width)
+    const peak = height - 2 * r
+    const arc = (cx: number, cy: number, a0: number, a1: number): Point[] =>
+        range(BRACE_SAMPLES + 1).map(i => {
+            const a = d2r * (a0 + (a1 - a0) * (i / BRACE_SAMPLES))
+            return [ cx + r * Math.cos(a), cy + r * Math.sin(a) ] as Point
+        })
+    return [
+        ...arc(r, height, 180, 270),                  // left hook
+        ...arc(0.5 * width - r, peak, 90, 0),         // rise to the peak
+        ...arc(0.5 * width + r, peak, 180, 90).slice(1),  // fall from the peak
+        ...arc(width - r, height, 270, 360),          // right hook
+    ]
+}
+
+// shift a polyline sideways along its normals; tracing one way and back gives
+// the filled outline of a stroke, which is what math rules need -- an actual
+// SVG stroke is specified in pixels and would not scale with the font
+function offset_polyline(points: Point[], dist: number): Point[] {
+    return points.map(([ x, y ], i) => {
+        const [ ax, ay ] = points[Math.max(0, i - 1)]
+        const [ bx, by ] = points[Math.min(points.length - 1, i + 1)]
+        const [ dx, dy ] = [ bx - ax, by - ay ]
+        const norm = Math.hypot(dx, dy) || 1
+        return [ x - dist * dy / norm, y + dist * dx / norm ] as Point
+    })
+}
+
+interface MathBraceArgs extends GroupArgs {
+    advance?: number
+    height?: number
+    thickness?: number
+    over?: boolean
+    fill?: string
+}
+
+class MathBrace extends Group {
+    math: MathSpec
+
+    constructor(args: MathBraceArgs = {}) {
+        const {
+            advance: advance0 = 1, height: height0 = BRACE_HEIGHT,
+            thickness = BRACE_THICKNESS, over = true, fill = black, ...attr
+        } = THEME(args, 'MathBrace')
+
+        // inset the centerline by half the thickness so the ink lands exactly
+        // inside the advance and height rather than bleeding past them
+        const advance = Math.max(advance0, 2 * thickness)
+        const height = Math.max(height0, 2 * thickness)
+        const line = brace_centerline(advance - thickness, height - thickness)
+            .map(([ x, y ]) => [ x + 0.5 * thickness, y + 0.5 * thickness ] as Point)
+        const outline = [
+            ...offset_polyline(line, 0.5 * thickness),
+            ...offset_polyline(line, -0.5 * thickness).reverse(),
+        ]
+        const points = over ? outline : outline.map(([ x, y ]) => [ x, height - y ] as Point)
+
+        // compute layout metrics
+        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: 0 }
+        const coord: Rect = [ 0, 0, advance, height ]
+
+        // the polygon maps its points through its own context, which defaults
+        // to the unit square, so it needs the brace's coord to draw in em
+        const shape = new Polygon({ points, coord, fill, stroke: none })
+
+        // pass to Group
+        super({ children: [ shape ], coord, aspect: metrics_aspect(metrics), ...attr })
+        this.args = args
+        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
+    }
+}
+
+interface HorizBraceArgs extends Omit<GroupArgs, 'children'> {
+    children?: MathLeaf[]
+    label?: WithMath | null
+    over?: boolean
+    style?: MathStyle
+    height?: number
+    thickness?: number
+}
+
+class HorizBrace extends Group {
+    math: MathSpec
+
+    constructor(args: HorizBraceArgs = {}) {
+        const {
+            children, label = null, over = true, style = 'text',
+            height = BRACE_HEIGHT, thickness = BRACE_THICKNESS, ...attr0
+        } = THEME(args, 'HorizBrace')
+        const child = check_singleton(children)
+        const [ spec, attr ] = spec_split(attr0)
+
+        // TeX sets the braced body in display style, so operators take limits
+        // and fractions stay full size
+        const body = normalize_math_leaf(child, is_script_style(style) ? style : 'display')
+        if (body == null) {
+            throw new Error('HorizBrace must have exactly one child')
+        }
+
+        // the body sets the brace width, down to a floor that keeps a brace over
+        // a narrow body from collapsing into a squiggle; a wider label overhangs
+        const width0 = Math.max(body.math.advance, BRACE_MIN_WIDTH)
+        const brace = new MathBrace({ advance: width0, height, thickness, over, ...attr })
+        const items = [ body, brace, label ].filter(item => item != null)
+        const width = max(items.map(item => item.math.advance)) ?? 0
+
+        // stack outward from the body, whose anchor the whole group keeps
+        const [ blo, bhi ] = metrics_bounds(body.math)
+        const edge = over ? blo - BRACE_KERN - height : bhi + BRACE_KERN
+        const placed: Placed[] = [
+            { item: body, x: 0, y: 0, width, align: 'center' },
+            { item: brace, x: 0, y: edge, width, align: 'center' },
+        ]
+        if (label != null) {
+            const [ llo, lhi ] = metrics_bounds(label.math)
+            const y = over
+                ? edge - BRACE_LABEL_KERN - lhi
+                : edge + height + BRACE_LABEL_KERN - llo
+            placed.push({ item: label, x: 0, y, width, align: 'center' })
+        }
+
+        // an over/underbrace is an inner atom
+        const group = place_items(placed, [ 0, 0 ], 'minner')
+        super({ children: group.children, coord: group.spec.coord, aspect: group.spec.aspect, ...spec })
+        this.args = args
+        this.math = group.math
+    }
+}
+
+//
 // math text
 //
 
@@ -1865,6 +2013,25 @@ class Bracket extends MathRow {
 
 const EMPTY_MATH = new MathSpacer()
 
+// \overbrace and \underbrace, with the script that may be wrapped around them:
+// LaTeX passes the brace like an operator with \limits, so a sup on an
+// overbrace (or a sub on an underbrace) becomes the brace's label rather than
+// an ordinary script
+function convert_horiz_brace(tree: TreeHorizBrace, note: TreeNode | null, attr: Attrs, style: MathStyle): WithMath {
+    const { isOver, base } = tree
+
+    // the label rides at script size, like the script it was written as
+    const note_style = isOver ? sup_style(style) : sub_style(style)
+    const label = note != null
+        ? scale_math(convert_tree(note, attr, note_style), relative_scale(style, note_style))
+        : null
+
+    // TeX sets the braced body in display style, so operators take limits and
+    // fractions stay full size
+    const body = convert_tree(base, attr, is_script_style(style) ? style : 'display')
+    return new HorizBrace({ children: [ body ], label, over: isOver, style, ...attr })
+}
+
 function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: MathStyle = 'display'): WithMath {
     if (tree == null) return EMPTY_MATH
 
@@ -1941,6 +2108,12 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             return scale_math(inner, relative_scale(style, style1))
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
+
+            // a brace swallows the script as its label
+            if (base0 != null && is_object(base0) && base0.type == 'horizBrace') {
+                return convert_horiz_brace(base0, sup0 ?? sub0 ?? null, attr, style)
+            }
+
             const supStyle = sup_style(style)
             const subStyle = sub_style(style)
             const base = convert_tree(base0, attr, style)
@@ -1969,6 +2142,8 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const body = convert_tree(body0, attr, cramped_style(style))
             const index = index0 ? convert_tree(index0, attr, 'scriptscript') : null
             return new Sqrt({ children: [ body ], index, style, ...attr })
+        } else if (type == 'horizBrace') {
+            return convert_horiz_brace(tree, null, attr, style)
         } else if (type == 'array') {
             const {
                 body, cols, arraystretch = 1, addJot, rowGaps, hLinesBeforeRow,
@@ -2039,5 +2214,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathBrace, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }

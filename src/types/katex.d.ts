@@ -128,6 +128,14 @@ declare module 'katex' {
         leqno?: boolean
     }
 
+    export type TreeHorizBrace = {
+        type: 'horizBrace'
+        mode: SymbolMode
+        label: string
+        isOver: boolean
+        base: TreeNode
+    }
+
     export type TreeGenFrac = {
         type: 'genfrac'
         mode: SymbolMode
@@ -201,6 +209,7 @@ declare module 'katex' {
         | TreeUnderline
         | TreeOverline
         | TreeArray
+        | TreeHorizBrace
         | TreeSupSub
         | TreeGenFrac
         | TreeSqrt
