@@ -2,19 +2,17 @@
 
 import { THEME } from '../lib/theme'
 import { none, black, red, maxis } from '../lib/const'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, rotate_aspect } from '../lib/utils'
+import { EMPTY_VRANGE, DEFAULT_VRANGE, textHasGlyphs, type TextMetrics } from '../lib/text'
+import { StrictError, strictError } from '../lib/strict'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
-import { Context, Element, Group, Spacer, spec_split, ensure_children } from './core'
-import { RoundedRect } from './geometry'
+import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
-import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
-import { StrictError, strictError } from '../lib/strict'
 
 import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
-import type { StackArgs } from './layout'
-import type { SpanArgs } from './text'
 import type { ElementArgs, GroupArgs } from './core'
+import type { SpanArgs } from './text'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode } from 'katex'
 
 //
@@ -32,10 +30,11 @@ type MathSpec = {
     vrange: Limit
     vanchor: number
     italic: number  // superscript overhang past advance (TeX italic correction)
+    scale: number   // style scale applied to the content, so its baseline sits MATH_AXIS * scale below the anchor
     hrange?: Limit  // horizontal ink range from the cursor origin, when it differs from [0, advance] (TeX \rlap etc.)
 }
 
-type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'hrange'>>
+type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'scale' | 'hrange'>>
 
 type WithMath<E extends Element = Element> = E & {
     math: MathSpec
@@ -226,7 +225,7 @@ const DEFAULT_INLINE_METRICS: InlineMetrics = {
     vanchor: MATH_AXIS,
 }
 
-function make_math({ left, right, advance, vrange, vanchor, italic, hrange }: Partial<MathSpec>): MathSpec {
+function make_math({ left, right, advance, vrange, vanchor, italic, scale, hrange }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
@@ -234,6 +233,7 @@ function make_math({ left, right, advance, vrange, vanchor, italic, hrange }: Pa
         vrange: vrange ?? EMPTY_INLINE_METRICS.vrange,
         vanchor: vanchor ?? EMPTY_INLINE_METRICS.vanchor,
         italic: italic ?? 0,
+        scale: scale ?? 1,
         hrange,
     }
 }
@@ -299,12 +299,13 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
 // laid out at relative scale, and rendering follows the metrics
 function scale_math<E extends Element>(element: WithMath<E>, scale: number): WithMath<E> {
     if (scale == 1) return element
-    const { advance, vrange: [ ylo, yhi ], vanchor, italic, hrange } = element.math
+    const { advance, vrange: [ ylo, yhi ], vanchor, italic, scale: scale0, hrange } = element.math
     return with_math(element, {
         advance: scale * advance,
         vrange: [ scale * ylo, scale * yhi ],
         vanchor: scale * vanchor,
         italic: scale * italic,
+        scale: scale * scale0,
         hrange: hrange != null ? [ scale * hrange[0], scale * hrange[1] ] : undefined,
     })
 }
@@ -820,11 +821,11 @@ class MathRule extends Group {
     math: MathSpec
 
     constructor(args: MathRuleArgs = {}) {
-        const { advance = 1, thickness = 0.033, rounded = 0, fill = black, ...attr } = THEME(args, 'MathRule')
+        const { advance = 1, thickness = 0.033, fill = black, ...attr } = THEME(args, 'MathRule')
 
         // Rules are filled shapes, not outlined shapes. Disabling the inherited
         // SVG stroke avoids a second, slightly larger bar around the fill.
-        const bar = thickness > 0 ? new RoundedRect({ rect: [ 0, 0, advance, thickness ], fill, rounded, stroke: none }) : null
+        const bar = thickness > 0 ? new Rectangle({ rect: [ 0, 0, advance, thickness ], fill, stroke: none }) : null
 
         // compute layout metrics
         const metrics: InlineMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
@@ -837,6 +838,200 @@ class MathRule extends Group {
 
         // set math metrics
         this.math = make_math({ left: 'none', right: 'none', ...metrics })
+    }
+}
+
+//
+// math array
+//
+
+// LaTeX array metrics (article.cls / lttab.dtx / ltmath.dtx), in em at
+// ptPerEm = 10, matching katex's fontMetrics
+const ARRAY_PT = 0.1
+const ARRAY_BASELINE_SKIP = 12 * ARRAY_PT  // \baselineskip from size10.clo
+const ARRAY_JOT = 3 * ARRAY_PT             // \jot, extra leading in aligned/gathered
+const ARRAY_COL_SEP = 5 * ARRAY_PT         // \arraycolsep
+const ARRAY_RULE = 0.04                    // \arrayrulewidth
+const ARRAY_DOUBLE_RULE_SEP = 0.2          // \doublerulesep
+const ARRAY_SMALL_SEP = 0.2778             // \thickspace, used by {smallmatrix}
+const ARRAY_HLINE_GAP = 0.25               // gap between stacked \hline rules
+const ARRAY_DASH = 0.08                    // dash length for \hdashline and ':'
+
+// a column descriptor: either an alignment (with optional explicit gaps) or a
+// vertical separator drawn between columns
+type ArrayAlign = 'l' | 'c' | 'r'
+type ArrayCol =
+    | { type: 'align', align: ArrayAlign, pregap?: number, postgap?: number }
+    | { type: 'separator', separator: string }
+
+const ARRAY_ALIGN: Record<ArrayAlign, Align> = { l: 'left', c: 'center', r: 'right' }
+
+interface MathArrayArgs extends Omit<GroupArgs, 'children'> {
+    children?: WithMath[][] | WithMath[]  // rows of cells, or a flat list chunked by ncol
+    cols?: ArrayCol[]              // column alignments and separators
+    ncol?: number                  // columns to chunk a flat child list into
+    stretch?: number               // \arraystretch
+    jot?: boolean                  // add \jot of leading between rows
+    colsep?: number                // column separation (default \arraycolsep)
+    outer?: boolean                // pad the outer edges by colsep too
+    hlines?: boolean[][]           // rules before each row; true means dashed
+    rowgaps?: (number | null)[]    // extra gap after each row, in em
+    thickness?: number             // rule thickness
+    fill?: string                  // rule color
+}
+
+// a horizontal or vertical rule inside an array, as a filled shape in array
+// coordinates; a dashed rule is drawn as a run of short filled segments so it
+// scales with the font like every other rule
+function array_rules(x1: number, y1: number, x2: number, y2: number, dashed: boolean, fill: string): Element[] {
+    if (!dashed) return [ new Rectangle({ rect: [ x1, y1, x2, y2 ], fill, stroke: none }) ]
+    const horiz = (x2 - x1) >= (y2 - y1)
+    const span = horiz ? x2 - x1 : y2 - y1
+    const step = 2 * ARRAY_DASH
+    const count = Math.max(1, Math.round(span / step))
+    const size = span / (2 * count - 1)
+    return range(count).map(i => {
+        const lo = (horiz ? x1 : y1) + 2 * i * size
+        const hi = lo + size
+        const rect: Rect = horiz ? [ lo, y1, Math.min(hi, x2), y2 ] : [ x1, lo, x2, Math.min(hi, y2) ]
+        return new Rectangle({ rect, fill, stroke: none })
+    })
+}
+
+// cells either come as rows (how convert_tree builds them) or, since JSX
+// flattens nested children, as one flat list chunked by the column count --
+// the same bargain Grid strikes
+function normalize_rows(children: WithMath[][] | WithMath[] | undefined, ncol0: number | undefined, cols: ArrayCol[]): Element[][] {
+    if (children == null) return []
+    const items: any[] = is_array(children as any) ? children as any[] : [ children ]
+    if (items.length == 0) return []
+    if (items.every(is_array)) return items.map(row => ensure_children(row))
+
+    const flat = ensure_children(items as Element[])
+    const ncol = Math.max(1, ncol0 ?? cols.filter(col => col.type == 'align').length)
+    return range(Math.ceil(flat.length / ncol)).map(r => flat.slice(r * ncol, (r + 1) * ncol))
+}
+
+class MathArray extends Group {
+    math: MathSpec
+
+    constructor(args: MathArrayArgs = {}) {
+        const {
+            children: children0, cols = [], ncol: ncol0, stretch = 1, jot = false, colsep = ARRAY_COL_SEP,
+            outer = false, hlines = [], rowgaps = [], thickness = ARRAY_RULE, fill = black, ...attr
+        } = THEME(args, 'MathArray')
+        const rows0 = normalize_rows(children0, ncol0, cols).map(row => ensure_math_children(row))
+
+        // LaTeX gives every row a strut so short rows still occupy a full line
+        const arrayskip = stretch * ARRAY_BASELINE_SKIP
+        const strut_height = 0.7 * arrayskip
+        const strut_depth = 0.3 * arrayskip
+
+        // pass 1: walk down the rows accumulating height and depth about each
+        // row's own baseline, recording where the \hline rules fall
+        const rules: { pos: number, dashed: boolean }[] = []
+        let total = 0
+        const add_rules = (flags: boolean[] = []) => flags.forEach((dashed, i) => {
+            if (i > 0) total += ARRAY_HLINE_GAP
+            rules.push({ pos: total, dashed })
+        })
+
+        add_rules(hlines[0])
+        const rows = rows0.map((cells, r) => {
+            const extents = cells.map(cell => baseline_extents(cell))
+            const height = max([ strut_height, ...extents.map(([ h ]) => h) ]) ?? strut_height
+            let depth = max([ strut_depth, ...extents.map(([ , d ]) => d) ]) ?? strut_depth
+
+            // \\[len] deepens the row rather than opening a gap, unless negative
+            let gap = rowgaps[r] ?? 0
+            if (gap > 0) {
+                gap += strut_depth
+                depth = Math.max(depth, gap)
+                gap = 0
+            }
+
+            // \openup in the AMS multiline environments. \jot is leading
+            // *between* lines, so the last row does not get it -- katex 0.16
+            // adds it to every row, which pads the box; katex 0.18 fixed this
+            if (jot && r < rows0.length - 1) depth += ARRAY_JOT
+
+            total += height
+            const pos = total
+            total += depth + gap
+            add_rules(hlines[r + 1])
+            return { cells, pos }
+        })
+
+        // the array centers on the math axis, which is where gum's anchor line
+        // already sits, so a row's baseline lands at pos - total / 2
+        const offset = 0.5 * total
+        const baseline = (pos: number) => pos - offset
+
+        // column widths, over however many columns the widest row has
+        const ncol = max(rows.map(({ cells }) => cells.length)) ?? 0
+        const widths = range(ncol).map(c =>
+            max(rows.map(({ cells }) => cells[c]?.math.advance ?? 0)) ?? 0
+        )
+
+        // pass 2: walk the columns and the column descriptors together, so a
+        // trailing separator with no column after it still gets drawn
+        const children: Element[] = []
+        const seps: { x: number, dashed: boolean }[] = []
+        let x = 0
+        for (let c = 0, d = 0; c < ncol || d < cols.length; c++, d++) {
+            let col = cols[d]
+
+            // separators sit between columns and take no width of their own
+            for (let first = true; col?.type == 'separator'; first = false) {
+                if (!first) x += ARRAY_DOUBLE_RULE_SEP
+                seps.push({ x, dashed: col.separator == ':' })
+                col = cols[++d]
+            }
+            if (c >= ncol) continue
+
+            // \arraycolsep before and after each column, except at the outer
+            // edges unless the environment asks for it
+            const align = col?.type == 'align' ? col.align : 'c'
+            if (c > 0 || outer) x += col?.type == 'align' ? col.pregap ?? colsep : colsep
+
+            for (const { cells, pos } of rows) {
+                const cell = cells[c]
+                if (cell == null) continue
+                const [ lo, hi ] = metrics_bounds(cell.math)
+                const y = baseline(pos) - MATH_AXIS
+                const rect: Rect = [ x, y + lo, x + widths[c], y + hi ]
+                children.push(with_math(cell, {}, { rect, align: ARRAY_ALIGN[align] }))
+            }
+            x += widths[c]
+
+            if (c < ncol - 1 || outer) x += col?.type == 'align' ? col.postgap ?? colsep : colsep
+        }
+        const advance = x
+
+        // rules span the full array: \hline across it, separators down it. A
+        // \hline hangs above its row boundary (so the top rule adds its whole
+        // thickness to the array) while a separator straddles its column
+        // boundary, matching how LaTeX and katex place them
+        const [ ytop, ybot ] = [ baseline(0), baseline(total) ]
+        for (const { pos, dashed } of rules) {
+            const y = baseline(pos)
+            children.push(...array_rules(0, y - thickness, advance, y, dashed, fill))
+        }
+        for (const { x: xs, dashed } of seps) {
+            children.push(...array_rules(xs - 0.5 * thickness, ytop, xs + 0.5 * thickness, ybot, dashed, fill))
+        }
+
+        // an \hline above the first row lifts the top of the box
+        const vrange: Limit = [ Math.min(ytop, ...rules.map(({ pos }) => baseline(pos) - thickness)), ybot ]
+        const metrics: InlineMetrics = { advance, vrange, vanchor: 0 }
+        const coord: Rect = [ 0, ytop, advance, ybot ]
+
+        // pass to Group
+        super({ children, coord, aspect: metrics_aspect(metrics), ...attr })
+        this.args = args
+
+        // a tabular body is a single Ord atom
+        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
     }
 }
 
@@ -856,7 +1051,9 @@ type MathLeaf = Element | string | number | boolean | null | undefined
 // text in red on a parse error (as Latex does)
 function parse_math(tex: string, attr: Attrs = {}, style: MathStyle = 'display'): WithMath {
     try {
-        const tree = parse_tex(tex)
+        // the AMS multiline environments (align, gather, equation, ...) are
+        // gated on display mode in katex's parser
+        const tree = parse_tex(tex, { displayMode: style_size(style) == 'display' })
         return convert_tree(tree, attr, style)
     } catch (e) {
         // a strict failure from convert_tree is already reported; don't re-wrap
@@ -1005,8 +1202,9 @@ function place_items(placed: Placed[], pad: Limit = [ 0, 0 ], klass: MathClass =
 }
 
 // height above and depth below the baseline of an item in a given style scale
-// (its baseline sits MATH_AXIS * scale below its anchor)
-function baseline_extents(item: WithMath, scale: number = 1): [ number, number ] {
+// (its baseline sits MATH_AXIS * scale below its anchor); defaults to the scale
+// the item carries, which is what scale_math left on it
+function baseline_extents(item: WithMath, scale: number = item.math.scale): [ number, number ] {
     const [ lo, hi ] = metrics_bounds(item.math)
     const baseline = MATH_AXIS * scale
     return [ baseline - lo, hi - baseline ]
@@ -1087,7 +1285,7 @@ function layout_limits(base: WithMath, sup: WithMath | null, sub: WithMath | nul
     return place_items(placed, pad)
 }
 
-interface SupSubArgs extends StackArgs {
+interface SupSubArgs extends MathRowArgs {
     sup?: MathLeaf
     sub?: MathLeaf
     style?: MathStyle
@@ -1596,18 +1794,25 @@ const DELIM_SHORTFALL = 0.5
 function fit_delim(delim: string, side: 'left' | 'right', target: number, level0: number | undefined, attr: Attrs): WithMath<Delim> {
     if (level0 != null) return new Delim({ delim, side, level: level0, ...attr })
 
+    // the size fonts do not all cover every delimiter -- the vertical bars stop
+    // after Size1, since real TeX builds tall ones from extensible pieces --
+    // so skip any size that would render .notdef and stretch the largest that
+    // does have the glyph
+    const text = get_delim_text(delim, side)
     let best: Delim | null = null
     let bestError = Infinity
     for (let level = 1; level <= DELIM_LEVELS; level++) {
+        if (!textHasGlyphs(text, { font_family: delimiter_font(level) })) continue
         const candidate = new Delim({ delim, side, level, ...attr })
         const [ lo, hi ] = metrics_bounds(candidate.math)
         const half = 0.5 * (hi - lo)
         const error = Math.abs(Math.log(target / half))
         if (error < bestError) { best = candidate; bestError = error }
     }
+    if (best == null) return new Delim({ delim, side, level: 1, ...attr }) as WithMath<Delim>
 
-    const [ lo, hi ] = metrics_bounds(best!.math)
-    return scale_math(best!, target / (0.5 * (hi - lo)))
+    const [ lo, hi ] = metrics_bounds(best.math)
+    return scale_math(best, target / (0.5 * (hi - lo)))
 }
 
 interface BracketArgs extends StackArgs {
@@ -1764,6 +1969,27 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const body = convert_tree(body0, attr, cramped_style(style))
             const index = index0 ? convert_tree(index0, attr, 'scriptscript') : null
             return new Sqrt({ children: [ body ], index, style, ...attr })
+        } else if (type == 'array') {
+            const {
+                body, cols, arraystretch = 1, addJot, rowGaps, hLinesBeforeRow,
+                hskipBeforeAndAfter, colSeparationType,
+            } = tree
+
+            // {smallmatrix} separates columns by \thickspace rather than
+            // \arraycolsep, measured in the outer em
+            const colsep = colSeparationType == 'small'
+                ? ARRAY_SMALL_SEP * relative_scale(style, 'script')
+                : undefined
+
+            // katex hands cells over already wrapped in the environment's style
+            const rows = (body ?? []).map(row => row.map(cell => convert_tree(cell, attr, style)))
+            const rowgaps = (rowGaps ?? []).map(gap => gap == null ? null : measurement_to_em(gap))
+
+            return new MathArray({
+                children: rows, cols: cols as ArrayCol[] | undefined, stretch: arraystretch,
+                jot: addJot, colsep, outer: hskipBeforeAndAfter, hlines: hLinesBeforeRow,
+                rowgaps, ...attr,
+            })
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
             const body = convert_tree(body0, attr, style)
@@ -1813,5 +2039,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }

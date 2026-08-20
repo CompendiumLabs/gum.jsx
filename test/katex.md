@@ -26,8 +26,12 @@ installed **katex 0.16.33** parser) and classified from the resulting SVG:
 | `literal-leak` | a `<text>` run contains a raw `\command` |
 | `missing-glyph` | `charToGlyphIndex` returns 0 for a drawn character |
 
-Totals over 2856 probes: 2371 ok, 215 unsupported, 63 parse-error,
-24 no-op, 30 literal-leak, 14 missing-glyph, 44 blank/warn.
+Totals over 2856 probes: 2518 ok, 165 unsupported, 55 parse-error,
+24 no-op, 30 literal-leak, 14 missing-glyph, 50 blank/warn.
+
+**Status.** The `array` node is now implemented (§6), which took every tabular
+environment from broken to working and is the single largest change since the
+first pass of this audit.
 
 **Version note.** gum parses with katex 0.16.33 (`node_modules`), while the
 inventory came from the 0.18.4 checkout. Only three names differ:
@@ -38,17 +42,17 @@ not 0.16.33, so they parse-error rather than being gum gaps.
 
 ## 1. Parse-node coverage
 
-KaTeX defines 57 parse-node types. `convert_tree` handles 20:
+KaTeX defines 57 parse-node types. `convert_tree` handles 21:
 
 `mathord` `textord` `atom` `ordgroup` `op` `text` `font` `accent` `kern`
 `spacing` `mclass` `lap` `htmlmathml` `styling` `supsub` `genfrac`
-`underline` `overline` `sqrt` `leftright`
+`underline` `overline` `sqrt` `leftright` `array`
 
 Nine more never reach the converter (the parser resolves them internally):
 `infix` → `genfrac`, plus `internal` `raw` `size` `url` `color-token`
 `accent-token` `op-token` `environment` `leftright-right`.
 
-That leaves **25 node types that reach `convert_tree` and hit the fallback**,
+That leaves **24 node types that reach `convert_tree` and hit the fallback**,
 where the element is dropped and replaced by an empty spacer.
 
 ## 2. Unsupported node types
@@ -58,7 +62,6 @@ Everything here renders as *nothing* (silently — only a `console.error`).
 | node type | n | commands |
 | --- | --- | --- |
 | `accentUnder` | 6 | `\underleftarrow` `\underrightarrow` `\underleftrightarrow` `\undergroup` `\underlinesegment` `\utilde` |
-| `array` | 3 | `\substack` `\hline` `\hdashline` |
 | `color` | 64 | `\textcolor` `\color` `\href` `\url` `\htmlClass` `\htmlId` `\htmlStyle` `\includegraphics`, plus the 56 Khan-Academy palette macros (`\blue` `\red` `\greenA` `\kaBlue` …) |
 | `cr` | 2 | `\\` `\newline` |
 | `delimsizing` | 16 | `\big` `\Big` `\bigg` `\Bigg` and the `l`/`r`/`m` variants |
@@ -74,15 +77,18 @@ Everything here renders as *nothing* (silently — only a `console.error`).
 | `rule` | 3 | `\rule` `\vdots` `⋮` |
 | `sizing` | 17 | `\tiny` `\scriptsize` `\small` `\normalsize` `\large` `\Large` `\LARGE` `\huge` `\Huge` `\footnotesize` `\sixptsize`, and `≙` `≚` `≛` `≝` `≞` `≟` |
 | `smash` | 1 | `\smash` |
+| `tag` | 3 | `\tag` `\tag@paren` `\tag@literal` |
 | `vcenter` | 1 | `\vcenter` |
 | `verb` | 1 | `\verb` |
 | `xArrow` | 22 | `\xrightarrow` `\xleftarrow` `\xRightarrow` `\xLeftarrow` `\xleftrightarrow` `\xmapsto` `\xlongequal` `\xhookrightarrow` `\xrightleftharpoons` … |
 
-Highest-value from this list, by how ordinary the command is: `\\` (line
-break), `\big`/`\Big` family, `\overbrace`/`\underbrace`, `\boxed`,
-`\operatorname` and `\limsup`/`\argmax`, `\bmod`/`\pmod`, `\colon`,
-`\vdots`, `\substack`, `\phantom`, `\textcolor`, `\xrightarrow`, `\middle`,
-and the `\tiny`…`\Huge` sizing family.
+Highest-value from this list, by how ordinary the command is: the
+`\big`/`\Big` family, `\overbrace`/`\underbrace`, `\boxed`, `\operatorname`
+and `\limsup`/`\argmax`, `\bmod`/`\pmod`, `\colon`, `\vdots`, `\phantom`,
+`\textcolor`, `\xrightarrow`, `\middle`, and the `\tiny`…`\Huge` sizing
+family. `\operatorname` is probably the next one to do: 13 commands hang off
+it, and like `array` it is a single node type standing between a lot of
+ordinary notation and the page.
 
 ## 3. Silently ignored — renders, but the command does nothing
 
@@ -168,19 +174,51 @@ digits at all (`charToGlyphIndex` returns 0), so `\mathbb{abc}` and
 
 ## 6. Environments
 
-All 33 fail. 21 reach `convert_tree` as an unhandled `array` node and vanish:
+**32 of 33 now work.** They are all the same `array` node, implemented as
+`MathArray` in `src/elems/math.ts`:
 
 `array` `darray` `matrix` `pmatrix` `bmatrix` `Bmatrix` `vmatrix` `Vmatrix`
 (and the six `*` starred variants) `smallmatrix` `cases` `dcases` `rcases`
-`drcases` `aligned` `gathered`
+`drcases` `aligned` `gathered` `align` `align*` `alignat` `alignat*`
+`alignedat` `gather` `gather*` `split` `equation` `equation*` `subarray`
 
-The other 12 are rejected by the parser itself in non-display mode and fall
-back to red literal text: `align` `align*` `alignat` `alignat*` `alignedat`
-`gather` `gather*` `split` `equation` `equation*` `subarray` `CD`.
+That one handler also brought in `\substack`, `\\` row breaks,
+`\hline`/`\hdashline`, `|`/`:`/`||` column separators, per-column `l`/`c`/`r`
+alignment, and `\\[len]` row gaps.
 
-Adding one `array` node handler covers matrices, `cases`, `aligned`,
-`gathered`, `substack`, `\\`, and `\hline` in one pass — the single largest
-win available.
+Two things were needed beyond the node handler itself:
+
+- **Display mode.** The AMS environments (`align`, `gather`, `equation`,
+  `split`, `alignat`, `subarray`) are gated in katex's *parser* on
+  `displayMode`, which gum never passed. `parse_math` now derives it from the
+  current style, which unlocked 12 environments at the cost of one line. It
+  changes nothing else: 15 assorted formulas parse to byte-identical trees in
+  both modes. The one visible side effect is `\tag`, which now parses into an
+  (unsupported) `tag` node instead of failing outright — so it drops silently
+  rather than showing red source text.
+- **A `scale` on the metrics.** A style-scaled element's baseline sits
+  `MATH_AXIS * scale` below its anchor, but `MathSpec` did not record the
+  scale, so `baseline_extents` defaulted to 1 and overstated the height of
+  every scaled cell by `0.25 * (1 - scale)`. `scale_math` now composes a
+  `scale` onto the metrics and `baseline_extents` defaults to it. Every prior
+  caller already passed the scale explicitly, so nothing else changed — and
+  `smallmatrix`/`substack` went from 0.075 em out to exact.
+
+Verified against katex's own layout (`__renderToHTMLTree` reports height and
+depth in em) across 16 environments: **every one matches to within 0.008 em**,
+and that residual is gum's `\frac`/`\sqrt` glyph metrics, not the array. Where
+katex differs by more it is katex overshooting — its delimiters come in
+discrete sizes, so a 2-row `cases` gets a 3.0 em brace around a 2.88 em body,
+while gum stretches one to fit.
+
+`CD` (commutative diagrams) is the one environment still incomplete: the array
+lays out, but its arrows are `cdlabel`/`xArrow` nodes that remain unsupported.
+
+Implementing `array` also exposed a latent delimiter bug: `\vert` and `\Vert`
+have glyphs only in `KaTeX_Main` and `KaTeX_Size1` (real TeX builds tall bars
+from extensible pieces), so `vmatrix`/`Vmatrix` picked a size font with no
+glyph and drew `.notdef` boxes. `fit_delim` now skips sizes whose face lacks
+the glyph and stretches the largest that has it.
 
 ## 7. Error-handling behavior and strict mode
 
@@ -247,9 +285,9 @@ The supported surface is large and, where it is supported, accurate.
 
 ## 9. Test files
 
-All 23 are written and live in `test/code/`, one feature per file, matching the
-existing convention. Under strict mode (§7) the 18 gap files **fail**
-`bun scripts/test.ts` and the 5 regression files pass — 95 passed, 18 failed
+All 25 live in `test/code/`, one feature per file, matching the existing
+convention. Under strict mode (§7) the 16 remaining gap files **fail**
+`bun scripts/test.ts` and the 9 regression files pass — 99 passed, 16 failed
 across the whole corpus, with no false positives in `docs/` or `gala/`. Each
 failing card still renders in `--report`, with the `StrictError` above the
 picture, so you can see both the diagnosis and the damage. Rows in the gap
@@ -261,8 +299,6 @@ feature lands, which is the point:
 
 | file | covers |
 | --- | --- |
-| `math_array_matrix.jsx` | `pmatrix` `bmatrix` `vmatrix` `smallmatrix` |
-| `math_array_cases.jsx` | `cases` `aligned` `gathered` `substack` |
 | `math_delim_sizing.jsx` | `\big` `\Big` `\bigg` `\Bigg`, `l`/`r`/`m` variants, `\middle` |
 | `math_horiz_brace.jsx` | `\overbrace` `\underbrace` with scripts |
 | `math_ext_arrows.jsx` | `\xrightarrow` `\xleftarrow` `\xmapsto` with over/under labels |
@@ -291,6 +327,10 @@ styles, over/underline, negations, and parse errors):
 
 | file | covers |
 | --- | --- |
+| `math_array_matrix.jsx` | `pmatrix` `bmatrix` `vmatrix` `Vmatrix` `Bmatrix` `smallmatrix`, tall cells |
+| `math_array_cases.jsx` | `cases` `aligned` `gathered` `substack` |
+| `math_array_align.jsx` | `align` `alignat` `gather` `equation` `split` `subarray` (display-mode gated) |
+| `math_array_rules.jsx` | `l`/`c`/`r` columns, `\|`/`:`/`\|\|` separators, `\hline` `\hdashline`, `\\[len]` |
 | `math_symbol_sweep.jsx` | a dense grid of the 453 named math symbols that render today (of 459 total), to catch font-table regressions |
 | `math_infix_frac.jsx` | `\over` `\atop` `\above` `\choose` `\brace` `\brack` |
 | `math_macros.jsx` | `\def` `\newcommand` `\let` `\char` |

@@ -202,7 +202,7 @@ Key functions for rect manipulation:
 - `plot.ts` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
 - `network.ts` - `ArrowSpline`, `Node`, `Edge`, `Network`
 - `symbolic.ts` - `SymPoints`, `SymLine`, `SymSpline`, `SymPoly`, `SymFill`, `SymField`
-- `math.ts` - `MathSpan`, `MathText`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
+- `math.ts` - `MathSpan`, `MathText`, `MathArray`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
 - `katex.ts` - `Latex`
 - `image.ts` - `Image`
 - `slide.ts` - `TitleBox`, `TitleFrame`, `Slide`
@@ -307,5 +307,14 @@ Convenience keys (these map into the above keys):
 ## Math Elements
 
 We use `katex` to parse LaTeX strings into an AST. This is then converted into gum.jsx elements and rendered to SVG. The `Latex` element is a wrapper that parses the LaTeX string and positions the element at the center of the rectangle.
+
+`MathArray` implements katex's `array` node, which backs every tabular environment:
+`matrix`/`pmatrix`/`bmatrix`/`vmatrix`/`Vmatrix`/`Bmatrix` (and their starred variants),
+`smallmatrix`, `array`, `darray`, `cases`/`dcases`/`rcases`/`drcases`, `aligned`, `gathered`,
+and `\substack` — plus `\\` row breaks, `\hline`/`\hdashline`, and `|`/`:` column
+separators. It follows LaTeX's own metrics (`\arraystretch`, `\arraycolsep`, `\jot`, and
+the per-row strut), so its height and depth match katex's to within a hundredth of an em.
+From JSX it takes a flat list of cells plus `ncol` and reshapes them, the way `Grid` does,
+since the JSX evaluator flattens nested array children.
 
 The goal is not always perfectly replicating what LaTeX/KaTeX do. We want the implementation to be simple and easy to understand, and to be able to use the full power of gum.jsx to create complex layouts.

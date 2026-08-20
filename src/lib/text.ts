@@ -131,6 +131,17 @@ function checkGlyphs(font: Font, text: string, font_family: string): void {
     }
 }
 
+// whether a face can actually draw every character of a string, so a caller
+// can pick a different one rather than emit .notdef boxes
+function textHasGlyphs(text: string, { font_family = sans, font_weight = light }: TextSizerArgs = {}): boolean {
+    const font = textFont(font_family, font_weight)
+    for (const ch of text) {
+        if (ch == ' ' || ch == '\n' || ch == '\t') continue
+        if (font.charToGlyphIndex(ch) == 0) return false
+    }
+    return true
+}
+
 function textSizer(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size }: TextSizerArgs = {}): number {
     const font = textFont(font_family, font_weight)
     const runs = splitEmojiRuns(text)
@@ -267,6 +278,6 @@ function mergeStrings(items: any[]): any[] {
 // exports
 //
 
-export { is_emoji, textMetrics, textSizer, textVertical, textItalic, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
+export { is_emoji, textMetrics, textSizer, textVertical, textItalic, textHasGlyphs, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
 export { DEFAULT_METRICS, EMPTY_METRICS, DEFAULT_VRANGE, EMPTY_VRANGE }
 export type { TextMetrics }

@@ -100,6 +100,34 @@ declare module 'katex' {
         unit: 'mu' | 'em' | 'pt' | 'ex'
     }
 
+    export type TreeArrayAlign = {
+        type: 'align'
+        align: 'l' | 'c' | 'r'
+        pregap?: number
+        postgap?: number
+    }
+
+    export type TreeArraySeparator = {
+        type: 'separator'
+        separator: string
+    }
+
+    export type TreeArrayCol = TreeArrayAlign | TreeArraySeparator
+
+    export type TreeArray = {
+        type: 'array'
+        mode: SymbolMode
+        body: TreeNode[][]
+        cols?: TreeArrayCol[]
+        arraystretch: number
+        rowGaps: (Measurement | null)[]
+        hLinesBeforeRow: boolean[][]
+        addJot?: boolean
+        hskipBeforeAndAfter?: boolean
+        colSeparationType?: 'align' | 'alignat' | 'gather' | 'small' | 'CD'
+        leqno?: boolean
+    }
+
     export type TreeGenFrac = {
         type: 'genfrac'
         mode: SymbolMode
@@ -172,6 +200,7 @@ declare module 'katex' {
         | TreeAccent
         | TreeUnderline
         | TreeOverline
+        | TreeArray
         | TreeSupSub
         | TreeGenFrac
         | TreeSqrt
