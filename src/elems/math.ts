@@ -1774,7 +1774,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
     // fallback
     const type = is_object(tree) ? tree.type : typeof tree
     strictError('node', `unsupported katex node type '${type}'`)
-    console.error('Unknown katex tree type:', tree)
+    console.error('Unknown katex tree type:', type)
     return EMPTY_MATH
 }
 
