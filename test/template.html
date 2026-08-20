@@ -47,18 +47,18 @@
     gap: 1rem;
   }
   .card {
+    --card-border: var(--border);
     background: var(--card);
-    border: 1px solid var(--border);
+    border: 1px solid var(--card-border);
     border-radius: 8px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   }
-  .card:hover { border-color: var(--muted); box-shadow: 0 0.35rem 1.2rem #0002; transform: translateY(-1px); }
-  .card:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; }
-  .card.fail { border-color: var(--fail-border); }
+  .card:hover { box-shadow: 0 0 0 1px var(--card-border); }
+  .card:focus { outline: none; }
+  .card.fail { --card-border: var(--fail-border); }
   .head {
     display: flex; justify-content: space-between; align-items: center;
     padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
