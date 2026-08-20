@@ -7,6 +7,7 @@ import type { Font } from 'opentype.js'
 import { DEFAULTS as D, sans, moji, light, regular } from './const'
 import { is_string, compress_whitespace, sum, zip, max, min } from './utils'
 import { wrapWidths } from './wrap'
+import { isStrict, strictError } from './strict'
 import { getFont, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
 
 import type { Limit } from './types'
@@ -117,9 +118,23 @@ function textFont(font_family: string, font_weight: number): Font {
     return font[weight]
 }
 
+// a character the resolved face has no glyph for measures as .notdef (a
+// quarter em) while the renderer draws it from whatever face it substitutes,
+// so the text silently comes out mis-spaced; only checked in strict mode
+function checkGlyphs(font: Font, text: string, font_family: string): void {
+    for (const ch of text) {
+        if (ch == ' ' || ch == '\n' || ch == '\t') continue
+        if (font.charToGlyphIndex(ch) == 0) {
+            const code = ch.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')
+            strictError('glyph', `no glyph for U+${code} '${ch}' in '${font_family}'`)
+        }
+    }
+}
+
 function textSizer(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size }: TextSizerArgs = {}): number {
     const font = textFont(font_family, font_weight)
     const runs = splitEmojiRuns(text)
+    if (isStrict()) runs.forEach(run => { if (!run.emoji) checkGlyphs(font, run.text, font_family) })
     return sum(runs.map(run =>
         run.emoji ? emojiSizer(run.text) :
         (font.getAdvanceWidth(run.text, calc_size) / calc_size)

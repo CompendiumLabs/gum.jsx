@@ -41,13 +41,31 @@ const dirs = ['docs/code', 'gala/code', 'test/code']
 const report = process.argv.includes('--report')
 const results: Result[] = []
 
+// examples that deliberately exercise a permissive fallback opt out with a
+// `@nostrict` comment
+function allowsStrict(code: string): boolean {
+    return !/@nostrict\b/.test(code)
+}
+
+// the strict render decides pass/fail: it turns the fallbacks that would
+// otherwise draw something wrong (unparseable tex, unhandled katex nodes,
+// unknown commands, missing glyphs) into thrown errors. On a strict failure we
+// still do the permissive render, so the report shows what the document draws
+// alongside the reason it failed
 function render(code: string, theme: Theme): Render {
+    const strict = allowsStrict(code)
     try {
-        const elem = evaluateGum(code, { size: 1000, theme, loadFile })
+        const elem = evaluateGum(code, { size: 1000, theme, strict, loadFile })
         return { svg: elem.svg() }
     } catch (e: any) {
         const { message = 'Unknown error' } = e
-        return { error: message }
+        if (!strict) return { error: message }
+        try {
+            const elem = evaluateGum(code, { size: 1000, theme, loadFile })
+            return { svg: elem.svg(), error: message }
+        } catch {
+            return { error: message }
+        }
     }
 }
 
@@ -133,7 +151,8 @@ function makeCard(result: Result, highlight: Highlight): string {
     const status = isPass(result) ? 'pass' : 'fail'
     const images = themes.map(theme => {
         const { svg, error } = renders[theme]
-        const inner = error == null ? svg : `<div class="error">${escapeHtml(error ?? '')}</div>`
+        const banner = error == null ? '' : `<div class="error">${escapeHtml(error)}</div>`
+        const inner = svg == null ? banner : `${banner}${svg}`
         return `<div class="image theme-${theme}">${inner}</div>`
     }).join('\n  ')
     return `<article class="card ${status}" tabindex="0" role="button" aria-haspopup="dialog">

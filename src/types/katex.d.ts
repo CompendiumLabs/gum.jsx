@@ -51,6 +51,7 @@ declare module 'katex' {
     export type TreeText = {
         type: 'text'
         body: TreeNode[]
+        font?: string
     }
 
     export type TreeFont = {

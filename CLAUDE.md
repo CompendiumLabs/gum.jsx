@@ -32,6 +32,7 @@ gum test.jsx -o test.png
 # -t, --theme <theme>      theme to use (default: light)
 # -b, --background <color> background color (default: white)
 # -o, --output <output>    output file (default: null)
+# --strict                 throw on rendering fallbacks instead of drawing them
 ```
 
 ### Math CLI
@@ -66,6 +67,19 @@ Test examples are in `docs/code/`, `gala/code/`, and `test/code/` (targeted feat
 ```bash
 bun scripts/test.ts
 ```
+
+The suite renders every example in **strict mode** (`src/lib/strict.ts`), which turns the
+permissive rendering fallbacks into thrown `StrictError`s so silent breakage shows up as a
+failure: unparseable TeX (`parse`), a katex node with no gum equivalent (`node`), an unknown
+command name drawn verbatim (`symbol`), a TeX font command with no gum face mapped (`font`),
+and a character missing from the resolved face (`glyph`). Strict mode is **off by default**
+everywhere else; it is a `strict` flag on `evaluateGum`, `mathToElement`/`mathToSvg`/
+`mathToPng`/`mathToKitty`, and `--strict` on the `gum` and `gum-tex` CLIs. A failing example
+is still rendered permissively for the report, so the card shows the error above the picture.
+An example that deliberately exercises a fallback opts out with a `@nostrict` comment.
+
+`test/katex.md` is a full audit of katex's command surface against what gum renders, and the
+`test/code/math_*.jsx` files that currently fail are the known gaps it documents.
 
 Pass `--report` to also render every example in both themes to SVG (`test/report/<docs|gala|test>/<light|dark>/`) and generate a visual report at `test/report/index.html` with a light/dark toggle and a per-card image/code switch (from the `test/template.html` template; both renders are inlined into the page, code is syntax-highlighted at build time with `shiki`, and the bundled fonts are copied alongside with `@font-face` rules so math renders correctly; the report directory is generated and gitignored):
 ```bash
@@ -197,6 +211,7 @@ Key functions for rect manipulation:
 - `utils.ts` - Math utilities, array/vector ops, rect manipulation, color handling
 - `text.ts` - Text measurement and wrapping using opentype.js
 - `parse.ts` - JSX parser (Acorn) and AST walker
+- `strict.ts` - Strict mode: turns silent rendering fallbacks into thrown errors
 - `meta.ts` - Documentation metadata loading
 - `term.ts` - Terminal utilities (stdin, Kitty protocol)
 - `mark.ts` - Marked renderer and math extensions for terminal Markdown output

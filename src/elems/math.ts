@@ -9,6 +9,7 @@ import { RoundedRect } from './geometry'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, type TextMetrics } from '../lib/text'
+import { StrictError, strictError } from '../lib/strict'
 
 import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { StackArgs } from './layout'
@@ -55,6 +56,12 @@ const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
 const TEX_FONT_FAMILY: Record<string, FontFamily | undefined> = {
     mathbb: 'KaTeX_AMS',
 }
+
+// text-mode font commands that need no override: KaTeX_Main-Regular, the face
+// text already renders in, is the right answer for all of them. The rest
+// (\textbf, \textit, \texttt, \textsf, \emph) need Main-Bold/Main-Italic/
+// Typewriter/SansSerif, which are not among the loaded faces
+const TEXT_FONT_NEUTRAL = new Set([ '\\text', '\\textnormal', '\\textrm', '\\textup', '\\textmd' ])
 
 //
 // constants
@@ -534,8 +541,13 @@ class MathSymbol extends MathSpan {
         const { children: children0, mode = 'math', ...attr } = THEME(args, 'MathSymbol')
         const text = check_string(children0)
 
-        // try to get symbol entry
-        const { font, family, replace } = get_symbol_entry(mode, text) ??
+        // try to get symbol entry; an unresolved command name (as opposed to a
+        // literal character) would otherwise be drawn verbatim, backslash and all
+        const entry = get_symbol_entry(mode, text)
+        if (entry == null && text.startsWith('\\')) {
+            strictError('symbol', `no ${mode}-mode symbol '${text}'`)
+        }
+        const { font, family, replace } = entry ??
             { font: 'main', family: 'mathord', replace: text }
 
         // font family and spacing class
@@ -847,6 +859,10 @@ function parse_math(tex: string, attr: Attrs = {}, style: MathStyle = 'display')
         const tree = parse_tex(tex)
         return convert_tree(tree, attr, style)
     } catch (e) {
+        // a strict failure from convert_tree is already reported; don't re-wrap
+        // it as a parse error on the way out
+        if (e instanceof StrictError) throw e
+        strictError('parse', `${(e as Error).message.split('\n')[0]}`)
         return new MathSpan({ children: [ tex ], color: red, font_family: 'KaTeX_Main' })
     }
 }
@@ -1673,11 +1689,17 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const { name, limits } = tree
             return new MathOp({ children: [ name ], style, limits, ...attr })
         } else if (type == 'text') {
-            const { body } = tree
+            const { body, font } = tree
+            if (font != null && !TEXT_FONT_NEUTRAL.has(font)) {
+                strictError('font', `no font family mapped for '${font}'`)
+            }
             return convert_tree(body, attr, style)
         } else if (type == 'font') {
             const { font, body } = tree
             const font_family = TEX_FONT_FAMILY[font]
+            if (font_family == null) {
+                strictError('font', `no font family mapped for '${font}'`)
+            }
             const font_attr = font_family == null ? {} : { font_family }
             return convert_tree(body, { ...attr, ...font_attr }, style)
         } else if (type == 'accent') {
@@ -1750,6 +1772,8 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
     }
 
     // fallback
+    const type = is_object(tree) ? tree.type : typeof tree
+    strictError('node', `unsupported katex node type '${type}'`)
     console.error('Unknown katex tree type:', tree)
     return EMPTY_MATH
 }

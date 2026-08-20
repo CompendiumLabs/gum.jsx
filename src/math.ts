@@ -9,6 +9,7 @@ import { Box } from './elems/layout'
 import { Latex } from './elems/math'
 import { none } from './lib/const'
 import { setTheme, type ThemeName } from './lib/theme'
+import { setStrict } from './lib/strict'
 import type { Size } from './lib/types'
 import { is_browser } from './lib/utils'
 import { loadMathFonts } from './fonts/fonts'
@@ -31,6 +32,7 @@ interface MathArgs {
   background?: string    // background color (default: transparent)
   theme?: ThemeName      // light or dark
   strut?: boolean        // enforce a minimum line box around the axis
+  strict?: boolean       // throw on rendering fallbacks instead of drawing them
   [key: string]: any     // other attributes forwarded to Latex
 }
 
@@ -45,10 +47,13 @@ const DEFAULT_FONT_SIZE = 24
 // so glyphs render at exactly `font_size` pixels per em); if `size` is given,
 // the math is instead fit into that box preserving its aspect ratio
 function mathToElement(tex: string, args: MathArgs = {}): Svg {
-  const { inline, font_size = DEFAULT_FONT_SIZE, size, padding = 0, color, background, theme = 'light', strut = true, ...attr } = args
+  const { inline, font_size = DEFAULT_FONT_SIZE, size, padding = 0, color, background, theme = 'light', strut = true, strict = false, ...attr } = args
 
   // set theme for color defaults
   setTheme(theme)
+
+  // turn silent rendering fallbacks into thrown errors
+  setStrict(strict)
 
   // parse and lay out the math
   const color_attr = color != null ? { color } : {}
