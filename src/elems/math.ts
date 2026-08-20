@@ -1815,7 +1815,7 @@ function fit_delim(delim: string, side: 'left' | 'right', target: number, level0
     return scale_math(best, target / (0.5 * (hi - lo)))
 }
 
-interface BracketArgs extends StackArgs {
+interface BracketArgs extends MathRowArgs {
     delim?: DelimType | [ DelimType, DelimType ]
     left_delim?: string | null
     right_delim?: string | null
