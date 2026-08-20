@@ -128,6 +128,30 @@ declare module 'katex' {
         leqno?: boolean
     }
 
+    export type TreeAccentUnder = {
+        type: 'accentUnder'
+        mode: SymbolMode
+        label: string
+        base: TreeNode
+    }
+
+    export type TreeXArrow = {
+        type: 'xArrow'
+        mode: SymbolMode
+        label: string
+        body: TreeNode
+        below?: TreeNode | null
+    }
+
+    export type TreeOperatorName = {
+        type: 'operatorname'
+        mode: SymbolMode
+        body: TreeNode[]
+        alwaysHandleSupSub?: boolean
+        limits?: boolean
+        parentIsSupSub?: boolean
+    }
+
     export type TreeHorizBrace = {
         type: 'horizBrace'
         mode: SymbolMode
@@ -210,6 +234,9 @@ declare module 'katex' {
         | TreeOverline
         | TreeArray
         | TreeHorizBrace
+        | TreeAccentUnder
+        | TreeXArrow
+        | TreeOperatorName
         | TreeSupSub
         | TreeGenFrac
         | TreeSqrt

@@ -14,7 +14,7 @@ import { __parse as parse_tex } from 'katex'
 import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
 import type { SpanArgs } from './text'
-import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode, TreeHorizBrace } from 'katex'
+import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode, TreeHorizBrace, TreeXArrow, TreeOperatorName } from 'katex'
 
 //
 // types
@@ -1126,6 +1126,234 @@ class MathBrace extends Group {
     }
 }
 
+//
+// stretchy decorations
+//
+
+// katex draws all of these as SVG paths that stretch to the body, since no
+// font carries stretchable versions. The box heights and minimum widths below
+// are its katexImagesData, in em; the ink inside each box is drawn here
+const STRETCH_THICKNESS = TEX.rule
+const STRETCH_SAMPLES = 12
+const STRETCH_LINE_GAP = 0.11   // between the rules of a double arrow or =
+
+// a shape fills its box with one or more polygons; overlapping fills union, so
+// a stem can run the whole width with heads simply laid on top of it
+type StretchShape = (width: number, height: number, thickness: number) => Point[][]
+
+function stretch_bar(x0: number, y0: number, x1: number, y1: number): Point[] {
+    return [ [ x0, y0 ], [ x1, y0 ], [ x1, y1 ], [ x0, y1 ] ]
+}
+
+// a barbed arrowhead with its tip at x pointing along dir, centred on y
+function stretch_head(x: number, dir: number, y: number, half: number, len: number, barb: 'both' | 'up' | 'down' = 'both'): Point[] {
+    const back = x - dir * len
+    const notch: Point = [ x - dir * 0.72 * len, y ]
+    if (barb == 'up') return [ [ x, y ], [ back, y - half ], notch ]
+    if (barb == 'down') return [ [ x, y ], [ back, y + half ], notch ]
+    return [ [ x, y ], [ back, y - half ], notch, [ back, y + half ] ]
+}
+
+// sample a centerline and give back its filled outline
+function stretch_stroke(points: Point[], thickness: number): Point[] {
+    return [ ...offset_polyline(points, 0.5 * thickness), ...offset_polyline(points, -0.5 * thickness).reverse() ]
+}
+
+function stretch_arc(cx: number, cy: number, r: number, a0: number, a1: number): Point[] {
+    return range(STRETCH_SAMPLES + 1).map(i => {
+        const a = d2r * (a0 + (a1 - a0) * (i / STRETCH_SAMPLES))
+        return [ cx + r * Math.cos(a), cy + r * Math.sin(a) ] as Point
+    })
+}
+
+// arrows: a stem (one rule, or two for the double forms) with heads at either
+// end. `heads` draws a second chevron behind the first for \twoheadrightarrow
+type ArrowSpec = { left?: boolean, right?: boolean, lines?: number, heads?: number, barb?: 'both' | 'up' | 'down' }
+
+function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb = 'both' }: ArrowSpec): StretchShape {
+    return (width, height, t) => {
+        const mid = 0.5 * height
+        const half = 0.5 * height
+        const len = 0.75 * height
+        const rows = lines == 1 ? [ mid ] : [ mid - 0.5 * STRETCH_LINE_GAP, mid + 0.5 * STRETCH_LINE_GAP ]
+        const polys = rows.map(y => stretch_bar(0, y - 0.5 * t, width, y + 0.5 * t))
+        for (const i of range(heads)) {
+            const back = 0.42 * len * i
+            if (right) polys.push(stretch_head(width - back, 1, mid, half, len, barb))
+            if (left) polys.push(stretch_head(back, -1, mid, half, len, barb))
+        }
+        return polys
+    }
+}
+
+// \hookrightarrow: the tail curls into a half circle opening upward, whose far
+// side joins the stem and whose near side is left as the free end
+function stretch_hook_arrow(side: 'left' | 'right'): StretchShape {
+    return (width, height, t) => {
+        const mid = 0.5 * height
+        const half = 0.5 * height
+        const len = 0.75 * height
+        const r = 0.25 * height
+        const [ cx, x0, x1 ] = side == 'left'
+            ? [ r, 2 * r, width ]
+            : [ width - r, 0, width - 2 * r ]
+        const hook = stretch_arc(cx, mid, r, 0, 180)
+        return [
+            stretch_bar(x0, mid - 0.5 * t, x1, mid + 0.5 * t),
+            stretch_stroke(hook, t),
+            stretch_head(side == 'left' ? width : 0, side == 'left' ? 1 : -1, mid, half, len),
+        ]
+    }
+}
+
+// \mapsto's stem is stopped by a full-height bar at its tail
+function stretch_mapsto(side: 'left' | 'right'): StretchShape {
+    const arrow = stretch_arrow({ right: side == 'left', left: side == 'right' })
+    return (width, height, t) => {
+        const x = side == 'left' ? 0 : width - t
+        return [ ...arrow(width, height, t), stretch_bar(x, 0, x + t, height) ]
+    }
+}
+
+// \overlinesegment: a rule along the open edge with a tick down each end
+function stretch_segment(over: boolean): StretchShape {
+    return (width, height, t) => {
+        const y = over ? 0 : height - t
+        return [
+            stretch_bar(0, y, width, y + t),
+            stretch_bar(0, 0, t, height),
+            stretch_bar(width - t, 0, width, height),
+        ]
+    }
+}
+
+// \overgroup: a brace with no middle peak, so a hook at each end and a run
+function stretch_group(width: number, height: number, t: number): Point[][] {
+    const r = Math.max(Math.min(height - t, 0.5 * (width - t)), 0)
+    const [ x0, y0 ] = [ 0.5 * t, 0.5 * t ]
+    const line = [
+        ...stretch_arc(x0 + r, y0 + height - t, r, 180, 270),
+        ...stretch_arc(x0 + width - t - r, y0 + height - t, r, 270, 360),
+    ]
+    return [ stretch_stroke(line, t) ]
+}
+
+// \utilde's stretchy tilde: one period of a sine, flattened to the box
+function stretch_tilde(width: number, height: number, t: number): Point[][] {
+    const amp = 0.5 * (height - t)
+    const line = range(4 * STRETCH_SAMPLES + 1).map(i => {
+        const f = i / (4 * STRETCH_SAMPLES)
+        return [ f * width, 0.5 * height - amp * Math.sin(2 * Math.PI * f) ] as Point
+    })
+    return [ stretch_stroke(line, t) ]
+}
+
+function stretch_brace(over: boolean): StretchShape {
+    return (width, height, t) => {
+        const line = brace_centerline(width - t, height - t).map(([ x, y ]) => [ x + 0.5 * t, y + 0.5 * t ] as Point)
+        const outline = stretch_stroke(line, t)
+        return [ over ? outline : outline.map(([ x, y ]) => [ x, height - y ] as Point) ]
+    }
+}
+
+// two arrows stacked in one box, as in \rightleftharpoons
+function stretch_pair(top: ArrowSpec, bottom: ArrowSpec): StretchShape {
+    return (width, height, t) => {
+        const half = 0.5 * height
+        return [
+            ...stretch_arrow(top)(width, half, t),
+            ...stretch_arrow(bottom)(width, half, t).map(poly => poly.map(([ x, y ]) => [ x, y + half ] as Point)),
+        ]
+    }
+}
+
+// keyed by katex's stretchy label; height and min_width are its katexImagesData
+type StretchEntry = { shape: StretchShape, height: number, min_width: number }
+
+const ARROW_H = 0.522, DOUBLE_H = 0.56, FLAT_H = 0.334, GROUP_H = 0.342, PAIR_H = 0.716
+const STRETCH: Record<string, StretchEntry> = {
+    overrightarrow:      { shape: stretch_arrow({ right: true }), height: ARROW_H, min_width: 0.888 },
+    overleftarrow:       { shape: stretch_arrow({ left: true }), height: ARROW_H, min_width: 0.888 },
+    underrightarrow:     { shape: stretch_arrow({ right: true }), height: ARROW_H, min_width: 0.888 },
+    underleftarrow:      { shape: stretch_arrow({ left: true }), height: ARROW_H, min_width: 0.888 },
+    overleftrightarrow:  { shape: stretch_arrow({ left: true, right: true }), height: ARROW_H, min_width: 0.888 },
+    underleftrightarrow: { shape: stretch_arrow({ left: true, right: true }), height: ARROW_H, min_width: 0.888 },
+    Overrightarrow:      { shape: stretch_arrow({ right: true, lines: 2 }), height: DOUBLE_H, min_width: 0.888 },
+    overleftharpoon:     { shape: stretch_arrow({ left: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
+    overrightharpoon:    { shape: stretch_arrow({ right: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
+    overlinesegment:     { shape: stretch_segment(true), height: ARROW_H, min_width: 0.888 },
+    underlinesegment:    { shape: stretch_segment(false), height: ARROW_H, min_width: 0.888 },
+    overgroup:           { shape: stretch_group, height: GROUP_H, min_width: 0.888 },
+    undergroup:          { shape: (w, h, t) => stretch_group(w, h, t).map(p => p.map(([ x, y ]) => [ x, h - y ] as Point)), height: GROUP_H, min_width: 0.888 },
+    utilde:              { shape: stretch_tilde, height: 0.26, min_width: 0 },
+    overbrace:           { shape: stretch_brace(true), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
+    underbrace:          { shape: stretch_brace(false), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
+
+    xrightarrow:         { shape: stretch_arrow({ right: true }), height: ARROW_H, min_width: 1.469 },
+    xleftarrow:          { shape: stretch_arrow({ left: true }), height: ARROW_H, min_width: 1.469 },
+    xleftrightarrow:     { shape: stretch_arrow({ left: true, right: true }), height: ARROW_H, min_width: 1.75 },
+    xRightarrow:         { shape: stretch_arrow({ right: true, lines: 2 }), height: DOUBLE_H, min_width: 1.526 },
+    xLeftarrow:          { shape: stretch_arrow({ left: true, lines: 2 }), height: DOUBLE_H, min_width: 1.526 },
+    xLeftrightarrow:     { shape: stretch_arrow({ left: true, right: true, lines: 2 }), height: DOUBLE_H, min_width: 1.75 },
+    xlongequal:          { shape: stretch_arrow({ lines: 2 }), height: FLAT_H, min_width: 0.888 },
+    xtwoheadrightarrow:  { shape: stretch_arrow({ right: true, heads: 2 }), height: FLAT_H, min_width: 0.888 },
+    xtwoheadleftarrow:   { shape: stretch_arrow({ left: true, heads: 2 }), height: FLAT_H, min_width: 0.888 },
+    xrightharpoonup:     { shape: stretch_arrow({ right: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
+    xrightharpoondown:   { shape: stretch_arrow({ right: true, barb: 'down' }), height: ARROW_H, min_width: 0.888 },
+    xleftharpoonup:      { shape: stretch_arrow({ left: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
+    xleftharpoondown:    { shape: stretch_arrow({ left: true, barb: 'down' }), height: ARROW_H, min_width: 0.888 },
+    xhookrightarrow:     { shape: stretch_hook_arrow('left'), height: ARROW_H, min_width: 1.08 },
+    xhookleftarrow:      { shape: stretch_hook_arrow('right'), height: ARROW_H, min_width: 1.08 },
+    xmapsto:             { shape: stretch_mapsto('left'), height: ARROW_H, min_width: 1.5 },
+    xrightleftharpoons:  { shape: stretch_pair({ right: true, barb: 'up' }, { left: true, barb: 'down' }), height: PAIR_H, min_width: 1.75 },
+    xleftrightharpoons:  { shape: stretch_pair({ left: true, barb: 'up' }, { right: true, barb: 'down' }), height: PAIR_H, min_width: 1.75 },
+    xrightleftarrows:    { shape: stretch_pair({ right: true }, { left: true }), height: 0.901, min_width: 1.75 },
+    xtofrom:             { shape: stretch_pair({ right: true }, { left: true }), height: 0.528, min_width: 1.75 },
+}
+
+function stretch_entry(label: string): StretchEntry | undefined {
+    return STRETCH[label.replace(/^\\/, '')]
+}
+
+interface MathStretchArgs extends GroupArgs {
+    label?: string
+    advance?: number
+    height?: number
+    thickness?: number
+    fill?: string
+}
+
+class MathStretch extends Group {
+    math: MathSpec
+
+    constructor(args: MathStretchArgs = {}) {
+        const { label = 'overbrace', advance: advance0, height: height0, thickness = STRETCH_THICKNESS, fill = black, ...attr } = THEME(args, 'MathStretch')
+        const entry = stretch_entry(label)
+        if (entry == null) {
+            throw new Error(`Unknown stretchy decoration: '${label}'`)
+        }
+
+        // the shape draws into a box of its natural height and at least its
+        // natural width, so a decoration over a narrow body keeps its form
+        const height = Math.max(height0 ?? entry.height, 2 * thickness)
+        const advance = Math.max(advance0 ?? entry.min_width, entry.min_width, 2 * thickness)
+        const polys = entry.shape(advance, height, thickness)
+
+        // compute layout metrics
+        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: 0 }
+        const coord: Rect = [ 0, 0, advance, height ]
+
+        // a polygon maps its points through its own context, whose coord
+        // defaults to the unit square, so each piece needs the shape's coord
+        const children = polys.map(points => new Polygon({ points, coord, fill, stroke: none }))
+
+        // pass to Group
+        super({ children, coord, aspect: metrics_aspect(metrics), ...attr })
+        this.args = args
+        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
+    }
+}
+
 interface HorizBraceArgs extends Omit<GroupArgs, 'children'> {
     children?: MathLeaf[]
     label?: WithMath | null
@@ -2013,6 +2241,73 @@ class Bracket extends MathRow {
 
 const EMPTY_MATH = new MathSpacer()
 
+// \operatorname{...}: the body is set upright, the way the built-in named
+// operators are, and the whole name behaves as a single Op atom
+function convert_operatorname(tree: TreeOperatorName, attr: Attrs, style: MathStyle): WithMath {
+    const { body } = tree
+
+    // katex rewrites each character as an upright text-mode symbol, and amsopn
+    // asks for a hyphen rather than a minus and an asterisk rather than \ast
+    const upright = (body ?? []).map(node => {
+        const text = is_object(node) && 'text' in node ? (node as { text?: unknown }).text : undefined
+        return is_string(text)
+            ? { type: 'textord', mode: 'text', text: text.replace(/\u2212/, '-').replace(/\u2217/, '*') } as TreeNode
+            : node
+    })
+    // katex builds the body withFont("mathrm"); force the upright face here so
+    // a nested group (\varlimsup wraps its name in \overline) stays upright too
+    const inner = seal_math(convert_tree(upright, { ...attr, font_family: SYMBOL_MODE_FONT.text }, style))
+    return with_math(inner, { left: 'mop', right: 'mop' })
+}
+
+// a stretchy decoration sitting on the body, which sets its width: the body
+// keeps its own baseline and the decoration is centred over (or under) it
+function place_stretch(body: WithMath, label: string, over: boolean, kern: number, attr: Attrs): WithMath<Group> {
+    const deco = new MathStretch({ label, advance: body.math.advance, ...attr })
+    const [ blo, bhi ] = metrics_bounds(body.math)
+    const height = metrics_height(deco.math)
+    const width = max([ body.math.advance, deco.math.advance ]) ?? 0
+    const y = over ? blo - kern - height : bhi + kern
+    return place_items([
+        { item: body, x: 0, y: 0, width, align: 'center' },
+        { item: deco, x: 0, y, width, align: 'center' },
+    ], [ 0, 0 ], 'mord')
+}
+
+// \xrightarrow and friends: the arrow is the base, sitting on the math axis,
+// with its labels riding at script size just clear of it
+const XARROW_KERN = 0.111  // 2 mu, from amsmath
+
+function convert_xarrow(tree: TreeXArrow, attr: Attrs, style: MathStyle): WithMath {
+    const { label, body: body0, below: below0 } = tree
+    const up_style = sup_style(style)
+    const down_style = sub_style(style)
+    const above = scale_math(convert_tree(body0, attr, up_style), relative_scale(style, up_style))
+    const below = below0 != null
+        ? scale_math(convert_tree(below0, attr, down_style), relative_scale(style, down_style))
+        : null
+
+    const wide = max([ above.math.advance, below?.math.advance ?? 0 ]) ?? 0
+    const arrow = new MathStretch({ label, advance: wide + 2 * XARROW_KERN, ...attr })
+    const height = metrics_height(arrow.math)
+    const width = max([ arrow.math.advance, wide ]) ?? 0
+
+    // the arrow straddles the axis, which is where the anchor already sits
+    const placed: Placed[] = [ { item: arrow, x: 0, y: -0.5 * height, width, align: 'center' } ]
+
+    // the label above hangs from its baseline, so an ordinary descender drops
+    // into the gap; only a deep one is pushed clear (amsmath's rule)
+    const [ , depth ] = baseline_extents(above)
+    const drop = depth > 0.25 ? depth : 0
+    const base_y = -0.5 * height - XARROW_KERN - drop
+    placed.push({ item: above, x: 0, y: base_y - MATH_AXIS * above.math.scale, width, align: 'center' })
+    if (below != null) {
+        const [ llo ] = metrics_bounds(below.math)
+        placed.push({ item: below, x: 0, y: 0.5 * height + XARROW_KERN - llo, width, align: 'center' })
+    }
+    return place_items(placed, [ 0, 0 ], 'mrel')
+}
+
 // \overbrace and \underbrace, with the script that may be wrapped around them:
 // LaTeX passes the brace like an operator with \limits, so a sup on an
 // overbrace (or a sub on an underbrace) becomes the brace's label rather than
@@ -2075,7 +2370,15 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const font_attr = font_family == null ? {} : { font_family }
             return convert_tree(body, { ...attr, ...font_attr }, style)
         } else if (type == 'accent') {
-            const { label, base: base0 } = tree
+            const { label, base: base0, isStretchy } = tree
+
+            // a stretchy accent has no glyph: it is drawn to the body's width.
+            // katex also calls \widehat and \widetilde stretchy, but those do
+            // have glyphs, so only take this path for shapes we draw
+            if (isStretchy && stretch_entry(label) != null) {
+                const body = convert_tree(base0, attr, cramped_style(style))
+                return place_stretch(body, label, true, 0, attr)
+            }
             const base = convert_tree(base0, attr, style)
             return new Accent({ children: [ base ], label, ...attr })
         } else if (type == 'kern') {
@@ -2114,6 +2417,16 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
                 return convert_horiz_brace(base0, sup0 ?? sub0 ?? null, attr, style)
             }
 
+            // \operatorname* (and the macros built on it) stacks its scripts as
+            // limits, but only in display style, like any other operator
+            if (base0 != null && is_object(base0) && base0.type == 'operatorname' && base0.alwaysHandleSupSub) {
+                const base = convert_operatorname(base0, attr, style)
+                const sup = sup0 ? convert_tree(sup0, attr, sup_style(style)) : null
+                const sub = sub0 ? convert_tree(sub0, attr, sub_style(style)) : null
+                const limits = style_size(style) == 'display'
+                return new SupSub({ children: [ base ], sup, sub, style, limits, ...attr })
+            }
+
             const supStyle = sup_style(style)
             const subStyle = sub_style(style)
             const base = convert_tree(base0, attr, style)
@@ -2142,6 +2455,14 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const body = convert_tree(body0, attr, cramped_style(style))
             const index = index0 ? convert_tree(index0, attr, 'scriptscript') : null
             return new Sqrt({ children: [ body ], index, style, ...attr })
+        } else if (type == 'accentUnder' && stretch_entry(tree.label) != null) {
+            const { label, base: base0 } = tree
+            const body = convert_tree(base0, attr, style)
+            return place_stretch(body, label, false, label == '\\utilde' ? 0.12 : 0, attr)
+        } else if (type == 'xArrow' && stretch_entry(tree.label) != null) {
+            return convert_xarrow(tree, attr, style)
+        } else if (type == 'operatorname') {
+            return convert_operatorname(tree, attr, style)
         } else if (type == 'horizBrace') {
             return convert_horiz_brace(tree, null, attr, style)
         } else if (type == 'array') {

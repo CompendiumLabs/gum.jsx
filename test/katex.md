@@ -26,12 +26,13 @@ installed **katex 0.16.33** parser) and classified from the resulting SVG:
 | `literal-leak` | a `<text>` run contains a raw `\command` |
 | `missing-glyph` | `charToGlyphIndex` returns 0 for a drawn character |
 
-Totals over 2856 probes: 2520 ok, 163 unsupported, 55 parse-error,
-24 no-op, 30 literal-leak, 14 missing-glyph, 50 blank/warn.
+Totals over 2856 probes: 2567 ok, 124 unsupported, 55 parse-error,
+24 no-op, 22 literal-leak, 14 missing-glyph, 50 blank/warn.
 
-**Status.** Two node types have been implemented since the first pass of this
-audit: `array` (§6), which took every tabular environment from broken to
-working, and `horizBrace` (§2.1).
+**Status.** Five node types have been implemented since the first pass of this
+audit — `array` (§6), `horizBrace`, `accent` (stretchy), `accentUnder` and
+`xArrow` (§2.1), and `operatorname` (§2.2) — along with one correctness bug in
+already-supported functionality, spaces inside `\text{}` (§2.3).
 
 **Version note.** gum parses with katex 0.16.33 (`node_modules`), while the
 inventory came from the 0.18.4 checkout. Only three names differ:
@@ -42,17 +43,18 @@ not 0.16.33, so they parse-error rather than being gum gaps.
 
 ## 1. Parse-node coverage
 
-KaTeX defines 57 parse-node types. `convert_tree` handles 22:
+KaTeX defines 57 parse-node types. `convert_tree` handles 25:
 
 `mathord` `textord` `atom` `ordgroup` `op` `text` `font` `accent` `kern`
 `spacing` `mclass` `lap` `htmlmathml` `styling` `supsub` `genfrac`
 `underline` `overline` `sqrt` `leftright` `array` `horizBrace`
+`accentUnder` `xArrow` `operatorname`
 
 Nine more never reach the converter (the parser resolves them internally):
 `infix` → `genfrac`, plus `internal` `raw` `size` `url` `color-token`
 `accent-token` `op-token` `environment` `leftright-right`.
 
-That leaves **23 node types that reach `convert_tree` and hit the fallback**,
+That leaves **20 node types that reach `convert_tree` and hit the fallback**,
 where the element is dropped and replaced by an empty spacer.
 
 ## 2. Unsupported node types
@@ -61,7 +63,6 @@ Everything here renders as *nothing* (silently — only a `console.error`).
 
 | node type | n | commands |
 | --- | --- | --- |
-| `accentUnder` | 6 | `\underleftarrow` `\underrightarrow` `\underleftrightarrow` `\undergroup` `\underlinesegment` `\utilde` |
 | `color` | 64 | `\textcolor` `\color` `\href` `\url` `\htmlClass` `\htmlId` `\htmlStyle` `\includegraphics`, plus the 56 Khan-Academy palette macros (`\blue` `\red` `\greenA` `\kaBlue` …) |
 | `cr` | 2 | `\\` `\newline` |
 | `delimsizing` | 16 | `\big` `\Big` `\bigg` `\Bigg` and the `l`/`r`/`m` variants |
@@ -69,7 +70,6 @@ Everything here renders as *nothing* (silently — only a `console.error`).
 | `hbox` | 1 | `\hbox` |
 | `mathchoice` | 8 | `\mathchoice` `\colon` `\bmod` `\pmod` `\mod` `\pod` `\minuso` `⦵` |
 | `middle` | 1 | `\middle` |
-| `operatorname` | 13 | `\operatorname` `\operatornamewithlimits` `\limsup` `\liminf` `\injlim` `\projlim` `\varlimsup` `\varliminf` `\varinjlim` `\varprojlim` `\argmin` `\argmax` |
 | `phantom` `hphantom` `vphantom` | 4 | `\phantom` `\hphantom` `\vphantom` `\mathstrut` |
 | `pmb` | 1 | `\pmb` |
 | `raisebox` | 7 | `\raisebox` `\dddot` `\ddddot` `\TeX` `\LaTeX` `\KaTeX` `≘` |
@@ -79,45 +79,92 @@ Everything here renders as *nothing* (silently — only a `console.error`).
 | `tag` | 3 | `\tag` `\tag@paren` `\tag@literal` |
 | `vcenter` | 1 | `\vcenter` |
 | `verb` | 1 | `\verb` |
-| `xArrow` | 22 | `\xrightarrow` `\xleftarrow` `\xRightarrow` `\xLeftarrow` `\xleftrightarrow` `\xmapsto` `\xlongequal` `\xhookrightarrow` `\xrightleftharpoons` … |
+| `xArrow` | 2 | `\xrightequilibrium` `\xleftequilibrium` (mhchem; the other 20 work) |
 
 Highest-value from this list, by how ordinary the command is: the
 `\big`/`\Big` family, `\boxed`, `\operatorname`
 and `\limsup`/`\argmax`, `\bmod`/`\pmod`, `\colon`, `\vdots`, `\phantom`,
 `\textcolor`, `\xrightarrow`, `\middle`, and the `\tiny`…`\Huge` sizing
-family. `\operatorname` is probably the next one to do: 13 commands hang off
-it, and like `array` it is a single node type standing between a lot of
-ordinary notation and the page.
+family. What is left is mostly presentational — colour, sizing, boxes and
+phantoms — rather than notation.
 
-### 2.1 `horizBrace`
+### 2.1 Stretchy decorations
 
-`\overbrace` and `\underbrace` now work, as `MathBrace` (the shape) and
-`HorizBrace` (the assembly) in `src/elems/math.ts`.
+The `horizBrace` node (`\overbrace`/`\underbrace`), the stretchy half of
+`accent` (`\overrightarrow` and friends), all of `accentUnder`, and 20 of the
+22 `xArrow` commands now work — 42 commands off one piece of machinery.
 
-No font has a stretchy brace glyph — katex draws its braces as SVG paths for
-exactly this reason — so gum draws one: four quarter circles giving a hook at
-each end and a peak in the middle, joined by straight runs. The shape is
-emitted as a **filled** polygon rather than a stroked path, because gum's
-`stroke-width` is a pixel attribute that does not scale with the coordinate
-system; a stroked brace would be hairline at large font sizes and heavy at
-small ones. The same reasoning is why `MathRule` fills a rectangle. The outline
-comes from tracing the centerline offset along its normals in both directions,
-which is a general enough trick to reuse for the other stretchy decorations
-(`accentUnder`, `xArrow`, `\overrightarrow` and friends).
+No font carries stretchable versions of any of these; katex draws them all as
+SVG paths, and so does gum. `MathStretch` holds a table of shapes keyed by
+katex's own label, each drawing a **filled** outline into a box of katex's
+`katexImagesData` height and minimum width. Filled rather than stroked, because
+`stroke-width` is a pixel attribute that would not scale with the font — the
+same reason `MathRule` fills a rectangle.
 
-Layout follows katex's `horizBrace` builder: the body is set in display style,
-the brace sits `0.1` em beyond it at `0.548` em tall with a `1.6` em minimum
-width, and a script on the brace becomes a label `0.2` em further out — LaTeX
-passes the brace like an operator with `\limits`, so `convert_tree` intercepts
-a `supsub` whose base is a `horizBrace` and folds the script in as the label.
-The body keeps its own baseline and sets the brace width; a wider label
-overhangs it.
+Arrows are a stem with barbed heads laid on top (overlapping fills union, so
+the stem can simply run the whole width); braces, hooks, groups and the
+`\utilde` tilde come from tracing a centerline offset along its normals in both
+directions. The three assemblies differ only in their kerns, which follow
+katex: a stretchy accent sits directly on the body, `accentUnder` hangs beneath
+it (with 0.12 em of clearance for `\utilde`), and an `xArrow` straddles the
+math axis with its labels 2 mu clear at script size.
 
-Verified against katex across 10 expressions: the brace alone is exact
-(`\overbrace{a+b}` matches to 0.001 em) and labelled braces land within
-0.037 em. The one larger residual, `\underbrace{\sum_i a_i}_{k}` at 0.1 em, is
-gum's big-operator limit placement, which is 0.1 em off from katex on its own
-before any brace is involved.
+Verified against katex across 24 expressions: **every one within 0.033 em**, and
+most within 0.011. Two details were worth getting right — katex hangs the upper
+`xArrow` label from its *baseline* rather than its bottom, so an ordinary
+descender drops into the gap and only a deep one (> 0.25 em) is pushed clear;
+and `\utilde` is 0.26 em tall with no minimum width, not the 0.342 em of the
+group shapes.
+
+One trap: katex marks `\widehat`, `\widetilde` and `\widecheck` as stretchy
+too, but those *do* have glyphs and gum already drew them correctly. The
+converter only takes the drawn path for labels that are actually in the shape
+table.
+
+Still missing: `\xrightequilibrium` and `\xleftequilibrium` (mhchem), and the
+`\cd*` arrows that belong to the unimplemented `CD` environment.
+
+#### Braces in particular
+
+`\overbrace`/`\underbrace` are `MathBrace` (the shape) plus `HorizBrace` (the
+assembly). The brace is four quarter circles — a hook at each end and a peak in
+the middle — joined by straight runs, 0.548 em tall with a 1.6 em minimum
+width. The body is set in display style with the brace 0.1 em beyond it, and a
+script on the brace becomes a label 0.2 em further out: LaTeX passes the brace
+like an operator with `\limits`, so `convert_tree` intercepts a `supsub` whose
+base is a `horizBrace` and folds the script in. The body keeps its own baseline
+and sets the brace width; a wider label overhangs it.
+
+The brace alone is exact (`\overbrace{a+b}` matches katex to 0.001 em) and
+labelled braces land within 0.037 em. The one larger residual,
+`\underbrace{\sum_i a_i}_{k}` at 0.1 em, is gum's big-operator limit placement,
+which is 0.1 em off from katex on its own before any brace is involved.
+
+### 2.2 `operatorname`
+
+`\operatorname` and the 12 macros built on it (`\limsup`, `\liminf`,
+`\argmax`, `\argmin`, `\injlim`, `\projlim`, `\varlimsup`, …) now work. The
+body is set upright and the whole name becomes a single Op atom; the starred
+form stacks its scripts as limits, in display style only.
+
+katex builds the body `withFont("mathrm")`, which gum cannot express through
+`TEX_FONT_FAMILY` (§3), so the converter passes the upright face down directly.
+Without that, `\varlimsup` — whose macro wraps its name in `\overline` — came
+out italic, since rewriting only the top-level characters to text mode misses
+anything nested. Metrics match katex within 0.019 em across 9 expressions.
+
+### 2.3 Spaces in `\text{}`
+
+Not a missing feature but a correctness bug in supported functionality, and the
+most valuable single fix so far: `\text{a b}` and `\text{ab}` measured
+identically. katex emits a space in text mode as its own `spacing` token, and
+`compress_whitespace` ended in `.trimStart()`, so a token that *is* a single
+space trimmed away to nothing — `\text{ and }` came out as "and" jammed against
+its neighbours.
+
+Worth noting how it evaded this audit: nothing throws, so strict mode (§7) does
+not fire, and the probe compared each command against a control carrying the
+same bug. Silent-but-plausible output is invisible to both.
 
 ## 3. Silently ignored — renders, but the command does nothing
 
@@ -158,18 +205,11 @@ expansion) also register as no-ops. `\cfrac`, `\over`, `\choose`, `\atop`,
 ## 4. Literal command leaks
 
 The command name is drawn *as visible text* in `KaTeX_Math`, usually including
-a notdef box for the backslash.
+a notdef box for the backslash. 22 commands remain, down from 30.
 
-**Stretchy accents** — the `accent` node is handled, but only for accents with
-a single glyph. The stretchy ones have no glyph and leak:
-
-`\overrightarrow` `\overleftarrow` `\Overrightarrow` `\overleftrightarrow`
-`\overgroup` `\overlinesegment` `\overleftharpoon` `\overrightharpoon`
-
-`\overrightarrow{AB}` literally renders the string `\overrightarrow` followed
-by `AB`. (`\widehat`, `\widetilde`, `\hat`, `\vec`, `\bar`, `\dot`, `\ddot`,
-`\tilde`, `\acute`, `\grave`, `\check`, `\breve`, `\mathring`, `\widecheck`
-are all fine.)
+The 8 stretchy over-accents that used to lead this list (`\overrightarrow` and
+friends, which drew their own command name over the body) are fixed — see §2.1.
+What remains is all text-mode.
 
 **Text-mode accents** — the whole `\'` `` \` `` `\^` `\~` `\=` `\u` `\.` `\"`
 `\c` `\r` `\H` `\v` set, plus `\textcircled`. `\text{\'e}` draws a notdef box,
@@ -314,9 +354,9 @@ The supported surface is large and, where it is supported, accurate.
 
 ## 9. Test files
 
-All 25 live in `test/code/`, one feature per file, matching the existing
-convention. Under strict mode (§7) the 15 remaining gap files **fail**
-`bun scripts/test.ts` and the 10 regression files pass — 100 passed, 15 failed
+All 26 live in `test/code/`, one feature per file, matching the existing
+convention. Under strict mode (§7) the 11 remaining gap files **fail**
+`bun scripts/test.ts` and the 15 regression files pass — 105 passed, 11 failed
 across the whole corpus, with no false positives in `docs/` or `gala/`. Each
 failing card still renders in `--report`, with the `StrictError` above the
 picture, so you can see both the diagnosis and the damage. Rows in the gap
@@ -329,13 +369,10 @@ feature lands, which is the point:
 | file | covers |
 | --- | --- |
 | `math_delim_sizing.jsx` | `\big` `\Big` `\bigg` `\Bigg`, `l`/`r`/`m` variants, `\middle` |
-| `math_ext_arrows.jsx` | `\xrightarrow` `\xleftarrow` `\xmapsto` with over/under labels |
-| `math_operatorname.jsx` | `\operatorname` `\limsup` `\argmax` `\bmod` `\pmod` `\colon` |
 | `math_enclose.jsx` | `\boxed` `\fbox` `\cancel` `\sout` |
 | `math_phantom.jsx` | `\phantom` `\hphantom` `\vphantom` `\mathstrut` `\smash` |
 | `math_sizing.jsx` | `\tiny` … `\Huge` |
 | `math_color.jsx` | `\color` `\textcolor` |
-| `math_accent_under.jsx` | `\underrightarrow` `\undergroup` `\utilde` |
 | `math_rule_verb.jsx` | `\rule` `\vdots` `\verb` `\raisebox` `\TeX` |
 
 **Gaps that fail silently** — highest priority, since nothing today flags them:
@@ -344,7 +381,6 @@ feature lands, which is the point:
 | --- | --- |
 | `math_font_families.jsx` | `\mathrm` `\mathbf` `\mathit` `\mathcal` `\mathfrak` `\mathscr` `\mathsf` `\mathtt` side by side with plain — currently all identical |
 | `math_text_styles.jsx` | `\textbf` `\textit` `\texttt` `\textsf` vs `\text` |
-| `math_stretchy_accents.jsx` | `\overrightarrow` `\overleftarrow` `\overgroup` — currently leak their names |
 | `math_text_accents.jsx` | `\'e` `` \`a `` `\^o` `\~n` `\"u` `\c c` `\v s` |
 | `math_blackboard.jsx` | `\mathbb` upper vs lower vs digits |
 | `math_glyph_gaps.jsx` | `\oiint` `\oiiint` `\origof` `\imageof`, text `þÐ` |
@@ -355,6 +391,11 @@ styles, over/underline, negations, and parse errors):
 
 | file | covers |
 | --- | --- |
+| `math_stretchy_accents.jsx` | `\overrightarrow` `\overleftrightarrow` `\overgroup` `\overlinesegment`, glyph accents |
+| `math_accent_under.jsx` | `\underrightarrow` `\underleftrightarrow` `\undergroup` `\utilde` |
+| `math_ext_arrows.jsx` | `\xrightarrow` `\xmapsto` `\xhookrightarrow` `\xrightleftharpoons`, labels above and below |
+| `math_operatorname.jsx` | `\operatorname` `\operatorname*` `\limsup` `\argmax` `\varlimsup` |
+| `math_text_spacing.jsx` | spaces inside `\text{}` carry their advance |
 | `math_horiz_brace.jsx` | `\overbrace` `\underbrace`, labels, nesting, minimum width |
 | `math_array_matrix.jsx` | `pmatrix` `bmatrix` `vmatrix` `Vmatrix` `Bmatrix` `smallmatrix`, tall cells |
 | `math_array_cases.jsx` | `cases` `aligned` `gathered` `substack` |

@@ -1,8 +1,7 @@
-// under-accents (`accentUnder`) mirror the stretchy over-accents but are a
-// distinct node type; unsupported, so base and decoration both disappear
+// under-accents mirror the stretchy over-accents, hanging below the body;
+// \utilde takes an extra kern so the tilde clears descenders
 <VStack spacing={0.1}>
-  <Latex>{"1 + \\underrightarrow{AB} + \\underleftarrow{CD} + 2"}</Latex>
-  <Latex>{"1 + \\underleftrightarrow{xy} + \\undergroup{zw} + 2"}</Latex>
-  <Latex>{"1 + \\underlinesegment{pq} + \\utilde{r} + 2"}</Latex>
-  <Latex>{"1 + \\underline{AB} + \\overline{CD} + 2"}</Latex>
+  <Latex>{"\\underrightarrow{AB} \\quad \\underleftarrow{CD} \\quad \\underleftrightarrow{xy}"}</Latex>
+  <Latex>{"\\undergroup{zw} \\quad \\underlinesegment{pq} \\quad \\utilde{rs}"}</Latex>
+  <Latex>{"1 + \\underrightarrow{ABCDEF} + \\underline{gh} + \\overline{ij} + 2"}</Latex>
 </VStack>

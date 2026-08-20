@@ -337,6 +337,9 @@ function rounder(x: number | string, prec?: number): string {
 }
 
 function compress_whitespace(text: string): string {
+    // an all-whitespace run *is* the space (katex emits one as its own spacing
+    // token), so trimming it away would silently drop the gap
+    if (/^\s+$/.test(text)) return ' '
     return text.replace(/\s+/g, ' ').trimStart()
 }
 
