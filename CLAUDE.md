@@ -395,7 +395,7 @@ so drawn shapes follow it.
 A math box may draw outside the box it is laid out by: `hrange` is the horizontal ink range when
 it differs from `[0, advance]` (`\rlap`, the cancel strokes) and `vink` the vertical one when it
 differs from `vrange` (`\smash`, `\cancel` on a single character). `metrics_rect` gives the ink
-rect, `metrics_bounds` the layout bounds, and `place_items`/`layoutMathRow` place children by the
+rect, `metrics_bounds` the layout bounds, and `place_items`/`layout_math_row` place children by the
 former while stacking by the latter (`hull_overhang`). `MathOval` (the `\oiint` ring) and
 `MathCancel` are `MathShape`s like `MathStretch`; `enclose_box` builds `\boxed`/`\fbox`/
 `\colorbox` from a `MathBox` plus `array_rules`. `\tiny` … `\Huge` scale relative to the size

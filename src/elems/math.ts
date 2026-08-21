@@ -2,9 +2,9 @@
 
 import { THEME } from '../lib/theme'
 import { none, black, red, maxis, d2r } from '../lib/const'
-import { EMPTY_VRANGE, DEFAULT_VRANGE, textHasGlyphs, type TextMetrics } from '../lib/text'
+import { EMPTY_VRANGE, DEFAULT_VRANGE, textHasGlyphs, rawTextMetrics, type TextMetrics } from '../lib/text'
 import { StrictError, strictError } from '../lib/strict'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect, pad_rect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
 import { Polygon, Line, Arc, Arrow, ArrowHead, Ellipse } from './geometry'
@@ -39,7 +39,7 @@ type MathSpec = {
     vink?: Limit    // vertical ink range (same frame as vrange), when it differs from vrange (\smash, \cancel)
 }
 
-type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'scale' | 'hrange' | 'vink'>>
+type MathMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'scale' | 'hrange' | 'vink'>>
 
 type WithMath<E extends Element = Element> = E & {
     math: MathSpec
@@ -175,6 +175,27 @@ const TEX = {
 }
 
 //
+// measurement conversion
+//
+
+// katex's ptPerUnit table for the absolute units, at 10 pt per em
+const PT_PER_EM = 10
+const PT_PER_UNIT: Record<string, number> = {
+    pt: 1, mm: 7227 / 2540, cm: 7227 / 254, in: 72.27, bp: 803 / 800, pc: 12,
+    dd: 1238 / 1157, cc: 14856 / 1157, nd: 685 / 642, nc: 1370 / 107, sp: 1 / 65536,
+}
+
+function measurement_to_em(d: Measurement): number {
+    const scale: Record<string, number> = {
+        mu: 1 / 18,
+        em: 1,
+        ex: TEX.x_height,
+    }
+    const factor = scale[d.unit] ?? (PT_PER_UNIT[d.unit] != null ? PT_PER_UNIT[d.unit] / PT_PER_EM : 0)
+    return d.number * factor
+}
+
+//
 // math styles
 //
 
@@ -267,13 +288,6 @@ const THINSPACE: Measurement = { number: 3, unit: 'mu' }
 const MEDIUMSPACE: Measurement = { number: 4, unit: 'mu' }
 const THICKSPACE: Measurement = { number: 5, unit: 'mu' }
 
-type SpacingType = 'thin' | 'medium' | 'thick'
-const SPACING: Record<SpacingType, number> = {
-    thin: measurement_to_em(THINSPACE),
-    medium: measurement_to_em(MEDIUMSPACE),
-    thick: measurement_to_em(THICKSPACE),
-}
-
 type SpacingTable = Partial<Record<MathClass, Measurement>>
 const SPACING_TABLE: Record<MathClass, SpacingTable> = {
     mord: { mop: THINSPACE, mbin: MEDIUMSPACE, mrel: THICKSPACE, minner: THINSPACE },
@@ -291,13 +305,13 @@ const SPACING_TABLE: Record<MathClass, SpacingTable> = {
 // math metrics
 //
 
-const EMPTY_INLINE_METRICS: InlineMetrics = {
+const EMPTY_MATH_METRICS: MathMetrics = {
     advance: 0,
     vrange: EMPTY_VRANGE,
     vanchor: 0,
 }
 
-const DEFAULT_INLINE_METRICS: InlineMetrics = {
+const DEFAULT_MATH_METRICS: MathMetrics = {
     advance: 1,
     vrange: DEFAULT_VRANGE,
     vanchor: MATH_AXIS,
@@ -307,9 +321,9 @@ function make_math({ left, right, advance, vrange, vanchor, italic, scale, hrang
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
-        advance: advance ?? EMPTY_INLINE_METRICS.advance,
-        vrange: vrange ?? EMPTY_INLINE_METRICS.vrange,
-        vanchor: vanchor ?? EMPTY_INLINE_METRICS.vanchor,
+        advance: advance ?? EMPTY_MATH_METRICS.advance,
+        vrange: vrange ?? EMPTY_MATH_METRICS.vrange,
+        vanchor: vanchor ?? EMPTY_MATH_METRICS.vanchor,
         italic: italic ?? 0,
         scale: scale ?? 1,
         hrange,
@@ -317,31 +331,31 @@ function make_math({ left, right, advance, vrange, vanchor, italic, scale, hrang
     }
 }
 
-function text_inline_metrics({ advance, vrange, italic }: TextMetrics): InlineMetrics {
+function text_math_metrics({ advance, vrange, italic }: TextMetrics): MathMetrics {
     return { advance, vrange, vanchor: MATH_AXIS, italic }
 }
 
-function metrics_bounds({ vrange: [ ylo, yhi ], vanchor }: InlineMetrics): Limit {
+function metrics_bounds({ vrange: [ ylo, yhi ], vanchor }: MathMetrics): Limit {
     return [ ylo - vanchor, yhi - vanchor ]
 }
 
-function metrics_height({ vrange: [ ylo, yhi ] }: InlineMetrics): number {
+function metrics_height({ vrange: [ ylo, yhi ] }: MathMetrics): number {
     return yhi - ylo
 }
 
-function metrics_hrange({ advance, hrange }: InlineMetrics): Limit {
+function metrics_hrange({ advance, hrange }: MathMetrics): Limit {
     return hrange ?? [ 0, advance ]
 }
 
 // vertical ink bounds about the anchor: the layout bounds unless the ink
 // overhangs them (\smash, \cancel), as hrange does horizontally
-function metrics_ink_bounds({ vrange, vanchor, vink }: InlineMetrics): Limit {
+function metrics_ink_bounds({ vrange, vanchor, vink }: MathMetrics): Limit {
     const [ ylo, yhi ] = vink ?? vrange
     return [ ylo - vanchor, yhi - vanchor ]
 }
 
 // the ink box aspect: width from hrange (advance unless overhanging), height from the ink bounds
-function metrics_aspect(metrics: InlineMetrics): number | undefined {
+function metrics_aspect(metrics: MathMetrics): number | undefined {
     const [ xlo, xhi ] = metrics_hrange(metrics)
     const [ ylo, yhi ] = metrics_ink_bounds(metrics)
     const height = yhi - ylo
@@ -349,7 +363,7 @@ function metrics_aspect(metrics: InlineMetrics): number | undefined {
 }
 
 // the rect an item draws into when its anchor sits at (x, y): the ink box
-function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rect {
+function metrics_rect(metrics: MathMetrics, x: number = 0, y: number = 0): Rect {
     const [ xlo, xhi ] = metrics_hrange(metrics)
     const [ ylo, yhi ] = metrics_ink_bounds(metrics)
     return [ x + xlo, y + ylo, x + xhi, y + yhi ]
@@ -377,11 +391,11 @@ function with_math<E extends Element>(element: E, patch: Partial<MathSpec> = {},
     return out
 }
 
-function ensure_metrics(element: Element): InlineMetrics {
+function ensure_metrics(element: Element): MathMetrics {
     if (element instanceof Span) {
-        return text_inline_metrics(element.metrics)
+        return text_math_metrics(element.metrics)
     } else {
-        const { advance, vrange, vanchor } = DEFAULT_INLINE_METRICS
+        const { advance, vrange, vanchor } = DEFAULT_MATH_METRICS
         return { advance: element.spec.aspect ?? advance, vrange, vanchor }
     }
 }
@@ -409,10 +423,6 @@ function scale_math<E extends Element>(element: WithMath<E>, scale: number): Wit
     })
 }
 
-function ensure_math_children(children: Element[]): WithMath[] {
-    return children.map(child => ensure_math(child))
-}
-
 // make an element opaque to row flattening: a MathText splices the items of
 // nested MathText rows, which would discard any metrics patched onto the row
 // itself (scaling, zero advance, class overrides). A single-item row is just
@@ -422,28 +432,6 @@ function seal_math(element: WithMath): WithMath {
     if (element.items.length == 1) return element.items[0]
     const { left, right } = element.math
     return with_math(new MathRow({ children: [ element ] }), { left, right })
-}
-
-function inline_padding(padding: Padding | undefined): Point {
-    if (padding == null) return [ 0, 0 ]
-    if (is_scalar(padding)) return [ padding, padding ]
-    if (!Array.isArray(padding)) return [ 0, 0 ]
-    if (padding.length == 2) return padding as Point
-    const [ pl, _pt, pr, _pb ] = padding
-    const [ pl1, pl2 ] = ensure_vector(pl, 2)
-    const [ pr1, pr2 ] = ensure_vector(pr, 2)
-    return [ 0.5 * (pl1 + pr1), 0.5 * (pl2 + pr2) ]
-}
-
-function padding_rect(padding: Padding | undefined): Rect {
-    if (padding == null) return [ 0, 0, 0, 0 ]
-    if (is_scalar(padding)) return [ padding, padding, padding, padding ]
-    if (!Array.isArray(padding)) return [ 0, 0, 0, 0 ]
-    if (padding.length == 2) {
-        const [ px, py ] = padding
-        return [ px, py, px, py ] as Rect
-    }
-    return padding as Rect
 }
 
 //
@@ -462,31 +450,14 @@ function get_font_family(mode: SymbolMode, font: SymbolFont, family: SymbolFamil
 }
 
 //
-// measurement conversion
+// inter-atom spacing
 //
-
-// katex's ptPerUnit table for the absolute units, at 10 pt per em
-const PT_PER_EM = 10
-const PT_PER_UNIT: Record<string, number> = {
-    pt: 1, mm: 7227 / 2540, cm: 7227 / 254, in: 72.27, bp: 803 / 800, pc: 12,
-    dd: 1238 / 1157, cc: 14856 / 1157, nd: 685 / 642, nc: 1370 / 107, sp: 1 / 65536,
-}
-
-function measurement_to_em(d: Measurement): number {
-    const scale: Record<string, number> = {
-        mu: 1 / 18,
-        em: 1,
-        ex: TEX.x_height,
-    }
-    const factor = scale[d.unit] ?? (PT_PER_UNIT[d.unit] != null ? PT_PER_UNIT[d.unit] / PT_PER_EM : 0)
-    return d.number * factor
-}
 
 function inter_item_spacing(prev: WithMath | null, next: WithMath | null, script: boolean = false): number {
     if (prev == null || next == null) return 0
-    const { right: prevRight } = prev.math
-    const { left: nextLeft } = next.math
-    const measurement = SPACING_TABLE[prevRight]?.[nextLeft]
+    const { right: prev_right } = prev.math
+    const { left: next_left } = next.math
+    const measurement = SPACING_TABLE[prev_right]?.[next_left]
     if (measurement == null) return 0
     if (script && measurement != THINSPACE) return 0
     return measurement_to_em(measurement)
@@ -515,36 +486,36 @@ function cancel_element_right_bin(element: WithMath): WithMath {
 
 function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
     const items = items0.slice()
-    let prevIndex: number | null = null
+    let prev_index: number | null = null
 
     for (let i = 0; i < items.length; i++) {
         let item = items[i]
         const { left, right } = item.math
         if (left == 'none' && right == 'none') continue
 
-        if (prevIndex == null) {
+        if (prev_index == null) {
             item = cancel_element_left_bin(item)
             items[i] = item
         } else if (left != 'none') {
-            const prev = items[prevIndex]
-            const { right: prevRight } = prev.math
+            const prev = items[prev_index]
+            const { right: prev_right } = prev.math
 
-            if (prevRight == 'mbin' && BIN_RIGHT_CANCELLER.has(left)) {
-                items[prevIndex] = cancel_element_right_bin(prev)
+            if (prev_right == 'mbin' && BIN_RIGHT_CANCELLER.has(left)) {
+                items[prev_index] = cancel_element_right_bin(prev)
             }
 
-            const { right: prevClass } = items[prevIndex].math
-            if (left == 'mbin' && (prevClass == 'none' || BIN_LEFT_CANCELLER.has(prevClass))) {
+            const { right: prev_class } = items[prev_index].math
+            if (left == 'mbin' && (prev_class == 'none' || BIN_LEFT_CANCELLER.has(prev_class))) {
                 item = cancel_element_left_bin(item)
                 items[i] = item
             }
         }
 
-        prevIndex = i
+        prev_index = i
     }
 
-    if (prevIndex != null) {
-        items[prevIndex] = cancel_element_right_bin(items[prevIndex])
+    if (prev_index != null) {
+        items[prev_index] = cancel_element_right_bin(items[prev_index])
     }
 
     return items
@@ -594,7 +565,7 @@ function shape_args<T extends MathShapeArgs>(args: T): [ string, Omit<T, 'fill' 
 }
 
 interface MathShapeSpec extends GroupArgs {
-    metrics: InlineMetrics
+    metrics: MathMetrics
     klass?: MathClass
 }
 
@@ -620,20 +591,15 @@ class MathShape extends Group {
 //
 
 interface MathSpacerArgs extends ElementArgs {
-    width?: SpacingType
+    advance?: number
+    vrange?: Limit
 }
 
 class MathSpacer extends Spacer {
     math: MathSpec
 
     constructor(args: MathSpacerArgs = {}) {
-        const { advance: advance0 = 0, vrange = EMPTY_VRANGE, width, ...attr } = THEME(args, 'MathSpacer')
-
-        // check aspect type
-        const advance = width != null ? SPACING[width] : advance0
-        if (!is_scalar(advance)) {
-            throw new Error('must specify width (thin, medium, thick) or numerical aspect')
-        }
+        const { advance = 0, vrange = EMPTY_VRANGE, ...attr } = THEME(args, 'MathSpacer')
 
         // pass to Spacer
         super({ aspect: advance, ...attr })
@@ -670,18 +636,15 @@ class MathSpan extends Span {
         super({ children: [ text ], ...attr })
         this.args = args
 
-        // recover ink extents above/below the baseline at a 1em font (y-up)
-        const { advance: advance0, vrange: [ vlo, vhi ], raw_vrange: [ rlo, rhi ] = [ vlo, vhi ], italic: italic0 = 0 } = this.metrics
-        const fh = vhi - vlo
-        if (fh <= 0 || rhi <= rlo) {
-            this.math = make_math({ left, right, ...text_inline_metrics(this.metrics) })
+        // the ink extents above/below the baseline at a 1em font (y-up); no
+        // ink means a plain text box
+        const raw = rawTextMetrics(this.metrics)
+        if (raw == null) {
+            this.math = make_math({ left, right, ...text_math_metrics(this.metrics) })
             return
         }
-        const ymax = (vhi - rlo) / fh
-        const ymin = (vhi - rhi) / fh
+        const { advance, vrange: [ ymin, ymax ], italic = 0 } = raw
         const height = ymax - ymin
-        const advance = advance0 / fh
-        const italic = italic0 / fh
 
         // ink box in anchor coords (y-down, axis at 0)
         const baseline = center ? 0.5 * (ymax + ymin) : MATH_AXIS
@@ -813,16 +776,16 @@ class MathOp extends MathSymbol {
 // math row
 //
 
-type InlineLayout = {
+type MathLayout = {
     children: Element[]
-    metrics: InlineMetrics
+    metrics: MathMetrics
     coord?: Rect
     aspect?: number
 }
 
-function layoutMathRow(items: WithMath[]): InlineLayout {
+function layout_math_row(items: WithMath[]): MathLayout {
     // empty case
-    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_MATH_METRICS }
 
     // find outer vertical range
     const advance = sum(items.map(item => item.math.advance))
@@ -841,7 +804,7 @@ function layoutMathRow(items: WithMath[]): InlineLayout {
     const { hrange, vink, coord } = hull_overhang(rects, advance, vrange)
 
     // compute layout metrics
-    const metrics: InlineMetrics = { advance, vrange, vanchor: 0, hrange, vink }
+    const metrics: MathMetrics = { advance, vrange, vanchor: 0, hrange, vink }
     const aspect = metrics_aspect(metrics)
 
     // return layout
@@ -858,10 +821,10 @@ class MathRow extends Group {
     constructor(args: MathRowArgs = {}) {
         const { children: children0, ...attr } = THEME(args, 'MathRow')
         const items = ensure_children(children0)
-        const mathItems = ensure_math_children(items)
+        const math_items = items.map(ensure_math)
 
         // compute layout
-        const { metrics, ...layout } = layoutMathRow(mathItems)
+        const { metrics, ...layout } = layout_math_row(math_items)
 
         // pass to Group
         super({ ...layout, ...attr })
@@ -876,14 +839,14 @@ class MathRow extends Group {
 // math col
 //
 
-type MathColLayout = {
+type MathColOptions = {
     justify?: Align
     spacing?: number
 }
 
-function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0 }: MathColLayout): InlineLayout {
+function layout_math_col(items: WithMath[], { justify = 'center', spacing = 0 }: MathColOptions): MathLayout {
     // empty case
-    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_INLINE_METRICS }
+    if (items.length == 0) return { children: [], aspect: 0, metrics: EMPTY_MATH_METRICS }
 
     // find outer advance
     const advance = max(items.map(item => item.math.advance)) ?? 0
@@ -901,7 +864,7 @@ function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0 }: M
 
     // compute layout metrics
     const vrange: Limit = [ 0, ybottom ]
-    const metrics: InlineMetrics = { advance, vrange, vanchor: 0.5 * ybottom }
+    const metrics: MathMetrics = { advance, vrange, vanchor: 0.5 * ybottom }
     const coord = join_limits({ h: [ 0, advance ], v: vrange })
     const aspect = metrics_aspect(metrics)
 
@@ -921,10 +884,10 @@ class MathCol extends Group {
     constructor(args: MathColArgs = {}) {
         const { children: children0, justify, spacing = 0, ...attr } = THEME(args, 'MathCol')
         const items = ensure_children(children0)
-        const mathItems = ensure_math_children(items)
+        const math_items = items.map(ensure_math)
 
         // compute layout
-        const { metrics, ...layout } = layoutMathCol(mathItems, { justify, spacing })
+        const { metrics, ...layout } = layout_math_col(math_items, { justify, spacing })
 
         // pass to Group
         super({ ...layout, ...attr })
@@ -959,7 +922,7 @@ class MathBox extends Group {
 
         // get metrics info
         const [ ylo, yhi ] = metrics_bounds(child.math)
-        const [ pl, pt, pr, pb ] = padding_rect(padding0)
+        const [ pl, pt, pr, pb ] = pad_rect(padding0)
 
         // compute layout metrics
         const inner_advance = advance0 ?? child.math.advance
@@ -967,7 +930,7 @@ class MathBox extends Group {
         const outer_height = pt + (yhi - ylo) + pb
         const vrange: Limit = [ 0, outer_height ]
         const vanchor = vanchor0 ?? (pt - ylo)
-        const metrics: InlineMetrics = { advance: outer_advance, vrange, vanchor }
+        const metrics: MathMetrics = { advance: outer_advance, vrange, vanchor }
 
         // make child item (its ink may overhang its layout box)
         const [ , iy0, , iy1 ] = metrics_rect(child.math, 0, pt - ylo)
@@ -989,14 +952,14 @@ interface MathRuleArgs extends MathShapeArgs {
 
 class MathRule extends MathShape {
     constructor(args: MathRuleArgs = {}) {
-        const [ fill, { advance = 1, thickness = 0.033, ...attr } ] = shape_args(args)
+        const [ fill, { advance = 1, thickness = TEX.rule, ...attr } ] = shape_args(args)
 
         // a filled shape, not an outlined one: the inherited SVG stroke would
         // add a second, slightly larger bar around the fill
         const bar = thickness > 0 ? new Rectangle({ rect: [ 0, 0, advance, thickness ], fill, stroke: none }) : null
 
         // a rule is glue for spacing
-        const metrics: InlineMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
+        const metrics: MathMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
         super({ children: [ bar ], coord: [ 0, 0, advance, thickness ], metrics, klass: 'none', ...attr })
         this.args = args
     }
@@ -1012,7 +975,7 @@ const ARRAY_PT = 0.1
 const ARRAY_BASELINE_SKIP = 12 * ARRAY_PT  // \baselineskip from size10.clo
 const ARRAY_JOT = 3 * ARRAY_PT             // \jot, extra leading in aligned/gathered
 const ARRAY_COL_SEP = 5 * ARRAY_PT         // \arraycolsep
-const ARRAY_RULE = 0.04                    // \arrayrulewidth
+const ARRAY_RULE = TEX.rule                // \arrayrulewidth, 0.4 pt like the default rule
 const ARRAY_DOUBLE_RULE_SEP = 0.2          // \doublerulesep
 const ARRAY_SMALL_SEP = 0.2778             // \thickspace, used by {smallmatrix}
 const ARRAY_HLINE_GAP = 0.25               // gap between stacked \hline rules
@@ -1081,7 +1044,7 @@ class MathArray extends Group {
             children: children0, cols = [], ncol: ncol0, stretch = 1, jot = false, colsep = ARRAY_COL_SEP,
             outer = false, hlines = [], rowgaps = [], thickness = ARRAY_RULE, fill: fill0, ...attr
         } = THEME(args, 'MathArray')
-        const rows0 = normalize_rows(children0, ncol0, cols).map(row => ensure_math_children(row))
+        const rows0 = normalize_rows(children0, ncol0, cols).map(row => row.map(ensure_math))
         const fill = shape_ink({ fill: fill0, color: attr.color as string | undefined })
 
         // LaTeX gives every row a strut so short rows still occupy a full line
@@ -1185,7 +1148,7 @@ class MathArray extends Group {
 
         // an \hline above the first row lifts the top of the box
         const vrange: Limit = [ Math.min(ytop, ...rules.map(({ pos }) => baseline(pos) - thickness)), ybot ]
-        const metrics: InlineMetrics = { advance, vrange, vanchor: 0 }
+        const metrics: MathMetrics = { advance, vrange, vanchor: 0 }
         const coord: Rect = [ 0, ytop, advance, ybot ]
 
         // pass to Group
@@ -1545,7 +1508,7 @@ class MathStretch extends MathShape {
         const advance = Math.max(advance0 ?? entry.min_width, entry.min_width, 2 * thickness)
 
         // compute layout metrics
-        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: 0 }
+        const metrics: MathMetrics = { advance, vrange: [ 0, height ], vanchor: 0 }
         const coord: Rect = [ 0, 0, advance, height ]
 
         // the children draw in em within this coord (a Polygon maps its points
@@ -1667,36 +1630,36 @@ type MathTextLayout = {
     right: MathClass
 }
 
-function layoutMathText(mathItems: WithMath[], script: boolean = false): MathTextLayout {
-    const rowItems: WithMath[] = []
+function layout_math_text(math_items: WithMath[], script: boolean = false): MathTextLayout {
+    const row_items: WithMath[] = []
 
     // accumulate math metrics
     let left: MathClass = 'none'
     let right: MathClass = 'none'
-    let prevItem: WithMath | null = null
+    let prev_item: WithMath | null = null
 
     // process items (glue with no class is transparent to spacing, as in TeX)
-    for (const item of mathItems) {
-        const { left: itemLeft, right: itemRight } = item.math
-        const atom = itemLeft != 'none' || itemRight != 'none'
+    for (const item of math_items) {
+        const { left: item_left, right: item_right } = item.math
+        const atom = item_left != 'none' || item_right != 'none'
 
         // insert item with spacing
-        const gap = atom ? inter_item_spacing(prevItem, item, script) : 0
-        if (gap > 0) rowItems.push(new MathSpacer({ advance: gap }))
-        rowItems.push(item)
+        const gap = atom ? inter_item_spacing(prev_item, item, script) : 0
+        if (gap > 0) row_items.push(new MathSpacer({ advance: gap }))
+        row_items.push(item)
 
         // update left/right classes
         if (!atom) continue
-        if (left == 'none') left = itemLeft
-        if (itemRight != 'none') right = itemRight
-        prevItem = item
+        if (left == 'none') left = item_left
+        if (item_right != 'none') right = item_right
+        prev_item = item
     }
 
     // set default right
     if (right == 'none') right = left
 
     // return math items
-    return { items: rowItems, left, right }
+    return { items: row_items, left, right }
 }
 
 class MathText extends MathRow {
@@ -1705,12 +1668,12 @@ class MathText extends MathRow {
     constructor(args: MathTextArgs = {}) {
         const { children: children0, style = 'text', strut = false, ...attr } = THEME(args, 'MathText')
         const inputs = ensure_children(children0)
-        const mathItems = normalize_math_children(inputs, style)
+        const math_items = normalize_math_children(inputs, style)
 
         // compress spacing and layout, with an optional strut (TeX \strut)
         // guaranteeing a minimum line box for top-level math
-        const spacedItems = cancel_binary_atoms(mathItems)
-        const { items: items0, left, right } = layoutMathText(spacedItems, is_script_style(style))
+        const spaced_items = cancel_binary_atoms(math_items)
+        const { items: items0, left, right } = layout_math_text(spaced_items, is_script_style(style))
         const items = strut ? [ ...items0, new MathSpacer({ vrange: STRUT }) ] : items0
 
         // pass to Group
@@ -1718,7 +1681,7 @@ class MathText extends MathRow {
         this.args = args
 
         // set math metrics
-        this.items = mathItems
+        this.items = math_items
         this.math.left = left
         this.math.right = right
     }
@@ -1761,7 +1724,7 @@ function place_items(placed: Placed[], pad: Limit = [ 0, 0 ], klass: MathClass =
 
     // the group draws the ink hull, which the layout box may not cover
     const { hrange, vink, coord } = hull_overhang(rects, advance, vrange)
-    const metrics: InlineMetrics = { advance, vrange, vanchor: 0, hrange, vink }
+    const metrics: MathMetrics = { advance, vrange, vanchor: 0, hrange, vink }
     const group = new Group({ children, coord, aspect: metrics_aspect(metrics) })
     return with_math(group, { left: klass, right: klass, ...metrics })
 }
@@ -1794,34 +1757,34 @@ function layout_scripts(base: WithMath, sup: WithMath | null, sub: WithMath | nu
     const v = db + TEX.sub_drop * rel
 
     // superscript shift up
-    let supShift = 0
+    let sup_shift = 0
     let dsup = 0
     if (sup != null) {
         const [ , d ] = baseline_extents(sup, rel)
         const p = style == 'display' ? TEX.sup1 : is_cramped_style(style) ? TEX.sup3 : TEX.sup2
-        supShift = Math.max(u, p, d + 0.25 * TEX.x_height)
+        sup_shift = Math.max(u, p, d + 0.25 * TEX.x_height)
         dsup = d
     }
 
     // subscript shift down
-    let subShift = 0
+    let sub_shift = 0
     if (sub != null) {
         const [ h ] = baseline_extents(sub, rel)
         if (sup == null) {
-            subShift = Math.max(v, TEX.sub1, h - 0.8 * TEX.x_height)
+            sub_shift = Math.max(v, TEX.sub1, h - 0.8 * TEX.x_height)
         } else {
-            subShift = Math.max(v, TEX.sub2)
-            const gap = (supShift - dsup) - (h - subShift)
-            if (gap < 4 * TEX.rule) subShift += 4 * TEX.rule - gap
-            const psi = 0.8 * TEX.x_height - (supShift - dsup)
-            if (psi > 0) { supShift += psi; subShift -= psi }
+            sub_shift = Math.max(v, TEX.sub2)
+            const gap = (sup_shift - dsup) - (h - sub_shift)
+            if (gap < 4 * TEX.rule) sub_shift += 4 * TEX.rule - gap
+            const psi = 0.8 * TEX.x_height - (sup_shift - dsup)
+            if (psi > 0) { sup_shift += psi; sub_shift -= psi }
         }
     }
 
     // anchors of the scripts (their baselines sit MATH_AXIS * rel below)
     const placed: Placed[] = []
-    if (sup != null) placed.push({ item: sup, x: italic, y: MATH_AXIS - supShift - MATH_AXIS * rel })
-    if (sub != null) placed.push({ item: sub, x: 0, y: MATH_AXIS + subShift - MATH_AXIS * rel })
+    if (sup != null) placed.push({ item: sup, x: italic, y: MATH_AXIS - sup_shift - MATH_AXIS * rel })
+    if (sub != null) placed.push({ item: sub, x: 0, y: MATH_AXIS + sub_shift - MATH_AXIS * rel })
     return place_items(placed)
 }
 
@@ -1864,14 +1827,14 @@ class SupSub extends MathRow {
 
         // scripts render one size level down; superscripts inherit crampedness
         // while subscripts are always cramped (TeX's eight-style transition table)
-        const supStyle = sup_style(style)
-        const subStyle = sub_style(style)
-        const rel = relative_scale(style, supStyle)
-        const subRel = relative_scale(style, subStyle)
-        const sup0m = normalize_math_leaf(sup0, supStyle)
-        const sub0m = normalize_math_leaf(sub0, subStyle)
+        const style_sup = sup_style(style)
+        const style_sub = sub_style(style)
+        const rel = relative_scale(style, style_sup)
+        const sub_rel = relative_scale(style, style_sub)
+        const sup0m = normalize_math_leaf(sup0, style_sup)
+        const sub0m = normalize_math_leaf(sub0, style_sub)
         const sup = sup0m != null ? scale_math(sup0m, rel) : null
-        const sub = sub0m != null ? scale_math(sub0m, subRel) : null
+        const sub = sub0m != null ? scale_math(sub0m, sub_rel) : null
 
         // limits stack over/under (by default when the base is a display-style
         // operator that takes them); side scripts follow the base plus script space
@@ -1918,7 +1881,8 @@ class Frac extends MathGroup {
     constructor(args: FracArgs = {}) {
         const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.frac_rule, style = 'display', color, ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
-        const [ pad_x, pad_y ] = inline_padding(padding)
+        const [ pl, pt, pr, pb ] = pad_rect(padding)
+        const [ pad_x, pad_y ] = [ 0.5 * (pl + pr), 0.5 * (pt + pb) ]
         const nstyle = frac_num_style(style)
         const dstyle = frac_den_style(style)
         const numer1 = normalize_math_leaf(numer0, nstyle)
@@ -1937,23 +1901,23 @@ class Frac extends MathGroup {
 
         // style parameters: baseline shifts and clearance from the bar
         const display = style_size(style) == 'display'
-        const numShift = display ? (has_bar ? TEX.num1 : TEX.num3) : TEX.num2
-        const denShift = display ? TEX.denom1 : TEX.denom2
+        const num_shift = display ? (has_bar ? TEX.num1 : TEX.num3) : TEX.num2
+        const den_shift = display ? TEX.denom1 : TEX.denom2
         const rule_spacing = has_bar ? rule_size : TEX.rule
         const clearance = (has_bar ? (display ? 3 : 1) : (display ? 7 : 3)) * rule_spacing + pad_y
         const half = has_bar ? 0.5 * rule_size : 0
 
         // numerator: baseline MATH_AXIS - shift, pushed up to clear the bar
         const [ , dn ] = baseline_extents(numer, rel)
-        const numBase = Math.min(MATH_AXIS - numShift, -(half + clearance + dn))
+        const num_base = Math.min(MATH_AXIS - num_shift, -(half + clearance + dn))
         const [ hd ] = baseline_extents(denom, rel)
-        const denBase = Math.max(MATH_AXIS + denShift, half + clearance + hd)
+        const den_base = Math.max(MATH_AXIS + den_shift, half + clearance + hd)
 
         // assemble around the bar
         const width = Math.max(numer.math.advance, denom.math.advance) + 2 * pad_x
         const placed: Placed[] = [
-            { item: numer, x: pad_x, y: numBase - MATH_AXIS * rel, width: width - 2 * pad_x, align: 'center' },
-            { item: denom, x: pad_x, y: denBase - MATH_AXIS * rel, width: width - 2 * pad_x, align: 'center' },
+            { item: numer, x: pad_x, y: num_base - MATH_AXIS * rel, width: width - 2 * pad_x, align: 'center' },
+            { item: denom, x: pad_x, y: den_base - MATH_AXIS * rel, width: width - 2 * pad_x, align: 'center' },
         ]
         if (has_bar) {
             const bar = new MathRule({ advance: width, thickness: rule_size, color })
@@ -2109,63 +2073,63 @@ class Sqrt extends MathGroup {
             index = null,
             color,
             padding = 0,
-            rule_size: ruleSize0,
-            line_width: lineWidth,
+            rule_size: rule_size0,
+            line_width: line_width,
             style = 'text',
             ...attr
         } = THEME(args, 'Sqrt')
         const body = math_child(children, cramped_style(style), 'Sqrt')
-        const ruleSize = ruleSize0 ?? lineWidth ?? TEX.rule
+        const rule_size = rule_size0 ?? line_width ?? TEX.rule
 
         // TeX Rule 11: the radicand is cramped, with a style-dependent gap
         // below the rule. The smallest delimiter is still a full text surd.
-        const bodyBox = new MathBox({ children: [ body ], padding })
-        const bodyHeight = metrics_height(bodyBox.math)
-        const bodyWidth = bodyBox.math.advance
-        const phi = style_size(style) == 'display' ? TEX.x_height : ruleSize
-        let clearance = ruleSize + 0.25 * phi
-        const effectiveBodyHeight = Math.max(bodyHeight, TEX.x_height)
-        const minRadicalHeight = effectiveBodyHeight + clearance + ruleSize
-        const radical = fit_radical(minRadicalHeight, color)
-        const radicalHeight = metrics_height(radical.math)
+        const body_box = new MathBox({ children: [ body ], padding })
+        const body_height = metrics_height(body_box.math)
+        const body_width = body_box.math.advance
+        const phi = style_size(style) == 'display' ? TEX.x_height : rule_size
+        let clearance = rule_size + 0.25 * phi
+        const eff_height = Math.max(body_height, TEX.x_height)
+        const min_radical_height = eff_height + clearance + rule_size
+        const radical = fit_radical(min_radical_height, color)
+        const radical_height = metrics_height(radical.math)
 
         // A natural delimiter is often taller than the minimum. Split that
         // extra room above and below the body, as TeX/KaTeX do.
-        const radicalDepth = radicalHeight - ruleSize
-        if (radicalDepth > effectiveBodyHeight + clearance) {
-            clearance = 0.5 * (clearance + radicalDepth - effectiveBodyHeight)
+        const radical_depth = radical_height - rule_size
+        if (radical_depth > eff_height + clearance) {
+            clearance = 0.5 * (clearance + radical_depth - eff_height)
         }
 
         // Preserve the body's anchor. The surd and the square rule meet with a
         // small overlap so rasterization cannot open a seam at their joint.
-        const [ bodyTop ] = metrics_bounds(bodyBox.math)
-        const ruleTop = bodyTop - clearance - ruleSize
-        const [ radicalTop ] = metrics_bounds(radical.math)
-        const radicalY = ruleTop - radicalTop
-        const radicalWidth = radical.math.advance
-        const overlap = Math.min(0.5 * ruleSize, radicalWidth)
-        const rule = new MathRule({ advance: overlap + bodyWidth, thickness: ruleSize, color })
-        const [ ruleLo ] = metrics_bounds(rule.math)
-        const ruleY = ruleTop - ruleLo
+        const [ body_top ] = metrics_bounds(body_box.math)
+        const rule_top = body_top - clearance - rule_size
+        const [ radical_top ] = metrics_bounds(radical.math)
+        const radical_y = rule_top - radical_top
+        const radical_width = radical.math.advance
+        const overlap = Math.min(0.5 * rule_size, radical_width)
+        const rule = new MathRule({ advance: overlap + body_width, thickness: rule_size, color })
+        const [ rule_lo ] = metrics_bounds(rule.math)
+        const rule_y = rule_top - rule_lo
 
         const placed: Placed[] = [
-            { item: radical, x: 0, y: radicalY },
-            { item: rule, x: radicalWidth - overlap, y: ruleY },
-            { item: bodyBox, x: radicalWidth, y: 0 },
+            { item: radical, x: 0, y: radical_y },
+            { item: rule, x: radical_width - overlap, y: rule_y },
+            { item: body_box, x: radical_width, y: 0 },
         ]
 
         // TeX always sets a root index in scriptscript style. Keep it inside
         // the surd's horizontal advance, aligned with the upper-left shoulder.
         if (index != null) {
             const index0 = ensure_math(index)
-            const indexElem = scale_math(index0, relative_scale(style, 'scriptscript'))
-            const [ , indexBottom ] = metrics_bounds(indexElem.math)
-            const right = 0.65 * radicalWidth
-            const bottom = ruleTop + 0.55 * radicalHeight
+            const index_elem = scale_math(index0, relative_scale(style, 'scriptscript'))
+            const [ , index_bottom ] = metrics_bounds(index_elem.math)
+            const right = 0.65 * radical_width
+            const bottom = rule_top + 0.55 * radical_height
             placed.push({
-                item: indexElem,
-                x: Math.max(0, right - indexElem.math.advance),
-                y: bottom - indexBottom,
+                item: index_elem,
+                x: Math.max(0, right - index_elem.math.advance),
+                y: bottom - index_bottom,
             })
         }
 
@@ -2318,11 +2282,11 @@ interface BracketArgs extends MathRowArgs {
 
 class Bracket extends MathRow {
     constructor(args: BracketArgs = {}) {
-        const { children, delim: delim0 = 'round', left_delim: leftDelim0, right_delim: rightDelim0, height, ...attr0 } = THEME(args, 'Bracket')
+        const { children, delim: delim0 = 'round', left_delim: left_delim0, right_delim: right_delim0, height, ...attr0 } = THEME(args, 'Bracket')
         const body = math_child(children, 'text', 'Bracket')
         const [ left_delim1, right_delim1 ] = ensure_vector(delim0, 2)
-        const left_delim = normalize_delim(leftDelim0 ?? left_delim1)
-        const right_delim = normalize_delim(rightDelim0 ?? right_delim1)
+        const left_delim = normalize_delim(left_delim0 ?? left_delim1)
+        const right_delim = normalize_delim(right_delim0 ?? right_delim1)
         const [ spec, shared_attr0 ] = spec_split(attr0)
         const [ delim_attr, shared_attr ] = prefix_split([ 'delim' ], shared_attr0)
         const { level: level0, ...delim_attr1 } = delim_attr as DelimArgs
@@ -2334,9 +2298,9 @@ class Bracket extends MathRow {
         const target = height != null ? 0.5 * height : Math.max(DELIM_FACTOR * extent, extent - 0.5 * DELIM_SHORTFALL, 0.5)
 
         // fit delimiters
-        const baseDelimAttr = { ...shared_attr, ...delim_attr1 }
-        const left = left_delim != null ? fit_delim(left_delim, 'left', target, level0, baseDelimAttr) : null
-        const right = right_delim != null ? fit_delim(right_delim, 'right', target, level0, baseDelimAttr) : null
+        const delim_args = { ...shared_attr, ...delim_attr1 }
+        const left = left_delim != null ? fit_delim(left_delim, 'left', target, level0, delim_args) : null
+        const right = right_delim != null ? fit_delim(right_delim, 'right', target, level0, delim_args) : null
         const items = [ left, body, right ].filter(item => item != null)
 
         // pass to MathRow
@@ -2375,7 +2339,7 @@ class MathOval extends MathShape {
         const [ color, { cx = 0.5, rx = 0.35, ry = 0.2, thickness = TEX.rule, ...attr } ] = shape_args(args)
         const [ w, h ] = [ cx + rx + 0.5 * thickness, 2 * ry + thickness ]
         const oval = new Ellipse({ pos: [ cx, 0.5 * h ], rad: [ rx, ry ], stroke: color, stroke_width: thickness, fill: none })
-        const metrics: InlineMetrics = { advance: w, vrange: [ 0, h ], vanchor: 0.5 * h }
+        const metrics: MathMetrics = { advance: w, vrange: [ 0, h ], vanchor: 0.5 * h }
         super({ children: [ oval ], coord: [ 0, 0, w, h ], metrics, klass: 'none', ...attr })
         this.args = args
     }
@@ -2426,9 +2390,9 @@ function smash_math(body: WithMath, height: boolean, depth: boolean): WithMath {
 //
 
 const FBOX_SEP = 0.3           // \fboxsep, 3 pt
-const FBOX_RULE = 0.04         // \fboxrule, 0.4 pt
+const FBOX_RULE = TEX.rule     // \fboxrule, 0.4 pt like the default rule
 const CANCEL_PAD = 0.2         // katex's cancel-pad: the strike overshoots a multi-character body sideways by this, and a single character vertically
-const CANCEL_THICKNESS = 0.046
+const CANCEL_THICKNESS = 0.046  // katex's .cancel-lines stroke
 
 // katex's isCharacterBox: a lone symbol, possibly wrapped in groups, fonts
 // and colours, which the cancel package strikes through corner to corner
@@ -2464,7 +2428,7 @@ function enclose_box(body: WithMath, border: string | null, background: string |
         )
     }
 
-    const metrics: InlineMetrics = { advance: w, vrange: [ lo, hi ], vanchor: 0 }
+    const metrics: MathMetrics = { advance: w, vrange: [ lo, hi ], vanchor: 0 }
     const group = new Group({ children, coord: rect, aspect: metrics_aspect(metrics) })
     return with_math(group, { left: 'mord', right: 'mord', ...metrics })
 }
@@ -2478,7 +2442,7 @@ interface MathCancelArgs extends MathShapeArgs {
     rising?: boolean
     falling?: boolean
     thickness?: number
-    metrics?: InlineMetrics
+    metrics?: MathMetrics
 }
 
 class MathCancel extends MathShape {
@@ -2535,9 +2499,8 @@ function convert_enclose(tree: TreeEnclose, ctx: ConvertCtx): WithMath {
         return enclose_cancel(body, name != 'bcancel', name != 'cancel', single, color)
     }
 
-    // \phase, \angl, \angln
+    // \phase, \angl, \angln: the body still draws
     strictError('node', `unsupported enclosure '${label}'`)
-    console.error('Unknown enclose label:', label)
     return body
 }
 
@@ -2918,10 +2881,9 @@ function convert_tree(tree: Tree | TreeNode | null, ctx: ConvertCtx): WithMath {
         }
     }
 
-    // fallback
+    // fallback: empty space, silent unless strict
     const type = is_object(tree) ? tree.type : typeof tree
     strictError('node', `unsupported katex node type '${type}'`)
-    console.error('Unknown katex tree type:', type)
     return EMPTY_MATH
 }
 
@@ -2960,5 +2922,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, MathOval, MathCancel, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
-export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
+export type { MathClass, MathSpec, MathStyle, MathMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }

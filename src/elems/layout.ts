@@ -2,7 +2,7 @@
 
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, none } from '../lib/const'
-import { is_scalar, ensure_vector, ensure_pair, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side, intersperse, prefix_split, merge_points } from '../lib/utils'
+import { is_scalar, ensure_vector, ensure_pair, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side, intersperse, prefix_split, merge_points, pad_rect } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
 
 import { Context, Group, Element, Rectangle, Spacer, spec_split, align_frac, ensure_children } from './core'
@@ -20,19 +20,6 @@ function maybe_rounded_rect(rounded: Rounded | undefined): Element {
         return new Rectangle()
     } else {
         return new RoundedRect({ rounded })
-    }
-}
-
-function pad_rect(p: any): Rect {
-    if (p == null) {
-        return [ 0, 0, 0, 0 ]
-    } else if (is_scalar(p)) {
-        return [ p, p, p, p ]
-    } else if (p.length == 2) {
-        const [ px, py ] = p
-        return [ px, py, px, py ]
-    } else {
-        return p
     }
 }
 
