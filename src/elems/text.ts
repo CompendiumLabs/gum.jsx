@@ -5,6 +5,7 @@ import { THEME } from '../lib/theme'
 import { none, bold, vtext, maxis } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
+import { fontFace } from '../fonts/fonts'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
@@ -28,6 +29,15 @@ interface SpanArgs extends ElementArgs {
 }
 
 // no wrapping at all, clobber newlines, mainly internal use
+// the output attributes for a font: the bold and italic KaTeX faces are
+// addressed by base family plus weight and style (see fontFace)
+function font_css({ font_family, font_weight, font_style }: { font_family?: string, font_weight?: number, font_style?: string }): Attrs {
+    if (font_family == null) return {}
+    const face = fontFace(font_family)
+    if (face.family == font_family) return {}
+    return { font_family: face.family, font_weight: face.weight ?? font_weight, font_style: face.style ?? font_style }
+}
+
 class Span extends Element {
     text: string
     metrics: TextMetrics
@@ -50,8 +60,9 @@ class Span extends Element {
         const raw_vrange_shift: Limit = [ raw_ymin + vshift, raw_ymax + vshift ]
         const metrics = { advance, vrange: vrange_shift, raw_vrange: raw_vrange_shift, italic }
 
-        // pass to element
-        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...attr })
+        // pass to element; the font is measured by its registry name but named
+        // in the output by its css face (family plus weight and style)
+        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...font_css(font_attr), ...attr })
         this.args = args
 
         // additional props

@@ -1,7 +1,7 @@
-// SILENT GAP: the \text* family all resolves to KaTeX_Main-Regular because the
-// bold/italic/sans/mono faces are never loaded, so these rows are identical
+// the \text* family composes a family (roman, sans, typewriter) with a weight
+// and a shape, so \textbf{\textit{..}} is bold italic and \emph toggles
 <VStack spacing={0.1}>
   <Latex>{"\\text{plain} \\quad \\textrm{roman} \\quad \\textnormal{normal}"}</Latex>
-  <Latex>{"\\textbf{bold} \\quad \\textmd{medium} \\quad \\textit{italic}"}</Latex>
-  <Latex>{"\\textup{upright} \\quad \\emph{emphasis} \\quad \\textsf{sans} \\quad \\texttt{mono}"}</Latex>
+  <Latex>{"\\textbf{bold} \\quad \\textmd{medium} \\quad \\textit{italic} \\quad \\textbf{\\textit{both}}"}</Latex>
+  <Latex>{"\\textup{upright} \\quad \\emph{emphasis \\emph{nested}} \\quad \\textsf{sans \\textbf{bold}} \\quad \\texttt{mono}"}</Latex>
 </VStack>

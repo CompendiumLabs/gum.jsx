@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSy
 import { createHighlighter } from 'shiki'
 
 import { evaluateGum } from '../src/eval'
-import { FONT_PATHS } from '../src/fonts/fonts'
+import { FONT_PATHS, fontFace } from '../src/fonts/fonts'
 import { light, regular, bold } from '../src/lib/const'
 
 const dataDir = 'docs/data'
@@ -111,15 +111,17 @@ function writeFonts(): string {
     const fontDir = join(reportDir, 'fonts')
     mkdirSync(fontDir, { recursive: true })
     const rules: string[] = []
-    const addFace = (family: string, path: string, weight?: number) => {
+    const addFace = (family: string, path: string, weight?: number, style?: string) => {
         const file = basename(path)
         copyFileSync(path, join(fontDir, file))
         const weightRule = weight != null ? ` font-weight: ${weight};` : ''
-        rules.push(`@font-face { font-family: "${family}"; src: url("fonts/${file}");${weightRule} }`)
+        const styleRule = style != null ? ` font-style: ${style};` : ''
+        rules.push(`@font-face { font-family: "${family}"; src: url("fonts/${file}");${weightRule}${styleRule} }`)
     }
-    for (const [ family, path ] of Object.entries(FONT_PATHS)) {
+    for (const [ name, path ] of Object.entries(FONT_PATHS)) {
+        const { family, weight, style } = fontFace(name)
         if (typeof path == 'string') {
-            addFace(family, path)
+            addFace(family, path, weight, style)
         } else {
             addFace(family, path.light, light)
             addFace(family, path.regular, regular)

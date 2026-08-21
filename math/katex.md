@@ -29,10 +29,15 @@ installed **katex 0.16.33** parser) and classified from the resulting SVG:
 Totals over 2856 probes: 2567 ok, 124 unsupported, 55 parse-error,
 24 no-op, 22 literal-leak, 14 missing-glyph, 50 blank/warn.
 
-**Status.** Five node types have been implemented since the first pass of this
+**Status.** Five node types were implemented after the first pass of this
 audit — `array` (§6), `horizBrace`, `accent` (stretchy), `accentUnder` and
 `xArrow` (§2.1), and `operatorname` (§2.2) — along with one correctness bug in
-already-supported functionality, spaces inside `\text{}` (§2.3).
+already-supported functionality, spaces inside `\text{}` (§2.3). The §9.1
+"easy" tier has since been cleared in full: the remaining KaTeX faces are
+loaded (§3), the text accents resolve (§4), `\oiint`/`\oiiint` draw their
+oval (§5), and sixteen more node types convert (§2). What is still missing is
+`\middle`, `\tag`, the `CD` environment, and the three exotic enclosures,
+all triaged in §9; the suite runs 119 passed, 1 failed (§10).
 
 **Version note.** gum parses with katex 0.16.33 (`node_modules`), while the
 inventory came from the 0.18.4 checkout. Only three names differ:
@@ -82,19 +87,23 @@ weights, glyph shapes. Its first runs found four things, all since fixed against
 
 ## 1. Parse-node coverage
 
-KaTeX defines 57 parse-node types. `convert_tree` handles 25:
+KaTeX defines 57 parse-node types. `convert_tree` handles 41:
 
 `mathord` `textord` `atom` `ordgroup` `op` `text` `font` `accent` `kern`
 `spacing` `mclass` `lap` `htmlmathml` `styling` `supsub` `genfrac`
 `underline` `overline` `sqrt` `leftright` `array` `horizBrace`
-`accentUnder` `xArrow` `operatorname`
+`accentUnder` `xArrow` `operatorname` `delimsizing` `color` `sizing`
+`mathchoice` `phantom` `hphantom` `vphantom` `smash` `rule` `raisebox`
+`enclose` `vcenter` `hbox` `pmb` `cr` `verb`
 
 Nine more never reach the converter (the parser resolves them internally):
 `infix` → `genfrac`, plus `internal` `raw` `size` `url` `color-token`
 `accent-token` `op-token` `environment` `leftright-right`.
 
-That leaves **20 node types that reach `convert_tree` and hit the fallback**,
-where the element is dropped and replaced by an empty spacer.
+That leaves **two node types that reach `convert_tree` and hit the fallback**
+(`middle` and `tag`), where the element is dropped and replaced by an empty
+spacer, plus the `cdlabel`/`cdlabelparent` pair that only the `CD` environment
+produces, and three `enclose` labels the converter declines (below).
 
 ## 2. Unsupported node types
 
@@ -102,30 +111,34 @@ Everything here renders as *nothing* (silently — only a `console.error`).
 
 | node type | n | commands |
 | --- | --- | --- |
-| `color` | 64 | `\textcolor` `\color` `\href` `\url` `\htmlClass` `\htmlId` `\htmlStyle` `\includegraphics`, plus the 56 Khan-Academy palette macros (`\blue` `\red` `\greenA` `\kaBlue` …) |
-| `cr` | 2 | `\\` `\newline` |
-| `delimsizing` | 16 | `\big` `\Big` `\bigg` `\Bigg` and the `l`/`r`/`m` variants |
-| `enclose` | 11 | `\boxed` `\fbox` `\colorbox` `\fcolorbox` `\cancel` `\bcancel` `\xcancel` `\sout` `\phase` `\angl` `\angln` |
-| `hbox` | 1 | `\hbox` |
-| `mathchoice` | 8 | `\mathchoice` `\colon` `\bmod` `\pmod` `\mod` `\pod` `\minuso` `⦵` |
 | `middle` | 1 | `\middle` |
-| `phantom` `hphantom` `vphantom` | 4 | `\phantom` `\hphantom` `\vphantom` `\mathstrut` |
-| `pmb` | 1 | `\pmb` |
-| `raisebox` | 7 | `\raisebox` `\dddot` `\ddddot` `\TeX` `\LaTeX` `\KaTeX` `≘` |
-| `rule` | 3 | `\rule` `\vdots` `⋮` |
-| `sizing` | 17 | `\tiny` `\scriptsize` `\small` `\normalsize` `\large` `\Large` `\LARGE` `\huge` `\Huge` `\footnotesize` `\sixptsize`, and `≙` `≚` `≛` `≝` `≞` `≟` |
-| `smash` | 1 | `\smash` |
 | `tag` | 3 | `\tag` `\tag@paren` `\tag@literal` |
-| `vcenter` | 1 | `\vcenter` |
-| `verb` | 1 | `\verb` |
-| `xArrow` | 2 | `\xrightequilibrium` `\xleftequilibrium` (mhchem; the other 20 work) |
+| `enclose` (3 of 11 labels) | 3 | `\phase` `\angl` `\angln` — the body still draws, only the decoration is dropped |
 
-Highest-value from this list, by how ordinary the command is: the
-`\big`/`\Big` family, `\boxed`, `\operatorname`
-and `\limsup`/`\argmax`, `\bmod`/`\pmod`, `\colon`, `\vdots`, `\phantom`,
-`\textcolor`, `\xrightarrow`, `\middle`, and the `\tiny`…`\Huge` sizing
-family. What is left is mostly presentational — colour, sizing, boxes and
-phantoms — rather than notation.
+The sixteen node types that used to sit in this table — `color` (64
+commands, counting the Khan-Academy palette), `delimsizing` (16), `sizing`
+(17), `mathchoice` (8: `\colon` `\bmod` `\pmod` `\mod` `\pod` `\minuso`),
+`phantom`/`hphantom`/`vphantom`/`smash` (5), `rule` (3: `\rule` `\vdots`),
+`raisebox` (7: `\dddot` `\ddddot` `\TeX` `\LaTeX` `\KaTeX`), `enclose`
+(8: `\boxed` `\fbox` `\colorbox` `\fcolorbox` `\cancel` `\bcancel`
+`\xcancel` `\sout`), `vcenter` `hbox` `pmb` `cr` `verb`, and the two mhchem
+`xArrow` labels `\xrightequilibrium`/`\xleftequilibrium` — are all
+implemented; §9.1 records how. Two notes from that work: a `color` node is a
+fragment, so `\color{red}{2 +} 3` spaces like `2 + 3`; and a nested size
+change (`\tiny a \small b`) is relative to the size in force, tracked by a
+dynamically scoped `current_size` around the body.
+
+Three of those items needed a small piece of new structure. `\smash` and
+`\cancel` draw outside their layout box, so `MathSpec` gained `vink`, the
+vertical ink range when it differs from `vrange` — the counterpart of the
+`hrange` that `\rlap` already used — and `metrics_rect`/`place_items`/
+`layoutMathRow` place children by their ink box while laying out by their
+layout box. `\oiint` is a `MathOval` (an `Ellipse` stroked in em, like
+`MathStretch`) over `\iint`. And `\overset`/`\underset`/`\stackrel`, which
+§8 had listed as working, in fact produced an `op` node with a `body` and no
+`name` that `MathOp` dropped; the `op` branch now converts such a body and the
+`supsub` branch stacks on it as limits in every style, which is also what
+`\dddot` needed.
 
 ### 2.1 Stretchy decorations
 
@@ -246,29 +259,30 @@ same bug. Silent-but-plausible output is invisible to both.
 These parse, draw, and produce **byte-identical output to the bare body**.
 No diagnostic at all, so they are the easiest to ship a wrong picture with.
 
-### Math font commands (`font` node)
+### Math and text font commands (`font` and `text` nodes) — fixed
 
-`TEX_FONT_FAMILY` in `math.ts:55` maps exactly one entry, `mathbb → KaTeX_AMS`.
-Every other font command falls through with no family override:
+At the time of the audit `TEX_FONT_FAMILY` mapped exactly one entry,
+`mathbb → KaTeX_AMS`, and every other font command fell through, because
+`MATH_FONTS` loaded only seven faces. `\mathrm{x}` stayed italic, `\mathcal{X}`
+was an upright roman X, `\mathbf{x}` was not bold, and the whole `\text*`
+family was identical to `\text`.
 
-`\mathrm` `\mathit` `\mathbf` `\mathnormal` `\mathsfit` `\mathcal` `\mathfrak`
-`\mathscr` `\mathsf` `\mathtt` `\bold` `\frak` `\boldsymbol` `\bm`
-`\rm` `\sf` `\tt` `\bf` `\it` `\cal`
+All of KaTeX's faces are now in `FONT_PATHS` and `MATH_FONTS`
+(`src/fonts/fonts.ts`): `Main-Bold`, `Main-Italic`, `Main-BoldItalic`,
+`Math-BoldItalic`, `Caligraphic`, `Fraktur`, `Script`, `SansSerif`,
+`SansSerif-Bold`, `SansSerif-Italic`, and `Typewriter` on top of the original
+seven. `TEX_FONT_FAMILY` is katex's `fontMap`; a face that lacks the glyph
+(`\mathcal` lowercase, `\mathbb` digits) falls back to the symbol's own face,
+as katex does, and `\boldsymbol` takes Math-BoldItalic for letters and
+Main-Bold for everything else (`resolve_font_override`). The text commands
+compose a family with a weight and a shape (`text_font_family`), so
+`\textbf{\textit{x}}` is bold italic and `\emph` toggles.
 
-So `\mathrm{x}` stays italic, `\mathcal{X}` stays an upright roman X, and
-`\mathbf{x}` is not bold.
-
-### Text font commands (`text` node)
-
-`\textbf` `\textit` `\texttt` `\textsf` `\textrm` `\textnormal` `\textmd`
-`\textup` `\emph` — all identical to plain `\text`.
-
-**Root cause for both:** `MATH_FONTS` (`src/fonts/fonts.ts:119`) loads only
-seven faces — `KaTeX_Math` (Italic), `KaTeX_Main` (Regular), `KaTeX_AMS`,
-`KaTeX_Size1`–`Size4`. KaTeX ships and needs `Main-Bold`, `Main-Italic`,
-`Main-BoldItalic`, `Math-BoldItalic`, `Caligraphic`, `Fraktur`, `SansSerif`,
-`Script`, and `Typewriter` on top of those. Even wiring up
-`TEX_FONT_FAMILY` cannot fix this until those faces are loaded.
+One wrinkle worth knowing: the bold and italic faces are registered under
+their own names for measurement (`KaTeX_Main-Bold`), but fontconfig and
+katex.min.css know them as `KaTeX_Main` at weight 700 or style italic, so
+`Span` emits the css face from `fontFace()` — family plus `font-weight`/
+`font-style` — and the test report writes matching `@font-face` rules.
 
 ### Not actually bugs
 
@@ -277,22 +291,23 @@ lone ord, and `\def`/`\let`/`\newcommand` (which correctly match their
 expansion) also register as no-ops. `\cfrac`, `\over`, `\choose`, `\atop`,
 `\brace`, `\brack`, and `\above` all verified correct in nested position.
 
-## 4. Literal command leaks
+## 4. Literal command leaks — fixed
 
-The command name is drawn *as visible text* in `KaTeX_Math`, usually including
-a notdef box for the backslash. 22 commands remain, down from 30.
+The command name was drawn *as visible text* in `KaTeX_Math`, usually including
+a notdef box for the backslash. 30 commands did this at the time of the audit;
+none do now.
 
 The 8 stretchy over-accents that used to lead this list (`\overrightarrow` and
-friends, which drew their own command name over the body) are fixed — see §2.1.
-What remains is all text-mode.
-
-**Text-mode accents** — the whole `\'` `` \` `` `\^` `\~` `\=` `\u` `\.` `\"`
-`\c` `\r` `\H` `\v` set, plus `\textcircled`. `\text{\'e}` draws a notdef box,
-an apostrophe, and `e`. KaTeX also emits a strict-mode warning for these.
-
-**Text symbols** — `\aa` `\AA` `\copyright` `\textcopyright`
-`\textregistered` `©` `®` leak their names. (`\ss`, `\o`, `\O`, `\ae`, `\oe`
-are fine.)
+friends, which drew their own command name over the body) were fixed first —
+see §2.1. The other 22 were all text-mode: the whole `\'` `` \` `` `\^` `\~`
+`\=` `\u` `\.` `\"` `\c` `\r` `\H` `\v` set plus `\textcircled`, and the
+symbols built on them (`\aa` `\AA` `\copyright` `\textcopyright`
+`\textregistered` `©` `®`). `Accent` looked every label up in the *math*
+symbol table; the `accent` node carries its `mode`, which `Accent` now takes,
+so `\'` resolves to U+02CA in text mode. Two placements follow katex: `\c`
+hangs its cedilla from the base's ink bottom, and `\textcircled`'s ring is a
+full-size glyph that overprints the base on its own baseline rather than
+riding above the x-height.
 
 ## 5. Missing glyphs
 
@@ -315,6 +330,20 @@ not blank.
 digits at all (`charToGlyphIndex` returns 0), so `\mathbb{abc}` and
 `\mathbb{012}` render as a pile of overlapping letters. Uppercase
 `\mathbb{RNZQC}` is correct.
+
+Only two rows here were gum's own gap, and both are closed. `\oiint`/`\oiiint`
+have no glyph in any KaTeX face either — katex sets `\iint`/`\iiint` and
+overlays an oval SVG path (`functions/op.js`) — so gum now does the same: a
+`MathOval` (an `Ellipse` stroked in em, centred on the axis, with the mid-ring
+and stroke of katex's `oiintSize1`/`Size2` paths) placed over `\iint`, at
+text and display sizes. And with the font fallback of §3, `\mathbb{abc}` and
+`\mathbb{012}` no longer pile up notdef boxes: the characters fall back to
+their default face (italic letters, upright digits), which is what katex's
+`makeOrd` does when a face has no metrics for the character. The rest are
+katex-level limits that katex shares: `\origof`/`\imageof` are commented "not
+in font" in katex's own symbol table, and KaTeX_Main has no thorn or eth
+(§9.3). The table stays as a record, but the *tests* for those rows are gone —
+a suite failure should mean work to do, and there is none here.
 
 ## 6. Environments
 
@@ -406,17 +435,26 @@ The supported surface is large and, where it is supported, accurate.
   — Greek, AMS arrows and relations, set/logic operators, delimiters,
   `\varnothing`, `\hbar`, `\beth`, the full arrow tables, and the Unicode
   aliases. Only the six rows in §5 fail.
-- **Operators**: all 79 `op` entries except `\oiint`/`\oiiint`, including
-  `\sum` `\prod` `\int` `\iint` `\oint` `\bigcup` `\bigoplus`, all the named
-  functions (`\sin` `\log` `\det` `\lim` …), and `\limits`/`\nolimits`.
+- **Operators**: all 79 `op` entries, including `\sum` `\prod` `\int` `\iint`
+  `\oint` `\oiint` `\bigcup` `\bigoplus`, all the named functions (`\sin` `\log`
+  `\det` `\lim` …), and `\limits`/`\nolimits`.
 - **Fractions**: `\frac` `\dfrac` `\tfrac` `\cfrac` `\binom` `\dbinom`
   `\tbinom` `\genfrac`, and the infix forms `\over` `\atop` `\above`
   `\choose` `\brace` `\brack`.
 - **Scripts**: `\sup`/`\sub` at every nesting depth, limit vs. side placement,
-  `\overset` `\underset` `\stackrel`.
-- **Delimiters**: `\left`…`\right` with auto-sizing and `\left.`/`\right.`.
+  `\overset` `\underset` `\stackrel` (these three were in fact broken until
+  the §9.1 work — see §2).
+- **Delimiters**: `\left`…`\right` with auto-sizing and `\left.`/`\right.`,
+  and the manual `\big` … `\Bigg` family with its `l`/`r`/`m` classes.
 - **Radicals**: `\sqrt`, `\sqrt[n]{}`.
-- **Rules/lines**: `\overline` `\underline`.
+- **Rules/lines**: `\overline` `\underline` `\rule` `\vdots`.
+- **Fonts**: every `\math*` face and the composing `\text*` family (§3).
+- **Colour, size, boxes**: `\color` `\textcolor` and the palette macros;
+  `\tiny` … `\Huge`; `\boxed` `\fbox` `\colorbox` `\fcolorbox` `\cancel`
+  `\bcancel` `\xcancel` `\sout`; `\phantom` `\hphantom` `\vphantom`
+  `\mathstrut` `\smash`; `\raisebox` `\vcenter` `\hbox` `\pmb`; `\verb`.
+- **Style-dependent macros**: `\bmod` `\pmod` `\mod` `\pod` `\colon` `\minuso`
+  (`mathchoice`), and `\dddot` `\ddddot` `\TeX` `\LaTeX` `\KaTeX`.
 - **Spacing**: `\,` `\:` `\;` `\!` `\quad` `\qquad` `\thinspace` `\enspace`
   `\negthinspace` `\kern` `\mkern` `\hskip` `\mskip` `\hspace` `\nobreak`.
 - **Styles**: `\displaystyle` `\textstyle` `\scriptstyle` `\scriptscriptstyle`,
@@ -425,40 +463,102 @@ The supported surface is large and, where it is supported, accurate.
   inter-atom spacing, and `\mathllap`/`\mathrlap`/`\mathclap`.
 - **Macros**: `\def` `\gdef` `\edef` `\let` `\newcommand` `\renewcommand`
   `\providecommand` `\char` `\@char` `\bgroup`/`\egroup`.
-- **Text mode**: `\text{…}`, nested `$…$` inside `\text`.
+- **Text mode**: `\text{…}`, nested `$…$` inside `\text`, the text accents
+  and `\textcircled`/`\copyright`/`\aa`.
 
-## 9. Test files
+## 9. Triage
 
-All 26 live in `test/code/`, one feature per file, matching the existing
-convention. Under strict mode (§7) the 11 remaining gap files **fail**
-`bun scripts/test.ts` and the 15 regression files pass — 105 passed, 11 failed
-across the whole corpus, with no false positives in `docs/` or `gala/`. Each
-failing card still renders in `--report`, with the `StrictError` above the
-picture, so you can see both the diagnosis and the damage. Rows in the gap
-files keep surviving anchor terms (`1 + … + 2`) so a dropped construct reads as
-a hole rather than a blank card.
+Every remaining gap in this document, sorted by what it would take rather than
+by what it is. The "easy" tier is done; what follows records what each item
+actually took, so the next pass knows where the pieces live.
 
-**Gaps that should render but do not** — these will look wrong until the
-feature lands, which is the point:
+### 9.1 Easy — done
+
+| gap | commands | what it took |
+| --- | --- | --- |
+| **font faces** (§3) | ~29: `\mathrm` `\mathbf` `\mathit` `\mathcal` `\mathfrak` `\mathscr` `\mathsf` `\mathtt` `\boldsymbol` `\bm` … and `\textbf` `\textit` `\texttt` `\textsf` `\emph` … | Every face ships in `node_modules/katex/dist/fonts`; all are now in `FONT_PATHS`/`MATH_FONTS`, `FontFamily` is widened, `TEX_FONT_FAMILY` is katex's `fontMap`, and `text_font_family` composes the text family/weight/shape. `resolve_font_override` falls back to the symbol's own face when the requested one lacks the glyph (and does `\boldsymbol`'s per-character choice). Faces are measured by their own name but emitted as base family + weight/style (`fontFace`), since that is how fontconfig and browsers know them. |
+| `phantom` `hphantom` `vphantom` `smash` | 5 | `phantom_math` keeps the body's layout box on a `MathSpacer` with the unwanted axis zeroed; `smash_math` keeps the ink as `vink` overhang. |
+| `mathchoice` | 8 (`\colon` `\bmod` `\pmod` `\mod` `\pod` `\minuso` `⦵`) | Pick the branch by `style_size(style)`. |
+| `sizing` | 17 (`\tiny` … `\Huge`) | `scale_math` by katex's `sizeMultipliers`, relative to the size in force (a dynamically scoped `current_size`). |
+| `color` | 64 | `convert_tree(body, { ...attr, color }, style)`; `MathRule`/`MathBrace`/`MathStretch` take `color` as a `fill` alias and `Frac` forwards it to its bar, so the colour reaches every drawn shape. No name table needed — katex passes CSS colour names through and the palette macros expand to `\textcolor{#…}`. |
+| `delimsizing` | 16 (`\big` … `\Bigg`, `l`/`r`/`m`) | `sized_delim` feeds katex's `sizeToMaxHeight` (1.2/1.8/2.4/3.0 em) to `fit_delim`, which picks Size1…4 by natural extent; the node's `mclass` sets the atom class. `<`/`>` normalise to `\langle`/`\rangle` for `\left` too. |
+| `rule` | 3 (`\rule` `\vdots` `⋮`) | `MathRule` placed with its bottom `shift` above the baseline; zero-size rules become spacers. |
+| `raisebox` | 7 (`\raisebox` `\dddot` `\ddddot` `\TeX` `\LaTeX` `\KaTeX` `≘`) | `place_items` at `y = -dy`. `\dddot` also needed `\overset`, which turned out to be broken (§2). |
+| `enclose` | 8 of 11 (`\boxed` `\fbox` `\colorbox` `\fcolorbox` `\cancel` `\bcancel` `\xcancel` `\sout`) | `enclose_box`: `MathBox` padding of `\fboxsep` (+ rule), a background `Rectangle`, and `array_rules` for the frame. `enclose_cancel`: a `MathCancel` of em-stroked `Line`s whose box is carried as `hrange`/`vink` overhang, since the cancel package takes no space for its strokes. `enclose_sout`: a rule at half the x-height. |
+| **text accents** (§4) | 22 | `Accent` takes the node's `mode` and looks the label up in the text symbol table; `\c` and `\textcircled` get their own placements. `\aa`, `\copyright` and `\textregistered` came free. |
+| `\oiint` `\oiiint` (§5) | 2 | `convert_oiint`: `MathOp` for `\iint`/`\iiint` with a `MathOval` over it. |
+| `\xrightequilibrium` `\xleftequilibrium` | 2 | `stretch_equilibrium`: `stretch_arrow` gained an `x` offset so the off-side harpoon can stop 0.5 em short. |
+| `vcenter` `hbox` `pmb` `cr` | 5 | Re-anchor on the axis; convert the body; overprint at (0.02, −0.01) em; drop silently. |
+| `verb` | 1 | A `MathSpan` in `KaTeX_Typewriter`; `\verb*` shows its spaces as ␣. |
+
+### 9.2 Hard — needs new structure
+
+| gap | why |
+| --- | --- |
+| `middle` (`\middle`) | The delimiter is sized to the *enclosing* `leftright`'s body, so it cannot be built bottom-up the way `convert_tree` works everywhere else. The shape of the fix: `leftright` splits its body on the middle nodes, converts each run, then fits left, middles and right against the combined extent — doable, but the handler stops being a straight recursion. |
+| `tag` (3) | `\tag{1}` sets its number at the *margin* of the display, which needs a measure that gum's naturally-sized math box does not have. Wants a display container that knows its width. Low value on its own. |
+| `CD` environment, `cdlabel`, `cdlabelparent` | The array lays out today; the arrows are per-cell stretchy arrows sized to their column and labelled above and below (`\cdrightarrow` and friends), plus vertical arrows spanning rows. New assembly, not a new shape. |
+| script-style fraction and delimiter metrics | Noted at the end of *Comparing renders*: script-style fractions drift from katex on their own, and in script style katex's delimiter sequence can pick a text-size `Main` glyph larger than the local em, so `x^{\binom{n}{k}}` is ~0.3 em short. Accuracy work in `fit_delim`/`Frac`, not a missing feature. |
+| big-operator ink overhang | Pre-existing and unrelated to the tiers above, but visible in `math_glyph_gaps.jsx`: a row ending in `\oint` or `\iiint` (Size2) is clipped at the right, because the glyph's ink runs past its advance (the italic correction) and `MathSpan` does not carry that as `hrange`. Fixing it means giving `MathSpan` an ink-wide `coord`/`aspect` while keeping the glyph at the left of its box. |
+
+### 9.3 Won't fix
+
+| gap | why |
+| --- | --- |
+| `\phase` `\angl` `\angln` | The three exotic `enclose` labels (steinmetz phase angle, actuarial angle). Low value; the body still renders and strict mode reports the dropped decoration. |
+| `\mathbb` lowercase and digits | KaTeX_AMS carries no blackboard lowercase or digits, and neither does real LaTeX's msbm. gum now falls back to the default face for them (§5), which is at least legible; anything better means synthesizing glyphs. |
+| `\origof` `\imageof` | katex's own symbol table comments these "not in font": U+22B6/U+22B7 are in no KaTeX face, so katex draws tofu too. |
+| `\text{þ}` `\text{Þ}` `\text{ð}` `\text{Ð}` | KaTeX_Main has no thorn or eth. Same story. |
+| `\overbracket` `\underbracket`, text-mode `·` | katex 0.18.4 only; gum parses with 0.16.33, so they parse-error. A version bump, not a gap. |
+| `\href` `\url` `\htmlClass` `\htmlId` `\htmlStyle` `\includegraphics` | These need katex's `trust` option. Untrusted — the default — they arrive as `color` nodes and get drawn as error-coloured text, which is exactly katex's own behaviour, and `color` is now supported. |
+
+### 9.4 Where that leaves the suite
+
+§9.3 has been taken out of the suite: the `\mathbb` lowercase/digit rows and
+the `\origof`/`\imageof`/thorn rows were tests that could only ever fail, so
+`math_blackboard.jsx` covers the blackboard capitals that do exist and
+`math_glyph_gaps.jsx` covers `\oiint`/`\oiiint`, which now pass.
+
+With §9.1 cleared, the ten gap files all pass. `\middle` was moved out of
+`math_delim_sizing.jsx` into its own `math_middle.jsx`, which is now the
+single failing file and the only §9.2 item with a test.
+
+## 10. Test files
+
+The files this audit added all live in `test/code/` (alongside the 28
+`math_*.jsx` that predate it), one feature per file, matching the existing
+convention. Under strict mode (§7) the whole corpus runs 119 passed, 1 failed
+— the one failure being `math_middle.jsx` — with no false positives in `docs/`
+or `gala/`. A failing card still renders in `--report`, with the `StrictError`
+above the picture, so you can see both the diagnosis and the damage. Rows keep
+surviving anchor terms (`1 + … + 2`) so a dropped construct reads as a hole
+rather than a blank card.
+
+**The one remaining gap** — this will look wrong until the feature lands,
+which is the point:
 
 | file | covers |
 | --- | --- |
-| `math_delim_sizing.jsx` | `\big` `\Big` `\bigg` `\Bigg`, `l`/`r`/`m` variants, `\middle` |
-| `math_enclose.jsx` | `\boxed` `\fbox` `\cancel` `\sout` |
-| `math_phantom.jsx` | `\phantom` `\hphantom` `\vphantom` `\mathstrut` `\smash` |
-| `math_sizing.jsx` | `\tiny` … `\Huge` |
-| `math_color.jsx` | `\color` `\textcolor` |
-| `math_rule_verb.jsx` | `\rule` `\vdots` `\verb` `\raisebox` `\TeX` |
+| `math_middle.jsx` | `\middle` inside `\left...\right` |
 
-**Gaps that fail silently** — highest priority, since nothing today flags them:
+**Former gaps, now regression coverage** — each of these failed (or silently
+rendered the wrong thing) before §9.1:
 
 | file | covers |
 | --- | --- |
-| `math_font_families.jsx` | `\mathrm` `\mathbf` `\mathit` `\mathcal` `\mathfrak` `\mathscr` `\mathsf` `\mathtt` side by side with plain — currently all identical |
-| `math_text_styles.jsx` | `\textbf` `\textit` `\texttt` `\textsf` vs `\text` |
-| `math_text_accents.jsx` | `\'e` `` \`a `` `\^o` `\~n` `\"u` `\c c` `\v s` |
-| `math_blackboard.jsx` | `\mathbb` upper vs lower vs digits |
-| `math_glyph_gaps.jsx` | `\oiint` `\oiiint` `\origof` `\imageof`, text `þÐ` |
+| `math_delim_sizing.jsx` | `\big` `\Big` `\bigg` `\Bigg`, `l`/`r`/`m` variants, `\big.`, `\bigl<` |
+| `math_enclose.jsx` | `\boxed` `\fbox` `\colorbox` `\fcolorbox` `\cancel` `\bcancel` `\xcancel` `\sout` |
+| `math_phantom.jsx` | `\phantom` `\hphantom` `\vphantom` `\mathstrut` `\smash` `\smash[b]` |
+| `math_sizing.jsx` | `\tiny` … `\Huge`, nested size changes |
+| `math_color.jsx` | `\color` `\textcolor`, palette macros, colour reaching rules/braces/delimiters |
+| `math_rule_verb.jsx` | `\rule` (with shift) `\vdots` `\verb` `\verb*` `\raisebox` `\TeX` `\LaTeX` `\KaTeX` `\dddot` |
+| `math_font_families.jsx` | `\mathrm` `\mathbf` `\mathit` `\mathcal` `\mathfrak` `\mathscr` `\mathsf` `\mathtt` `\boldsymbol`, and the per-glyph fallbacks |
+| `math_text_styles.jsx` | `\textbf` `\textit` `\texttt` `\textsf` `\emph`, and their composition |
+| `math_text_accents.jsx` | `\'e` `` \`a `` `\^o` `\~n` `\"u` `\c c` `\v s` `\textcircled` `\copyright` |
+| `math_glyph_gaps.jsx` | `\oiint` `\oiiint` at text and display size, against `\int`/`\iint`/`\oint` |
+| `math_mathchoice.jsx` | `\bmod` `\pmod` `\mod` `\pod` `\colon` `\minuso` `\mathchoice` in display and script style |
+| `math_overset.jsx` | `\overset` `\underset` `\stackrel` (broken until §9.1, though §8 had claimed them) |
+| `math_boxes.jsx` | `\vcenter` `\hbox` `\pmb` `\\` |
 
 **Regression coverage for what already works** (the existing `math_*.jsx` files
 cover symbols, sup/sub, fractions, sqrt, brackets, accents, ops, spacing,
@@ -468,7 +568,7 @@ styles, over/underline, negations, and parse errors):
 | --- | --- |
 | `math_stretchy_accents.jsx` | `\overrightarrow` `\overleftrightarrow` `\overgroup` `\overlinesegment`, glyph accents |
 | `math_accent_under.jsx` | `\underrightarrow` `\underleftrightarrow` `\undergroup` `\utilde` |
-| `math_ext_arrows.jsx` | `\xrightarrow` `\xmapsto` `\xhookrightarrow` `\xrightleftharpoons`, labels above and below |
+| `math_ext_arrows.jsx` | `\xrightarrow` `\xmapsto` `\xhookrightarrow` `\xrightleftharpoons` `\xrightequilibrium`, labels above and below |
 | `math_operatorname.jsx` | `\operatorname` `\operatorname*` `\limsup` `\argmax` `\varlimsup` |
 | `math_text_spacing.jsx` | spaces inside `\text{}` carry their advance |
 | `math_horiz_brace.jsx` | `\overbrace` `\underbrace`, labels, nesting, minimum width |
@@ -481,3 +581,4 @@ styles, over/underline, negations, and parse errors):
 | `math_macros.jsx` | `\def` `\newcommand` `\let` `\char` |
 | `math_lap.jsx` | `\mathllap` `\mathrlap` `\mathclap` |
 | `math_class_spacing.jsx` | `\mathbin` `\mathrel` `\mathpunct` `\mathinner` spacing |
+| `math_blackboard.jsx` | `\mathbb`/`\Bbb` over the blackboard capitals KaTeX_AMS carries |

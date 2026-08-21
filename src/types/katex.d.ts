@@ -36,9 +36,12 @@ declare module 'katex' {
     export type TreeOp = {
         type: 'op'
         mode: SymbolMode
-        name: string
+        name?: string        // a named operator (\sum, \lim); absent when the op is a body
+        body?: TreeNode[]    // \overset, \underset and \stackrel stack on an arbitrary body
         symbol?: boolean
         limits?: boolean
+        alwaysHandleSupSub?: boolean
+        suppressBaseShift?: boolean
         parentIsSupSub?: boolean
     }
 
@@ -97,7 +100,121 @@ declare module 'katex' {
 
     export type Measurement = {
         number: number
-        unit: 'mu' | 'em' | 'pt' | 'ex'
+        unit: 'mu' | 'em' | 'ex' | 'pt' | 'mm' | 'cm' | 'in' | 'bp' | 'pc' | 'dd' | 'cc' | 'nd' | 'nc' | 'sp'
+    }
+
+    export type TreeColor = {
+        type: 'color'
+        mode: SymbolMode
+        color: string
+        body: TreeNode[]
+    }
+
+    export type TreeSizing = {
+        type: 'sizing'
+        mode: SymbolMode
+        size: number  // 1 (\tiny) to 11 (\Huge); 6 is \normalsize
+        body: TreeNode[]
+    }
+
+    export type TreeMathChoice = {
+        type: 'mathchoice'
+        mode: SymbolMode
+        display: TreeNode[]
+        text: TreeNode[]
+        script: TreeNode[]
+        scriptscript: TreeNode[]
+    }
+
+    export type TreePhantom = {
+        type: 'phantom'
+        mode: SymbolMode
+        body: TreeNode[]
+    }
+
+    export type TreeHPhantom = {
+        type: 'hphantom'
+        mode: SymbolMode
+        body: TreeNode
+    }
+
+    export type TreeVPhantom = {
+        type: 'vphantom'
+        mode: SymbolMode
+        body: TreeNode
+    }
+
+    export type TreeSmash = {
+        type: 'smash'
+        mode: SymbolMode
+        body: TreeNode
+        smashHeight: boolean
+        smashDepth: boolean
+    }
+
+    export type TreeRule = {
+        type: 'rule'
+        mode: SymbolMode
+        shift?: Measurement | null
+        width: Measurement
+        height: Measurement
+    }
+
+    export type TreeRaiseBox = {
+        type: 'raisebox'
+        mode: SymbolMode
+        dy: Measurement
+        body: TreeNode
+    }
+
+    export type TreeEnclose = {
+        type: 'enclose'
+        mode: SymbolMode
+        label: string
+        backgroundColor?: string
+        borderColor?: string
+        body: TreeNode
+    }
+
+    export type TreeVCenter = {
+        type: 'vcenter'
+        mode: SymbolMode
+        body: TreeNode
+    }
+
+    export type TreeHBox = {
+        type: 'hbox'
+        mode: SymbolMode
+        body: TreeNode[]
+    }
+
+    export type TreePmb = {
+        type: 'pmb'
+        mode: SymbolMode
+        mclass: 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner'
+        body: TreeNode[]
+    }
+
+    export type TreeCr = {
+        type: 'cr'
+        mode: SymbolMode
+        newLine: boolean
+        size?: Measurement | null
+    }
+
+    export type TreeVerb = {
+        type: 'verb'
+        mode: SymbolMode
+        body: string
+        star: boolean
+    }
+
+    export type TreeDelimSizing = {
+        type: 'delimsizing'
+        mode: SymbolMode
+        size: 1 | 2 | 3 | 4
+        mclass: 'mopen' | 'mclose' | 'mrel' | 'mord'
+        delim: string
     }
 
     export type TreeArrayAlign = {
@@ -241,6 +358,22 @@ declare module 'katex' {
         | TreeGenFrac
         | TreeSqrt
         | TreeLeftRight
+        | TreeColor
+        | TreeSizing
+        | TreeMathChoice
+        | TreePhantom
+        | TreeHPhantom
+        | TreeVPhantom
+        | TreeSmash
+        | TreeRule
+        | TreeRaiseBox
+        | TreeEnclose
+        | TreeVCenter
+        | TreeHBox
+        | TreePmb
+        | TreeCr
+        | TreeVerb
+        | TreeDelimSizing
 
     export type Tree = TreeNode[]
 

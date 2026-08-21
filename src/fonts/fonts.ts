@@ -1,6 +1,6 @@
 import { parse as parseFont, type Font } from 'opentype.js'
 import { is_browser, is_string } from '../lib/utils'
-import { sans, mono, moji } from '../lib/const'
+import { sans, mono, moji, bold } from '../lib/const'
 
 //
 // load font data as arraybuffer
@@ -106,6 +106,54 @@ const FONT_PATHS: Record<string, FontPath> = {
     'KaTeX_Size3': (await import('katex/dist/fonts/KaTeX_Size3-Regular.ttf')).default,
     // @ts-ignore
     'KaTeX_Size4': (await import('katex/dist/fonts/KaTeX_Size4-Regular.ttf')).default,
+    // the remaining KaTeX faces, behind \mathbf, \mathcal, \textit and friends;
+    // each is its own family name, so the SVG output selects a face by name alone
+    // @ts-ignore
+    'KaTeX_Main-Bold': (await import('katex/dist/fonts/KaTeX_Main-Bold.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Main-Italic': (await import('katex/dist/fonts/KaTeX_Main-Italic.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Main-BoldItalic': (await import('katex/dist/fonts/KaTeX_Main-BoldItalic.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Math-BoldItalic': (await import('katex/dist/fonts/KaTeX_Math-BoldItalic.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Caligraphic': (await import('katex/dist/fonts/KaTeX_Caligraphic-Regular.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Fraktur': (await import('katex/dist/fonts/KaTeX_Fraktur-Regular.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Script': (await import('katex/dist/fonts/KaTeX_Script-Regular.ttf')).default,
+    // @ts-ignore
+    'KaTeX_SansSerif': (await import('katex/dist/fonts/KaTeX_SansSerif-Regular.ttf')).default,
+    // @ts-ignore
+    'KaTeX_SansSerif-Bold': (await import('katex/dist/fonts/KaTeX_SansSerif-Bold.ttf')).default,
+    // @ts-ignore
+    'KaTeX_SansSerif-Italic': (await import('katex/dist/fonts/KaTeX_SansSerif-Italic.ttf')).default,
+    // @ts-ignore
+    'KaTeX_Typewriter': (await import('katex/dist/fonts/KaTeX_Typewriter-Regular.ttf')).default,
+}
+
+//
+// css faces
+//
+
+// a registry name is one font file, but the SVG output (and any @font-face
+// rules a host writes) should address the bold and italic KaTeX faces the way
+// fontconfig and katex.min.css know them: by the base family plus a weight and
+// a style, so the rasterizer and browsers can find them
+type FontFace = { family: string, weight?: number, style?: 'italic' }
+
+const FONT_FACES: Record<string, FontFace> = {
+    'KaTeX_Main-Bold': { family: 'KaTeX_Main', weight: bold },
+    'KaTeX_Main-Italic': { family: 'KaTeX_Main', style: 'italic' },
+    'KaTeX_Main-BoldItalic': { family: 'KaTeX_Main', weight: bold, style: 'italic' },
+    'KaTeX_Math-BoldItalic': { family: 'KaTeX_Math', weight: bold, style: 'italic' },
+    'KaTeX_SansSerif-Bold': { family: 'KaTeX_SansSerif', weight: bold },
+    'KaTeX_SansSerif-Italic': { family: 'KaTeX_SansSerif', style: 'italic' },
+}
+
+// the css face for a registry name (the name itself for ordinary families)
+function fontFace(name: string): FontFace {
+    return FONT_FACES[name] ?? { family: name }
 }
 
 //
@@ -116,7 +164,7 @@ const FONT_PATHS: Record<string, FontPath> = {
 // KaTeX faces used by Latex/Tex; loading everything is the default but a math-
 // only host (e.g. gum/math in the browser) can load just MATH_FONTS
 const TEXT_FONTS: string[] = [ sans, mono, moji ]
-const MATH_FONTS: string[] = [ 'KaTeX_Math', 'KaTeX_Main', 'KaTeX_AMS', 'KaTeX_Size1', 'KaTeX_Size2', 'KaTeX_Size3', 'KaTeX_Size4' ]
+const MATH_FONTS: string[] = Object.keys(FONT_PATHS).filter(name => name.startsWith('KaTeX_'))
 const CORE_FONTS: string[] = Object.keys(FONT_PATHS)
 
 const FONT_DATA: Record<string, FontData> = {}
@@ -197,5 +245,5 @@ async function registerFont(name: string, path: string): Promise<void> {
 // exports
 //
 
-export { FONT_PATHS, FONT_DATA, FONTS, TEXT_FONTS, MATH_FONTS, CORE_FONTS, getFont, loadFonts, loadMathFonts, loadTextFonts, fontsLoaded, registerFont }
-export type { FontWeight, FontSet, FontEntry }
+export { FONT_PATHS, FONT_DATA, FONTS, TEXT_FONTS, MATH_FONTS, CORE_FONTS, getFont, fontFace, loadFonts, loadMathFonts, loadTextFonts, fontsLoaded, registerFont }
+export type { FontWeight, FontSet, FontEntry, FontFace }

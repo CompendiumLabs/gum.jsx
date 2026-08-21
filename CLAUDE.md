@@ -119,9 +119,9 @@ gum docs/code/box.jsx -o test.svg
 Text layout measures real glyph metrics with opentype.js, so the fonts (`src/fonts/fonts.ts`: IBM Plex Sans/Mono, Noto Emoji, and the KaTeX faces from the `katex` package) must be loaded before elements are constructed. Loading is per family and memoized:
 
 - **node**: nothing to do — fonts are read from disk on first use (`getFont`), so `gum-tex 'x^2'` only parses the KaTeX faces it touches.
-- **browser**: fonts are fetched, so hosts must `await loadFonts()` (all core fonts), `await loadMathFonts()` (just the KaTeX faces, ~190 kB — enough for `Latex`/`Tex`/`gum/math`), `loadTextFonts()`, or `loadFonts([...names])` before evaluating. `gum/math` kicks off `loadMathFonts()` on import without blocking. A missing font throws `Font not loaded: '<family>'` from `textFont`.
+- **browser**: fonts are fetched, so hosts must `await loadFonts()` (all core fonts), `await loadMathFonts()` (all 18 KaTeX faces, ~500 kB — enough for `Latex`/`Tex`/`gum/math`), `loadTextFonts()`, or `loadFonts([...names])` before evaluating. `gum/math` kicks off `loadMathFonts()` on import without blocking. A missing font throws `Font not loaded: '<family>'` from `textFont`.
 
-The SVG output references fonts by family name only; a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw.
+The SVG output references fonts by family name (plus `font-weight`/`font-style` for the bold and italic KaTeX faces); a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw. The KaTeX faces are registered under one name per file for measurement (`KaTeX_Main`, `KaTeX_Main-Bold`, `KaTeX_Main-Italic`, `KaTeX_Math-BoldItalic`, `KaTeX_Caligraphic`, `KaTeX_Typewriter`, …), but fontconfig (which the rasterizer uses) and `katex.min.css` know the bold/italic ones as the base family at weight 700 or style italic, so `Span` emits the css face from `fontFace()` and `scripts/test.ts` writes `@font-face` rules the same way.
 
 ### Component System
 
@@ -380,5 +380,22 @@ they follow the text in dark mode.
 
 `\operatorname` sets its body upright as a single Op atom, passing the upright face down
 directly since gum cannot express katex's `withFont("mathrm")` through `TEX_FONT_FAMILY`.
+
+Font commands flow down as `font_family` in the converter's `attr`: `TEX_FONT_FAMILY` is katex's
+`fontMap` (`\mathbf` → `KaTeX_Main-Bold`, `\mathcal` → `KaTeX_Caligraphic`, …) and
+`text_font_family` composes the `\text*` family/weight/shape. `MathSymbol` only honours the
+requested face where it has the glyph (`resolve_font_override`), falling back to the symbol's own
+face as katex does, which is also how `\boldsymbol` gets Math-BoldItalic letters and Main-Bold
+operators. `\color` flows the same way as `color`; `MathRule`/`MathBrace`/`MathStretch` take it
+as a `fill` alias so drawn shapes follow it.
+
+A math box may draw outside the box it is laid out by: `hrange` is the horizontal ink range when
+it differs from `[0, advance]` (`\rlap`, the cancel strokes) and `vink` the vertical one when it
+differs from `vrange` (`\smash`, `\cancel` on a single character). `metrics_rect` gives the ink
+rect, `metrics_bounds` the layout bounds, and `place_items`/`layoutMathRow` place children by the
+former while stacking by the latter (`hull_overhang`). `MathOval` (the `\oiint` ring) and
+`MathCancel` are em-stroked groups like `MathStretch`; `enclose_box` builds `\boxed`/`\fbox`/
+`\colorbox` from a `MathBox` plus `array_rules`. `\tiny` … `\Huge` scale relative to the size
+in force, tracked by a dynamically scoped `current_size` around the `sizing` body.
 
 The goal is not always perfectly replicating what LaTeX/KaTeX do. We want the implementation to be simple and easy to understand, and to be able to use the full power of gum.jsx to create complex layouts.

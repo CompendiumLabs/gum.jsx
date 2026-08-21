@@ -7,20 +7,23 @@ import { StrictError, strictError } from '../lib/strict'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
-import { Polygon, Line, Arc, Arrow, ArrowHead } from './geometry'
+import { Polygon, Line, Arc, Arrow, ArrowHead, Ellipse } from './geometry'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
 import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
 import type { SpanArgs } from './text'
-import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode, TreeHorizBrace, TreeXArrow, TreeOperatorName } from 'katex'
+import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode, TreeHorizBrace, TreeXArrow, TreeOperatorName, TreeEnclose } from 'katex'
 
 //
 // types
 //
 
-type FontFamily = 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'KaTeX_Size2' | 'KaTeX_Size3' | 'KaTeX_Size4'
+type FontFamily =
+    | 'KaTeX_Math' | 'KaTeX_Main' | 'KaTeX_AMS' | 'KaTeX_Size1' | 'KaTeX_Size2' | 'KaTeX_Size3' | 'KaTeX_Size4'
+    | 'KaTeX_Main-Bold' | 'KaTeX_Main-Italic' | 'KaTeX_Main-BoldItalic' | 'KaTeX_Math-BoldItalic'
+    | 'KaTeX_Caligraphic' | 'KaTeX_Fraktur' | 'KaTeX_Script' | 'KaTeX_SansSerif' | 'KaTeX_SansSerif-Bold' | 'KaTeX_SansSerif-Italic' | 'KaTeX_Typewriter'
 
 type MathClass = 'mord' | 'mop' | 'mbin' | 'mrel' | 'mopen' | 'mclose' | 'mpunct' | 'minner' | 'none'
 
@@ -33,9 +36,10 @@ type MathSpec = {
     italic: number  // superscript overhang past advance (TeX italic correction)
     scale: number   // style scale applied to the content, so its baseline sits MATH_AXIS * scale below the anchor
     hrange?: Limit  // horizontal ink range from the cursor origin, when it differs from [0, advance] (TeX \rlap etc.)
+    vink?: Limit    // vertical ink range (same frame as vrange), when it differs from vrange (\smash, \cancel)
 }
 
-type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'scale' | 'hrange'>>
+type InlineMetrics = Pick<MathSpec, 'advance' | 'vrange' | 'vanchor'> & Partial<Pick<MathSpec, 'italic' | 'scale' | 'hrange' | 'vink'>>
 
 type WithMath<E extends Element = Element> = E & {
     math: MathSpec
@@ -53,15 +57,77 @@ const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
     text: 'KaTeX_Main',
 }
 
+// math font commands (katex's fontMap, keyed by the `font` node's name)
 const TEX_FONT_FAMILY: Record<string, FontFamily | undefined> = {
+    mathrm: 'KaTeX_Main',
+    mathit: 'KaTeX_Main-Italic',
+    textit: 'KaTeX_Main-Italic',
+    mathbf: 'KaTeX_Main-Bold',
+    mathnormal: 'KaTeX_Math',
+    mathsfit: 'KaTeX_SansSerif-Italic',
     mathbb: 'KaTeX_AMS',
+    mathcal: 'KaTeX_Caligraphic',
+    mathfrak: 'KaTeX_Fraktur',
+    mathscr: 'KaTeX_Script',
+    mathsf: 'KaTeX_SansSerif',
+    mathtt: 'KaTeX_Typewriter',
+    boldsymbol: 'KaTeX_Math-BoldItalic',  // letters; everything else falls back to Main-Bold (see resolve_font_override)
 }
 
-// text-mode font commands that need no override: KaTeX_Main-Regular, the face
-// text already renders in, is the right answer for all of them. The rest
-// (\textbf, \textit, \texttt, \textsf, \emph) need Main-Bold/Main-Italic/
-// Typewriter/SansSerif, which are not among the loaded faces
-const TEXT_FONT_NEUTRAL = new Set([ '\\text', '\\textnormal', '\\textrm', '\\textup', '\\textmd' ])
+// a face asked for by a font command may not carry the glyph (\mathcal has no
+// lowercase, \mathbb no digits); katex then sets the character in its default
+// face, and \boldsymbol always sets non-letters in Main-Bold
+function resolve_font_override(override: string, text: string, family: SymbolFamily, fallback: FontFamily): string {
+    const candidates = override == 'KaTeX_Math-BoldItalic'
+        ? (family == 'mathord' ? [ override, 'KaTeX_Main-Bold' ] : [ 'KaTeX_Main-Bold' ])
+        : [ override ]
+    for (const font_family of candidates) {
+        if (textHasGlyphs(text, { font_family })) return font_family
+    }
+    return fallback
+}
+
+// text-mode font commands compose a family (roman, sans, typewriter) with a
+// weight and a shape, the way katex's Options carry fontFamily/fontWeight/
+// fontShape; the composed face is carried as a family name in `font_family`
+type TextFace = { family: 'Main' | 'SansSerif' | 'Typewriter', bold: boolean, italic: boolean }
+
+const TEXT_FONT_COMMANDS: Record<string, Partial<TextFace>> = {
+    '\\text': {},
+    '\\textrm': { family: 'Main' },
+    '\\textnormal': { family: 'Main' },
+    '\\textsf': { family: 'SansSerif' },
+    '\\texttt': { family: 'Typewriter' },
+    '\\textbf': { bold: true },
+    '\\textmd': { bold: false },
+    '\\textit': { italic: true },
+    '\\textup': { italic: false },
+}
+
+function parse_text_face(font_family: string | undefined): TextFace {
+    const match = /^KaTeX_(Main|SansSerif|Typewriter)(?:-(Bold|Italic|BoldItalic))?$/.exec(font_family ?? '')
+    if (match == null) return { family: 'Main', bold: false, italic: false }
+    const [ , family, style = '' ] = match
+    return { family: family as TextFace['family'], bold: style.startsWith('Bold'), italic: style.endsWith('Italic') }
+}
+
+function text_face_family({ family, bold, italic }: TextFace): FontFamily {
+    if (family == 'Typewriter') return 'KaTeX_Typewriter'
+    if (family == 'SansSerif') return bold ? 'KaTeX_SansSerif-Bold' : italic ? 'KaTeX_SansSerif-Italic' : 'KaTeX_SansSerif'
+    return bold && italic ? 'KaTeX_Main-BoldItalic' : bold ? 'KaTeX_Main-Bold' : italic ? 'KaTeX_Main-Italic' : 'KaTeX_Main'
+}
+
+// the face a text font command selects, given the one in force (\emph toggles)
+function text_font_family(font: string, current: string | undefined): FontFamily | undefined {
+    const face = parse_text_face(current)
+    if (font == '\\emph') return text_face_family({ ...face, italic: !face.italic })
+    const patch = TEXT_FONT_COMMANDS[font]
+    if (patch == null) return undefined
+    return text_face_family({ ...face, ...patch })
+}
+
+// \tiny ... \Huge, indexed by katex's size number (1-11, 6 is \normalsize)
+const SIZE_MULTIPLIERS = [ 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.44, 1.728, 2.074, 2.488 ]
 
 //
 // constants
@@ -229,7 +295,7 @@ const DEFAULT_INLINE_METRICS: InlineMetrics = {
     vanchor: MATH_AXIS,
 }
 
-function make_math({ left, right, advance, vrange, vanchor, italic, scale, hrange }: Partial<MathSpec>): MathSpec {
+function make_math({ left, right, advance, vrange, vanchor, italic, scale, hrange, vink }: Partial<MathSpec>): MathSpec {
     return {
         left: left ?? 'mord',
         right: right ?? 'mord',
@@ -239,6 +305,7 @@ function make_math({ left, right, advance, vrange, vanchor, italic, scale, hrang
         italic: italic ?? 0,
         scale: scale ?? 1,
         hrange,
+        vink,
     }
 }
 
@@ -258,17 +325,36 @@ function metrics_hrange({ advance, hrange }: InlineMetrics): Limit {
     return hrange ?? [ 0, advance ]
 }
 
-// the ink box aspect: width from hrange (advance unless overhanging), height from vrange
+// vertical ink bounds about the anchor: the layout bounds unless the ink
+// overhangs them (\smash, \cancel), as hrange does horizontally
+function metrics_ink_bounds({ vrange, vanchor, vink }: InlineMetrics): Limit {
+    const [ ylo, yhi ] = vink ?? vrange
+    return [ ylo - vanchor, yhi - vanchor ]
+}
+
+// the ink box aspect: width from hrange (advance unless overhanging), height from the ink bounds
 function metrics_aspect(metrics: InlineMetrics): number | undefined {
     const [ xlo, xhi ] = metrics_hrange(metrics)
-    const height = metrics_height(metrics)
+    const [ ylo, yhi ] = metrics_ink_bounds(metrics)
+    const height = yhi - ylo
     return height > 0 ? (xhi - xlo) / height : undefined
 }
 
+// the rect an item draws into when its anchor sits at (x, y): the ink box
 function metrics_rect(metrics: InlineMetrics, x: number = 0, y: number = 0): Rect {
     const [ xlo, xhi ] = metrics_hrange(metrics)
-    const [ ylo, yhi ] = metrics_bounds(metrics)
+    const [ ylo, yhi ] = metrics_ink_bounds(metrics)
     return [ x + xlo, y + ylo, x + xhi, y + yhi ]
+}
+
+// the ink hull of placed rects, against the layout box: hrange and vink are
+// only set when the ink actually overhangs
+function hull_overhang(rects: Rect[], advance: number, vrange: Limit): { hrange?: Limit, vink?: Limit, coord: Rect } {
+    const [ xlo, xhi ] = merge_limits([ [ 0, advance ], ...rects.map(([ x1, , x2 ]) => [ x1, x2 ] as Limit) ])
+    const [ ylo, yhi ] = merge_limits([ vrange, ...rects.map(([ , y1, , y2 ]) => [ y1, y2 ] as Limit) ])
+    const hrange: Limit | undefined = (xlo == 0 && xhi == advance) ? undefined : [ xlo, xhi ]
+    const vink: Limit | undefined = (ylo == vrange[0] && yhi == vrange[1]) ? undefined : [ ylo, yhi ]
+    return { hrange, vink, coord: [ xlo, ylo, xhi, yhi ] }
 }
 
 function inherit_metrics(source: WithMath | MathSpec, patch: Partial<MathSpec> = {}): MathSpec {
@@ -303,7 +389,7 @@ function ensure_math<E extends Element>(element: E): WithMath<E> {
 // laid out at relative scale, and rendering follows the metrics
 function scale_math<E extends Element>(element: WithMath<E>, scale: number): WithMath<E> {
     if (scale == 1) return element
-    const { advance, vrange: [ ylo, yhi ], vanchor, italic, scale: scale0, hrange } = element.math
+    const { advance, vrange: [ ylo, yhi ], vanchor, italic, scale: scale0, hrange, vink } = element.math
     return with_math(element, {
         advance: scale * advance,
         vrange: [ scale * ylo, scale * yhi ],
@@ -311,6 +397,7 @@ function scale_math<E extends Element>(element: WithMath<E>, scale: number): Wit
         italic: scale * italic,
         scale: scale * scale0,
         hrange: hrange != null ? [ scale * hrange[0], scale * hrange[1] ] : undefined,
+        vink: vink != null ? [ scale * vink[0], scale * vink[1] ] : undefined,
     })
 }
 
@@ -370,14 +457,21 @@ function get_font_family(mode: SymbolMode, font: SymbolFont, family: SymbolFamil
 // measurement conversion
 //
 
+// katex's ptPerUnit table for the absolute units, at 10 pt per em
+const PT_PER_EM = 10
+const PT_PER_UNIT: Record<string, number> = {
+    pt: 1, mm: 7227 / 2540, cm: 7227 / 254, in: 72.27, bp: 803 / 800, pc: 12,
+    dd: 1238 / 1157, cc: 14856 / 1157, nd: 685 / 642, nc: 1370 / 107, sp: 1 / 65536,
+}
+
 function measurement_to_em(d: Measurement): number {
     const scale: Record<string, number> = {
         mu: 1 / 18,
         em: 1,
-        pt: 1 / 10,
-        ex: 0.431,
+        ex: TEX.x_height,
     }
-    return d.number * (scale[d.unit] ?? 0)
+    const factor = scale[d.unit] ?? (PT_PER_UNIT[d.unit] != null ? PT_PER_UNIT[d.unit] / PT_PER_EM : 0)
+    return d.number * factor
 }
 
 function inter_item_spacing(prev: WithMath | null, next: WithMath | null, script: boolean = false): number {
@@ -555,13 +649,16 @@ class MathSymbol extends MathSpan {
         const { font, family, replace } = entry ??
             { font: 'main', family: 'mathord', replace: text }
 
-        // font family and spacing class
+        // font family and spacing class; a font command's face is used only
+        // where it has the glyph, otherwise the symbol's own face (as katex)
         const children = [ replace ?? text ]
-        const font_family = get_font_family(mode, font, family)
+        const { font_family: override, ...attr1 } = attr
+        const family0 = get_font_family(mode, font, family)
+        const font_family = override != null ? resolve_font_override(override, children[0], family, family0) : family0
         const klass = SYMBOL_FAMILY_CLASS[family]
 
         // pass to MathSpan
-        super({ children, font_family, klass, ...attr })
+        super({ children, font_family, klass, ...attr1 })
         this.args = args
     }
 }
@@ -667,13 +764,11 @@ function layoutMathRow(items: WithMath[]): InlineLayout {
     })
     const children = items.map((item, i) => with_math(item, {}, { rect: rects[i] }))
 
-    // the ink hull covers the advance plus any overhang from the items
-    const [ xlo, xhi ] = merge_limits([ [ 0, advance ], ...rects.map(([ x1, , x2 ]) => [ x1, x2 ] as Limit) ])
-    const hrange: Limit | undefined = (xlo == 0 && xhi == advance) ? undefined : [ xlo, xhi ]
+    // the ink hull covers the layout box plus any overhang from the items
+    const { hrange, vink, coord } = hull_overhang(rects, advance, vrange)
 
     // compute layout metrics
-    const metrics: InlineMetrics = { advance, vrange, vanchor: 0, hrange }
-    const coord = join_limits({ h: [ xlo, xhi ], v: vrange })
+    const metrics: InlineMetrics = { advance, vrange, vanchor: 0, hrange, vink }
     const aspect = metrics_aspect(metrics)
 
     // return layout
@@ -725,9 +820,8 @@ function layoutMathCol(items: WithMath[], { justify = 'center', spacing = 0 }: M
     const children = items.map((item, i) => {
         const [ ylo, yhi ] = metrics_bounds(item.math)
         const yanchor = ybottom + (i > 0 ? spacing : 0) - ylo
-        const y0 = yanchor + ylo
-        const y1 = yanchor + yhi
-        ybottom = y1
+        ybottom = yanchor + yhi
+        const [ , y0, , y1 ] = metrics_rect(item.math, 0, yanchor)
         const rect: Rect = [ 0, y0, advance, y1 ]
         return with_math(item, {}, { rect, align: justify })
     })
@@ -802,8 +896,9 @@ class MathBox extends Group {
         const vanchor = vanchor0 ?? (pt - ylo)
         const metrics: InlineMetrics = { advance: outer_advance, vrange, vanchor }
 
-        // make child item
-        const rect: Rect = [ pl, pt, pl + inner_advance, pt + (yhi - ylo) ]
+        // make child item (its ink may overhang its layout box)
+        const [ , iy0, , iy1 ] = metrics_rect(child.math, 0, pt - ylo)
+        const rect: Rect = [ pl, iy0, pl + inner_advance, iy1 ]
         const item = with_math(child, {}, { rect, align: justify })
         const coord: Rect = [ 0, 0, outer_advance, outer_height ]
         const aspect = metrics_aspect(metrics)
@@ -819,13 +914,15 @@ interface MathRuleArgs extends GroupArgs {
     thickness?: number
     rounded?: Rounded
     fill?: string
+    color?: string  // alias for fill, so a \color in force reaches drawn rules
 }
 
 class MathRule extends Group {
     math: MathSpec
 
     constructor(args: MathRuleArgs = {}) {
-        const { advance = 1, thickness = 0.033, fill = black, ...attr } = THEME(args, 'MathRule')
+        const { advance = 1, thickness = 0.033, color, fill: fill0 = black, ...attr } = THEME(args, 'MathRule')
+        const fill = args.fill ?? color ?? fill0
 
         // Rules are filled shapes, not outlined shapes. Disabling the inherited
         // SVG stroke avoids a second, slightly larger bar around the fill.
@@ -1001,9 +1098,9 @@ class MathArray extends Group {
             for (const { cells, pos } of rows) {
                 const cell = cells[c]
                 if (cell == null) continue
-                const [ lo, hi ] = metrics_bounds(cell.math)
                 const y = baseline(pos) - MATH_AXIS
-                const rect: Rect = [ x, y + lo, x + widths[c], y + hi ]
+                const [ , y0, , y1 ] = metrics_rect(cell.math, 0, y)
+                const rect: Rect = [ x, y0, x + widths[c], y1 ]
                 children.push(with_math(cell, {}, { rect, align: ARRAY_ALIGN[align] }))
             }
             x += widths[c]
@@ -1103,6 +1200,7 @@ interface MathBraceArgs extends GroupArgs {
     thickness?: number
     over?: boolean
     fill?: string
+    color?: string  // alias for fill
 }
 
 class MathBrace extends Group {
@@ -1111,8 +1209,9 @@ class MathBrace extends Group {
     constructor(args: MathBraceArgs = {}) {
         const {
             advance: advance0 = 1, height: height0 = BRACE_HEIGHT,
-            thickness = BRACE_THICKNESS, over = true, fill = black, ...attr
+            thickness = BRACE_THICKNESS, over = true, color, fill: fill0 = black, ...attr
         } = THEME(args, 'MathBrace')
+        const fill = args.fill ?? color ?? fill0
 
         // the outline is inset so the ink lands inside the advance and height
         const advance = Math.max(advance0, 2 * thickness)
@@ -1160,7 +1259,7 @@ function stretch_head_size(height: number, t: number): number {
 
 // the box a shape draws into; `y` is the top of its band, so two arrows can
 // stack in one box for \rightleftharpoons
-type StretchBox = { width: number, height: number, thickness: number, y: number, coord: Rect, color: string }
+type StretchBox = { width: number, height: number, thickness: number, y: number, coord: Rect, color: string, x?: number }
 type StretchShape = (box: StretchBox) => Element[]
 
 // stroke attrs for the pieces; `coord` goes only on the point-based elements
@@ -1177,7 +1276,8 @@ type ArrowSpec = { left?: boolean, right?: boolean, lines?: number, heads?: numb
 
 function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb = 'both' }: ArrowSpec): StretchShape {
     return box => {
-        const { width, height, thickness: t, y, coord } = box
+        const { width, height, thickness: t, y, coord, x: xs = 0 } = box
+        const xe = xs + width
         const mid = y + 0.5 * height
         const size = stretch_head_size(height, t)
         const depth = 0.5 * size * Math.cos(0.5 * d2r * STRETCH_ARC)  // barb reach back from the tip
@@ -1192,23 +1292,23 @@ function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb
         const out: Element[] = []
         if (lines == 1) {
             // a single stem runs to the tip and the barbs open from it
-            out.push(new Arrow({ points: [ [ 0, mid ], [ width, mid ] ], arrow_start: left, arrow_end: right, coord, ...head_attr, ...attr }))
+            out.push(new Arrow({ points: [ [ xs, mid ], [ xe, mid ] ], arrow_start: left, arrow_end: right, coord, ...head_attr, ...attr }))
         } else {
             // two stems straddle the centerline and stop where they meet the
             // barbs, as in \Rightarrow; the head is placed on its own
             const gap = 0.5 * STRETCH_LINE_GAP
             const inset = gap / Math.tan(0.5 * d2r * STRETCH_ARC)
-            const [ x0, x1 ] = [ left ? inset : 0.5 * t, right ? width - inset : width - 0.5 * t ]
+            const [ x0, x1 ] = [ left ? xs + inset : xs + 0.5 * t, right ? xe - inset : xe - 0.5 * t ]
             for (const dy of [ -gap, gap ]) out.push(new Line({ points: [ [ x0, mid + dy ], [ x1, mid + dy ] ], coord, ...attr }))
-            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
-            if (left) out.push(new ArrowHead({ angle: 180, pos: [ 0, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: start_barb, ...attr }))
+            if (right) out.push(new ArrowHead({ angle: 0, pos: [ xe, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
+            if (left) out.push(new ArrowHead({ angle: 180, pos: [ xs, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: start_barb, ...attr }))
         }
 
         // extra chevrons sit a bit behind the first
         for (const i of range(1, heads)) {
             const back = 0.6 * depth * i
-            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width - back, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
-            if (left) out.push(new ArrowHead({ angle: 180, pos: [ back, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: start_barb, ...attr }))
+            if (right) out.push(new ArrowHead({ angle: 0, pos: [ xe - back, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
+            if (left) out.push(new ArrowHead({ angle: 180, pos: [ xs + back, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: start_barb, ...attr }))
         }
         return out
     }
@@ -1270,6 +1370,28 @@ function stretch_pair(top: ArrowSpec, bottom: ArrowSpec): StretchShape {
         return [
             ...stretch_arrow(top)({ ...box, height: half }),
             ...stretch_arrow(bottom)({ ...box, height: half, y: box.y + half }),
+        ]
+    }
+}
+
+// mhchem's equilibrium arrows: \rightleftharpoons with the harpoon pointing
+// away from the equilibrium side cut short at that end (katex's
+// baraboveshortleftharpoon / shortrightharpoonabovebar pairs)
+const EQUILIBRIUM_SHORT = 0.5
+
+function stretch_equilibrium(side: 'left' | 'right'): StretchShape {
+    return box => {
+        const half = 0.5 * box.height
+        const short = Math.max(box.width - EQUILIBRIUM_SHORT, 0.5 * box.width)
+        const top: StretchBox = side == 'right'
+            ? { ...box, height: half }
+            : { ...box, height: half, x: box.width - short, width: short }
+        const bottom: StretchBox = side == 'right'
+            ? { ...box, height: half, y: box.y + half, width: short }
+            : { ...box, height: half, y: box.y + half }
+        return [
+            ...stretch_arrow({ right: true, barb: 'up' })(top),
+            ...stretch_arrow({ left: true, barb: 'down' })(bottom),
         ]
     }
 }
@@ -1371,6 +1493,8 @@ const STRETCH: Record<string, StretchEntry> = {
     xleftrightharpoons:  { shape: stretch_pair({ left: true, barb: 'up' }, { right: true, barb: 'down' }), height: PAIR_H, min_width: 1.75 },
     xrightleftarrows:    { shape: stretch_pair({ right: true }, { left: true }), height: 0.901, min_width: 1.75 },
     xtofrom:             { shape: stretch_pair({ right: true }, { left: true }), height: 0.528, min_width: 1.75 },
+    xrightequilibrium:   { shape: stretch_equilibrium('right'), height: PAIR_H, min_width: 1.75 },
+    xleftequilibrium:    { shape: stretch_equilibrium('left'), height: PAIR_H, min_width: 1.75 },
 }
 
 function stretch_entry(label: string): StretchEntry | undefined {
@@ -1383,13 +1507,15 @@ interface MathStretchArgs extends GroupArgs {
     height?: number
     thickness?: number
     fill?: string
+    color?: string  // alias for fill
 }
 
 class MathStretch extends Group {
     math: MathSpec
 
     constructor(args: MathStretchArgs = {}) {
-        const { label = 'overbrace', advance: advance0, height: height0, thickness = STRETCH_THICKNESS, fill = black, ...attr } = THEME(args, 'MathStretch')
+        const { label = 'overbrace', advance: advance0, height: height0, thickness = STRETCH_THICKNESS, color, fill: fill0 = black, ...attr } = THEME(args, 'MathStretch')
+        const fill = args.fill ?? color ?? fill0
         const entry = stretch_entry(label)
         if (entry == null) {
             throw new Error(`Unknown stretchy decoration: '${label}'`)
@@ -1626,20 +1752,27 @@ type Placed = {
 // assemble explicitly placed items into a group whose anchor is at y = 0 and
 // whose math box is the union of the placed boxes (optionally padded)
 function place_items(placed: Placed[], pad: Limit = [ 0, 0 ], klass: MathClass = 'none'): WithMath<Group> {
-    const children = placed.map(({ item, x, y, width, align }) => {
-        const [ lo, hi ] = metrics_bounds(item.math)
-        const rect: Rect = [ x, y + lo, x + (width ?? item.math.advance), y + hi ]
-        return with_math(item, {}, { rect, ...(align != null ? { align } : {}) })
+    // an item given a width is justified within it; otherwise it draws in its
+    // own ink box, which may overhang its layout box
+    const rects = placed.map(({ item, x, y, width }) => {
+        const [ x1, y1, x2, y2 ] = metrics_rect(item.math, x, y)
+        return (width != null ? [ x, y1, x + width, y2 ] : [ x1, y1, x2, y2 ]) as Rect
     })
+    const children = placed.map(({ item, align }, i) =>
+        with_math(item, {}, { rect: rects[i], ...(align != null ? { align } : {}) })
+    )
+
+    // the layout box is the union of the layout boxes (optionally padded)
     const advance = max(placed.map(({ item, x, width }) => x + (width ?? item.math.advance))) ?? 0
     const [ ylo0, yhi0 ] = merge_limits(placed.map(({ item, y }) => {
         const [ lo, hi ] = metrics_bounds(item.math)
         return [ y + lo, y + hi ] as Limit
     }))
-    const [ ylo, yhi ] = [ ylo0 - pad[0], yhi0 + pad[1] ]
+    const vrange: Limit = [ ylo0 - pad[0], yhi0 + pad[1] ]
 
-    const metrics: InlineMetrics = { advance, vrange: [ ylo, yhi ], vanchor: 0 }
-    const coord: Rect = [ 0, ylo, advance, yhi ]
+    // the group draws the ink hull, which the layout box may not cover
+    const { hrange, vink, coord } = hull_overhang(rects, advance, vrange)
+    const metrics: InlineMetrics = { advance, vrange, vanchor: 0, hrange, vink }
     const group = new Group({ children, coord, aspect: metrics_aspect(metrics) })
     return with_math(group, { left: klass, right: klass, ...metrics })
 }
@@ -1792,6 +1925,7 @@ interface FracArgs extends GroupArgs {
     padding?: Padding
     rule_size?: number
     style?: MathStyle
+    color?: string
 }
 
 // TeX Rule 15: numerator and denominator baselines shift up/down from the
@@ -1801,7 +1935,7 @@ class Frac extends Group {
     math: MathSpec
 
     constructor(args: FracArgs = {}) {
-        const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.frac_rule, style = 'display', ...attr } = THEME(args, 'Frac')
+        const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.frac_rule, style = 'display', color, ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
         const [ pad_x, pad_y ] = inline_padding(padding)
         const nstyle = frac_num_style(style)
@@ -1841,14 +1975,14 @@ class Frac extends Group {
             { item: denom, x: pad_x, y: denBase - MATH_AXIS * rel, width: width - 2 * pad_x, align: 'center' },
         ]
         if (has_bar) {
-            const bar = new MathRule({ advance: width, thickness: rule_size })
+            const bar = new MathRule({ advance: width, thickness: rule_size, ...(color != null ? { fill: color } : {}) })
             placed.push({ item: bar, x: 0, y: 0 })
         }
         const body = place_items(placed)
 
         // pass to Group
         const { coord, aspect } = body.spec
-        super({ children: body.children, coord, aspect, ...attr })
+        super({ children: body.children, coord, aspect, ...(color != null ? { color } : {}), ...attr })
         this.args = args
         this.math = make_math({ ...body.math, left: 'minner', right: 'minner' })
     }
@@ -2121,26 +2255,27 @@ const ACCENT_TEXT_FALLBACK: Record<string, string> = {
     '\\vec': '→',
 }
 
-function build_accent_symbol(label: string, color: string | undefined): WithMath {
+function build_accent_symbol(label: string, color: string | undefined, mode: SymbolMode = 'math'): WithMath {
     const span_attr = color != null ? { color } : {}
     const label1 = ACCENT_LABEL_FALLBACK[label] ?? label
     if (label1 in ACCENT_TEXT_FALLBACK) {
         const span = new MathSpan({ children: [ ACCENT_TEXT_FALLBACK[label1] ], ...span_attr })
         return scale_math(span, 0.5)
     }
-    return new MathSymbol({ children: [ label1 ], ...span_attr })
+    return new MathSymbol({ children: [ label1 ], mode, ...span_attr })
 }
 
 interface AccentArgs extends GroupArgs {
     label?: string
     color?: string
+    mode?: SymbolMode  // text-mode accents (\', \", \c, ...) live in the text symbol table
 }
 
 class Accent extends Group {
     math: MathSpec
 
     constructor(args: AccentArgs = {}) {
-        const { children, label = '', color, ...attr } = THEME(args, 'Accent')
+        const { children, label = '', color, mode = 'math', ...attr } = THEME(args, 'Accent')
         const child = check_singleton(children)
         const base = normalize_math_leaf(child)
 
@@ -2151,12 +2286,15 @@ class Accent extends Group {
 
         // TeX Rule 12: the accent glyph is designed to sit above the x-height;
         // raise it to clear taller bases (ink bottom at max(base height, x-height)
-        // plus the designed gap)
-        const accent = build_accent_symbol(label, color)
+        // plus the designed gap). Two text-mode exceptions, as in katex: the
+        // cedilla hangs from the base's ink bottom, and \textcircled's ring is a
+        // full-size glyph that simply overprints the base on its own baseline
+        const accent = build_accent_symbol(label, color, mode)
         const [ hb ] = baseline_extents(base)
-        const [ , ahi ] = metrics_bounds(accent.math)
+        const [ alo, ahi ] = metrics_bounds(accent.math)
+        const [ , bhi ] = metrics_bounds(base.math)
         const bottom = MATH_AXIS - Math.max(hb, TEX.x_height) - TEX.accent_gap
-        const dy = bottom - ahi
+        const dy = label == '\\textcircled' ? 0 : label == '\\c' ? bhi - alo : bottom - ahi
 
         // center both in a shared inline box
         const advance = max([ base.math.advance, accent.math.advance ]) ?? 0
@@ -2178,9 +2316,15 @@ class Accent extends Group {
 
 type DelimType = 'round' | 'square' | 'curly' | 'angle'
 
+// '<' and '>' turn into angle brackets as delimiters, as in katex
+const DELIM_ANGLE: Record<string, string> = {
+    '<': '\\langle', '\\lt': '\\langle', '\u27e8': '\\langle',
+    '>': '\\rangle', '\\gt': '\\rangle', '\u27e9': '\\rangle',
+}
+
 function normalize_delim(delim: string | null | undefined): string | null {
     if (delim == null || delim == '.' || delim == '') return null
-    return delim
+    return DELIM_ANGLE[delim] ?? delim
 }
 
 function delimiter_font(size: number): FontFamily {
@@ -2261,6 +2405,17 @@ function fit_delim(delim: string, side: 'left' | 'right', target: number, level0
     return scale_math(largest, target / (0.5 * (hi - lo)))
 }
 
+// \big ... \Bigg ask for a delimiter of a fixed total height (katex's
+// sizeToMaxHeight), which is the natural height of Size1 ... Size4; a hair of
+// slack lets a 1.199 em glyph answer for 1.2
+const DELIM_SIZE_HEIGHT = [ 0, 1.2, 1.8, 2.4, 3.0 ]
+const DELIM_SIZE_SLACK = 0.01
+
+function sized_delim(delim: string, side: 'left' | 'right', size: number, attr: Attrs): WithMath<Delim> {
+    const target = 0.5 * DELIM_SIZE_HEIGHT[size] - DELIM_SIZE_SLACK
+    return fit_delim(delim, side, target, undefined, attr)
+}
+
 interface BracketArgs extends MathRowArgs {
     delim?: DelimType | [ DelimType, DelimType ]
     left_delim?: string | null
@@ -2307,11 +2462,229 @@ class Bracket extends MathRow {
     }
 }
 
+// the colour drawn shapes default to: the theme's rule fill (white in dark
+// mode), unless a \color is in force
+function theme_ink(): string {
+    return THEME({} as { fill?: string }, 'MathRule').fill ?? black
+}
+
+//
+// oval overlay for \oiint and \oiiint
+//
+
+// no KaTeX face has these glyphs; katex sets \iint/\iiint and overlays an oval
+// SVG (its oiintSize1/2 paths), centred on the axis. The ellipse below is that
+// path's mid-ring and stroke, in em: [centre x, rx, ry, stroke width]
+const OIINT_OVAL: Record<string, Record<'text' | 'display', [ number, number, number, number ]>> = {
+    '\\oiint':  { text: [ 0.513, 0.344, 0.197, 0.04 ], display: [ 0.758, 0.477, 0.254, 0.05 ] },
+    '\\oiiint': { text: [ 0.681, 0.503, 0.197, 0.04 ], display: [ 1.021, 0.739, 0.302, 0.05 ] },
+}
+const OIINT_BASE: Record<string, string> = { '\\oiint': '\\iint', '\\oiiint': '\\iiint' }
+
+interface MathOvalArgs extends GroupArgs {
+    cx?: number
+    rx?: number
+    ry?: number
+    thickness?: number
+    color?: string
+}
+
+class MathOval extends Group {
+    math: MathSpec
+
+    constructor(args: MathOvalArgs = {}) {
+        const { cx = 0.5, rx = 0.35, ry = 0.2, thickness = TEX.rule, color = black, ...attr } = args
+        const [ w, h ] = [ cx + rx + 0.5 * thickness, 2 * ry + thickness ]
+        const oval = new Ellipse({ pos: [ cx, 0.5 * h ], rad: [ rx, ry ], stroke: color, stroke_width: thickness, fill: none })
+        const metrics: InlineMetrics = { advance: w, vrange: [ 0, h ], vanchor: 0.5 * h }
+        super({ children: [ oval ], coord: [ 0, 0, w, h ], aspect: metrics_aspect(metrics), ...attr })
+        this.args = args
+        this.math = make_math({ left: 'none', right: 'none', ...metrics })
+    }
+
+    // the stroke is given in em (see MathStretch)
+    inner(ctx: Context): string {
+        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
+    }
+}
+
+function convert_oiint(name: string, style: MathStyle, limits: boolean | undefined, attr: Attrs): WithMath {
+    const op = new MathOp({ children: [ OIINT_BASE[name] ], style, limits, ...attr })
+    const size = style_size(style) == 'display' ? 'display' : 'text'
+    const [ cx, rx, ry, thickness ] = OIINT_OVAL[name][size]
+    const color = (attr.color as string | undefined) ?? theme_ink()
+    const oval = new MathOval({ cx, rx, ry, thickness, color })
+    const group = place_items([ { item: op, x: 0, y: 0 }, { item: oval, x: 0, y: 0 } ], [ 0, 0 ], 'mop')
+    return with_math(group, { italic: op.math.italic })
+}
+
+//
+// phantoms and smashes
+//
+
+// the body's layout box with nothing drawn in it; hphantom keeps only the
+// width and vphantom only the height. Spacing classes are kept, since a
+// phantom is meant to stand in for its body
+function phantom_math(body: WithMath, keep: { h: boolean, v: boolean }): WithMath {
+    const { left, right, advance, vrange, vanchor, italic, hrange } = body.math
+    const spacer = new MathSpacer({ advance: keep.h ? advance : 0 })
+    return with_math(spacer, {
+        left, right,
+        advance: keep.h ? advance : 0,
+        vrange: keep.v ? vrange : [ vanchor, vanchor ],
+        vanchor,
+        italic: keep.h ? italic : 0,
+        hrange: keep.h ? hrange : undefined,
+    })
+}
+
+// \smash: the body still draws, but its layout box loses its height above the
+// baseline and/or its depth below it; the ink is kept as an overhang
+function smash_math(body: WithMath, height: boolean, depth: boolean): WithMath {
+    if (!height && !depth) return body
+    const { vrange: [ ylo, yhi ], vanchor, vink, scale } = body.math
+    const baseline = vanchor + MATH_AXIS * scale
+    const vrange: Limit = [ height ? Math.min(baseline, yhi) : ylo, depth ? Math.max(baseline, ylo) : yhi ]
+    if (height && depth) vrange[1] = vrange[0]
+    return with_math(body, { vrange, vink: vink ?? [ ylo, yhi ] })
+}
+
+//
+// enclosures: \boxed, \fbox, \colorbox, \fcolorbox, \cancel, \sout
+//
+
+const FBOX_SEP = 0.3           // \fboxsep, 3 pt
+const FBOX_RULE = 0.04         // \fboxrule, 0.4 pt
+const CANCEL_PAD = 0.2         // katex's cancel-pad: the strike overshoots a multi-character body sideways by this, and a single character vertically
+const CANCEL_THICKNESS = 0.046
+
+// katex's isCharacterBox: a lone symbol, possibly wrapped in groups, fonts
+// and colours, which the cancel package strikes through corner to corner
+function is_character_box(tree: TreeNode | TreeNode[] | null | undefined): boolean {
+    if (tree == null) return false
+    if (is_array(tree)) return tree.length == 1 && is_character_box(tree[0])
+    const { type } = tree
+    if (type == 'mathord' || type == 'textord' || type == 'atom') return true
+    if (type == 'ordgroup' || type == 'color') return is_character_box(tree.body)
+    if (type == 'font') return is_character_box(tree.body)
+    return false
+}
+
+// a framed (and/or filled) box around the body: fboxsep of padding all round,
+// then the rule outside that, as \fbox sets it
+function enclose_box(body: WithMath, border: string | null, background: string | null, thickness: number): WithMath<Group> {
+    const pad = FBOX_SEP + (border != null ? thickness : 0)
+    const box = new MathBox({ children: [ body ], padding: pad })
+    const [ lo, hi ] = metrics_bounds(box.math)
+    const w = box.math.advance
+    const rect: Rect = [ 0, lo, w, hi ]
+
+    const children: Element[] = []
+    if (background != null) children.push(new Rectangle({ rect, fill: background, stroke: none }))
+    children.push(with_math(box, {}, { rect }))
+    if (border != null) {
+        const t = thickness
+        children.push(
+            ...array_rules(0, lo, w, lo + t, false, border),
+            ...array_rules(0, hi - t, w, hi, false, border),
+            ...array_rules(0, lo, t, hi, false, border),
+            ...array_rules(w - t, lo, w, hi, false, border),
+        )
+    }
+
+    const metrics: InlineMetrics = { advance: w, vrange: [ lo, hi ], vanchor: 0 }
+    const group = new Group({ children, coord: rect, aspect: metrics_aspect(metrics) })
+    return with_math(group, { left: 'mord', right: 'mord', ...metrics })
+}
+
+// the strike lines of \cancel (rising), \bcancel (falling) and \xcancel
+// (both), stroked in em across a box that may overhang the body
+interface MathCancelArgs extends GroupArgs {
+    box?: Rect         // the strike box, in the anchor frame
+    rising?: boolean
+    falling?: boolean
+    thickness?: number
+    color?: string
+    math?: Partial<MathSpec>
+}
+
+class MathCancel extends Group {
+    math: MathSpec
+
+    constructor(args: MathCancelArgs = {}) {
+        const { box = [ 0, 0, 1, 1 ], rising = true, falling = false, thickness = CANCEL_THICKNESS, color = black, math = {}, ...attr } = args
+        const [ x0, y0, x1, y1 ] = box
+        const line_attr = { coord: box, stroke: color, stroke_width: thickness }
+        const children: Element[] = []
+        if (rising) children.push(new Line({ points: [ [ x0, y1 ], [ x1, y0 ] ], ...line_attr }))
+        if (falling) children.push(new Line({ points: [ [ x0, y0 ], [ x1, y1 ] ], ...line_attr }))
+        super({ children, coord: box, aspect: (x1 - x0) / (y1 - y0), ...attr })
+        this.args = args
+        this.math = make_math(math)
+    }
+
+    inner(ctx: Context): string {
+        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
+    }
+}
+
+function enclose_cancel(body: WithMath, rising: boolean, falling: boolean, single: boolean, color: string): WithMath<Group> {
+    const [ lo, hi ] = metrics_bounds(body.math)
+    const w = body.math.advance
+    const pad = CANCEL_PAD
+    const rect: Rect = single ? [ 0, lo - pad, w, hi + pad ] : [ -pad, lo, w + pad, hi ]
+    const [ x0, y0, x1, y1 ] = rect
+
+    // the strike takes no space of its own: its box is carried as overhang
+    const lines = new MathCancel({
+        box: rect, rising, falling, thickness: CANCEL_THICKNESS, color,
+        math: {
+            left: 'none', right: 'none', advance: w, vrange: [ lo, hi ], vanchor: 0,
+            hrange: x0 != 0 ? [ x0, x1 ] : undefined,
+            vink: single ? [ y0, y1 ] : undefined,
+        },
+    })
+    return place_items([ { item: body, x: 0, y: 0 }, { item: lines, x: 0, y: 0 } ], [ 0, 0 ], 'mord')
+}
+
+// \sout: a rule through the body at half the x-height
+function enclose_sout(body: WithMath, color: string): WithMath<Group> {
+    const rule = new MathRule({ advance: body.math.advance, thickness: TEX.rule, fill: color })
+    const y = MATH_AXIS - 0.5 * TEX.x_height - 0.5 * TEX.rule
+    return place_items([ { item: body, x: 0, y: 0 }, { item: rule, x: 0, y } ], [ 0, 0 ], 'mord')
+}
+
+function convert_enclose(tree: TreeEnclose, attr: Attrs, style: MathStyle): WithMath {
+    const { label, body: body0, backgroundColor, borderColor } = tree
+    const name = label.slice(1)
+    const body = seal_math(convert_tree(body0, attr, style))
+    const color = (attr.color as string | undefined) ?? theme_ink()
+
+    if (name == 'boxed' || name == 'fbox') return enclose_box(body, color, null, FBOX_RULE)
+    if (name == 'colorbox') return enclose_box(body, null, backgroundColor ?? null, FBOX_RULE)
+    if (name == 'fcolorbox') return enclose_box(body, borderColor ?? color, backgroundColor ?? null, FBOX_RULE)
+    if (name == 'sout') return enclose_sout(body, color)
+    if (name == 'cancel' || name == 'bcancel' || name == 'xcancel') {
+        const single = is_character_box(body0)
+        return enclose_cancel(body, name != 'bcancel', name != 'cancel', single, color)
+    }
+
+    // \phase, \angl, \angln
+    strictError('node', `unsupported enclosure '${label}'`)
+    console.error('Unknown enclose label:', label)
+    return body
+}
+
 //
 // parse katex tree
 //
 
 const EMPTY_MATH = new MathSpacer()
+
+// the size in force for \tiny ... \Huge, so a nested size change is relative
+// to the enclosing one (katex's sizeMultiplier); dynamically scoped around the
+// sizing body, since element construction is synchronous
+let current_size = 1
 
 // \operatorname{...}: the body is set upright, the way the built-in named
 // operators are, and the whole name behaves as a single Op atom
@@ -2426,14 +2799,23 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const inner = seal_math(convert_tree(body, attr, style))
             return with_math(inner, { left: 'mord', right: 'mord' })
         } else if (type == 'op') {
-            const { name, limits } = tree
+            const { name, body, limits } = tree
+            // \overset and friends make an operator out of an arbitrary body
+            if (name == null) {
+                const inner = seal_math(convert_tree(body ?? null, attr, style))
+                return with_math(inner, { left: 'mop', right: 'mop' })
+            }
+            if (name in OIINT_BASE) return convert_oiint(name, style, limits, attr)
             return new MathOp({ children: [ name ], style, limits, ...attr })
         } else if (type == 'text') {
+            // \textbf and friends compose with the text face already in force
             const { body, font } = tree
-            if (font != null && !TEXT_FONT_NEUTRAL.has(font)) {
+            const font_family = font != null ? text_font_family(font, attr.font_family as string | undefined) : undefined
+            if (font != null && font_family == null) {
                 strictError('font', `no font family mapped for '${font}'`)
             }
-            return convert_tree(body, attr, style)
+            const font_attr = font_family == null ? {} : { font_family }
+            return convert_tree(body, { ...attr, ...font_attr }, style)
         } else if (type == 'font') {
             const { font, body } = tree
             const font_family = TEX_FONT_FAMILY[font]
@@ -2453,7 +2835,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
                 return place_stretch(body, label, true, 0, attr)
             }
             const base = convert_tree(base0, attr, style)
-            return new Accent({ children: [ base ], label, ...attr })
+            return new Accent({ children: [ base ], label, mode: tree.mode, ...attr })
         } else if (type == 'kern') {
             const { dimension } = tree
             const em = measurement_to_em(dimension)
@@ -2500,12 +2882,17 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
                 return new SupSub({ children: [ base ], sup, sub, style, limits, ...attr })
             }
 
+            // \overset, \underset and \stackrel always stack their scripts as
+            // limits, whatever the style
+            const stacked = base0 != null && is_object(base0) && base0.type == 'op' && base0.name == null && base0.limits
+            const limits = stacked ? { limits: true } : {}
+
             const supStyle = sup_style(style)
             const subStyle = sub_style(style)
             const base = convert_tree(base0, attr, style)
             const sup = sup0 ? convert_tree(sup0, attr, supStyle) : null
             const sub = sub0 ? convert_tree(sub0, attr, subStyle) : null
-            return new SupSub({ children: [ base ], sup, sub, style, ...attr })
+            return new SupSub({ children: [ base ], sup, sub, style, ...limits, ...attr })
         } else if (type == 'genfrac') {
             const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
             const numer = convert_tree(numer0, attr, frac_num_style(style))
@@ -2566,6 +2953,91 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const { mode, body: body0, left, right } = tree
             const body = convert_tree(body0, attr, style)
             return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode, ...attr })
+        } else if (type == 'delimsizing') {
+            // \big ... \Bigg: a delimiter of fixed size, in the class the command
+            // says (\bigl is an opener, \bigm a relation, \big an ordinary atom)
+            const { size, mclass, delim: delim0, mode } = tree
+            const delim = normalize_delim(delim0)
+            if (delim == null) return with_math(new MathSpacer(), { left: mclass, right: mclass })
+            const side = mclass == 'mclose' ? 'right' : 'left'
+            const glyph = sized_delim(delim, side, size, { ...attr, mode })
+            return with_math(glyph, { left: mclass, right: mclass })
+        } else if (type == 'color') {
+            // a colour is a fragment: its items still space against their neighbours
+            const { color, body } = tree
+            return convert_tree(body, { ...attr, color }, style)
+        } else if (type == 'sizing') {
+            // \tiny ... \Huge scale their body relative to the size in force
+            const { size, body } = tree
+            const multiplier = SIZE_MULTIPLIERS[size - 1] ?? 1
+            const outer = current_size
+            let inner: WithMath
+            current_size = multiplier
+            try {
+                inner = seal_math(convert_tree(body, attr, style))
+            } finally {
+                current_size = outer
+            }
+            return scale_math(inner, multiplier / outer)
+        } else if (type == 'mathchoice') {
+            const { display, text, script, scriptscript } = tree
+            const size = style_size(style)
+            const branch = size == 'display' ? display : size == 'text' ? text : size == 'script' ? script : scriptscript
+            return convert_tree(branch, attr, style)
+        } else if (type == 'phantom') {
+            const inner = seal_math(convert_tree(tree.body, attr, style))
+            return phantom_math(inner, { h: true, v: true })
+        } else if (type == 'hphantom') {
+            const inner = seal_math(convert_tree(tree.body, attr, style))
+            return phantom_math(inner, { h: true, v: false })
+        } else if (type == 'vphantom') {
+            const inner = seal_math(convert_tree(tree.body, attr, style))
+            return phantom_math(inner, { h: false, v: true })
+        } else if (type == 'smash') {
+            const { body, smashHeight, smashDepth } = tree
+            const inner = seal_math(convert_tree(body, attr, style))
+            return with_math(smash_math(inner, smashHeight, smashDepth), { left: 'mord', right: 'mord' })
+        } else if (type == 'rule') {
+            // a filled box of the given width and height, its bottom `shift`
+            // above the baseline
+            const { width: width0, height: height0, shift: shift0 } = tree
+            const width = measurement_to_em(width0)
+            const height = measurement_to_em(height0)
+            const shift = shift0 != null ? measurement_to_em(shift0) : 0
+            const [ ylo, yhi ] = [ MATH_AXIS - shift - height, MATH_AXIS - shift ]
+            if (width <= 0 || height <= 0) {
+                return with_math(new MathSpacer({ advance: Math.max(width, 0), vrange: [ ylo, yhi ] }), { left: 'mord', right: 'mord' })
+            }
+            const rule = new MathRule({ advance: width, thickness: height, ...attr })
+            return place_items([ { item: rule, x: 0, y: 0.5 * (ylo + yhi) } ], [ 0, 0 ], 'mord')
+        } else if (type == 'raisebox') {
+            const { dy, body } = tree
+            const inner = seal_math(convert_tree(body, attr, style))
+            return place_items([ { item: inner, x: 0, y: -measurement_to_em(dy) } ], [ 0, 0 ], 'mord')
+        } else if (type == 'vcenter') {
+            // re-anchor the body so it is centred on the axis
+            const inner = seal_math(convert_tree(tree.body, attr, style))
+            const [ lo, hi ] = metrics_bounds(inner.math)
+            return place_items([ { item: inner, x: 0, y: -0.5 * (lo + hi) } ], [ 0, 0 ], 'mord')
+        } else if (type == 'hbox') {
+            return convert_tree(tree.body, attr, style)
+        } else if (type == 'pmb') {
+            // poor man's bold: the body overprinted at a small offset
+            const { mclass, body } = tree
+            const inner = seal_math(convert_tree(body, attr, style))
+            const group = place_items([ { item: inner, x: 0, y: 0 }, { item: inner, x: 0.02, y: -0.01 } ], [ 0, 0 ], mclass)
+            return with_math(group, { advance: inner.math.advance })
+        } else if (type == 'cr') {
+            // a line break outside an array: a no-op in display mode (as in
+            // LaTeX), and gum lays out a single line in any case
+            return EMPTY_MATH
+        } else if (type == 'verb') {
+            // verbatim text in the typewriter face; \verb* shows its spaces
+            const { body, star } = tree
+            const text = body.replace(/ /g, star ? '\u2423' : '\u00a0')
+            return new MathSpan({ children: [ text ], font_family: 'KaTeX_Typewriter', ...attr })
+        } else if (type == 'enclose') {
+            return convert_enclose(tree, attr, style)
         }
     }
 
@@ -2611,5 +3083,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathBrace, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathBrace, MathStretch, MathOval, MathCancel, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
