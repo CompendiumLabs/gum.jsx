@@ -46,6 +46,24 @@ bun scripts/math.ts -S 32 -t dark -o eq.png < eq.tex
 gum-tex 'E = mc^2' -s 400 -o emc.png   # fit into a 400px box
 ```
 
+### Comparing against katex
+
+`math/compare.ts` renders the same TeX with gum (`mathToPng`) and with katex's own HTML
+pipeline in headless Chromium (`renderToString` + `katex.min.css`, which pulls in the KaTeX
+fonts) at the same pixels per em, trims both to their ink, and writes them side by side in one
+PNG (or shows it in a kitty terminal when no `-o` is given). It needs only a Chromium binary on
+`PATH` (or `--chrome`/`$GUM_CHROME`); the trim and composite are done with node-canvas. This is
+the ground truth for layout questions the metrics checks cannot see, like widths and stroke
+weights:
+
+```bash
+bun math/compare.ts '\xrightarrow{f} \quad \frac{a}{b}' -o cmp.png
+bun math/compare.ts -i --vertical -S 64 -F eq.tex        # inline style, stacked
+```
+
+Note `katex.min.css` sets `.katex { font-size: 1.21em }`; the script divides the page font size
+by 1.21 so both renders share a scale.
+
 ### Markdown CLI
 
 `src/mark.ts` (`displayMarkdown`; exported as `gum/mark`) renders Markdown to ANSI terminal text with fenced `gum` blocks, `.png`/`.svg`/`.jsx` images, and `$...$`/`$$...$$` math shown as kitty images. The `gum-down` CLI (`scripts/mark.ts`) wraps it:

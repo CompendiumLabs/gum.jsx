@@ -41,6 +41,16 @@ not 0.16.33, so they parse-error rather than being gum gaps.
 
 ---
 
+## Comparing renders
+
+`math/compare.ts` puts gum's render and katex's (its real HTML pipeline, in
+headless Chromium) side by side at the same pixels per em. Everything in this
+document about *metrics* came from katex's `__renderToHTMLTree` heights and
+depths; the comparison tool is for what those cannot see — widths, stroke
+weights, glyph shapes. Its first run already showed katex's `\x…` arrows are
+longer than gum's (katex pads the label by `0.5em` a side via `.x-arrow-pad`,
+gum by 2 mu) and its brace is heavier.
+
 ## 1. Parse-node coverage
 
 KaTeX defines 57 parse-node types. `convert_tree` handles 25:

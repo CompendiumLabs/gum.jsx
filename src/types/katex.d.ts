@@ -245,4 +245,5 @@ declare module 'katex' {
     export type Tree = TreeNode[]
 
     export function __parse(tex: string, options?: any): Tree
+    export function renderToString(tex: string, options?: Record<string, unknown>): string
 }
