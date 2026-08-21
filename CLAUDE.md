@@ -234,7 +234,7 @@ Key functions for rect manipulation:
 - `plot.ts` - `Bar`, `Bars`, `Scale`, `Labels`, `Axis`, `Mesh`, `Graph`, `Plot`, `BarPlot`, `Legend`
 - `network.ts` - `ArrowSpline`, `Node`, `Edge`, `Network`
 - `symbolic.ts` - `SymPoints`, `SymLine`, `SymSpline`, `SymPoly`, `SymFill`, `SymField`
-- `math.ts` - `MathSpan`, `MathText`, `MathArray`, `MathBrace`, `MathStretch`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
+- `math.ts` - `MathSpan`, `MathText`, `MathArray`, `MathStretch`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
 - `katex.ts` - `Latex`
 - `image.ts` - `Image`
 - `slide.ts` - `TitleBox`, `TitleFrame`, `Slide`
@@ -364,9 +364,10 @@ turned toward the shaft by `curve * arc/2` and flare out (`curve = 1` is tangent
 for harpoons. Note `Arrow`'s own `curve` bends the *shaft* (spline), while `arrow_curve` reaches
 the heads via the `arrow_` prefix. Under-decorations get `STRETCH_UNDER_KERN` (0.1 em) of
 clearance below the body; katex uses 0, which lets barb tips touch serif feet. Delimiters
-(`fit_delim`) follow TeX's rule: the first of Main, Size1…4 whose natural extent covers the
-requirement is used unscaled, so they overshoot like TeX rather than being stretched (which
-would thicken the glyph); only beyond Size4 is the glyph scaled, standing in for TeX's
+(`fit_delim`, and the radical in `fit_radical`, both on `fit_glyph` over `SIZE_FONTS`) follow
+TeX's rule: the first of Main, Size1…4 whose natural extent covers the requirement is used
+unscaled, so they overshoot like TeX rather than being stretched (which would thicken the
+glyph); only beyond Size4 is the glyph scaled, standing in for TeX's
 extensible pieces. `Bracket` also takes `height`, a fixed total delimiter height in em that
 ignores the body (TeX Rule 15e): the genfrac branch passes `TEX.delim1`/`delim2` for `\binom`
 and friends, whose parentheses do not fit their contents. Braces,
@@ -388,8 +389,8 @@ Font commands flow down as `font_family` in the converter's `attr`: `TEX_FONT_FA
 `text_font_family` composes the `\text*` family/weight/shape. `MathSymbol` only honours the
 requested face where it has the glyph (`resolve_font_override`), falling back to the symbol's own
 face as katex does, which is also how `\boldsymbol` gets Math-BoldItalic letters and Main-Bold
-operators. `\color` flows the same way as `color`; `MathRule`/`MathBrace`/`MathStretch` take it
-as a `fill` alias so drawn shapes follow it.
+operators. `\color` flows the same way as `color`; every `MathShape` takes it as a `fill` alias
+so drawn shapes follow it.
 
 A math box may draw outside the box it is laid out by: `hrange` is the horizontal ink range when
 it differs from `[0, advance]` (`\rlap`, the cancel strokes) and `vink` the vertical one when it

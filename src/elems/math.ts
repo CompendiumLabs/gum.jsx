@@ -52,6 +52,14 @@ type WithMath<E extends Element = Element> = E & {
 const OP_TEXT_FONT: FontFamily = 'KaTeX_Size1'
 const OP_DISPLAY_FONT: FontFamily = 'KaTeX_Size2'
 
+// the delimiter sizes: Main is the text size, Size1 ... Size4 the \big ... \Bigg
+// sizes; `level` is 1-based, clamped to the table
+const SIZE_FONTS: FontFamily[] = [ 'KaTeX_Main', 'KaTeX_Size1', 'KaTeX_Size2', 'KaTeX_Size3', 'KaTeX_Size4' ]
+
+function size_font(level: number): FontFamily {
+    return SIZE_FONTS[Math.min(Math.max(level, 1), SIZE_FONTS.length) - 1]
+}
+
 const SYMBOL_MODE_FONT: Record<SymbolMode, FontFamily> = {
     math: 'KaTeX_Math',
     text: 'KaTeX_Main',
@@ -1247,38 +1255,6 @@ function brace_outline(width: number, height: number, thick: number, thin: numbe
     return [ ...offset_polyline(line, half), ...offset_polyline(line, half.map(d => -d)).reverse() ]
 }
 
-interface MathBraceArgs extends MathShapeArgs {
-    advance?: number
-    height?: number
-    thickness?: number
-    over?: boolean
-}
-
-class MathBrace extends MathShape {
-    constructor(args: MathBraceArgs = {}) {
-        const [ fill, {
-            advance: advance0 = 1, height: height0 = BRACE_HEIGHT,
-            thickness = BRACE_THICKNESS, over = true, ...attr
-        } ] = shape_args(args)
-
-        // the outline is inset so the ink lands inside the advance and height
-        const advance = Math.max(advance0, 2 * thickness)
-        const height = Math.max(height0, 2 * thickness)
-        const outline = brace_outline(advance, height, thickness, BRACE_THIN)
-        const points = over ? outline : outline.map(([ x, y ]) => [ x, height - y ] as Point)
-
-        // compute layout metrics
-        const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: 0 }
-        const coord: Rect = [ 0, 0, advance, height ]
-
-        // the polygon maps its points through its own context, which defaults
-        // to the unit square, so it needs the brace's coord to draw in em
-        const shape = new Polygon({ points, coord, fill, stroke: none })
-        super({ children: [ shape ], coord, metrics, ...attr })
-        this.args = args
-    }
-}
-
 //
 // stretchy decorations
 //
@@ -1286,9 +1262,10 @@ class MathBrace extends MathShape {
 // katex draws all of these as SVG paths that stretch to the body, since no font
 // carries stretchable versions. The box heights and minimum widths below are its
 // katexImagesData, in em. The arrows are gum's own Arrow/ArrowHead/Line/Arc,
-// stroked in em -- MathStretch rebases the stroke unit to pixels per em for its
-// subtree, so a stroke_width of TEX.rule is a TeX rule at any size. Braces,
-// groups and the \utilde tilde are still filled outlines (see MathBrace)
+// stroked in em -- MathStretch is a MathShape, so its stroke unit is pixels per
+// em and a stroke_width of TEX.rule is a TeX rule at any size. Braces, groups
+// and the \utilde tilde are filled outlines (a centerline offset along its
+// normals both ways, see offset_polyline)
 const STRETCH_THICKNESS = TEX.rule
 const STRETCH_SAMPLES = 12
 const STRETCH_LINE_GAP = 0.11   // between the rules of a double arrow or =
@@ -1486,18 +1463,18 @@ function stretch_tilde(width: number, height: number, t: number): Point[][] {
     return [ stretch_stroke(line, t) ]
 }
 
-function stretch_brace(over: boolean): (width: number, height: number, t: number) => Point[][] {
-    return (width, height, t) => {
-        const outline = brace_outline(width, height, BRACE_THICKNESS, BRACE_THIN)
-        return [ over ? outline : outline.map(([ x, y ]) => [ x, height - y ] as Point) ]
-    }
+// the brace outline is inset so the ink lands inside the box; it is thick
+// along the runs (its own thickness, not the rule weight of the arrows)
+function stretch_brace(width: number, height: number, t: number): Point[][] {
+    return [ brace_outline(width, height, t, BRACE_THIN) ]
 }
 
 const stretch_flip = (fn: (w: number, h: number, t: number) => Point[][]) =>
     (w: number, h: number, t: number) => fn(w, h, t).map(p => p.map(([ x, y ]) => [ x, h - y ] as Point))
 
-// keyed by katex's stretchy label; height and min_width are its katexImagesData
-type StretchEntry = { shape: StretchShape, height: number, min_width: number }
+// keyed by katex's stretchy label; height and min_width are its katexImagesData,
+// thickness the stroke (or band) weight when it is not a TeX rule
+type StretchEntry = { shape: StretchShape, height: number, min_width: number, thickness?: number }
 
 const ARROW_H = 0.522, DOUBLE_H = 0.56, FLAT_H = 0.334, GROUP_H = 0.26, PAIR_H = 0.716  // GROUP_H is shallower than katex's 0.342 by choice
 const STRETCH: Record<string, StretchEntry> = {
@@ -1515,8 +1492,8 @@ const STRETCH: Record<string, StretchEntry> = {
     overgroup:           { shape: stretch_filled(stretch_group), height: GROUP_H, min_width: 0.888 },
     undergroup:          { shape: stretch_filled(stretch_flip(stretch_group)), height: GROUP_H, min_width: 0.888 },
     utilde:              { shape: stretch_filled(stretch_tilde), height: 0.26, min_width: 0 },
-    overbrace:           { shape: stretch_filled(stretch_brace(true)), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
-    underbrace:          { shape: stretch_filled(stretch_brace(false)), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
+    overbrace:           { shape: stretch_filled(stretch_brace), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH, thickness: BRACE_THICKNESS },
+    underbrace:          { shape: stretch_filled(stretch_flip(stretch_brace)), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH, thickness: BRACE_THICKNESS },
 
     xrightarrow:         { shape: stretch_arrow({ right: true }), height: ARROW_H, min_width: 1.469 },
     xleftarrow:          { shape: stretch_arrow({ left: true }), height: ARROW_H, min_width: 1.469 },
@@ -1555,11 +1532,12 @@ interface MathStretchArgs extends MathShapeArgs {
 
 class MathStretch extends MathShape {
     constructor(args: MathStretchArgs = {}) {
-        const [ fill, { label = 'overbrace', advance: advance0, height: height0, thickness = STRETCH_THICKNESS, ...attr } ] = shape_args(args)
+        const [ fill, { label = 'overbrace', advance: advance0, height: height0, thickness: thickness0, ...attr } ] = shape_args(args)
         const entry = stretch_entry(label)
         if (entry == null) {
             throw new Error(`Unknown stretchy decoration: '${label}'`)
         }
+        const thickness = thickness0 ?? entry.thickness ?? STRETCH_THICKNESS
 
         // the shape draws into a box of its natural height and at least its
         // natural width, so a decoration over a narrow body keeps its form
@@ -1599,30 +1577,11 @@ class HorizBrace extends MathGroup {
         // and fractions stay full size
         const body = math_child(children, is_script_style(style) ? style : 'display', 'HorizBrace')
 
-        // the body sets the brace width, down to a floor that keeps a brace over
-        // a narrow body from collapsing into a squiggle; a wider label overhangs
-        const width0 = Math.max(body.math.advance, BRACE_MIN_WIDTH)
-        const brace = new MathBrace({ advance: width0, height, thickness, over, ...attr })
-        const items = [ body, brace, label ].filter(item => item != null)
-        const width = max(items.map(item => item.math.advance)) ?? 0
-
-        // stack outward from the body, whose anchor the whole group keeps
-        const [ blo, bhi ] = metrics_bounds(body.math)
-        const edge = over ? blo - BRACE_KERN - height : bhi + BRACE_KERN
-        const placed: Placed[] = [
-            { item: body, x: 0, y: 0, width, align: 'center' },
-            { item: brace, x: 0, y: edge, width, align: 'center' },
-        ]
-        if (label != null) {
-            const [ llo, lhi ] = metrics_bounds(label.math)
-            const y = over
-                ? edge - BRACE_LABEL_KERN - lhi
-                : edge + height + BRACE_LABEL_KERN - llo
-            placed.push({ item: label, x: 0, y, width, align: 'center' })
-        }
-
-        // an over/underbrace is an inner atom
-        super(place_items(placed, [ 0, 0 ], 'minner'), spec)
+        // the brace is a stretchy decoration with a floor on its width (so a
+        // brace over a narrow body does not collapse into a squiggle) and its
+        // label riding beyond it; an over/underbrace is an inner atom
+        const note = label != null ? { item: label, kern: BRACE_LABEL_KERN } : null
+        super(place_stretch(body, over ? 'overbrace' : 'underbrace', over, BRACE_KERN, { height, thickness, ...attr }, note, 'minner'), spec)
         this.args = args
     }
 }
@@ -2069,13 +2028,25 @@ interface SqrtArgs extends GroupArgs {
     style?: MathStyle
 }
 
-const RADICAL_FONTS: FontFamily[] = [
-    'KaTeX_Main',
-    'KaTeX_Size1',
-    'KaTeX_Size2',
-    'KaTeX_Size3',
-    'KaTeX_Size4',
-]
+// TeX's delimiter search (katex's traverseSequence): walk the sizes from the
+// smallest and take the first whose natural extent covers the requirement,
+// unscaled, so glyphs overshoot rather than being scaled -- a stretched glyph
+// also thickens. Only when even the largest size is too small (where TeX would
+// build the glyph from extensible pieces) is that glyph returned with the scale
+// that would fit it. The size fonts do not all cover every glyph (the vertical
+// bars stop after Size1, since real TeX builds tall ones from pieces), so
+// sizes without it are skipped
+function fit_glyph<E extends WithMath>(text: string, target: number, make: (font_family: FontFamily) => E, measure: (glyph: E) => number): [ E, number ] {
+    let largest: E | null = null
+    for (const font_family of SIZE_FONTS) {
+        if (!textHasGlyphs(text, { font_family })) continue
+        const glyph = make(font_family)
+        if (measure(glyph) >= target) return [ glyph, 1 ]
+        largest = glyph
+    }
+    if (largest == null) return [ make(SIZE_FONTS[0]), 1 ]
+    return [ largest, target / measure(largest) ]
+}
 
 interface RadicalSpanArgs extends MathSpanArgs {
     fit_width?: boolean
@@ -2120,27 +2091,15 @@ function radical_glyph(font_family: FontFamily, color: string | undefined): With
     })
 }
 
-// Pick the first natural KaTeX surd that covers the requested height. Beyond
-// Size4, keep its TeX-like horizontal proportions and stretch only vertically;
-// this is the same role played by KaTeX's tall-radical SVG fallback.
+// the first natural surd that covers the requested height; beyond Size4 the
+// glyph keeps its horizontal proportions and stretches only vertically, the
+// role of katex's tall-radical SVG fallback
 function fit_radical(height: number, color: string | undefined): WithMath<RadicalSpan> {
-    let glyph = radical_glyph(RADICAL_FONTS[0], color)
-
-    for (const font of RADICAL_FONTS) {
-        glyph = radical_glyph(font, color)
-        if (metrics_height(glyph.math) >= height) return glyph
-    }
-
-    const naturalHeight = metrics_height(glyph.math)
-    const scale = height / naturalHeight
+    const [ glyph, scale ] = fit_glyph('\u221a', height, font_family => radical_glyph(font_family, color), g => metrics_height(g.math))
+    if (scale == 1) return glyph
     const [ lo, hi ] = metrics_bounds(glyph.math)
-    const aspect = glyph.math.advance / height
-    const fitted = glyph.clone({ fit_width: true, fit_aspect: aspect }) as RadicalSpan
-    const stretched = with_math(fitted, {
-        vrange: [ scale * lo, scale * hi ],
-        vanchor: 0,
-    })
-    return stretched
+    const fitted = glyph.clone({ fit_width: true, fit_aspect: glyph.math.advance / height }) as RadicalSpan
+    return with_math(fitted, { vrange: [ scale * lo, scale * hi ], vanchor: 0 })
 }
 
 class Sqrt extends MathGroup {
@@ -2293,29 +2252,15 @@ function normalize_delim(delim: string | null | undefined): string | null {
     return DELIM_ANGLE[delim] ?? delim
 }
 
-function delimiter_font(size: number): FontFamily {
-    if (size >= 5) return 'KaTeX_Size4'
-    if (size == 4) return 'KaTeX_Size3'
-    if (size == 3) return 'KaTeX_Size2'
-    if (size == 2) return 'KaTeX_Size1'
-    return 'KaTeX_Main'
+// the named delimiter pairs; anything else is taken as the glyph itself
+const DELIM_PAIRS: Record<DelimType, [ string, string ]> = {
+    round: [ '(', ')' ], square: [ '[', ']' ], curly: [ '{', '}' ], angle: [ '<', '>' ],
 }
 
 function get_delim_text(delim: string | undefined, side: 'left' | 'right'): string {
-    if (delim == '.' || delim == null) return ''
-    if (side == 'left') {
-        return delim == 'round' ? '(' :
-               delim == 'square' ? '[' :
-               delim == 'curly' ? '{' :
-               delim == 'angle' ? '<' :
-               delim ?? ''
-    } else {
-        return delim == 'round' ? ')' :
-               delim == 'square' ? ']' :
-               delim == 'curly' ? '}' :
-               delim == 'angle' ? '>' :
-               delim ?? ''
-    }
+    if (delim == null || delim == '.') return ''
+    const pair = DELIM_PAIRS[delim as DelimType]
+    return pair != null ? pair[side == 'left' ? 0 : 1] : delim
 }
 
 interface DelimArgs extends MathSymbolArgs {
@@ -2325,12 +2270,13 @@ interface DelimArgs extends MathSymbolArgs {
     level?: number
 }
 
-// delimiter glyphs are designed to be centered on the axis at every size
+// delimiter glyphs are designed to be centered on the axis at every size; the
+// face is the size font for `level`, unless given directly
 class Delim extends MathSymbol {
     constructor(args: DelimArgs = {}) {
-        const { delim, side = 'left', mode = 'math', level = 1, ...attr } = THEME(args, 'Delim')
+        const { delim, side = 'left', mode = 'math', level = 1, font_family: font_family0, ...attr } = THEME(args, 'Delim')
         const text = get_delim_text(delim, side)
-        const font_family = delimiter_font(level)
+        const font_family = font_family0 ?? size_font(level)
         const klass = side == 'left' ? 'mopen' : 'mclose'
         super({ children: [ text ], mode, klass, font_family, center: true, ...attr })
     }
@@ -2338,37 +2284,18 @@ class Delim extends MathSymbol {
 
 // TeX Rule 19: the delimiter must cover the body's extent above and below the
 // axis (scaled by delimiterfactor, less delimitershortfall) and is never
-// smaller than the text-size glyph; pick the nearest natural size, then scale
-// to fit exactly
-const DELIM_LEVELS = 5
+// smaller than the text-size glyph; `target` is that half-height. An explicit
+// level skips the search
 const DELIM_FACTOR = 0.901
 const DELIM_SHORTFALL = 0.5
 
 function fit_delim(delim: string, side: 'left' | 'right', target: number, level0: number | undefined, attr: Attrs): WithMath<Delim> {
     if (level0 != null) return new Delim({ delim, side, level: level0, ...attr })
-
-    // the size fonts do not all cover every delimiter -- the vertical bars stop
-    // after Size1, since real TeX builds tall ones from extensible pieces --
-    // so skip any size that would render .notdef and stretch the largest that
-    // does have the glyph
-    // TeX (and katex's traverseSequence) walk the sizes from smallest and take
-    // the first whose natural extent covers the requirement, so delimiters
-    // overshoot rather than being scaled -- a stretched glyph also thickens.
-    // Only when even the largest size is too small (where TeX would build the
-    // delimiter from extensible pieces) is that glyph stretched to fit
     const text = get_delim_text(delim, side)
-    let largest: Delim | null = null
-    for (let level = 1; level <= DELIM_LEVELS; level++) {
-        if (!textHasGlyphs(text, { font_family: delimiter_font(level) })) continue
-        const candidate = new Delim({ delim, side, level, ...attr })
-        const [ lo, hi ] = metrics_bounds(candidate.math)
-        if (0.5 * (hi - lo) >= target) return candidate as WithMath<Delim>
-        largest = candidate
-    }
-    if (largest == null) return new Delim({ delim, side, level: 1, ...attr }) as WithMath<Delim>
-
-    const [ lo, hi ] = metrics_bounds(largest.math)
-    return scale_math(largest, target / (0.5 * (hi - lo)))
+    const [ glyph, scale ] = fit_glyph(text, target,
+        font_family => new Delim({ delim, side, font_family, ...attr }) as WithMath<Delim>,
+        g => { const [ lo, hi ] = metrics_bounds(g.math); return 0.5 * (hi - lo) })
+    return scale_math(glyph, scale)
 }
 
 // \big ... \Bigg ask for a delimiter of a fixed total height (katex's
@@ -2661,17 +2588,30 @@ function convert_operatorname(tree: TreeOperatorName, ctx: ConvertCtx): WithMath
 }
 
 // a stretchy decoration sitting on the body, which sets its width: the body
-// keeps its own baseline and the decoration is centred over (or under) it
-function place_stretch(body: WithMath, label: string, over: boolean, kern: number, attr: Attrs): WithMath<Group> {
+// keeps its own baseline and the decoration is centred over (or under) it,
+// with an optional note (a brace's label) riding beyond the decoration; a
+// wider decoration or note overhangs the body
+type StretchNote = { item: WithMath, kern: number }
+
+function place_stretch(body: WithMath, label: string, over: boolean, kern: number, attr: Attrs, note: StretchNote | null = null, klass: MathClass = 'mord'): WithMath<Group> {
     const deco = new MathStretch({ label, advance: body.math.advance, ...attr })
     const [ blo, bhi ] = metrics_bounds(body.math)
     const height = metrics_height(deco.math)
-    const width = max([ body.math.advance, deco.math.advance ]) ?? 0
-    const y = over ? blo - kern - height : bhi + kern
-    return place_items([
+    const items = [ body, deco, note?.item ].filter(item => item != null)
+    const width = max(items.map(item => item.math.advance)) ?? 0
+
+    // stack outward from the body, whose anchor the whole group keeps
+    const edge = over ? blo - kern - height : bhi + kern
+    const placed: Placed[] = [
         { item: body, x: 0, y: 0, width, align: 'center' },
-        { item: deco, x: 0, y, width, align: 'center' },
-    ], [ 0, 0 ], 'mord')
+        { item: deco, x: 0, y: edge, width, align: 'center' },
+    ]
+    if (note != null) {
+        const [ nlo, nhi ] = metrics_bounds(note.item.math)
+        const y = over ? edge - note.kern - nhi : edge + height + note.kern - nlo
+        placed.push({ item: note.item, x: 0, y, width, align: 'center' })
+    }
+    return place_items(placed, [ 0, 0 ], klass)
 }
 
 // \xrightarrow and friends: the arrow is the base, sitting on the math axis,
@@ -3020,5 +2960,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathBrace, MathStretch, MathOval, MathCancel, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, MathOval, MathCancel, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
 export type { MathClass, MathSpec, MathStyle, InlineMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
