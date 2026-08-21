@@ -99,8 +99,9 @@ everywhere else; it is a `strict` flag on `evaluateGum`, `mathToElement`/`mathTo
 is still rendered permissively for the report, so the card shows the error above the picture.
 An example that deliberately exercises a fallback opts out with a `@nostrict` comment.
 
-`test/katex.md` is a full audit of katex's command surface against what gum renders, and the
-`test/code/math_*.jsx` files that currently fail are the known gaps it documents.
+`math/katex.md` describes how the katex parse tree is converted (metrics, fonts, drawn shapes,
+strict mode), the gotchas, the outstanding gaps (`\middle`, `\tag`, `CD` arrows), and which
+`test/code/math_*.jsx` file covers what.
 
 Pass `--report` to also render every example in both themes to SVG (`test/report/<docs|gala|test>/<light|dark>/`) and generate a visual report at `test/report/index.html` with a light/dark toggle and a per-card image/code switch (from the `test/template.html` template; both renders are inlined into the page, code is syntax-highlighted at build time with `shiki`, and the bundled fonts are copied alongside with `@font-face` rules so math renders correctly; the report directory is generated and gitignored):
 ```bash

@@ -1618,11 +1618,18 @@ type MathLeaf = Element | string | number | boolean | null | undefined
 
 // parse a TeX string into math elements in the given style, rendering the raw
 // text in red on a parse error (as Latex does)
+// katex's strict handler: \\ outside an array is a no-op in LaTeX display mode,
+// which is also what gum does with it (the `cr` branch), so that warning is
+// noise here; everything else keeps katex's default of a console warning
+function parse_strict(code: string): 'ignore' | 'warn' {
+    return code == 'newLineInDisplayMode' ? 'ignore' : 'warn'
+}
+
 function parse_math(tex: string, attr: Attrs = {}, style: MathStyle = 'display'): WithMath {
     try {
         // the AMS multiline environments (align, gather, equation, ...) are
         // gated on display mode in katex's parser
-        const tree = parse_tex(tex, { displayMode: style_size(style) == 'display' })
+        const tree = parse_tex(tex, { displayMode: style_size(style) == 'display', strict: parse_strict })
         return convert_tree(tree, attr, style)
     } catch (e) {
         // a strict failure from convert_tree is already reported; don't re-wrap
