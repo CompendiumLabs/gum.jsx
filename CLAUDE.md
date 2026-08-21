@@ -235,7 +235,6 @@ Key functions for rect manipulation:
 - `network.ts` - `ArrowSpline`, `Node`, `Edge`, `Network`
 - `symbolic.ts` - `SymPoints`, `SymLine`, `SymSpline`, `SymPoly`, `SymFill`, `SymField`
 - `math.ts` - `MathSpan`, `MathText`, `MathArray`, `MathStretch`, `SupSub`, `Frac`, `Sqrt`, `Bracket`, `Latex`
-- `katex.ts` - `Latex`
 - `image.ts` - `Image`
 - `slide.ts` - `TitleBox`, `TitleFrame`, `Slide`
 
