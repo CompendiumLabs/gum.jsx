@@ -47,9 +47,27 @@ not 0.16.33, so they parse-error rather than being gum gaps.
 headless Chromium) side by side at the same pixels per em. Everything in this
 document about *metrics* came from katex's `__renderToHTMLTree` heights and
 depths; the comparison tool is for what those cannot see — widths, stroke
-weights, glyph shapes. Its first run already showed katex's `\x…` arrows are
-longer than gum's (katex pads the label by `0.5em` a side via `.x-arrow-pad`,
-gum by 2 mu) and its brace is heavier.
+weights, glyph shapes. Its first runs found four things, all since fixed against katex's own geometry:
+
+- `\x…` arrows were too short: katex pads the label by `0.5em` a side
+  (`.x-arrow-pad`); gum was reusing amsmath's 2 mu *vertical* kern. Now
+  `XARROW_PAD = 0.5`.
+- the brace was too light: katex's path has a 0.12 em band along the runs,
+  tapering into the hooks and peak; gum drew a uniform 0.05 stroke. The
+  outline now carries a thickness per point (0.1 on the runs, 0.03 at the
+  free ends and the peak tip), shared by `MathBrace` and the stretch table.
+- `\overlinesegment` had its bar on the top edge with full-height ticks;
+  katex's path is a 0.04 em bar through the *centre* of the box with ticks
+  reaching 0.167 em above and below it (`|—|`), and the same shape serves
+  `\underlinesegment`.
+- `\left…\right` and matrix delimiters were shorter and bolder than katex's:
+  gum picked the nearest size and scaled it to fit, and a stretched glyph
+  thickens. `fit_delim` now does what TeX and katex's `traverseSequence` do —
+  walk Main, Size1…4 and take the first whose natural extent covers the
+  requirement, unscaled — and only stretches Size4 where TeX would build an
+  extensible. In display mode every delimiter case now matches katex's
+  height/depth (worst 0.032 em); the one docs example this changes is
+  `docs/code/Bracket.jsx`.
 
 ## 1. Parse-node coverage
 

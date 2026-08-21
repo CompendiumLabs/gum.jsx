@@ -84,11 +84,17 @@ body { display: inline-block; font-size: ${font_size / KATEX_SCALE}px; padding: 
 // image ops
 //
 
-function loadCanvas(buf: Buffer): Canvas {
+// decode a png onto the background colour, so that transparent pixels (gum's
+// render is transparent outside the math; its rounded white box would otherwise
+// leave transparent corners) read as background to the trim below
+function loadCanvas(buf: Buffer, background: string): Canvas {
   const img = new Image()
   img.src = buf
   const canvas = createCanvas(img.width, img.height)
-  canvas.getContext('2d').drawImage(img, 0, 0)
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = background
+  ctx.fillRect(0, 0, img.width, img.height)
+  ctx.drawImage(img, 0, 0)
   return canvas
 }
 
@@ -148,15 +154,18 @@ function compose(panels: [ string, Canvas ][], { gap, labels, vertical, backgrou
   let pos = 0
   panels.forEach(([ name, c ], i) => {
     const [ sw, sh ] = sizes[i]
+    // side by side, the labels sit on one line across the top and each render
+    // is centred in the space beneath; stacked, each label tops its own slot
     const x = vertical ? 0.5 * (W - sw) : pos
-    const y = vertical ? pos : 0.5 * (H - sh)
+    const top = vertical ? pos : 0
+    const y = vertical ? top + label_h : label_h + 0.5 * (H - label_h - c.height)
+    ctx.drawImage(c, x, y)
     if (labels) {
       ctx.fillStyle = '#888'
-      ctx.font = '14px sans-serif'
+      ctx.font = '32px sans-serif'
       ctx.textBaseline = 'top'
-      ctx.fillText(name, x + 4, y + 2)
+      ctx.fillText(name, x + 4, top + 2)
     }
-    ctx.drawImage(c, x, y + label_h)
     if (i < panels.length - 1) {
       ctx.fillStyle = '#ccc'
       if (vertical) ctx.fillRect(0, pos + sh + 0.5 * gap, W, 1)
@@ -197,9 +206,10 @@ const [ ww, wh ] = String(opts.window).split('x').map(Number)
 const font_size: number = opts.fontSize
 const background: string = opts.background
 
-// both renders at font_size pixels per em, then trimmed to the ink the same way
-const gum = trimCanvas(loadCanvas(mathToPng(tex, { font_size, inline: opts.inline, padding: 0, background, theme: 'light' })), opts.margin)
-const kat = trimCanvas(loadCanvas(katexToPng(tex, { font_size, inline: opts.inline, background, window: [ ww, wh ], chrome: opts.chrome })), opts.margin)
+// both renders at font_size pixels per em, flattened onto the background and
+// trimmed to their ink the same way, so they line up on the glyphs themselves
+const gum = trimCanvas(loadCanvas(mathToPng(tex, { font_size, inline: opts.inline, padding: 0, theme: 'light' }), background), opts.margin)
+const kat = trimCanvas(loadCanvas(katexToPng(tex, { font_size, inline: opts.inline, background, window: [ ww, wh ], chrome: opts.chrome }), background), opts.margin)
 if (kat.clipped) console.error(`warning: katex render touched the screenshot edge; try --window larger than ${opts.window}`)
 
 const out = compose([ [ 'gum', gum.canvas ], [ 'katex', kat.canvas ] ], { gap: opts.gap, labels: opts.labels, vertical: opts.vertical, background })

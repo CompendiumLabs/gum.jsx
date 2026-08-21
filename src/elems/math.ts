@@ -1044,42 +1044,54 @@ class MathArray extends Group {
 // glyph) sized 548/1000 em tall; the kerns come from its horizBrace builder
 const BRACE_HEIGHT = 0.548
 const BRACE_MIN_WIDTH = 1.6   // katex sets this as a css min-width on the brace
-const BRACE_THICKNESS = 0.05
+const BRACE_THICKNESS = 0.1   // along the runs; katex's brace path has a 0.12 em band there
+const BRACE_THIN = 0.03       // at the free ends of the hooks and the peak
 const BRACE_KERN = 0.1        // between the body and the brace
 const BRACE_LABEL_KERN = 0.2  // between the brace and its label
 const BRACE_SAMPLES = 12      // points per quarter turn
 
-// centerline of a horizontal brace pointing up: a hook curling down at each
-// end and a peak in the middle, joined by straight runs. It is four quarter
-// circles of radius r, so the brace stands 2r tall and wants 4r of width --
-// below that the straight runs vanish and the radius shrinks to fit
-function brace_centerline(width: number, height: number): Point[] {
-    const r = Math.min(0.5 * height, 0.25 * width)
-    const peak = height - 2 * r
-    const arc = (cx: number, cy: number, a0: number, a1: number): Point[] =>
-        range(BRACE_SAMPLES + 1).map(i => {
-            const a = d2r * (a0 + (a1 - a0) * (i / BRACE_SAMPLES))
-            return [ cx + r * Math.cos(a), cy + r * Math.sin(a) ] as Point
-        })
-    return [
-        ...arc(r, height, 180, 270),                  // left hook
-        ...arc(0.5 * width - r, peak, 90, 0),         // rise to the peak
-        ...arc(0.5 * width + r, peak, 180, 90).slice(1),  // fall from the peak
-        ...arc(width - r, height, 270, 360),          // right hook
-    ]
-}
-
-// shift a polyline sideways along its normals; tracing one way and back gives
-// the filled outline of a stroke, which is what math rules need -- an actual
-// SVG stroke is specified in pixels and would not scale with the font
-function offset_polyline(points: Point[], dist: number): Point[] {
+// shift a polyline sideways along its normals (by a constant distance or one
+// per point); tracing one way and back gives the filled outline of a stroke,
+// which is what math rules need -- an actual SVG stroke is specified in pixels
+// and would not scale with the font
+function offset_polyline(points: Point[], dist: number | number[]): Point[] {
     return points.map(([ x, y ], i) => {
+        const d = is_array(dist) ? dist[i] : dist
         const [ ax, ay ] = points[Math.max(0, i - 1)]
         const [ bx, by ] = points[Math.min(points.length - 1, i + 1)]
         const [ dx, dy ] = [ bx - ax, by - ay ]
         const norm = Math.hypot(dx, dy) || 1
-        return [ x - dist * dy / norm, y + dist * dx / norm ] as Point
+        return [ x - d * dy / norm, y + d * dx / norm ] as Point
     })
+}
+
+// filled outline of a horizontal brace pointing up: a hook curling down at each
+// end and a peak in the middle, joined by straight runs. The centerline is four
+// quarter circles of radius r, so the brace stands 2r tall and wants 4r of
+// width (below that the runs vanish and r shrinks to fit). Like Computer
+// Modern's, it is thick along the runs and thins into the free ends of the
+// hooks and the tip of the peak; the ink is inset so it stays inside the box
+function brace_outline(width: number, height: number, thick: number, thin: number): Point[] {
+    const [ w, h, x0, y0 ] = [ width - thick, height - thick, 0.5 * thick, 0.5 * thick ]
+    const r = Math.min(0.5 * h, 0.25 * w)
+    const peak = h - 2 * r
+    const n = BRACE_SAMPLES
+    const ease = (f: number) => 0.5 - 0.5 * Math.cos(Math.PI * f)
+    const arc = (cx: number, cy: number, a0: number, a1: number, t0: number, t1: number) =>
+        range(n + 1).map(i => {
+            const f = i / n
+            const a = d2r * (a0 + (a1 - a0) * f)
+            return { p: [ x0 + cx + r * Math.cos(a), y0 + cy + r * Math.sin(a) ] as Point, t: t0 + (t1 - t0) * ease(f) }
+        })
+    const segs = [
+        ...arc(r, h, 180, 270, thin, thick),                   // left hook: thin free end up to the run
+        ...arc(0.5 * w - r, peak, 90, 0, thick, thin),         // rise from the run to the peak
+        ...arc(0.5 * w + r, peak, 180, 90, thin, thick).slice(1),  // fall from the peak
+        ...arc(w - r, h, 270, 360, thick, thin),               // right hook down to its free end
+    ]
+    const line = segs.map(s => s.p)
+    const half = segs.map(s => 0.5 * s.t)
+    return [ ...offset_polyline(line, half), ...offset_polyline(line, half.map(d => -d)).reverse() ]
 }
 
 interface MathBraceArgs extends GroupArgs {
@@ -1099,16 +1111,10 @@ class MathBrace extends Group {
             thickness = BRACE_THICKNESS, over = true, fill = black, ...attr
         } = THEME(args, 'MathBrace')
 
-        // inset the centerline by half the thickness so the ink lands exactly
-        // inside the advance and height rather than bleeding past them
+        // the outline is inset so the ink lands inside the advance and height
         const advance = Math.max(advance0, 2 * thickness)
         const height = Math.max(height0, 2 * thickness)
-        const line = brace_centerline(advance - thickness, height - thickness)
-            .map(([ x, y ]) => [ x + 0.5 * thickness, y + 0.5 * thickness ] as Point)
-        const outline = [
-            ...offset_polyline(line, 0.5 * thickness),
-            ...offset_polyline(line, -0.5 * thickness).reverse(),
-        ]
+        const outline = brace_outline(advance, height, thickness, BRACE_THIN)
         const points = over ? outline : outline.map(([ x, y ]) => [ x, height - y ] as Point)
 
         // compute layout metrics
@@ -1234,15 +1240,20 @@ function stretch_mapsto(side: 'left' | 'right'): StretchShape {
     }
 }
 
-// \overlinesegment: a rule along the open edge with a tick down each end
-function stretch_segment(over: boolean): StretchShape {
+// \overlinesegment and \underlinesegment are the same shape: a rule through
+// the middle of the box with a tick at each end reaching 0.167 em above and
+// below it (katex's path is a 0.04 em bar at y = 241..281 of 522 with ticks
+// spanning 94..428), so the ticks are centred on the bar, not hanging from it
+const SEGMENT_TICK = 0.167
+
+function stretch_segment(): StretchShape {
     return box => {
         const { width, height, thickness: t, y, coord } = box
         const attr = { coord, ...stretch_stroke_attr(box) }
-        const [ yt, yb ] = [ y + 0.5 * t, y + height - 0.5 * t ]
-        const yr = over ? yt : yb
+        const mid = y + 0.5 * height
+        const [ yt, yb ] = [ mid - SEGMENT_TICK, mid + SEGMENT_TICK ]
         return [
-            new Line({ points: [ [ 0.5 * t, yr ], [ width - 0.5 * t, yr ] ], ...attr }),
+            new Line({ points: [ [ 0.5 * t, mid ], [ width - 0.5 * t, mid ] ], ...attr }),
             new Line({ points: [ [ 0.5 * t, yt ], [ 0.5 * t, yb ] ], ...attr }),
             new Line({ points: [ [ width - 0.5 * t, yt ], [ width - 0.5 * t, yb ] ], ...attr }),
         ]
@@ -1300,8 +1311,7 @@ function stretch_tilde(width: number, height: number, t: number): Point[][] {
 
 function stretch_brace(over: boolean): (width: number, height: number, t: number) => Point[][] {
     return (width, height, t) => {
-        const line = brace_centerline(width - t, height - t).map(([ x, y ]) => [ x + 0.5 * t, y + 0.5 * t ] as Point)
-        const outline = stretch_stroke(line, t)
+        const outline = brace_outline(width, height, BRACE_THICKNESS, BRACE_THIN)
         return [ over ? outline : outline.map(([ x, y ]) => [ x, height - y ] as Point) ]
     }
 }
@@ -1323,8 +1333,8 @@ const STRETCH: Record<string, StretchEntry> = {
     Overrightarrow:      { shape: stretch_arrow({ right: true, lines: 2 }), height: DOUBLE_H, min_width: 0.888 },
     overleftharpoon:     { shape: stretch_arrow({ left: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
     overrightharpoon:    { shape: stretch_arrow({ right: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
-    overlinesegment:     { shape: stretch_segment(true), height: ARROW_H, min_width: 0.888 },
-    underlinesegment:    { shape: stretch_segment(false), height: ARROW_H, min_width: 0.888 },
+    overlinesegment:     { shape: stretch_segment(), height: ARROW_H, min_width: 0.888 },
+    underlinesegment:    { shape: stretch_segment(), height: ARROW_H, min_width: 0.888 },
     overgroup:           { shape: stretch_filled(stretch_group), height: GROUP_H, min_width: 0.888 },
     undergroup:          { shape: stretch_filled(stretch_flip(stretch_group)), height: GROUP_H, min_width: 0.888 },
     utilde:              { shape: stretch_filled(stretch_tilde), height: 0.26, min_width: 0 },
@@ -2221,21 +2231,24 @@ function fit_delim(delim: string, side: 'left' | 'right', target: number, level0
     // after Size1, since real TeX builds tall ones from extensible pieces --
     // so skip any size that would render .notdef and stretch the largest that
     // does have the glyph
+    // TeX (and katex's traverseSequence) walk the sizes from smallest and take
+    // the first whose natural extent covers the requirement, so delimiters
+    // overshoot rather than being scaled -- a stretched glyph also thickens.
+    // Only when even the largest size is too small (where TeX would build the
+    // delimiter from extensible pieces) is that glyph stretched to fit
     const text = get_delim_text(delim, side)
-    let best: Delim | null = null
-    let bestError = Infinity
+    let largest: Delim | null = null
     for (let level = 1; level <= DELIM_LEVELS; level++) {
         if (!textHasGlyphs(text, { font_family: delimiter_font(level) })) continue
         const candidate = new Delim({ delim, side, level, ...attr })
         const [ lo, hi ] = metrics_bounds(candidate.math)
-        const half = 0.5 * (hi - lo)
-        const error = Math.abs(Math.log(target / half))
-        if (error < bestError) { best = candidate; bestError = error }
+        if (0.5 * (hi - lo) >= target) return candidate as WithMath<Delim>
+        largest = candidate
     }
-    if (best == null) return new Delim({ delim, side, level: 1, ...attr }) as WithMath<Delim>
+    if (largest == null) return new Delim({ delim, side, level: 1, ...attr }) as WithMath<Delim>
 
-    const [ lo, hi ] = metrics_bounds(best.math)
-    return scale_math(best, target / (0.5 * (hi - lo)))
+    const [ lo, hi ] = metrics_bounds(largest.math)
+    return scale_math(largest, target / (0.5 * (hi - lo)))
 }
 
 interface BracketArgs extends MathRowArgs {
@@ -2323,7 +2336,8 @@ function place_stretch(body: WithMath, label: string, over: boolean, kern: numbe
 
 // \xrightarrow and friends: the arrow is the base, sitting on the math axis,
 // with its labels riding at script size just clear of it
-const XARROW_KERN = 0.111  // 2 mu, from amsmath
+const XARROW_KERN = 0.111  // 2 mu between the arrow and its labels, from amsmath
+const XARROW_PAD = 0.5     // beside the labels: katex's .x-arrow-pad is 0.5em a side
 
 function convert_xarrow(tree: TreeXArrow, attr: Attrs, style: MathStyle): WithMath {
     const { label, body: body0, below: below0 } = tree
@@ -2335,7 +2349,7 @@ function convert_xarrow(tree: TreeXArrow, attr: Attrs, style: MathStyle): WithMa
         : null
 
     const wide = max([ above.math.advance, below?.math.advance ?? 0 ]) ?? 0
-    const arrow = new MathStretch({ label, advance: wide + 2 * XARROW_KERN, ...attr })
+    const arrow = new MathStretch({ label, advance: wide + 2 * XARROW_PAD, ...attr })
     const height = metrics_height(arrow.math)
     const width = max([ arrow.math.advance, wide ]) ?? 0
 

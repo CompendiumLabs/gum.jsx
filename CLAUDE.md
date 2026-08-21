@@ -359,7 +359,11 @@ turned toward the shaft by `curve * arc/2` and flare out (`curve = 1` is tangent
 0 is straight; Computer Modern is about 0.7) — and `ArrowHead` takes `barb: 'left' | 'right'`
 for harpoons. Note `Arrow`'s own `curve` bends the *shaft* (spline), while `arrow_curve` reaches
 the heads via the `arrow_` prefix. Under-decorations get `STRETCH_UNDER_KERN` (0.1 em) of
-clearance below the body; katex uses 0, which lets barb tips touch serif feet. Braces,
+clearance below the body; katex uses 0, which lets barb tips touch serif feet. Delimiters
+(`fit_delim`) follow TeX's rule: the first of Main, Size1…4 whose natural extent covers the
+requirement is used unscaled, so they overshoot like TeX rather than being stretched (which
+would thicken the glyph); only beyond Size4 is the glyph scaled, standing in for TeX's
+extensible pieces. Braces,
 groups and the `\utilde` tilde are still filled outlines (a centerline offset along its
 normals in both directions). Two traps: a `Polygon`/`Line` maps its points through its
 *own* context, so point-based pieces need the em `coord` explicitly — but `ArrowHead` and
