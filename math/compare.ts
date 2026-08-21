@@ -223,7 +223,7 @@ function compose(panels: [ string, Canvas ][], { gap, labels, background }: Comp
       ctx.fillStyle = '#888'
       ctx.font = '32px sans-serif'
       ctx.textBaseline = 'top'
-      ctx.fillText(name, x + 4, pos + 2)
+      ctx.fillText(name, 12, pos + 2)
     }
     if (i < panels.length - 1) {
       ctx.fillStyle = '#ccc'

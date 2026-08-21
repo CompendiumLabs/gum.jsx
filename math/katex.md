@@ -68,6 +68,17 @@ weights, glyph shapes. Its first runs found four things, all since fixed against
   extensible. In display mode every delimiter case now matches katex's
   height/depth (worst 0.032 em); the one docs example this changes is
   `docs/code/Bracket.jsx`.
+- `\binom`'s parentheses were too small: TeX's Rule 15e gives a generalized
+  fraction's delimiters a *fixed* size by style — `delim1` = 2.39 em in
+  display, `delim2` = 1.01 em in text (1.157 in the script sizes) — rather
+  than fitting the body, and katex's `genfrac` does the same. gum routed them
+  through `Bracket`'s body fit. `Bracket` now takes `height` (total delimiter
+  height in em) and the genfrac branch passes the rule's value; display and
+  text `\binom`/`\dbinom`/`\tbinom` match katex to ≤ 0.013 em. Still open,
+  and separate: script-style fractions differ from katex on their own (no
+  delimiters involved), and in script style katex's delimiter sequence can
+  choose a text-size `Main` glyph larger than the local em — so
+  `x^{\binom{n}{k}}` is ~0.3 em short.
 
 ## 1. Parse-node coverage
 

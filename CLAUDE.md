@@ -366,7 +366,9 @@ clearance below the body; katex uses 0, which lets barb tips touch serif feet. D
 (`fit_delim`) follow TeX's rule: the first of Main, Size1…4 whose natural extent covers the
 requirement is used unscaled, so they overshoot like TeX rather than being stretched (which
 would thicken the glyph); only beyond Size4 is the glyph scaled, standing in for TeX's
-extensible pieces. Braces,
+extensible pieces. `Bracket` also takes `height`, a fixed total delimiter height in em that
+ignores the body (TeX Rule 15e): the genfrac branch passes `TEX.delim1`/`delim2` for `\binom`
+and friends, whose parentheses do not fit their contents. Braces,
 groups and the `\utilde` tilde are still filled outlines (a centerline offset along its
 normals in both directions). Two traps: a `Polygon`/`Line` maps its points through its
 *own* context, so point-based pieces need the em `coord` explicitly — but `ArrowHead` and

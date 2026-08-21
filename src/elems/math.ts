@@ -95,6 +95,9 @@ const TEX = {
     bigop5: 0.1,        // padding above/below limits
     script_space: 0.05, // space after scripts
     accent_gap: 0.12,   // accent ink above x-height (as designed in the fonts)
+    delim1: 2.39,       // delimiter height for generalized fractions, display (sigma20)
+    delim2: 1.01,       // same in text style (sigma21)
+    delim2_script: 1.157,  // sigma21 of the script-size font, used in script styles
 }
 
 //
@@ -2255,11 +2258,12 @@ interface BracketArgs extends MathRowArgs {
     delim?: DelimType | [ DelimType, DelimType ]
     left_delim?: string | null
     right_delim?: string | null
+    height?: number  // fixed total delimiter height in em instead of fitting the body (TeX rule 15e, for \binom and \genfrac)
 }
 
 class Bracket extends MathRow {
     constructor(args: BracketArgs = {}) {
-        const { children: children0, delim: delim0 = 'round', left_delim: leftDelim0, right_delim: rightDelim0, ...attr0 } = THEME(args, 'Bracket')
+        const { children: children0, delim: delim0 = 'round', left_delim: leftDelim0, right_delim: rightDelim0, height, ...attr0 } = THEME(args, 'Bracket')
         const body0 = check_singleton(children0)
         const body = normalize_math_leaf(body0)
         const [ left_delim1, right_delim1 ] = ensure_vector(delim0, 2)
@@ -2274,10 +2278,11 @@ class Bracket extends MathRow {
             throw new Error('Bracket must have exactly one child')
         }
 
-        // required half-height around the axis
+        // required half-height around the axis: from the body (TeX Rule 19), or
+        // a fixed size that ignores the body (Rule 15e, generalized fractions)
         const [ blo, bhi ] = metrics_bounds(body.math)
         const extent = Math.max(-blo, bhi)
-        const target = Math.max(DELIM_FACTOR * extent, extent - 0.5 * DELIM_SHORTFALL, 0.5)
+        const target = height != null ? 0.5 * height : Math.max(DELIM_FACTOR * extent, extent - 0.5 * DELIM_SHORTFALL, 0.5)
 
         // fit delimiters
         const baseDelimAttr = { ...shared_attr, ...delim_attr1 }
@@ -2500,7 +2505,10 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const denom = convert_tree(denom0, attr, frac_den_style(style))
             const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine, style, ...attr })
             if (leftDelim != null || rightDelim != null) {
-                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, mode, ...attr })
+                // TeX Rule 15e: a generalized fraction's delimiters have a fixed
+                // size by style rather than fitting the body, as in \binom
+                const height = style_size(style) == 'display' ? TEX.delim1 : style_size(style) == 'text' ? TEX.delim2 : TEX.delim2_script
+                return new Bracket({ children: [ frac ], left_delim: leftDelim, right_delim: rightDelim, height, mode, ...attr })
             }
             return frac
         } else if (type == 'underline') {
