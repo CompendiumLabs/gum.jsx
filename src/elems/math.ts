@@ -1291,14 +1291,21 @@ function stretch_filled(outline: (width: number, height: number, t: number) => P
         outline(width, height, thickness).map(points => new Polygon({ points, coord, fill: color, stroke: none }))
 }
 
-// \overgroup: a brace with no middle peak, so a hook at each end and a run
+// \overgroup: a run with a hook sweeping down at each end, like a brace with
+// no peak. The hooks are quarter ellipses, wider than they are deep, so the
+// shape reads as a shallow sweep rather than a narrow U (neither katex's nor
+// LaTeX's exact form, which differ from each other)
+const GROUP_SWEEP = 1.8  // hook width per depth
+
 function stretch_group(width: number, height: number, t: number): Point[][] {
-    const r = Math.max(Math.min(height - t, 0.5 * (width - t)), 0)
+    const ry = Math.max(height - t, 0)
+    const rx = Math.max(Math.min(GROUP_SWEEP * ry, 0.5 * (width - t)), 0)
     const [ x0, y0 ] = [ 0.5 * t, 0.5 * t ]
-    const line = [
-        ...stretch_arc(x0 + r, y0 + height - t, r, 180, 270),
-        ...stretch_arc(x0 + width - t - r, y0 + height - t, r, 270, 360),
-    ]
+    const arc = (cx: number, a0: number, a1: number) => range(STRETCH_SAMPLES + 1).map(i => {
+        const a = d2r * (a0 + (a1 - a0) * (i / STRETCH_SAMPLES))
+        return [ x0 + cx + rx * Math.cos(a), y0 + ry + ry * Math.sin(a) ] as Point
+    })
+    const line = [ ...arc(rx, 180, 270), ...arc(width - t - rx, 270, 360) ]
     return [ stretch_stroke(line, t) ]
 }
 
@@ -1325,7 +1332,7 @@ const stretch_flip = (fn: (w: number, h: number, t: number) => Point[][]) =>
 // keyed by katex's stretchy label; height and min_width are its katexImagesData
 type StretchEntry = { shape: StretchShape, height: number, min_width: number }
 
-const ARROW_H = 0.522, DOUBLE_H = 0.56, FLAT_H = 0.334, GROUP_H = 0.342, PAIR_H = 0.716
+const ARROW_H = 0.522, DOUBLE_H = 0.56, FLAT_H = 0.334, GROUP_H = 0.26, PAIR_H = 0.716  // GROUP_H is shallower than katex's 0.342 by choice
 const STRETCH: Record<string, StretchEntry> = {
     overrightarrow:      { shape: stretch_arrow({ right: true }), height: ARROW_H, min_width: 0.888 },
     overleftarrow:       { shape: stretch_arrow({ left: true }), height: ARROW_H, min_width: 0.888 },

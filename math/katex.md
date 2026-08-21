@@ -191,6 +191,11 @@ too, but those *do* have glyphs and gum already drew them correctly. The
 converter only takes the drawn path for labels that are actually in the shape
 table.
 
+`\overgroup`/`\undergroup` are deliberately gum's own shape: a run with quarter-
+ellipse hooks 1.8× wider than deep (`GROUP_SWEEP`) in a 0.26 em box — wider and
+shallower than the old quarter-circle U, and not matched to either katex or
+LaTeX, which differ from each other here.
+
 Still missing: `\xrightequilibrium` and `\xleftequilibrium` (mhchem), and the
 `\cd*` arrows that belong to the unimplemented `CD` environment.
 
