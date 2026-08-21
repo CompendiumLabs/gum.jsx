@@ -6,7 +6,7 @@ const col = {
 }
 
 return <Slide title="Macroeconomic Flows">
-  <Network aspect={2} coord={[0, 0, 1.6, 0.8]} node-ysize={0.16} node-rounded={0.06} node-fill={gray} node-fill-opacity={0.15} edge-stroke-width={1} edge-arrow-size={0.04} edge-stroke="#444" edge-arrow edge-arrow-curve={2.5} node-text-wrap={6}>
+  <Network aspect={2} coord={[0, 0, 1.6, 0.8]} node-ysize={0.16} node-rounded={0.06} node-fill={gray} node-fill-opacity={0.15} edge-stroke-width={1} edge-arrow-size={0.04} edge-stroke="#444" edge-arrow node-text-wrap={6}>
     <Node id="trade" pos={[0.8, 0.15]} fill={col.trade} border-stroke={col.trade} text-color={col.trade}>Foreign Trade</Node>
     <Node id="prod" pos={[0.3, 0.4]} fill={col.prod} border-stroke={col.prod} text-color={col.prod}>Producers (Firms)</Node>
     <Node id="cons" pos={[1.3, 0.4]} fill={col.cons} border-stroke={col.cons} text-color={col.cons}>Consumers (Households)</Node>

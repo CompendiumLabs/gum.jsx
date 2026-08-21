@@ -335,7 +335,13 @@ heights and minimum widths. The arrows are gum's own `Arrow`/`ArrowHead`/`Line`/
 stroked in em: `MathStretch.inner` rebases the context's stroke unit to its box's pixels
 per em (`ctx.clone({ unit })`), so `stroke_width: TEX.rule` is a TeX rule at any font
 size and script-size arrows get proportionally thinner strokes. Heads are `ArrowHead`'s
-open two-barb form; `ArrowHead` takes `barb: 'left' | 'right'` for harpoons. Braces,
+open two-barb form with `arc: 92` (head depth/half-height = cot(arc/2) = 0.97, as measured on
+Computer Modern's →) and `curve: 0.7` — `ArrowHead`'s barbs are circular arcs that leave the tip
+turned toward the shaft by `curve * arc/2` and flare out (`curve = 1` is tangent to the shaft,
+0 is straight; Computer Modern is about 0.7) — and `ArrowHead` takes `barb: 'left' | 'right'`
+for harpoons. Note `Arrow`'s own `curve` bends the *shaft* (spline), while `arrow_curve` reaches
+the heads via the `arrow_` prefix. Under-decorations get `STRETCH_UNDER_KERN` (0.1 em) of
+clearance below the body; katex uses 0, which lets barb tips touch serif feet. Braces,
 groups and the `\utilde` tilde are still filled outlines (a centerline offset along its
 normals in both directions). Two traps: a `Polygon`/`Line` maps its points through its
 *own* context, so point-based pieces need the em `coord` explicitly — but `ArrowHead` and

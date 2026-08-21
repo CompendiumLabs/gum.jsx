@@ -1,7 +1,7 @@
 // geometry elements
 
 import { THEME } from '../lib/theme'
-import { DEFAULTS as D, none, gray } from '../lib/const'
+import { DEFAULTS as D, none, gray, d2r } from '../lib/const'
 import { is_boolean, is_scalar, is_array, ensure_vector, ensure_point, check_array, upright_limits, rounder, abs, rect_radial, make_mpoint, merge_points, ensure_pair, add2, sub2, mul2, div2, norm, angle_direc, unit_direc, vector_angle, polard, prefix_split} from '../lib/utils'
 import { cubic_spline_data, cubic_spline_tangent } from '../lib/interp'
 import { Context, Element, Group, Rectangle } from './core'
@@ -413,12 +413,12 @@ class LineCmd extends Command {
 }
 
 class ArcCmd extends Command {
-    pos: Point
+    pos: Point | MPoint
     rad: Point
     large: boolean
     sweep: boolean
 
-    constructor(pos: Point, rad: number | Point, sweep: boolean = true, large: boolean = false) {
+    constructor(pos: Point | MPoint, rad: number | Point, sweep: boolean = true, large: boolean = false) {
         super('A')
         this.pos = pos
         this.rad = ensure_vector(rad, 2) as Point
@@ -759,11 +759,12 @@ interface ArrowHeadArgs extends ElementArgs {
     base?: boolean
     exact?: boolean
     barb?: 'both' | 'left' | 'right'  // which barbs to draw, relative to the direction of travel (a harpoon has one)
+    curve?: number                     // bow the barbs toward the shaft: 0 is straight, 1 leaves the tip along the shaft (Computer Modern is about 0.7)
 }
 
 class ArrowHead extends Path {
     constructor(args: ArrowHeadArgs = {}) {
-        const { angle = 0, arc = 75, base: base0, exact = true, barb = 'both', aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', rotate: _rotate, spin: _spin, invar: _invar, rotate_adjust: _rotate_adjust, ...attr } = THEME(args, 'ArrowHead')
+        const { angle = 0, arc = 75, base: base0, exact = true, barb = 'both', curve = 0, aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', rotate: _rotate, spin: _spin, invar: _invar, rotate_adjust: _rotate_adjust, ...attr } = THEME(args, 'ArrowHead')
         const base = base0 ?? (fill != null)
 
         // orient the head pointing right
@@ -776,14 +777,23 @@ class ArrowHead extends Path {
         const [ fra0, fra1, fra2 ] = fracs.map(d => add2(mul2(d, -0.5), D.pos))
         const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => make_mpoint(f, off))
 
+        // a barb is a straight line from the tip, or a circular arc that leaves
+        // the tip turned toward the shaft by curve * arc/2 and flares out to the
+        // same end point (so it subtends curve * arc); chord is the barb length
+        const chord = 0.5
+        const radius = curve > 0 ? chord / (2 * Math.sin(0.5 * d2r * curve * arc)) : 0
+        const barb_cmd = (pos: MPoint, sweep: boolean) => curve > 0 ? new ArcCmd(pos, radius, sweep) : new LineCmd(pos)
+
         // make command path. With the head pointing right, pos1 (at -arc/2) sits
         // below the shaft -- to the right of the direction of travel -- and pos2
-        // above it; a harpoon keeps just one of them
+        // above it; a harpoon keeps just one of them. The upper barb bows toward
+        // the shaft by sweeping clockwise from the tip, the lower one the reverse
         const barbs = [ ...(barb != 'left' ? [ pos1 ] : []), ...(barb != 'right' ? [ pos2 ] : []) ]
+        const sweep_of = (pos: MPoint) => pos === pos2
         const [ posa, posb ] = [ barbs[0], barbs[barbs.length - 1] ]
         const commands = fill == null ?
-            barbs.flatMap(pos => [ new MoveCmd(pos0), new LineCmd(pos) ]) :
-            [ new MoveCmd(posa), new LineCmd(pos0), new LineCmd(posb) ]
+            barbs.flatMap(pos => [ new MoveCmd(pos0), barb_cmd(pos, sweep_of(pos)) ]) :
+            [ new MoveCmd(posa), barb_cmd(pos0, !sweep_of(posa)), barb_cmd(posb, sweep_of(posb)) ]
         if (base) commands.push(new MoveCmd(posa), new LineCmd(posb))
 
         // pass to element

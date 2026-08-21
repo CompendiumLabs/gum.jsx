@@ -108,9 +108,19 @@ script-size arrow gets a proportionally thinner stroke than a display one in the
 same image. That was the point of introducing the stroke unit (see CLAUDE.md,
 Context System): before it, `Arrow` emitted a fixed pixel `stroke-width` and
 could not be used for math at all, which is why the first version of these
-drew filled polygons. The heads are `ArrowHead`'s open two-barb form — the
-Computer Modern look — and `ArrowHead` grew a `barb: 'left' | 'right'` option
-so the harpoons could keep one barb; `\rightharpoonup` and friends now match
+drew filled polygons. The heads are `ArrowHead`'s open two-barb form, and
+`ArrowHead` grew two options for it: `curve`, which makes each barb a circular
+arc that leaves the tip turned toward the shaft and flares outward (`curve = 1`
+is tangent to the shaft at the tip; Computer Modern's heads are close to 0.7,
+which is what math uses), and `barb: 'left' | 'right'` so the harpoons could
+keep one barb. The head's proportions come from the font: Computer Modern's →
+has a head depth of 0.254 em against a half-height of 0.261 (ratio 0.97,
+measured from the glyph outline), and since `ArrowHead`'s depth per half-height
+is `cot(arc/2)`, math passes `arc = 92`. The barb ends stop half a stroke inside
+the box so the round caps never leave it. Under-decorations (`accentUnder`) get
+0.1 em of clearance below the body — a deliberate departure from katex's 0,
+which let the barb tips touch the serif feet at the baseline; it shows up as
+exactly +0.100 em of depth on those forms and nothing else; `\rightharpoonup` and friends now match
 the font's own ⇀ ⇁ ↼ ↽ exactly, as do ↪/↩ (a half circle centred above the
 stem, its upper arm free). A single-stem arrow is one `Arrow`; the double forms
 (`\Rightarrow`) are two `Line`s that stop where they meet the barbs plus a

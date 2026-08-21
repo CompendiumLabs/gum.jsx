@@ -1139,8 +1139,15 @@ class MathBrace extends Group {
 const STRETCH_THICKNESS = TEX.rule
 const STRETCH_SAMPLES = 12
 const STRETCH_LINE_GAP = 0.11   // between the rules of a double arrow or =
-const STRETCH_ARC = 75          // ArrowHead's barb spread, degrees
-const STRETCH_HEAD = 1 / Math.sin(0.5 * d2r * STRETCH_ARC)  // head size per box height: barbs span the box
+const STRETCH_ARC = 92          // ArrowHead's barb spread: cot(arc/2) is the head's depth per half-height, 0.97 in Computer Modern
+const STRETCH_CURVE = 0.7       // ArrowHead's barb bow, matching Computer Modern's heads
+const STRETCH_UNDER_KERN = 0.1  // clearance between a body and a decoration hung beneath it
+
+// head size for a box: the barb ends reach the box edges less half a stroke, so
+// the round caps stay inside the box (the box is the decoration's metrics)
+function stretch_head_size(height: number, t: number): number {
+    return 2 * Math.max(0.5 * height - 0.5 * t, 0) / Math.sin(0.5 * d2r * STRETCH_ARC)
+}
 
 // the box a shape draws into; `y` is the top of its band, so two arrows can
 // stack in one box for \rightleftharpoons
@@ -1163,7 +1170,7 @@ function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb
     return box => {
         const { width, height, thickness: t, y, coord } = box
         const mid = y + 0.5 * height
-        const size = STRETCH_HEAD * height
+        const size = stretch_head_size(height, t)
         const depth = 0.5 * size * Math.cos(0.5 * d2r * STRETCH_ARC)  // barb reach back from the tip
         const attr = stretch_stroke_attr(box)
 
@@ -1171,7 +1178,7 @@ function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb
         // right barb depending on which way it points
         const end_barb = barb == 'both' ? 'both' : barb == 'up' ? 'left' : 'right'
         const start_barb = barb == 'both' ? 'both' : barb == 'up' ? 'right' : 'left'
-        const head_attr = { arrow_size: size, arrow_exact: true, start_barb, end_barb }
+        const head_attr = { arrow_size: size, arrow_arc: STRETCH_ARC, arrow_curve: STRETCH_CURVE, arrow_exact: true, start_barb, end_barb }
 
         const out: Element[] = []
         if (lines == 1) {
@@ -1184,15 +1191,15 @@ function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb
             const inset = gap / Math.tan(0.5 * d2r * STRETCH_ARC)
             const [ x0, x1 ] = [ left ? inset : 0.5 * t, right ? width - inset : width - 0.5 * t ]
             for (const dy of [ -gap, gap ]) out.push(new Line({ points: [ [ x0, mid + dy ], [ x1, mid + dy ] ], coord, ...attr }))
-            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width, mid ], size, barb: end_barb, ...attr }))
-            if (left) out.push(new ArrowHead({ angle: 180, pos: [ 0, mid ], size, barb: start_barb, ...attr }))
+            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
+            if (left) out.push(new ArrowHead({ angle: 180, pos: [ 0, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: start_barb, ...attr }))
         }
 
         // extra chevrons sit a bit behind the first
         for (const i of range(1, heads)) {
             const back = 0.6 * depth * i
-            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width - back, mid ], size, barb: end_barb, ...attr }))
-            if (left) out.push(new ArrowHead({ angle: 180, pos: [ back, mid ], size, barb: start_barb, ...attr }))
+            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width - back, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
+            if (left) out.push(new ArrowHead({ angle: 180, pos: [ back, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: start_barb, ...attr }))
         }
         return out
     }
@@ -1211,7 +1218,7 @@ function stretch_hook_arrow(side: 'left' | 'right'): StretchShape {
         const hook = new Arc({ pos: [ cx, mid - r ], rad: r - 0.5 * t, start, end, ...attr })
         const arrow = new Arrow({
             points: side == 'left' ? [ [ r, mid ], [ width, mid ] ] : [ [ width - r, mid ], [ 0, mid ] ],
-            arrow_size: STRETCH_HEAD * height, arrow_exact: true, coord, ...attr,
+            arrow_size: stretch_head_size(height, t), arrow_arc: STRETCH_ARC, arrow_curve: STRETCH_CURVE, arrow_exact: true, coord, ...attr,
         })
         return [ hook, arrow ]
     }
@@ -2498,7 +2505,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
         } else if (type == 'accentUnder' && stretch_entry(tree.label) != null) {
             const { label, base: base0 } = tree
             const body = convert_tree(base0, attr, style)
-            return place_stretch(body, label, false, label == '\\utilde' ? 0.12 : 0, attr)
+            return place_stretch(body, label, false, Math.max(STRETCH_UNDER_KERN, label == '\\utilde' ? 0.12 : 0), attr)
         } else if (type == 'xArrow' && stretch_entry(tree.label) != null) {
             return convert_xarrow(tree, attr, style)
         } else if (type == 'operatorname') {
