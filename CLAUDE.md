@@ -397,6 +397,7 @@ rect, `metrics_bounds` the layout bounds, and `place_items`/`layoutMathRow` plac
 former while stacking by the latter (`hull_overhang`). `MathOval` (the `\oiint` ring) and
 `MathCancel` are em-stroked groups like `MathStretch`; `enclose_box` builds `\boxed`/`\fbox`/
 `\colorbox` from a `MathBox` plus `array_rules`. `\tiny` … `\Huge` scale relative to the size
-in force, tracked by a dynamically scoped `current_size` around the `sizing` body.
+in force, carried as `size` in the `ConvertCtx` (`{ attr, style, size }`) that `convert_tree`
+threads through the conversion.
 
 The goal is not always perfectly replicating what LaTeX/KaTeX do. We want the implementation to be simple and easy to understand, and to be able to use the full power of gum.jsx to create complex layouts.

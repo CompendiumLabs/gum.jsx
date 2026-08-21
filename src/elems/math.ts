@@ -1630,7 +1630,7 @@ function parse_math(tex: string, attr: Attrs = {}, style: MathStyle = 'display')
         // the AMS multiline environments (align, gather, equation, ...) are
         // gated on display mode in katex's parser
         const tree = parse_tex(tex, { displayMode: style_size(style) == 'display', strict: parse_strict })
-        return convert_tree(tree, attr, style)
+        return convert_tree(tree, { attr, style, size: 1 })
     } catch (e) {
         // a strict failure from convert_tree is already reported; don't re-wrap
         // it as a parse error on the way out
@@ -1982,7 +1982,7 @@ class Frac extends Group {
             { item: denom, x: pad_x, y: denBase - MATH_AXIS * rel, width: width - 2 * pad_x, align: 'center' },
         ]
         if (has_bar) {
-            const bar = new MathRule({ advance: width, thickness: rule_size, ...(color != null ? { fill: color } : {}) })
+            const bar = new MathRule({ advance: width, thickness: rule_size, color })
             placed.push({ item: bar, x: 0, y: 0 })
         }
         const body = place_items(placed)
@@ -2011,11 +2011,7 @@ function layout_line_decoration(body: WithMath, side: LineDecorationSide, thickn
     const [ top, bottom ] = metrics_bounds(body.math)
     const edge = side == 'over' ? top : bottom
     const direction = side == 'over' ? -1 : 1
-    const rule = new MathRule({
-        advance: body.math.advance,
-        thickness,
-        ...(color != null ? { fill: color } : {}),
-    })
+    const rule = new MathRule({ advance: body.math.advance, thickness, color })
     const line_anchor = edge + direction * 3.5 * thickness
     const padding: Limit = side == 'over' ? [ thickness, 0 ] : [ 0, thickness ]
     return place_items([
@@ -2209,7 +2205,7 @@ class Sqrt extends Group {
             advance: overlap + bodyWidth,
             thickness: ruleSize,
             rounded: [ 0.5, 0, 0, 0.5 ],
-            ...(color != null ? { fill: color } : {}),
+            color,
         })
         const [ ruleLo ] = metrics_bounds(rule.math)
         const ruleY = ruleTop - ruleLo
@@ -2515,7 +2511,7 @@ class MathOval extends Group {
     }
 }
 
-function convert_oiint(name: string, style: MathStyle, limits: boolean | undefined, attr: Attrs): WithMath {
+function convert_oiint(name: string, limits: boolean | undefined, { attr, style }: ConvertCtx): WithMath {
     const op = new MathOp({ children: [ OIINT_BASE[name] ], style, limits, ...attr })
     const size = style_size(style) == 'display' ? 'display' : 'text'
     const [ cx, rx, ry, thickness ] = OIINT_OVAL[name][size]
@@ -2661,11 +2657,11 @@ function enclose_sout(body: WithMath, color: string): WithMath<Group> {
     return place_items([ { item: body, x: 0, y: 0 }, { item: rule, x: 0, y } ], [ 0, 0 ], 'mord')
 }
 
-function convert_enclose(tree: TreeEnclose, attr: Attrs, style: MathStyle): WithMath {
+function convert_enclose(tree: TreeEnclose, ctx: ConvertCtx): WithMath {
     const { label, body: body0, backgroundColor, borderColor } = tree
     const name = label.slice(1)
-    const body = seal_math(convert_tree(body0, attr, style))
-    const color = (attr.color as string | undefined) ?? theme_ink()
+    const body = seal_math(convert_tree(body0, ctx))
+    const color = (ctx.attr.color as string | undefined) ?? theme_ink()
 
     if (name == 'boxed' || name == 'fbox') return enclose_box(body, color, null, FBOX_RULE)
     if (name == 'colorbox') return enclose_box(body, null, backgroundColor ?? null, FBOX_RULE)
@@ -2688,14 +2684,31 @@ function convert_enclose(tree: TreeEnclose, attr: Attrs, style: MathStyle): With
 
 const EMPTY_MATH = new MathSpacer()
 
-// the size in force for \tiny ... \Huge, so a nested size change is relative
-// to the enclosing one (katex's sizeMultiplier); dynamically scoped around the
-// sizing body, since element construction is synchronous
-let current_size = 1
+// what flows down the conversion: `attr` is whatever every leaf inherits (the
+// Latex element's own attributes, `font_family` from font commands, `color`
+// from \color), `style` is the TeX style in force, and `size` the \tiny ...
+// \Huge multiplier in force, so a nested size change is relative to the
+// enclosing one (katex's sizeMultiplier)
+type ConvertCtx = { attr: Attrs, style: MathStyle, size: number }
+
+function ctx_style(ctx: ConvertCtx, style: MathStyle): ConvertCtx {
+    return style == ctx.style ? ctx : { ...ctx, style }
+}
+
+function ctx_attr(ctx: ConvertCtx, attr: Attrs): ConvertCtx {
+    return { ...ctx, attr: { ...ctx.attr, ...attr } }
+}
+
+// convert a body into a single atom of the given class: sealed, so a fragment
+// row does not splice into its parent, and reclassed on both sides
+function convert_atom(body: Tree | TreeNode | null, ctx: ConvertCtx, klass: MathClass): WithMath {
+    const inner = seal_math(convert_tree(body, ctx))
+    return with_math(inner, { left: klass, right: klass })
+}
 
 // \operatorname{...}: the body is set upright, the way the built-in named
 // operators are, and the whole name behaves as a single Op atom
-function convert_operatorname(tree: TreeOperatorName, attr: Attrs, style: MathStyle): WithMath {
+function convert_operatorname(tree: TreeOperatorName, ctx: ConvertCtx): WithMath {
     const { body } = tree
 
     // katex rewrites each character as an upright text-mode symbol, and amsopn
@@ -2708,8 +2721,7 @@ function convert_operatorname(tree: TreeOperatorName, attr: Attrs, style: MathSt
     })
     // katex builds the body withFont("mathrm"); force the upright face here so
     // a nested group (\varlimsup wraps its name in \overline) stays upright too
-    const inner = seal_math(convert_tree(upright, { ...attr, font_family: SYMBOL_MODE_FONT.text }, style))
-    return with_math(inner, { left: 'mop', right: 'mop' })
+    return convert_atom(upright, ctx_attr(ctx, { font_family: SYMBOL_MODE_FONT.text }), 'mop')
 }
 
 // a stretchy decoration sitting on the body, which sets its width: the body
@@ -2731,13 +2743,14 @@ function place_stretch(body: WithMath, label: string, over: boolean, kern: numbe
 const XARROW_KERN = 0.111  // 2 mu between the arrow and its labels, from amsmath
 const XARROW_PAD = 0.5     // beside the labels: katex's .x-arrow-pad is 0.5em a side
 
-function convert_xarrow(tree: TreeXArrow, attr: Attrs, style: MathStyle): WithMath {
+function convert_xarrow(tree: TreeXArrow, ctx: ConvertCtx): WithMath {
     const { label, body: body0, below: below0 } = tree
+    const { attr, style } = ctx
     const up_style = sup_style(style)
     const down_style = sub_style(style)
-    const above = scale_math(convert_tree(body0, attr, up_style), relative_scale(style, up_style))
+    const above = scale_math(convert_tree(body0, ctx_style(ctx, up_style)), relative_scale(style, up_style))
     const below = below0 != null
-        ? scale_math(convert_tree(below0, attr, down_style), relative_scale(style, down_style))
+        ? scale_math(convert_tree(below0, ctx_style(ctx, down_style)), relative_scale(style, down_style))
         : null
 
     const wide = max([ above.math.advance, below?.math.advance ?? 0 ]) ?? 0
@@ -2765,36 +2778,42 @@ function convert_xarrow(tree: TreeXArrow, attr: Attrs, style: MathStyle): WithMa
 // LaTeX passes the brace like an operator with \limits, so a sup on an
 // overbrace (or a sub on an underbrace) becomes the brace's label rather than
 // an ordinary script
-function convert_horiz_brace(tree: TreeHorizBrace, note: TreeNode | null, attr: Attrs, style: MathStyle): WithMath {
+function convert_horiz_brace(tree: TreeHorizBrace, note: TreeNode | null, ctx: ConvertCtx): WithMath {
     const { isOver, base } = tree
+    const { attr, style } = ctx
 
     // the label rides at script size, like the script it was written as
     const note_style = isOver ? sup_style(style) : sub_style(style)
     const label = note != null
-        ? scale_math(convert_tree(note, attr, note_style), relative_scale(style, note_style))
+        ? scale_math(convert_tree(note, ctx_style(ctx, note_style)), relative_scale(style, note_style))
         : null
 
     // TeX sets the braced body in display style, so operators take limits and
     // fractions stay full size
-    const body = convert_tree(base, attr, is_script_style(style) ? style : 'display')
+    const body = convert_tree(base, ctx_style(ctx, is_script_style(style) ? style : 'display'))
     return new HorizBrace({ children: [ body ], label, over: isOver, style, ...attr })
 }
 
-function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: MathStyle = 'display'): WithMath {
+// which of a phantom body's dimensions survive
+const PHANTOM_KEEP: Record<string, { h: boolean, v: boolean }> = {
+    phantom: { h: true, v: true },
+    hphantom: { h: true, v: false },
+    vphantom: { h: false, v: true },
+}
+
+function convert_tree(tree: Tree | TreeNode | null, ctx: ConvertCtx): WithMath {
     if (tree == null) return EMPTY_MATH
+    const { attr, style } = ctx
 
     if (is_array(tree)) {
-        const row = new MathText({ children: tree.map(node => convert_tree(node, attr, style)), style })
+        const row = new MathText({ children: tree.map(node => convert_tree(node, ctx)), style })
         return row.children.length > 0 ? row : EMPTY_MATH
     }
 
     if (is_object(tree)) {
         const { type } = tree
 
-        if (type == 'mathord') {
-            const { mode, text } = tree
-            return new MathSymbol({ children: [ text ], mode, ...attr })
-        } else if (type == 'textord') {
+        if (type == 'mathord' || type == 'textord') {
             const { mode, text } = tree
             return new MathSymbol({ children: [ text ], mode, ...attr })
         } else if (type == 'atom') {
@@ -2802,17 +2821,12 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             return new MathSymbol({ children: [ text ], mode, family, ...attr })
         } else if (type == 'ordgroup') {
             // a braced group is a single Ord atom for spacing (TeX Rule 20)
-            const { body } = tree
-            const inner = seal_math(convert_tree(body, attr, style))
-            return with_math(inner, { left: 'mord', right: 'mord' })
+            return convert_atom(tree.body, ctx, 'mord')
         } else if (type == 'op') {
             const { name, body, limits } = tree
             // \overset and friends make an operator out of an arbitrary body
-            if (name == null) {
-                const inner = seal_math(convert_tree(body ?? null, attr, style))
-                return with_math(inner, { left: 'mop', right: 'mop' })
-            }
-            if (name in OIINT_BASE) return convert_oiint(name, style, limits, attr)
+            if (name == null) return convert_atom(body ?? null, ctx, 'mop')
+            if (name in OIINT_BASE) return convert_oiint(name, limits, ctx)
             return new MathOp({ children: [ name ], style, limits, ...attr })
         } else if (type == 'text') {
             // \textbf and friends compose with the text face already in force
@@ -2821,16 +2835,14 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             if (font != null && font_family == null) {
                 strictError('font', `no font family mapped for '${font}'`)
             }
-            const font_attr = font_family == null ? {} : { font_family }
-            return convert_tree(body, { ...attr, ...font_attr }, style)
+            return convert_tree(body, font_family == null ? ctx : ctx_attr(ctx, { font_family }))
         } else if (type == 'font') {
             const { font, body } = tree
             const font_family = TEX_FONT_FAMILY[font]
             if (font_family == null) {
                 strictError('font', `no font family mapped for '${font}'`)
             }
-            const font_attr = font_family == null ? {} : { font_family }
-            return convert_tree(body, { ...attr, ...font_attr }, style)
+            return convert_tree(body, font_family == null ? ctx : ctx_attr(ctx, { font_family }))
         } else if (type == 'accent') {
             const { label, base: base0, isStretchy } = tree
 
@@ -2838,10 +2850,10 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             // katex also calls \widehat and \widetilde stretchy, but those do
             // have glyphs, so only take this path for shapes we draw
             if (isStretchy && stretch_entry(label) != null) {
-                const body = convert_tree(base0, attr, cramped_style(style))
+                const body = convert_tree(base0, ctx_style(ctx, cramped_style(style)))
                 return place_stretch(body, label, true, 0, attr)
             }
-            const base = convert_tree(base0, attr, style)
+            const base = convert_tree(base0, ctx)
             return new Accent({ children: [ base ], label, mode: tree.mode, ...attr })
         } else if (type == 'kern') {
             const { dimension } = tree
@@ -2853,38 +2865,36 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             if (entry?.replace == null) return EMPTY_MATH
             return new MathSymbol({ children: [ text ], mode, ...attr })
         } else if (type == 'mclass') {
-            const { mclass, body } = tree
-            const inner = seal_math(convert_tree(body, attr, style))
-            return with_math(inner, { left: mclass, right: mclass })
+            return convert_atom(tree.body, ctx, tree.mclass)
         } else if (type == 'lap') {
             // zero-advance box with content overhanging right (rlap), left (llap), or both (clap)
             const { alignment, body } = tree
-            const inner = seal_math(convert_tree(body, attr, style))
+            const inner = seal_math(convert_tree(body, ctx))
             const [ xlo, xhi ] = metrics_hrange(inner.math)
             const shift = alignment == 'rlap' ? 0 : alignment == 'llap' ? -inner.math.advance : -0.5 * inner.math.advance
             return with_math(inner, { advance: 0, hrange: [ xlo + shift, xhi + shift ] })
         } else if (type == 'htmlmathml') {
             // katex renders these differently for html and mathml; follow html
             const { html } = tree
-            return convert_tree(html, attr, style)
+            return convert_tree(html, ctx)
         } else if (type == 'styling') {
             const { style: style1, body } = tree
-            const inner = seal_math(convert_tree(body, attr, style1))
+            const inner = seal_math(convert_tree(body, ctx_style(ctx, style1)))
             return scale_math(inner, relative_scale(style, style1))
         } else if (type == 'supsub') {
             const { base: base0, sup: sup0, sub: sub0 } = tree
 
             // a brace swallows the script as its label
             if (base0 != null && is_object(base0) && base0.type == 'horizBrace') {
-                return convert_horiz_brace(base0, sup0 ?? sub0 ?? null, attr, style)
+                return convert_horiz_brace(base0, sup0 ?? sub0 ?? null, ctx)
             }
 
             // \operatorname* (and the macros built on it) stacks its scripts as
             // limits, but only in display style, like any other operator
             if (base0 != null && is_object(base0) && base0.type == 'operatorname' && base0.alwaysHandleSupSub) {
-                const base = convert_operatorname(base0, attr, style)
-                const sup = sup0 ? convert_tree(sup0, attr, sup_style(style)) : null
-                const sub = sub0 ? convert_tree(sub0, attr, sub_style(style)) : null
+                const base = convert_operatorname(base0, ctx)
+                const sup = sup0 ? convert_tree(sup0, ctx_style(ctx, sup_style(style))) : null
+                const sub = sub0 ? convert_tree(sub0, ctx_style(ctx, sub_style(style))) : null
                 const limits = style_size(style) == 'display'
                 return new SupSub({ children: [ base ], sup, sub, style, limits, ...attr })
             }
@@ -2894,16 +2904,14 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const stacked = base0 != null && is_object(base0) && base0.type == 'op' && base0.name == null && base0.limits
             const limits = stacked ? { limits: true } : {}
 
-            const supStyle = sup_style(style)
-            const subStyle = sub_style(style)
-            const base = convert_tree(base0, attr, style)
-            const sup = sup0 ? convert_tree(sup0, attr, supStyle) : null
-            const sub = sub0 ? convert_tree(sub0, attr, subStyle) : null
+            const base = convert_tree(base0, ctx)
+            const sup = sup0 ? convert_tree(sup0, ctx_style(ctx, sup_style(style))) : null
+            const sub = sub0 ? convert_tree(sub0, ctx_style(ctx, sub_style(style))) : null
             return new SupSub({ children: [ base ], sup, sub, style, ...limits, ...attr })
         } else if (type == 'genfrac') {
             const { mode = 'math', numer: numer0, denom: denom0, hasBarLine = true, leftDelim, rightDelim } = tree
-            const numer = convert_tree(numer0, attr, frac_num_style(style))
-            const denom = convert_tree(denom0, attr, frac_den_style(style))
+            const numer = convert_tree(numer0, ctx_style(ctx, frac_num_style(style)))
+            const denom = convert_tree(denom0, ctx_style(ctx, frac_den_style(style)))
             const frac = new Frac({ children: [ numer, denom ], has_bar: hasBarLine, style, ...attr })
             if (leftDelim != null || rightDelim != null) {
                 // TeX Rule 15e: a generalized fraction's delimiters have a fixed
@@ -2914,27 +2922,27 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             return frac
         } else if (type == 'underline') {
             const { body: body0 } = tree
-            const body = convert_tree(body0, attr, style)
+            const body = convert_tree(body0, ctx)
             return new Underline({ children: [ body ], style, ...attr })
         } else if (type == 'overline') {
             const { body: body0 } = tree
-            const body = convert_tree(body0, attr, cramped_style(style))
+            const body = convert_tree(body0, ctx_style(ctx, cramped_style(style)))
             return new Overline({ children: [ body ], style, ...attr })
         } else if (type == 'sqrt') {
             const { body: body0, index: index0 } = tree
-            const body = convert_tree(body0, attr, cramped_style(style))
-            const index = index0 ? convert_tree(index0, attr, 'scriptscript') : null
+            const body = convert_tree(body0, ctx_style(ctx, cramped_style(style)))
+            const index = index0 ? convert_tree(index0, ctx_style(ctx, 'scriptscript')) : null
             return new Sqrt({ children: [ body ], index, style, ...attr })
         } else if (type == 'accentUnder' && stretch_entry(tree.label) != null) {
             const { label, base: base0 } = tree
-            const body = convert_tree(base0, attr, style)
+            const body = convert_tree(base0, ctx)
             return place_stretch(body, label, false, Math.max(STRETCH_UNDER_KERN, label == '\\utilde' ? 0.12 : 0), attr)
         } else if (type == 'xArrow' && stretch_entry(tree.label) != null) {
-            return convert_xarrow(tree, attr, style)
+            return convert_xarrow(tree, ctx)
         } else if (type == 'operatorname') {
-            return convert_operatorname(tree, attr, style)
+            return convert_operatorname(tree, ctx)
         } else if (type == 'horizBrace') {
-            return convert_horiz_brace(tree, null, attr, style)
+            return convert_horiz_brace(tree, null, ctx)
         } else if (type == 'array') {
             const {
                 body, cols, arraystretch = 1, addJot, rowGaps, hLinesBeforeRow,
@@ -2948,7 +2956,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
                 : undefined
 
             // katex hands cells over already wrapped in the environment's style
-            const rows = (body ?? []).map(row => row.map(cell => convert_tree(cell, attr, style)))
+            const rows = (body ?? []).map(row => row.map(cell => convert_tree(cell, ctx)))
             const rowgaps = (rowGaps ?? []).map(gap => gap == null ? null : measurement_to_em(gap))
 
             return new MathArray({
@@ -2958,7 +2966,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             })
         } else if (type == 'leftright') {
             const { mode, body: body0, left, right } = tree
-            const body = convert_tree(body0, attr, style)
+            const body = convert_tree(body0, ctx)
             return new Bracket({ children: [ body ], left_delim: left, right_delim: right, mode, ...attr })
         } else if (type == 'delimsizing') {
             // \big ... \Bigg: a delimiter of fixed size, in the class the command
@@ -2971,38 +2979,24 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             return with_math(glyph, { left: mclass, right: mclass })
         } else if (type == 'color') {
             // a colour is a fragment: its items still space against their neighbours
-            const { color, body } = tree
-            return convert_tree(body, { ...attr, color }, style)
+            return convert_tree(tree.body, ctx_attr(ctx, { color: tree.color }))
         } else if (type == 'sizing') {
             // \tiny ... \Huge scale their body relative to the size in force
             const { size, body } = tree
             const multiplier = SIZE_MULTIPLIERS[size - 1] ?? 1
-            const outer = current_size
-            let inner: WithMath
-            current_size = multiplier
-            try {
-                inner = seal_math(convert_tree(body, attr, style))
-            } finally {
-                current_size = outer
-            }
-            return scale_math(inner, multiplier / outer)
+            const inner = seal_math(convert_tree(body, { ...ctx, size: multiplier }))
+            return scale_math(inner, multiplier / ctx.size)
         } else if (type == 'mathchoice') {
             const { display, text, script, scriptscript } = tree
             const size = style_size(style)
             const branch = size == 'display' ? display : size == 'text' ? text : size == 'script' ? script : scriptscript
-            return convert_tree(branch, attr, style)
-        } else if (type == 'phantom') {
-            const inner = seal_math(convert_tree(tree.body, attr, style))
-            return phantom_math(inner, { h: true, v: true })
-        } else if (type == 'hphantom') {
-            const inner = seal_math(convert_tree(tree.body, attr, style))
-            return phantom_math(inner, { h: true, v: false })
-        } else if (type == 'vphantom') {
-            const inner = seal_math(convert_tree(tree.body, attr, style))
-            return phantom_math(inner, { h: false, v: true })
+            return convert_tree(branch, ctx)
+        } else if (type == 'phantom' || type == 'hphantom' || type == 'vphantom') {
+            const inner = seal_math(convert_tree(tree.body, ctx))
+            return phantom_math(inner, PHANTOM_KEEP[type])
         } else if (type == 'smash') {
             const { body, smashHeight, smashDepth } = tree
-            const inner = seal_math(convert_tree(body, attr, style))
+            const inner = seal_math(convert_tree(body, ctx))
             return with_math(smash_math(inner, smashHeight, smashDepth), { left: 'mord', right: 'mord' })
         } else if (type == 'rule') {
             // a filled box of the given width and height, its bottom `shift`
@@ -3019,19 +3013,19 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             return place_items([ { item: rule, x: 0, y: 0.5 * (ylo + yhi) } ], [ 0, 0 ], 'mord')
         } else if (type == 'raisebox') {
             const { dy, body } = tree
-            const inner = seal_math(convert_tree(body, attr, style))
+            const inner = seal_math(convert_tree(body, ctx))
             return place_items([ { item: inner, x: 0, y: -measurement_to_em(dy) } ], [ 0, 0 ], 'mord')
         } else if (type == 'vcenter') {
             // re-anchor the body so it is centred on the axis
-            const inner = seal_math(convert_tree(tree.body, attr, style))
+            const inner = seal_math(convert_tree(tree.body, ctx))
             const [ lo, hi ] = metrics_bounds(inner.math)
             return place_items([ { item: inner, x: 0, y: -0.5 * (lo + hi) } ], [ 0, 0 ], 'mord')
         } else if (type == 'hbox') {
-            return convert_tree(tree.body, attr, style)
+            return convert_tree(tree.body, ctx)
         } else if (type == 'pmb') {
             // poor man's bold: the body overprinted at a small offset
             const { mclass, body } = tree
-            const inner = seal_math(convert_tree(body, attr, style))
+            const inner = seal_math(convert_tree(body, ctx))
             const group = place_items([ { item: inner, x: 0, y: 0 }, { item: inner, x: 0.02, y: -0.01 } ], [ 0, 0 ], mclass)
             return with_math(group, { advance: inner.math.advance })
         } else if (type == 'cr') {
@@ -3044,7 +3038,7 @@ function convert_tree(tree: Tree | TreeNode | null, attr: Attrs = {}, style: Mat
             const text = body.replace(/ /g, star ? '\u2423' : '\u00a0')
             return new MathSpan({ children: [ text ], font_family: 'KaTeX_Typewriter', ...attr })
         } else if (type == 'enclose') {
-            return convert_enclose(tree, attr, style)
+            return convert_enclose(tree, ctx)
         }
     }
 
