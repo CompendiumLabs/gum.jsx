@@ -86,15 +86,7 @@ const THEME_DARK: ThemeLayer = {
         color: white,
     },
 
-    MathRule: {
-        fill: white,
-    },
-
-    MathBrace: {
-        fill: white,
-    },
-
-    MathStretch: {
+    MathShape: {
         fill: white,
     },
 

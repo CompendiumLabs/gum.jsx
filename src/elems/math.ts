@@ -4,14 +4,14 @@ import { THEME } from '../lib/theme'
 import { none, black, red, maxis, d2r } from '../lib/const'
 import { EMPTY_VRANGE, DEFAULT_VRANGE, textHasGlyphs, type TextMetrics } from '../lib/text'
 import { StrictError, strictError } from '../lib/strict'
-import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
+import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
 import { Polygon, Line, Arc, Arrow, ArrowHead, Ellipse } from './geometry'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
-import type { Padding, Rounded, Point, Rect, Limit, Align, Attrs } from '../lib/types'
+import type { Padding, Point, Rect, Limit, Align, Attrs } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
 import type { SpanArgs } from './text'
 import type { Measurement, SymbolMode, SymbolFamily, SymbolFont, SymbolEntry, Tree, TreeNode, TreeHorizBrace, TreeXArrow, TreeOperatorName, TreeEnclose } from 'katex'
@@ -543,6 +543,71 @@ function cancel_binary_atoms(items0: WithMath[]): WithMath[] {
 }
 
 //
+// math group and shape bases
+//
+
+// the single child of a composite (Frac, Sqrt, ...), parsed as TeX in the
+// given style when it is a string
+function math_child(children: MathLeaf[] | undefined, style: MathStyle, name: string): WithMath {
+    const child = check_singleton(children)
+    const body = normalize_math_leaf(child, style)
+    if (body == null) throw new Error(`${name} must have exactly one child`)
+    return body
+}
+
+// a composite assembled from explicitly placed items (what place_items returns):
+// the group draws those children in their shared frame and carries its math box
+class MathGroup extends Group {
+    math: MathSpec
+
+    constructor(body: WithMath<Group>, attr: GroupArgs = {}) {
+        const { coord, aspect } = body.spec
+        super({ children: body.children, coord, aspect, ...attr })
+        this.math = body.math
+    }
+}
+
+interface MathShapeArgs extends GroupArgs {
+    fill?: string
+    color?: string  // alias for fill, so a \color in force reaches drawn shapes
+}
+
+// the colour a drawn shape takes: an explicit fill, else the colour in force
+// (\color flows down as `color`), else the theme's ink (white in dark mode)
+function shape_ink(args: MathShapeArgs): string {
+    const { fill, color } = THEME(args, 'MathShape')
+    return args.fill ?? color ?? fill ?? black
+}
+
+// theme a shape's args and resolve its colour, leaving the rest for the group
+function shape_args<T extends MathShapeArgs>(args: T): [ string, Omit<T, 'fill' | 'color'> ] {
+    const { fill, color, ...rest } = THEME(args, 'MathShape')
+    return [ args.fill ?? color ?? fill ?? black, rest ]
+}
+
+interface MathShapeSpec extends GroupArgs {
+    metrics: InlineMetrics
+    klass?: MathClass
+}
+
+// a drawn math shape (rule, brace, arrow, oval, strike): `metrics` is its math
+// box and `coord` the em frame its pieces draw in. Strokes in here are given in
+// em, so the stroke unit is rebased to this box's pixels per em and the rules
+// and arrowheads scale with the math around them rather than with the image
+class MathShape extends Group {
+    math: MathSpec
+
+    constructor({ metrics, klass = 'mord', ...attr }: MathShapeSpec) {
+        super({ aspect: metrics_aspect(metrics), ...attr })
+        this.math = make_math({ left: klass, right: klass, ...metrics })
+    }
+
+    inner(ctx: Context): string {
+        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
+    }
+}
+
+//
 // math spacer
 //
 
@@ -909,36 +974,23 @@ class MathBox extends Group {
     }
 }
 
-interface MathRuleArgs extends GroupArgs {
+interface MathRuleArgs extends MathShapeArgs {
     advance?: number
     thickness?: number
-    rounded?: Rounded
-    fill?: string
-    color?: string  // alias for fill, so a \color in force reaches drawn rules
 }
 
-class MathRule extends Group {
-    math: MathSpec
-
+class MathRule extends MathShape {
     constructor(args: MathRuleArgs = {}) {
-        const { advance = 1, thickness = 0.033, color, fill: fill0 = black, ...attr } = THEME(args, 'MathRule')
-        const fill = args.fill ?? color ?? fill0
+        const [ fill, { advance = 1, thickness = 0.033, ...attr } ] = shape_args(args)
 
-        // Rules are filled shapes, not outlined shapes. Disabling the inherited
-        // SVG stroke avoids a second, slightly larger bar around the fill.
+        // a filled shape, not an outlined one: the inherited SVG stroke would
+        // add a second, slightly larger bar around the fill
         const bar = thickness > 0 ? new Rectangle({ rect: [ 0, 0, advance, thickness ], fill, stroke: none }) : null
 
-        // compute layout metrics
+        // a rule is glue for spacing
         const metrics: InlineMetrics = { advance, vrange: [ 0, thickness ], vanchor: 0.5 * thickness }
-        const coord: Rect = [ 0, 0, advance, thickness ]
-        const aspect = metrics_aspect(metrics)
-
-        // pass to Group
-        super({ children: [ bar ], coord, aspect, ...attr })
+        super({ children: [ bar ], coord: [ 0, 0, advance, thickness ], metrics, klass: 'none', ...attr })
         this.args = args
-
-        // set math metrics
-        this.math = make_math({ left: 'none', right: 'none', ...metrics })
     }
 }
 
@@ -1019,9 +1071,10 @@ class MathArray extends Group {
     constructor(args: MathArrayArgs = {}) {
         const {
             children: children0, cols = [], ncol: ncol0, stretch = 1, jot = false, colsep = ARRAY_COL_SEP,
-            outer = false, hlines = [], rowgaps = [], thickness = ARRAY_RULE, fill = black, ...attr
+            outer = false, hlines = [], rowgaps = [], thickness = ARRAY_RULE, fill: fill0, ...attr
         } = THEME(args, 'MathArray')
         const rows0 = normalize_rows(children0, ncol0, cols).map(row => ensure_math_children(row))
+        const fill = shape_ink({ fill: fill0, color: attr.color as string | undefined })
 
         // LaTeX gives every row a strut so short rows still occupy a full line
         const arrayskip = stretch * ARRAY_BASELINE_SKIP
@@ -1194,24 +1247,19 @@ function brace_outline(width: number, height: number, thick: number, thin: numbe
     return [ ...offset_polyline(line, half), ...offset_polyline(line, half.map(d => -d)).reverse() ]
 }
 
-interface MathBraceArgs extends GroupArgs {
+interface MathBraceArgs extends MathShapeArgs {
     advance?: number
     height?: number
     thickness?: number
     over?: boolean
-    fill?: string
-    color?: string  // alias for fill
 }
 
-class MathBrace extends Group {
-    math: MathSpec
-
+class MathBrace extends MathShape {
     constructor(args: MathBraceArgs = {}) {
-        const {
+        const [ fill, {
             advance: advance0 = 1, height: height0 = BRACE_HEIGHT,
-            thickness = BRACE_THICKNESS, over = true, color, fill: fill0 = black, ...attr
-        } = THEME(args, 'MathBrace')
-        const fill = args.fill ?? color ?? fill0
+            thickness = BRACE_THICKNESS, over = true, ...attr
+        } ] = shape_args(args)
 
         // the outline is inset so the ink lands inside the advance and height
         const advance = Math.max(advance0, 2 * thickness)
@@ -1226,11 +1274,8 @@ class MathBrace extends Group {
         // the polygon maps its points through its own context, which defaults
         // to the unit square, so it needs the brace's coord to draw in em
         const shape = new Polygon({ points, coord, fill, stroke: none })
-
-        // pass to Group
-        super({ children: [ shape ], coord, aspect: metrics_aspect(metrics), ...attr })
+        super({ children: [ shape ], coord, metrics, ...attr })
         this.args = args
-        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
     }
 }
 
@@ -1501,21 +1546,16 @@ function stretch_entry(label: string): StretchEntry | undefined {
     return STRETCH[label.replace(/^\\/, '')]
 }
 
-interface MathStretchArgs extends GroupArgs {
+interface MathStretchArgs extends MathShapeArgs {
     label?: string
     advance?: number
     height?: number
     thickness?: number
-    fill?: string
-    color?: string  // alias for fill
 }
 
-class MathStretch extends Group {
-    math: MathSpec
-
+class MathStretch extends MathShape {
     constructor(args: MathStretchArgs = {}) {
-        const { label = 'overbrace', advance: advance0, height: height0, thickness = STRETCH_THICKNESS, color, fill: fill0 = black, ...attr } = THEME(args, 'MathStretch')
-        const fill = args.fill ?? color ?? fill0
+        const [ fill, { label = 'overbrace', advance: advance0, height: height0, thickness = STRETCH_THICKNESS, ...attr } ] = shape_args(args)
         const entry = stretch_entry(label)
         if (entry == null) {
             throw new Error(`Unknown stretchy decoration: '${label}'`)
@@ -1533,17 +1573,8 @@ class MathStretch extends Group {
         // the children draw in em within this coord (a Polygon maps its points
         // through its own context, so each piece needs the coord explicitly)
         const children = entry.shape({ width: advance, height, thickness, y: 0, coord, color: fill })
-
-        // pass to Group
-        super({ children, coord, aspect: metrics_aspect(metrics), ...attr })
+        super({ children, coord, metrics, ...attr })
         this.args = args
-        this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
-    }
-
-    // strokes in here are given in em: rebase the stroke unit to this box's
-    // pixels per em, so the rules and arrowheads scale with the math around them
-    inner(ctx: Context): string {
-        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
     }
 }
 
@@ -1556,23 +1587,17 @@ interface HorizBraceArgs extends Omit<GroupArgs, 'children'> {
     thickness?: number
 }
 
-class HorizBrace extends Group {
-    math: MathSpec
-
+class HorizBrace extends MathGroup {
     constructor(args: HorizBraceArgs = {}) {
         const {
             children, label = null, over = true, style = 'text',
             height = BRACE_HEIGHT, thickness = BRACE_THICKNESS, ...attr0
         } = THEME(args, 'HorizBrace')
-        const child = check_singleton(children)
         const [ spec, attr ] = spec_split(attr0)
 
         // TeX sets the braced body in display style, so operators take limits
         // and fractions stay full size
-        const body = normalize_math_leaf(child, is_script_style(style) ? style : 'display')
-        if (body == null) {
-            throw new Error('HorizBrace must have exactly one child')
-        }
+        const body = math_child(children, is_script_style(style) ? style : 'display', 'HorizBrace')
 
         // the body sets the brace width, down to a floor that keeps a brace over
         // a narrow body from collapsing into a squiggle; a wider label overhangs
@@ -1597,10 +1622,8 @@ class HorizBrace extends Group {
         }
 
         // an over/underbrace is an inner atom
-        const group = place_items(placed, [ 0, 0 ], 'minner')
-        super({ children: group.children, coord: group.spec.coord, aspect: group.spec.aspect, ...spec })
+        super(place_items(placed, [ 0, 0 ], 'minner'), spec)
         this.args = args
-        this.math = group.math
     }
 }
 
@@ -1878,13 +1901,7 @@ interface SupSubArgs extends MathRowArgs {
 class SupSub extends MathRow {
     constructor(args: SupSubArgs = {}) {
         const { children, sup: sup0, sub: sub0, style = 'text', limits: limits0, ...attr } = THEME(args, 'SupSub')
-        const child = ensure_singleton(children)
-        const base = normalize_math_leaf(child, style)
-
-        // check child
-        if (base == null) {
-            throw new Error('SupSub must have exactly one child')
-        }
+        const base = math_child(children, style, 'SupSub')
 
         // scripts render one size level down; superscripts inherit crampedness
         // while subscripts are always cramped (TeX's eight-style transition table)
@@ -1938,9 +1955,7 @@ interface FracArgs extends GroupArgs {
 // TeX Rule 15: numerator and denominator baselines shift up/down from the
 // fraction's baseline by fixed style amounts, pushed further apart if their
 // ink would come within a clearance of the bar (which sits on the axis)
-class Frac extends Group {
-    math: MathSpec
-
+class Frac extends MathGroup {
     constructor(args: FracArgs = {}) {
         const { children: children0, has_bar = true, padding = [ 0.1, 0 ], rule_size = TEX.frac_rule, style = 'display', color, ...attr } = THEME(args, 'Frac')
         const [ numer0, denom0 ] = check_array(children0, 2)
@@ -1985,13 +2000,10 @@ class Frac extends Group {
             const bar = new MathRule({ advance: width, thickness: rule_size, color })
             placed.push({ item: bar, x: 0, y: 0 })
         }
-        const body = place_items(placed)
 
-        // pass to Group
-        const { coord, aspect } = body.spec
-        super({ children: body.children, coord, aspect, ...(color != null ? { color } : {}), ...attr })
+        // a fraction is an inner atom
+        super(place_items(placed, [ 0, 0 ], 'minner'), { ...(color != null ? { color } : {}), ...attr })
         this.args = args
-        this.math = make_math({ ...body.math, left: 'minner', right: 'minner' })
     }
 }
 
@@ -2022,46 +2034,26 @@ function layout_line_decoration(body: WithMath, side: LineDecorationSide, thickn
 
 // TeX Rule 10: keep the body's baseline and top fixed, then place a rule
 // below its ink with a three-rule gap and one extra rule of trailing depth.
-class Underline extends Group {
-    math: MathSpec
-
-    constructor(args: LineDecorationArgs = {}) {
-        const { children, thickness = TEX.rule, color, style = 'text', ...attr } = THEME(args, 'Underline')
-        const child = check_singleton(children)
-        const body = normalize_math_leaf(child, style)
-
-        if (body == null) {
-            throw new Error('Underline must have exactly one child')
-        }
-
-        const underlined = layout_line_decoration(body, 'under', thickness, color)
-
-        const { coord, aspect } = underlined.spec
-        super({ children: underlined.children, coord, aspect, ...attr })
+// Rule 9 mirrors that above the body, which is first set in the cramped
+// version of the surrounding style
+class LineDecoration extends MathGroup {
+    constructor(args: LineDecorationArgs, side: LineDecorationSide, name: string) {
+        const { children, thickness = TEX.rule, color, style = 'text', ...attr } = THEME(args, name)
+        const body = math_child(children, side == 'over' ? cramped_style(style) : style, name)
+        super(layout_line_decoration(body, side, thickness, color), attr)
         this.args = args
-        this.math = underlined.math
     }
 }
 
-// TeX Rule 9 mirrors underline above the body, but first lays out the body in
-// the cramped version of the surrounding style.
-class Overline extends Group {
-    math: MathSpec
-
+class Underline extends LineDecoration {
     constructor(args: LineDecorationArgs = {}) {
-        const { children, thickness = TEX.rule, color, style = 'text', ...attr } = THEME(args, 'Overline')
-        const child = check_singleton(children)
-        const body = normalize_math_leaf(child, cramped_style(style))
+        super(args, 'under', 'Underline')
+    }
+}
 
-        if (body == null) {
-            throw new Error('Overline must have exactly one child')
-        }
-
-        const overlined = layout_line_decoration(body, 'over', thickness, color)
-        const { coord, aspect } = overlined.spec
-        super({ children: overlined.children, coord, aspect, ...attr })
-        this.args = args
-        this.math = overlined.math
+class Overline extends LineDecoration {
+    constructor(args: LineDecorationArgs = {}) {
+        super(args, 'over', 'Overline')
     }
 }
 
@@ -2151,9 +2143,7 @@ function fit_radical(height: number, color: string | undefined): WithMath<Radica
     return stretched
 }
 
-class Sqrt extends Group {
-    math: MathSpec
-
+class Sqrt extends MathGroup {
     constructor(args: SqrtArgs = {}) {
         const {
             children,
@@ -2165,14 +2155,8 @@ class Sqrt extends Group {
             style = 'text',
             ...attr
         } = THEME(args, 'Sqrt')
-        const child = check_singleton(children)
-        const body = normalize_math_leaf(child, cramped_style(style))
+        const body = math_child(children, cramped_style(style), 'Sqrt')
         const ruleSize = ruleSize0 ?? lineWidth ?? TEX.rule
-
-        // check child
-        if (body == null) {
-            throw new Error('Sqrt must have exactly one child')
-        }
 
         // TeX Rule 11: the radicand is cramped, with a style-dependent gap
         // below the rule. The smallest delimiter is still a full text surd.
@@ -2201,12 +2185,7 @@ class Sqrt extends Group {
         const radicalY = ruleTop - radicalTop
         const radicalWidth = radical.math.advance
         const overlap = Math.min(0.5 * ruleSize, radicalWidth)
-        const rule = new MathRule({
-            advance: overlap + bodyWidth,
-            thickness: ruleSize,
-            rounded: [ 0.5, 0, 0, 0.5 ],
-            color,
-        })
+        const rule = new MathRule({ advance: overlap + bodyWidth, thickness: ruleSize, color })
         const [ ruleLo ] = metrics_bounds(rule.math)
         const ruleY = ruleTop - ruleLo
 
@@ -2231,15 +2210,8 @@ class Sqrt extends Group {
             })
         }
 
-        const root = place_items(placed, [ 0, 0 ], 'mord')
-        const { coord, aspect } = root.spec
-
-        // pass to Group
-        super({ children: root.children, coord, aspect, ...attr })
+        super(place_items(placed, [ 0, 0 ], 'mord'), attr)
         this.args = args
-
-        // set math metrics
-        this.math = root.math
     }
 }
 
@@ -2274,18 +2246,10 @@ interface AccentArgs extends GroupArgs {
     mode?: SymbolMode  // text-mode accents (\', \", \c, ...) live in the text symbol table
 }
 
-class Accent extends Group {
-    math: MathSpec
-
+class Accent extends MathGroup {
     constructor(args: AccentArgs = {}) {
         const { children, label = '', color, mode = 'math', ...attr } = THEME(args, 'Accent')
-        const child = check_singleton(children)
-        const base = normalize_math_leaf(child)
-
-        // check child
-        if (base == null) {
-            throw new Error('Accent must have exactly one child')
-        }
+        const base = math_child(children, 'text', 'Accent')
 
         // TeX Rule 12: the accent glyph is designed to sit above the x-height;
         // raise it to clear taller bases (ink bottom at max(base height, x-height)
@@ -2299,15 +2263,14 @@ class Accent extends Group {
         const bottom = MATH_AXIS - Math.max(hb, TEX.x_height) - TEX.accent_gap
         const dy = label == '\\textcircled' ? 0 : label == '\\c' ? bhi - alo : bottom - ahi
 
-        // center both in a shared inline box
+        // center both in a shared inline box; the accented atom keeps the
+        // base's spacing classes
         const advance = max([ base.math.advance, accent.math.advance ]) ?? 0
         const body = place_items([
             { item: accent, x: 0.5 * (advance - accent.math.advance), y: dy },
             { item: base, x: 0.5 * (advance - base.math.advance), y: 0 },
         ])
-
-        const { coord, aspect } = body.spec
-        super({ children: body.children, coord, aspect, ...attr })
+        super(body, attr)
         this.args = args
         this.math = make_math({ ...body.math, left: base.math.left, right: base.math.right })
     }
@@ -2428,20 +2391,14 @@ interface BracketArgs extends MathRowArgs {
 
 class Bracket extends MathRow {
     constructor(args: BracketArgs = {}) {
-        const { children: children0, delim: delim0 = 'round', left_delim: leftDelim0, right_delim: rightDelim0, height, ...attr0 } = THEME(args, 'Bracket')
-        const body0 = check_singleton(children0)
-        const body = normalize_math_leaf(body0)
+        const { children, delim: delim0 = 'round', left_delim: leftDelim0, right_delim: rightDelim0, height, ...attr0 } = THEME(args, 'Bracket')
+        const body = math_child(children, 'text', 'Bracket')
         const [ left_delim1, right_delim1 ] = ensure_vector(delim0, 2)
         const left_delim = normalize_delim(leftDelim0 ?? left_delim1)
         const right_delim = normalize_delim(rightDelim0 ?? right_delim1)
         const [ spec, shared_attr0 ] = spec_split(attr0)
         const [ delim_attr, shared_attr ] = prefix_split([ 'delim' ], shared_attr0)
         const { level: level0, ...delim_attr1 } = delim_attr as DelimArgs
-
-        // check child
-        if (body == null) {
-            throw new Error('Bracket must have exactly one child')
-        }
 
         // required half-height around the axis: from the body (TeX Rule 19), or
         // a fixed size that ignores the body (Rule 15e, generalized fractions)
@@ -2465,12 +2422,6 @@ class Bracket extends MathRow {
     }
 }
 
-// the colour drawn shapes default to: the theme's rule fill (white in dark
-// mode), unless a \color is in force
-function theme_ink(): string {
-    return THEME({} as { fill?: string }, 'MathRule').fill ?? black
-}
-
 //
 // oval overlay for \oiint and \oiiint
 //
@@ -2484,30 +2435,22 @@ const OIINT_OVAL: Record<string, Record<'text' | 'display', [ number, number, nu
 }
 const OIINT_BASE: Record<string, string> = { '\\oiint': '\\iint', '\\oiiint': '\\iiint' }
 
-interface MathOvalArgs extends GroupArgs {
+interface MathOvalArgs extends MathShapeArgs {
     cx?: number
     rx?: number
     ry?: number
     thickness?: number
-    color?: string
 }
 
-class MathOval extends Group {
-    math: MathSpec
-
+// the ring alone, as glue laid over the operator
+class MathOval extends MathShape {
     constructor(args: MathOvalArgs = {}) {
-        const { cx = 0.5, rx = 0.35, ry = 0.2, thickness = TEX.rule, color = black, ...attr } = args
+        const [ color, { cx = 0.5, rx = 0.35, ry = 0.2, thickness = TEX.rule, ...attr } ] = shape_args(args)
         const [ w, h ] = [ cx + rx + 0.5 * thickness, 2 * ry + thickness ]
         const oval = new Ellipse({ pos: [ cx, 0.5 * h ], rad: [ rx, ry ], stroke: color, stroke_width: thickness, fill: none })
         const metrics: InlineMetrics = { advance: w, vrange: [ 0, h ], vanchor: 0.5 * h }
-        super({ children: [ oval ], coord: [ 0, 0, w, h ], aspect: metrics_aspect(metrics), ...attr })
+        super({ children: [ oval ], coord: [ 0, 0, w, h ], metrics, klass: 'none', ...attr })
         this.args = args
-        this.math = make_math({ left: 'none', right: 'none', ...metrics })
-    }
-
-    // the stroke is given in em (see MathStretch)
-    inner(ctx: Context): string {
-        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
     }
 }
 
@@ -2515,8 +2458,7 @@ function convert_oiint(name: string, limits: boolean | undefined, { attr, style 
     const op = new MathOp({ children: [ OIINT_BASE[name] ], style, limits, ...attr })
     const size = style_size(style) == 'display' ? 'display' : 'text'
     const [ cx, rx, ry, thickness ] = OIINT_OVAL[name][size]
-    const color = (attr.color as string | undefined) ?? theme_ink()
-    const oval = new MathOval({ cx, rx, ry, thickness, color })
+    const oval = new MathOval({ cx, rx, ry, thickness, color: attr.color as string | undefined })
     const group = place_items([ { item: op, x: 0, y: 0 }, { item: oval, x: 0, y: 0 } ], [ 0, 0 ], 'mop')
     return with_math(group, { italic: op.math.italic })
 }
@@ -2601,33 +2543,28 @@ function enclose_box(body: WithMath, border: string | null, background: string |
 }
 
 // the strike lines of \cancel (rising), \bcancel (falling) and \xcancel
-// (both), stroked in em across a box that may overhang the body
-interface MathCancelArgs extends GroupArgs {
+// (both), stroked in em across a box that may overhang the body: the strike
+// takes no space of its own, so its math box is the body's with the strike box
+// carried as overhang
+interface MathCancelArgs extends MathShapeArgs {
     box?: Rect         // the strike box, in the anchor frame
     rising?: boolean
     falling?: boolean
     thickness?: number
-    color?: string
-    math?: Partial<MathSpec>
+    metrics?: InlineMetrics
 }
 
-class MathCancel extends Group {
-    math: MathSpec
-
+class MathCancel extends MathShape {
     constructor(args: MathCancelArgs = {}) {
-        const { box = [ 0, 0, 1, 1 ], rising = true, falling = false, thickness = CANCEL_THICKNESS, color = black, math = {}, ...attr } = args
+        const [ color, { box = [ 0, 0, 1, 1 ], rising = true, falling = false, thickness = CANCEL_THICKNESS, metrics: metrics0, ...attr } ] = shape_args(args)
         const [ x0, y0, x1, y1 ] = box
         const line_attr = { coord: box, stroke: color, stroke_width: thickness }
         const children: Element[] = []
         if (rising) children.push(new Line({ points: [ [ x0, y1 ], [ x1, y0 ] ], ...line_attr }))
         if (falling) children.push(new Line({ points: [ [ x0, y0 ], [ x1, y1 ] ], ...line_attr }))
-        super({ children, coord: box, aspect: (x1 - x0) / (y1 - y0), ...attr })
+        const metrics = metrics0 ?? { advance: x1 - x0, vrange: [ y0, y1 ], vanchor: 0 }
+        super({ children, coord: box, aspect: (x1 - x0) / (y1 - y0), metrics, klass: 'none', ...attr })
         this.args = args
-        this.math = make_math(math)
-    }
-
-    inner(ctx: Context): string {
-        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
     }
 }
 
@@ -2638,11 +2575,10 @@ function enclose_cancel(body: WithMath, rising: boolean, falling: boolean, singl
     const rect: Rect = single ? [ 0, lo - pad, w, hi + pad ] : [ -pad, lo, w + pad, hi ]
     const [ x0, y0, x1, y1 ] = rect
 
-    // the strike takes no space of its own: its box is carried as overhang
     const lines = new MathCancel({
         box: rect, rising, falling, thickness: CANCEL_THICKNESS, color,
-        math: {
-            left: 'none', right: 'none', advance: w, vrange: [ lo, hi ], vanchor: 0,
+        metrics: {
+            advance: w, vrange: [ lo, hi ], vanchor: 0,
             hrange: x0 != 0 ? [ x0, x1 ] : undefined,
             vink: single ? [ y0, y1 ] : undefined,
         },
@@ -2661,7 +2597,7 @@ function convert_enclose(tree: TreeEnclose, ctx: ConvertCtx): WithMath {
     const { label, body: body0, backgroundColor, borderColor } = tree
     const name = label.slice(1)
     const body = seal_math(convert_tree(body0, ctx))
-    const color = (ctx.attr.color as string | undefined) ?? theme_ink()
+    const color = shape_ink({ color: ctx.attr.color as string | undefined })
 
     if (name == 'boxed' || name == 'fbox') return enclose_box(body, color, null, FBOX_RULE)
     if (name == 'colorbox') return enclose_box(body, null, backgroundColor ?? null, FBOX_RULE)

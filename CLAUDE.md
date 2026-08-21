@@ -354,9 +354,9 @@ over-accents (`\overrightarrow` and friends), all of `accentUnder`, and the `\x.
 extensible arrows. No font carries stretchable versions of any of these, so gum draws
 them from a shape table keyed by katex's own label, using katex's `katexImagesData`
 heights and minimum widths. The arrows are gum's own `Arrow`/`ArrowHead`/`Line`/`Arc`,
-stroked in em: `MathStretch.inner` rebases the context's stroke unit to its box's pixels
-per em (`ctx.clone({ unit })`), so `stroke_width: TEX.rule` is a TeX rule at any font
-size and script-size arrows get proportionally thinner strokes. Heads are `ArrowHead`'s
+stroked in em: `MathShape.inner` (the base of every drawn shape) rebases the context's stroke
+unit to its box's pixels per em (`ctx.clone({ unit })`), so `stroke_width: TEX.rule` is a TeX
+rule at any font size and script-size arrows get proportionally thinner strokes. Heads are `ArrowHead`'s
 open two-barb form with `arc: 92` (head depth/half-height = cot(arc/2) = 0.97, as measured on
 Computer Modern's →) and `curve: 0.7` — `ArrowHead`'s barbs are circular arcs that leave the tip
 turned toward the shaft by `curve * arc/2` and flare out (`curve = 1` is tangent to the shaft,
@@ -375,9 +375,10 @@ normals in both directions). Two traps: a `Polygon`/`Line` maps its points throu
 *own* context, so point-based pieces need the em `coord` explicitly — but `ArrowHead` and
 `Arc` draw in their own unit box and are placed by `pos`/`size`, so they must *not* get
 it. `\widehat`/`\widetilde`/`\widecheck` are stretchy to katex but do have glyphs, so the
-converter only takes the drawn path for labels present in the shape table. Drawn math
-shapes (`MathRule`, `MathBrace`, `MathStretch`) take their colour from `THEME_DARK` so
-they follow the text in dark mode.
+converter only takes the drawn path for labels present in the shape table. Every drawn math
+shape extends `MathShape` and resolves its colour with `shape_ink`: an explicit `fill`, else
+the `color` in force, else the theme's ink (`MathShape` in `THEME_DARK`), so they follow the
+text in dark mode; `MathArray`'s rules use the same rule.
 
 `\operatorname` sets its body upright as a single Op atom, passing the upright face down
 directly since gum cannot express katex's `withFont("mathrm")` through `TEX_FONT_FAMILY`.
@@ -395,7 +396,7 @@ it differs from `[0, advance]` (`\rlap`, the cancel strokes) and `vink` the vert
 differs from `vrange` (`\smash`, `\cancel` on a single character). `metrics_rect` gives the ink
 rect, `metrics_bounds` the layout bounds, and `place_items`/`layoutMathRow` place children by the
 former while stacking by the latter (`hull_overhang`). `MathOval` (the `\oiint` ring) and
-`MathCancel` are em-stroked groups like `MathStretch`; `enclose_box` builds `\boxed`/`\fbox`/
+`MathCancel` are `MathShape`s like `MathStretch`; `enclose_box` builds `\boxed`/`\fbox`/
 `\colorbox` from a `MathBox` plus `array_rules`. `\tiny` … `\Huge` scale relative to the size
 in force, carried as `size` in the `ConvertCtx` (`{ attr, style, size }`) that `convert_tree`
 threads through the conversion.
