@@ -48,17 +48,20 @@ gum-tex 'E = mc^2' -s 400 -o emc.png   # fit into a 400px box
 
 ### Comparing against katex
 
-`math/compare.ts` renders the same TeX with gum (`mathToPng`) and with katex's own HTML
-pipeline in headless Chromium (`renderToString` + `katex.min.css`, which pulls in the KaTeX
-fonts) at the same pixels per em, trims both to their ink, and writes them side by side in one
-PNG (or shows it in a kitty terminal when no `-o` is given). It needs only a Chromium binary on
-`PATH` (or `--chrome`/`$GUM_CHROME`); the trim and composite are done with node-canvas. This is
-the ground truth for layout questions the metrics checks cannot see, like widths and stroke
-weights:
+`math/compare.ts` renders the same TeX three ways at the same pixels per em — gum
+(`mathToPng`), katex's own HTML pipeline in headless Chromium (`renderToString` +
+`katex.min.css`, which pulls in the KaTeX fonts), and real LaTeX (`pdflatex` with the
+`standalone` class, rasterized by `pdftoppm` at `font_size · 72.27 / 10` dpi so a 10 pt em is
+`font_size` px) — trims each to its ink, and stacks them in one PNG (or shows it in a kitty
+terminal when no `-o` is given). It needs a Chromium binary on `PATH` (or `--chrome`/
+`$GUM_CHROME`) and a TeX install (`--no-latex` skips that panel; it is skipped with a note if
+`pdflatex` is missing, and shows the compile error when LaTeX rejects a katex-only command);
+the trims and composite are node-canvas. This is the ground truth for layout questions the
+metrics checks cannot see, like widths and stroke weights:
 
 ```bash
 bun math/compare.ts '\xrightarrow{f} \quad \frac{a}{b}' -o cmp.png
-bun math/compare.ts -i --vertical -S 64 -F eq.tex        # inline style, stacked
+bun math/compare.ts -i -S 64 -F eq.tex --packages amsmath,amssymb,mathtools   # inline; extra LaTeX packages
 ```
 
 Note `katex.min.css` sets `.katex { font-size: 1.21em }`; the script divides the page font size

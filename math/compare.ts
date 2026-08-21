@@ -1,11 +1,14 @@
 #! /usr/bin/env bun
 
-// Compare gum's math rendering against katex's. The same TeX is rendered twice
-// at the same pixels per em -- with gum (mathToPng) and with katex's own HTML
-// pipeline in headless Chromium (katex.renderToString + katex.min.css, which
-// pulls in the KaTeX fonts) -- and the two are written side by side in one PNG.
-// Nothing beyond a Chromium binary is needed: the screenshot is trimmed and
-// composited with node-canvas, which gum already uses to rasterize.
+// Compare gum's math rendering against katex's and real LaTeX's. The same TeX
+// is rendered at the same pixels per em three ways -- gum (mathToPng), katex's
+// own HTML pipeline in headless Chromium (katex.renderToString + katex.min.css,
+// which pulls in the KaTeX fonts), and pdflatex rasterized with pdftoppm -- and
+// the results are stacked in one PNG. Beyond a Chromium binary and a TeX
+// install, nothing is needed: the trims and the composite are node-canvas,
+// which gum already uses to rasterize. The LaTeX panel is skipped if pdflatex
+// is missing, and shows the compile error when LaTeX rejects the input (katex
+// knows commands amsmath does not).
 
 import { Command } from 'commander'
 import { spawnSync } from 'child_process'
@@ -78,6 +81,66 @@ body { display: inline-block; font-size: ${font_size / KATEX_SCALE}px; padding: 
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+}
+
+//
+// latex
+//
+
+interface LatexPngArgs {
+  font_size: number
+  inline: boolean
+  packages: string[]
+}
+
+function haveBinary(name: string): boolean {
+  const { status } = spawnSync('which', [ name ], { encoding: 'utf-8' })
+  return status == 0
+}
+
+// render tex with pdflatex and rasterize with pdftoppm. A 10pt document puts
+// 1 em at 10 TeX points, so dpi = font_size * 72.27 / 10 gives font_size pixels
+// per em; the standalone class crops the page to the content. Returns the png,
+// or the first error line of the log if LaTeX refused the input
+function latexToPng(tex: string, { font_size, inline, packages }: LatexPngArgs): Buffer | string {
+  const doc = `\\documentclass[10pt,preview,border=2pt]{standalone}
+\\usepackage{${packages.join(',')}}
+\\begin{document}
+${inline ? `$${tex}$` : `\\[ ${tex} \\]`}
+\\end{document}
+`
+  const dir = mkdtempSync(join(tmpdir(), 'gum-compare-tex-'))
+  try {
+    writeFileSync(join(dir, 'doc.tex'), doc)
+    const run = spawnSync('pdflatex', [ '-interaction=nonstopmode', '-halt-on-error', 'doc.tex' ], { cwd: dir, encoding: 'utf-8' })
+    if (run.status != 0 || !existsSync(join(dir, 'doc.pdf'))) {
+      const log = run.stdout ?? ''
+      const err = log.split('\n').find(l => l.startsWith('!')) ?? 'pdflatex failed'
+      return err.replace(/^!\s*/, '')
+    }
+    const dpi = Math.round(font_size * 72.27 / 10)
+    const ras = spawnSync('pdftoppm', [ '-r', String(dpi), '-png', '-singlefile', 'doc.pdf', 'doc' ], { cwd: dir, encoding: 'utf-8' })
+    if (ras.status != 0 || !existsSync(join(dir, 'doc.png'))) {
+      return `pdftoppm failed: ${(ras.stderr ?? '').trim().split('\n').pop() ?? ''}`
+    }
+    return readFileSync(join(dir, 'doc.png'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+// a panel carrying an error message in place of a render
+function messageCanvas(text: string, background: string): Canvas {
+  const size = 18
+  const canvas = createCanvas(Math.max(200, Math.round(0.55 * size * text.length) + 24), 2 * size + 16)
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = background
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#c33'
+  ctx.font = `${size}px monospace`
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, 12, 0.5 * canvas.height)
+  return canvas
 }
 
 //
@@ -177,7 +240,7 @@ function compose(panels: [ string, Canvas ][], { gap, labels, background }: Comp
 
 const program = new Command()
 program.name('compare')
-  .description('Render TeX with gum and with katex (headless Chromium) and write them side by side')
+  .description('Render TeX with gum, with katex (headless Chromium), and with pdflatex, and stack the three in one PNG')
   .argument('[tex]', 'LaTeX source (reads from --file or stdin if not provided)')
   .option('-F, --file <file>', 'read LaTeX source from file')
   .option('-i, --inline', 'render in inline (text) style rather than display style', false)
@@ -185,7 +248,9 @@ program.name('compare')
   .option('-m, --margin <px>', 'margin around each render after trimming to its ink', (v: string) => parseInt(v), 16)
   .option('-g, --gap <px>', 'gap between the two renders', (v: string) => parseInt(v), 32)
   .option('-b, --background <color>', 'background color', 'white')
-  .option('--no-labels', 'omit the gum/katex labels')
+  .option('--no-labels', 'omit the panel labels')
+  .option('--no-latex', 'skip the pdflatex panel')
+  .option('--packages <list>', 'LaTeX packages for the pdflatex panel (comma separated)', 'amsmath,amssymb')
   .option('--chrome <path>', 'chromium binary (default: search PATH, or $GUM_CHROME)')
   .option('--window <WxH>', 'screenshot window; enlarge if the katex render is clipped', '4000x1500')
   .option('-o, --output <file>', 'output PNG (default: show in terminal)')
@@ -206,7 +271,18 @@ const gum = trimCanvas(loadCanvas(mathToPng(tex, { font_size, inline: opts.inlin
 const kat = trimCanvas(loadCanvas(katexToPng(tex, { font_size, inline: opts.inline, background, window: [ ww, wh ], chrome: opts.chrome }), background), opts.margin)
 if (kat.clipped) console.error(`warning: katex render touched the screenshot edge; try --window larger than ${opts.window}`)
 
-const out = compose([ [ 'gum', gum.canvas ], [ 'katex', kat.canvas ] ], { gap: opts.gap, labels: opts.labels, background })
+const panels: [ string, Canvas ][] = [ [ 'gum', gum.canvas ], [ 'katex', kat.canvas ] ]
+if (opts.latex) {
+  if (!haveBinary('pdflatex') || !haveBinary('pdftoppm')) {
+    console.error('note: pdflatex/pdftoppm not found, skipping the latex panel (--no-latex silences this)')
+  } else {
+    const packages = String(opts.packages).split(',').map(p => p.trim()).filter(p => p.length > 0)
+    const res = latexToPng(tex, { font_size, inline: opts.inline, packages })
+    panels.push([ 'latex', typeof res == 'string' ? messageCanvas(res, background) : trimCanvas(loadCanvas(res, background), opts.margin).canvas ])
+  }
+}
+
+const out = compose(panels, { gap: opts.gap, labels: opts.labels, background })
 
 if (opts.output != null) {
   writeFileSync(opts.output, out)
