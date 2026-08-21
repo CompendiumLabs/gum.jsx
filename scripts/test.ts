@@ -37,7 +37,7 @@ type Result = {
     renders: Record<Theme, Render>
 }
 
-const dirs = ['docs/code', 'gala/code', 'test/math']
+const dirs = ['docs/code', 'gala/code', 'test/code']
 const report = process.argv.includes('--report')
 const results: Result[] = []
 
