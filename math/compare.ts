@@ -134,18 +134,15 @@ function trimCanvas(canvas: Canvas, margin: number): { canvas: Canvas, clipped: 
 interface ComposeArgs {
   gap: number
   labels: boolean
-  vertical: boolean
   background: string
 }
 
 // put the two renders next to each other (or stacked), each centred in its
 // slot, with a hairline between and small labels above
-function compose(panels: [ string, Canvas ][], { gap, labels, vertical, background }: ComposeArgs): Buffer {
+function compose(panels: [ string, Canvas ][], { gap, labels, background }: ComposeArgs): Buffer {
   const label_h = labels ? 22 : 0
   const sizes = panels.map(([ , c ]) => [ c.width, c.height + label_h ] as [ number, number ])
-  const [ W, H ] = vertical
-    ? [ Math.max(...sizes.map(s => s[0])), sizes.reduce((a, s) => a + s[1], 0) + gap * (panels.length - 1) ]
-    : [ sizes.reduce((a, s) => a + s[0], 0) + gap * (panels.length - 1), Math.max(...sizes.map(s => s[1])) ]
+  const [ W, H ] = [ Math.max(...sizes.map(s => s[0])), sizes.reduce((a, s) => a + s[1], 0) + gap * (panels.length - 1) ]
   const out = createCanvas(W, H)
   const ctx = out.getContext('2d')
   ctx.fillStyle = background
@@ -156,22 +153,20 @@ function compose(panels: [ string, Canvas ][], { gap, labels, vertical, backgrou
     const [ sw, sh ] = sizes[i]
     // side by side, the labels sit on one line across the top and each render
     // is centred in the space beneath; stacked, each label tops its own slot
-    const x = vertical ? 0.5 * (W - sw) : pos
-    const top = vertical ? pos : 0
-    const y = vertical ? top + label_h : label_h + 0.5 * (H - label_h - c.height)
+    const x = 0.5 * (W - sw)
+    const y = pos + label_h
     ctx.drawImage(c, x, y)
     if (labels) {
       ctx.fillStyle = '#888'
       ctx.font = '32px sans-serif'
       ctx.textBaseline = 'top'
-      ctx.fillText(name, x + 4, top + 2)
+      ctx.fillText(name, x + 4, pos + 2)
     }
     if (i < panels.length - 1) {
       ctx.fillStyle = '#ccc'
-      if (vertical) ctx.fillRect(0, pos + sh + 0.5 * gap, W, 1)
-      else ctx.fillRect(pos + sw + 0.5 * gap, 0, 1, H)
+      ctx.fillRect(0, pos + sh + 0.5 * gap, W, 1)
     }
-    pos += (vertical ? sh : sw) + gap
+    pos += sh + gap
   })
   return out.toBuffer('image/png')
 }
@@ -190,7 +185,6 @@ program.name('compare')
   .option('-m, --margin <px>', 'margin around each render after trimming to its ink', (v: string) => parseInt(v), 16)
   .option('-g, --gap <px>', 'gap between the two renders', (v: string) => parseInt(v), 32)
   .option('-b, --background <color>', 'background color', 'white')
-  .option('--vertical', 'stack the renders instead of placing them side by side', false)
   .option('--no-labels', 'omit the gum/katex labels')
   .option('--chrome <path>', 'chromium binary (default: search PATH, or $GUM_CHROME)')
   .option('--window <WxH>', 'screenshot window; enlarge if the katex render is clipped', '4000x1500')
@@ -212,7 +206,7 @@ const gum = trimCanvas(loadCanvas(mathToPng(tex, { font_size, inline: opts.inlin
 const kat = trimCanvas(loadCanvas(katexToPng(tex, { font_size, inline: opts.inline, background, window: [ ww, wh ], chrome: opts.chrome }), background), opts.margin)
 if (kat.clipped) console.error(`warning: katex render touched the screenshot edge; try --window larger than ${opts.window}`)
 
-const out = compose([ [ 'gum', gum.canvas ], [ 'katex', kat.canvas ] ], { gap: opts.gap, labels: opts.labels, vertical: opts.vertical, background })
+const out = compose([ [ 'gum', gum.canvas ], [ 'katex', kat.canvas ] ], { gap: opts.gap, labels: opts.labels, background })
 
 if (opts.output != null) {
   writeFileSync(opts.output, out)
