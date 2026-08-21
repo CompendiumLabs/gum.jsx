@@ -7,7 +7,7 @@ import { StrictError, strictError } from '../lib/strict'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, ensure_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect } from '../lib/utils'
 import symbols from '../lib/symbols'
 import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
-import { Polygon } from './geometry'
+import { Polygon, Line, Arc, Arrow, ArrowHead } from './geometry'
 import { Span } from './text'
 import { __parse as parse_tex } from 'katex'
 
@@ -1130,35 +1130,130 @@ class MathBrace extends Group {
 // stretchy decorations
 //
 
-// katex draws all of these as SVG paths that stretch to the body, since no
-// font carries stretchable versions. The box heights and minimum widths below
-// are its katexImagesData, in em; the ink inside each box is drawn here
+// katex draws all of these as SVG paths that stretch to the body, since no font
+// carries stretchable versions. The box heights and minimum widths below are its
+// katexImagesData, in em. The arrows are gum's own Arrow/ArrowHead/Line/Arc,
+// stroked in em -- MathStretch rebases the stroke unit to pixels per em for its
+// subtree, so a stroke_width of TEX.rule is a TeX rule at any size. Braces,
+// groups and the \utilde tilde are still filled outlines (see MathBrace)
 const STRETCH_THICKNESS = TEX.rule
 const STRETCH_SAMPLES = 12
 const STRETCH_LINE_GAP = 0.11   // between the rules of a double arrow or =
+const STRETCH_ARC = 75          // ArrowHead's barb spread, degrees
+const STRETCH_HEAD = 1 / Math.sin(0.5 * d2r * STRETCH_ARC)  // head size per box height: barbs span the box
 
-// a shape fills its box with one or more polygons; overlapping fills union, so
-// a stem can run the whole width with heads simply laid on top of it
-type StretchShape = (width: number, height: number, thickness: number) => Point[][]
+// the box a shape draws into; `y` is the top of its band, so two arrows can
+// stack in one box for \rightleftharpoons
+type StretchBox = { width: number, height: number, thickness: number, y: number, coord: Rect, color: string }
+type StretchShape = (box: StretchBox) => Element[]
 
-function stretch_bar(x0: number, y0: number, x1: number, y1: number): Point[] {
-    return [ [ x0, y0 ], [ x1, y0 ], [ x1, y1 ], [ x0, y1 ] ]
+// stroke attrs for the pieces; `coord` goes only on the point-based elements
+// (Line, Arrow), since ArrowHead and Arc draw in their own unit box and are
+// positioned by pos/size within the parent's coord
+function stretch_stroke_attr({ thickness, color }: StretchBox): Attrs {
+    return { stroke: color, stroke_width: thickness, stroke_linecap: 'round', stroke_linejoin: 'round' }
 }
 
-// a barbed arrowhead with its tip at x pointing along dir, centred on y
-function stretch_head(x: number, dir: number, y: number, half: number, len: number, barb: 'both' | 'up' | 'down' = 'both'): Point[] {
-    const back = x - dir * len
-    const notch: Point = [ x - dir * 0.72 * len, y ]
-    if (barb == 'up') return [ [ x, y ], [ back, y - half ], notch ]
-    if (barb == 'down') return [ [ x, y ], [ back, y + half ], notch ]
-    return [ [ x, y ], [ back, y - half ], notch, [ back, y + half ] ]
+// arrows: a stem (one rule, or two for the double forms) with open barbed heads
+// at either end. `heads` draws a second chevron behind the first for
+// \twoheadrightarrow; `barb` keeps one barb for the harpoons
+type ArrowSpec = { left?: boolean, right?: boolean, lines?: number, heads?: number, barb?: 'both' | 'up' | 'down' }
+
+function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb = 'both' }: ArrowSpec): StretchShape {
+    return box => {
+        const { width, height, thickness: t, y, coord } = box
+        const mid = y + 0.5 * height
+        const size = STRETCH_HEAD * height
+        const depth = 0.5 * size * Math.cos(0.5 * d2r * STRETCH_ARC)  // barb reach back from the tip
+        const attr = stretch_stroke_attr(box)
+
+        // a harpoon keeps the upper or lower barb, which is the head's left or
+        // right barb depending on which way it points
+        const end_barb = barb == 'both' ? 'both' : barb == 'up' ? 'left' : 'right'
+        const start_barb = barb == 'both' ? 'both' : barb == 'up' ? 'right' : 'left'
+        const head_attr = { arrow_size: size, arrow_exact: true, start_barb, end_barb }
+
+        const out: Element[] = []
+        if (lines == 1) {
+            // a single stem runs to the tip and the barbs open from it
+            out.push(new Arrow({ points: [ [ 0, mid ], [ width, mid ] ], arrow_start: left, arrow_end: right, coord, ...head_attr, ...attr }))
+        } else {
+            // two stems straddle the centerline and stop where they meet the
+            // barbs, as in \Rightarrow; the head is placed on its own
+            const gap = 0.5 * STRETCH_LINE_GAP
+            const inset = gap / Math.tan(0.5 * d2r * STRETCH_ARC)
+            const [ x0, x1 ] = [ left ? inset : 0.5 * t, right ? width - inset : width - 0.5 * t ]
+            for (const dy of [ -gap, gap ]) out.push(new Line({ points: [ [ x0, mid + dy ], [ x1, mid + dy ] ], coord, ...attr }))
+            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width, mid ], size, barb: end_barb, ...attr }))
+            if (left) out.push(new ArrowHead({ angle: 180, pos: [ 0, mid ], size, barb: start_barb, ...attr }))
+        }
+
+        // extra chevrons sit a bit behind the first
+        for (const i of range(1, heads)) {
+            const back = 0.6 * depth * i
+            if (right) out.push(new ArrowHead({ angle: 0, pos: [ width - back, mid ], size, barb: end_barb, ...attr }))
+            if (left) out.push(new ArrowHead({ angle: 180, pos: [ back, mid ], size, barb: start_barb, ...attr }))
+        }
+        return out
+    }
 }
 
-// sample a centerline and give back its filled outline
-function stretch_stroke(points: Point[], thickness: number): Point[] {
-    return [ ...offset_polyline(points, 0.5 * thickness), ...offset_polyline(points, -0.5 * thickness).reverse() ]
+// \hookrightarrow: the tail is a half circle sitting above the stem and opening
+// toward the head -- like a ⊂ whose lower arm runs on as the stem and whose
+// upper arm is the free end -- so it is centred half its height above the line
+function stretch_hook_arrow(side: 'left' | 'right'): StretchShape {
+    return box => {
+        const { width, height, thickness: t, y, coord } = box
+        const mid = y + 0.5 * height
+        const r = 0.25 * height
+        const attr = stretch_stroke_attr(box)
+        const [ cx, start, end ] = side == 'left' ? [ r, 90, 270 ] : [ width - r, -90, 90 ]
+        const hook = new Arc({ pos: [ cx, mid - r ], rad: r - 0.5 * t, start, end, ...attr })
+        const arrow = new Arrow({
+            points: side == 'left' ? [ [ r, mid ], [ width, mid ] ] : [ [ width - r, mid ], [ 0, mid ] ],
+            arrow_size: STRETCH_HEAD * height, arrow_exact: true, coord, ...attr,
+        })
+        return [ hook, arrow ]
+    }
 }
 
+// \mapsto's stem is stopped by a full-height bar at its tail
+function stretch_mapsto(side: 'left' | 'right'): StretchShape {
+    const arrow = stretch_arrow({ right: side == 'left', left: side == 'right' })
+    return box => {
+        const { width, height, thickness: t, y } = box
+        const x = side == 'left' ? 0.5 * t : width - 0.5 * t
+        return [ ...arrow(box), new Line({ points: [ [ x, y + 0.5 * t ], [ x, y + height - 0.5 * t ] ], coord: box.coord, ...stretch_stroke_attr(box) }) ]
+    }
+}
+
+// \overlinesegment: a rule along the open edge with a tick down each end
+function stretch_segment(over: boolean): StretchShape {
+    return box => {
+        const { width, height, thickness: t, y, coord } = box
+        const attr = { coord, ...stretch_stroke_attr(box) }
+        const [ yt, yb ] = [ y + 0.5 * t, y + height - 0.5 * t ]
+        const yr = over ? yt : yb
+        return [
+            new Line({ points: [ [ 0.5 * t, yr ], [ width - 0.5 * t, yr ] ], ...attr }),
+            new Line({ points: [ [ 0.5 * t, yt ], [ 0.5 * t, yb ] ], ...attr }),
+            new Line({ points: [ [ width - 0.5 * t, yt ], [ width - 0.5 * t, yb ] ], ...attr }),
+        ]
+    }
+}
+
+// two arrows stacked in one box, as in \rightleftharpoons
+function stretch_pair(top: ArrowSpec, bottom: ArrowSpec): StretchShape {
+    return box => {
+        const half = 0.5 * box.height
+        return [
+            ...stretch_arrow(top)({ ...box, height: half }),
+            ...stretch_arrow(bottom)({ ...box, height: half, y: box.y + half }),
+        ]
+    }
+}
+
+// the filled outlines: a centerline traced both ways along its normals
 function stretch_arc(cx: number, cy: number, r: number, a0: number, a1: number): Point[] {
     return range(STRETCH_SAMPLES + 1).map(i => {
         const a = d2r * (a0 + (a1 - a0) * (i / STRETCH_SAMPLES))
@@ -1166,81 +1261,13 @@ function stretch_arc(cx: number, cy: number, r: number, a0: number, a1: number):
     })
 }
 
-// arrows: a stem (one rule, or two for the double forms) with heads at either
-// end. `heads` draws a second chevron behind the first for \twoheadrightarrow
-type ArrowSpec = { left?: boolean, right?: boolean, lines?: number, heads?: number, barb?: 'both' | 'up' | 'down' }
-
-// A head tapers to nothing at its tip, so a stem run flush to the tip pokes out
-// the sides just behind it -- most visibly on the double arrows, whose rules sit
-// furthest off the centerline. Stop the stem where the head has widened enough
-// to cover it. This is Arrow's `stroke_offset` trick (geometry.ts), in em rather
-// than in stroke pixels, since a math shape is filled rather than stroked.
-function stretch_inset(reach: number, half: number, len: number): number {
-    return half > 0 ? len * Math.min(reach / half, 1) : 0
+function stretch_stroke(points: Point[], thickness: number): Point[] {
+    return [ ...offset_polyline(points, 0.5 * thickness), ...offset_polyline(points, -0.5 * thickness).reverse() ]
 }
 
-function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb = 'both' }: ArrowSpec): StretchShape {
-    return (width, height, t) => {
-        const mid = 0.5 * height
-        const half = 0.5 * height
-        const len = 0.75 * height
-        const rows = lines == 1 ? [ mid ] : [ mid - 0.5 * STRETCH_LINE_GAP, mid + 0.5 * STRETCH_LINE_GAP ]
-        const inset = stretch_inset(0.5 * (lines == 1 ? 0 : STRETCH_LINE_GAP) + 0.5 * t, half, len)
-        const polys = rows.map(y => stretch_bar(
-            left ? inset : 0, y - 0.5 * t, right ? width - inset : width, y + 0.5 * t,
-        ))
-        for (const i of range(heads)) {
-            const back = 0.42 * len * i
-            if (right) polys.push(stretch_head(width - back, 1, mid, half, len, barb))
-            if (left) polys.push(stretch_head(back, -1, mid, half, len, barb))
-        }
-        return polys
-    }
-}
-
-// \hookrightarrow: the tail curls into a half circle opening upward, whose far
-// side joins the stem and whose near side is left as the free end
-function stretch_hook_arrow(side: 'left' | 'right'): StretchShape {
-    return (width, height, t) => {
-        const mid = 0.5 * height
-        const half = 0.5 * height
-        const len = 0.75 * height
-        const r = 0.25 * height
-        const [ cx, x0, x1 ] = side == 'left'
-            ? [ r, 2 * r, width ]
-            : [ width - r, 0, width - 2 * r ]
-        const hook = stretch_arc(cx, mid, r, 0, 180)
-        const inset = stretch_inset(0.5 * t, half, len)
-        return [
-            stretch_bar(
-                side == 'left' ? x0 : x0 + inset, mid - 0.5 * t,
-                side == 'left' ? x1 - inset : x1, mid + 0.5 * t,
-            ),
-            stretch_stroke(hook, t),
-            stretch_head(side == 'left' ? width : 0, side == 'left' ? 1 : -1, mid, half, len),
-        ]
-    }
-}
-
-// \mapsto's stem is stopped by a full-height bar at its tail
-function stretch_mapsto(side: 'left' | 'right'): StretchShape {
-    const arrow = stretch_arrow({ right: side == 'left', left: side == 'right' })
-    return (width, height, t) => {
-        const x = side == 'left' ? 0 : width - t
-        return [ ...arrow(width, height, t), stretch_bar(x, 0, x + t, height) ]
-    }
-}
-
-// \overlinesegment: a rule along the open edge with a tick down each end
-function stretch_segment(over: boolean): StretchShape {
-    return (width, height, t) => {
-        const y = over ? 0 : height - t
-        return [
-            stretch_bar(0, y, width, y + t),
-            stretch_bar(0, 0, t, height),
-            stretch_bar(width - t, 0, width, height),
-        ]
-    }
+function stretch_filled(outline: (width: number, height: number, t: number) => Point[][]): StretchShape {
+    return ({ width, height, thickness, coord, color }) =>
+        outline(width, height, thickness).map(points => new Polygon({ points, coord, fill: color, stroke: none }))
 }
 
 // \overgroup: a brace with no middle peak, so a hook at each end and a run
@@ -1264,7 +1291,7 @@ function stretch_tilde(width: number, height: number, t: number): Point[][] {
     return [ stretch_stroke(line, t) ]
 }
 
-function stretch_brace(over: boolean): StretchShape {
+function stretch_brace(over: boolean): (width: number, height: number, t: number) => Point[][] {
     return (width, height, t) => {
         const line = brace_centerline(width - t, height - t).map(([ x, y ]) => [ x + 0.5 * t, y + 0.5 * t ] as Point)
         const outline = stretch_stroke(line, t)
@@ -1272,16 +1299,8 @@ function stretch_brace(over: boolean): StretchShape {
     }
 }
 
-// two arrows stacked in one box, as in \rightleftharpoons
-function stretch_pair(top: ArrowSpec, bottom: ArrowSpec): StretchShape {
-    return (width, height, t) => {
-        const half = 0.5 * height
-        return [
-            ...stretch_arrow(top)(width, half, t),
-            ...stretch_arrow(bottom)(width, half, t).map(poly => poly.map(([ x, y ]) => [ x, y + half ] as Point)),
-        ]
-    }
-}
+const stretch_flip = (fn: (w: number, h: number, t: number) => Point[][]) =>
+    (w: number, h: number, t: number) => fn(w, h, t).map(p => p.map(([ x, y ]) => [ x, h - y ] as Point))
 
 // keyed by katex's stretchy label; height and min_width are its katexImagesData
 type StretchEntry = { shape: StretchShape, height: number, min_width: number }
@@ -1299,11 +1318,11 @@ const STRETCH: Record<string, StretchEntry> = {
     overrightharpoon:    { shape: stretch_arrow({ right: true, barb: 'up' }), height: ARROW_H, min_width: 0.888 },
     overlinesegment:     { shape: stretch_segment(true), height: ARROW_H, min_width: 0.888 },
     underlinesegment:    { shape: stretch_segment(false), height: ARROW_H, min_width: 0.888 },
-    overgroup:           { shape: stretch_group, height: GROUP_H, min_width: 0.888 },
-    undergroup:          { shape: (w, h, t) => stretch_group(w, h, t).map(p => p.map(([ x, y ]) => [ x, h - y ] as Point)), height: GROUP_H, min_width: 0.888 },
-    utilde:              { shape: stretch_tilde, height: 0.26, min_width: 0 },
-    overbrace:           { shape: stretch_brace(true), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
-    underbrace:          { shape: stretch_brace(false), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
+    overgroup:           { shape: stretch_filled(stretch_group), height: GROUP_H, min_width: 0.888 },
+    undergroup:          { shape: stretch_filled(stretch_flip(stretch_group)), height: GROUP_H, min_width: 0.888 },
+    utilde:              { shape: stretch_filled(stretch_tilde), height: 0.26, min_width: 0 },
+    overbrace:           { shape: stretch_filled(stretch_brace(true)), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
+    underbrace:          { shape: stretch_filled(stretch_brace(false)), height: BRACE_HEIGHT, min_width: BRACE_MIN_WIDTH },
 
     xrightarrow:         { shape: stretch_arrow({ right: true }), height: ARROW_H, min_width: 1.469 },
     xleftarrow:          { shape: stretch_arrow({ left: true }), height: ARROW_H, min_width: 1.469 },
@@ -1353,20 +1372,25 @@ class MathStretch extends Group {
         // natural width, so a decoration over a narrow body keeps its form
         const height = Math.max(height0 ?? entry.height, 2 * thickness)
         const advance = Math.max(advance0 ?? entry.min_width, entry.min_width, 2 * thickness)
-        const polys = entry.shape(advance, height, thickness)
 
         // compute layout metrics
         const metrics: InlineMetrics = { advance, vrange: [ 0, height ], vanchor: 0 }
         const coord: Rect = [ 0, 0, advance, height ]
 
-        // a polygon maps its points through its own context, whose coord
-        // defaults to the unit square, so each piece needs the shape's coord
-        const children = polys.map(points => new Polygon({ points, coord, fill, stroke: none }))
+        // the children draw in em within this coord (a Polygon maps its points
+        // through its own context, so each piece needs the coord explicitly)
+        const children = entry.shape({ width: advance, height, thickness, y: 0, coord, color: fill })
 
         // pass to Group
         super({ children, coord, aspect: metrics_aspect(metrics), ...attr })
         this.args = args
         this.math = make_math({ left: 'mord', right: 'mord', ...metrics })
+    }
+
+    // strokes in here are given in em: rebase the stroke unit to this box's
+    // pixels per em, so the rules and arrowheads scale with the math around them
+    inner(ctx: Context): string {
+        return super.inner(ctx.clone({ unit: Math.abs(ctx.resizex(1, false)) }))
     }
 }
 

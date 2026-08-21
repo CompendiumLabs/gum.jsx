@@ -331,18 +331,19 @@ since the JSX evaluator flattens nested array children.
 over-accents (`\overrightarrow` and friends), all of `accentUnder`, and the `\x...`
 extensible arrows. No font carries stretchable versions of any of these, so gum draws
 them from a shape table keyed by katex's own label, using katex's `katexImagesData`
-heights and minimum widths. Arrows are a stem with barbed heads laid on top (overlapping
-fills union), the stem stopping where the head has widened enough to cover it so it
-cannot fork the tip — `Arrow`'s `stroke_offset` trick in em rather than stroke pixels,
-since `Arrow`/`ArrowHead` themselves are stroked and would not scale. Braces, hooks,
-groups and the `\utilde` tilde come from tracing a centerline offset along its normals
-in both directions. Each shape is emitted as a
-**filled** polygon: math shapes must be filled rather than stroked because `stroke-width`
-is a pixel attribute that does not scale with the coordinate system — the same reason
-`MathRule` fills a rectangle. Note that a `Polygon` maps its points through its *own*
-context, whose coord defaults to the unit square, so it needs an explicit `coord` to draw
-in em. `\widehat`/`\widetilde`/`\widecheck` are stretchy to katex but do have glyphs, so
-the converter only takes the drawn path for labels present in the shape table.
+heights and minimum widths. The arrows are gum's own `Arrow`/`ArrowHead`/`Line`/`Arc`,
+stroked in em: `MathStretch.inner` rebases the context's stroke unit to its box's pixels
+per em (`ctx.clone({ unit })`), so `stroke_width: TEX.rule` is a TeX rule at any font
+size and script-size arrows get proportionally thinner strokes. Heads are `ArrowHead`'s
+open two-barb form; `ArrowHead` takes `barb: 'left' | 'right'` for harpoons. Braces,
+groups and the `\utilde` tilde are still filled outlines (a centerline offset along its
+normals in both directions). Two traps: a `Polygon`/`Line` maps its points through its
+*own* context, so point-based pieces need the em `coord` explicitly — but `ArrowHead` and
+`Arc` draw in their own unit box and are placed by `pos`/`size`, so they must *not* get
+it. `\widehat`/`\widetilde`/`\widecheck` are stretchy to katex but do have glyphs, so the
+converter only takes the drawn path for labels present in the shape table. Drawn math
+shapes (`MathRule`, `MathBrace`, `MathStretch`) take their colour from `THEME_DARK` so
+they follow the text in dark mode.
 
 `\operatorname` sets its body upright as a single Op atom, passing the upright face down
 directly since gum cannot express katex's `withFont("mathrm")` through `TEX_FONT_FAMILY`.

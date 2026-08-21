@@ -758,11 +758,12 @@ interface ArrowHeadArgs extends ElementArgs {
     arc?: number
     base?: boolean
     exact?: boolean
+    barb?: 'both' | 'left' | 'right'  // which barbs to draw, relative to the direction of travel (a harpoon has one)
 }
 
 class ArrowHead extends Path {
     constructor(args: ArrowHeadArgs = {}) {
-        const { angle = 0, arc = 75, base: base0, exact = true, aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', rotate: _rotate, spin: _spin, invar: _invar, rotate_adjust: _rotate_adjust, ...attr } = THEME(args, 'ArrowHead')
+        const { angle = 0, arc = 75, base: base0, exact = true, barb = 'both', aspect = 1, fill, stroke_width = 1, stroke_linecap = 'round', stroke_linejoin = 'round', rotate: _rotate, spin: _spin, invar: _invar, rotate_adjust: _rotate_adjust, ...attr } = THEME(args, 'ArrowHead')
         const base = base0 ?? (fill != null)
 
         // orient the head pointing right
@@ -775,11 +776,15 @@ class ArrowHead extends Path {
         const [ fra0, fra1, fra2 ] = fracs.map(d => add2(mul2(d, -0.5), D.pos))
         const [ pos0, pos1, pos2 ] = [ fra0, fra1, fra2 ].map(f => make_mpoint(f, off))
 
-        // make command path
+        // make command path. With the head pointing right, pos1 (at -arc/2) sits
+        // below the shaft -- to the right of the direction of travel -- and pos2
+        // above it; a harpoon keeps just one of them
+        const barbs = [ ...(barb != 'left' ? [ pos1 ] : []), ...(barb != 'right' ? [ pos2 ] : []) ]
+        const [ posa, posb ] = [ barbs[0], barbs[barbs.length - 1] ]
         const commands = fill == null ?
-            [ new MoveCmd(pos0), new LineCmd(pos1), new MoveCmd(pos0), new LineCmd(pos2) ] :
-            [ new MoveCmd(pos1), new LineCmd(pos0), new LineCmd(pos2) ]
-        if (base) commands.push(new MoveCmd(pos1), new LineCmd(pos2))
+            barbs.flatMap(pos => [ new MoveCmd(pos0), new LineCmd(pos) ]) :
+            [ new MoveCmd(posa), new LineCmd(pos0), new LineCmd(posb) ]
+        if (base) commands.push(new MoveCmd(posa), new LineCmd(posb))
 
         // pass to element
         super({ children: commands, aspect, fill, stroke_width, stroke_linecap, stroke_linejoin, orient: -angle, ...attr })

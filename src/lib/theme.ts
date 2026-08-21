@@ -90,6 +90,14 @@ const THEME_DARK: ThemeLayer = {
         fill: white,
     },
 
+    MathBrace: {
+        fill: white,
+    },
+
+    MathStretch: {
+        fill: white,
+    },
+
     Plot: {
         grid_stroke: '#555',
     },

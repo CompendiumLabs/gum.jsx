@@ -101,19 +101,29 @@ katex's own label, each drawing a **filled** outline into a box of katex's
 `stroke-width` is a pixel attribute that would not scale with the font — the
 same reason `MathRule` fills a rectangle.
 
-Arrows are a stem with barbed heads laid on top (overlapping fills union, so
-the stem can simply run the width); braces, hooks, groups and the `\utilde`
-tilde come from tracing a centerline offset along its normals in both
-directions.
+The arrows are **gum's own `Arrow`, `ArrowHead`, `Line` and `Arc`**, stroked
+in em: `MathStretch.inner` rebases the context's stroke unit to its box's pixels
+per em, so a `stroke_width` of `TEX.rule` is a TeX rule at any font size, and a
+script-size arrow gets a proportionally thinner stroke than a display one in the
+same image. That was the point of introducing the stroke unit (see CLAUDE.md,
+Context System): before it, `Arrow` emitted a fixed pixel `stroke-width` and
+could not be used for math at all, which is why the first version of these
+drew filled polygons. The heads are `ArrowHead`'s open two-barb form — the
+Computer Modern look — and `ArrowHead` grew a `barb: 'left' | 'right'` option
+so the harpoons could keep one barb; `\rightharpoonup` and friends now match
+the font's own ⇀ ⇁ ↼ ↽ exactly, as do ↪/↩ (a half circle centred above the
+stem, its upper arm free). A single-stem arrow is one `Arrow`; the double forms
+(`\Rightarrow`) are two `Line`s that stop where they meet the barbs plus a
+standalone `ArrowHead`; `\mapsto` adds a bar, `\hookrightarrow` an `Arc`, the
+pairs stack two `Arrow`s. Braces, groups and the `\utilde` tilde are still
+filled outlines (a centerline traced both ways along its normals); they could
+move to stroked `Path`s now that strokes scale, which would also fix the brace
+peak exactly.
 
-A head tapers to nothing at its tip, so a stem run flush to the tip pokes out
-the sides just behind it — most visibly on the double arrows, whose rules sit
-furthest off the centerline, where it forked the arrowhead. The stem now stops
-where the head has widened enough to cover it, which is `Arrow`'s
-`stroke_offset` trick from `geometry.ts` expressed in em rather than in stroke
-pixels. The `Arrow`/`ArrowHead` classes themselves cannot be reused here: they
-are stroked, and `stroke-width` is a pixel attribute, so a math arrow built
-from them would go hairline at large font sizes.
+One trap worth recording: `ArrowHead` and `Arc` draw in their own unit box and
+are positioned by `pos`/`size`, so they must **not** be given the em `coord` —
+only the point-based `Line`/`Arrow` take it. Passing it stretched every
+standalone head over the whole decoration.
 
 The three assemblies differ only in their kerns, which follow
 katex: a stretchy accent sits directly on the body, `accentUnder` hangs beneath
