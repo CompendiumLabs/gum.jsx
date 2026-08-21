@@ -1170,13 +1170,25 @@ function stretch_arc(cx: number, cy: number, r: number, a0: number, a1: number):
 // end. `heads` draws a second chevron behind the first for \twoheadrightarrow
 type ArrowSpec = { left?: boolean, right?: boolean, lines?: number, heads?: number, barb?: 'both' | 'up' | 'down' }
 
+// A head tapers to nothing at its tip, so a stem run flush to the tip pokes out
+// the sides just behind it -- most visibly on the double arrows, whose rules sit
+// furthest off the centerline. Stop the stem where the head has widened enough
+// to cover it. This is Arrow's `stroke_offset` trick (geometry.ts), in em rather
+// than in stroke pixels, since a math shape is filled rather than stroked.
+function stretch_inset(reach: number, half: number, len: number): number {
+    return half > 0 ? len * Math.min(reach / half, 1) : 0
+}
+
 function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb = 'both' }: ArrowSpec): StretchShape {
     return (width, height, t) => {
         const mid = 0.5 * height
         const half = 0.5 * height
         const len = 0.75 * height
         const rows = lines == 1 ? [ mid ] : [ mid - 0.5 * STRETCH_LINE_GAP, mid + 0.5 * STRETCH_LINE_GAP ]
-        const polys = rows.map(y => stretch_bar(0, y - 0.5 * t, width, y + 0.5 * t))
+        const inset = stretch_inset(0.5 * (lines == 1 ? 0 : STRETCH_LINE_GAP) + 0.5 * t, half, len)
+        const polys = rows.map(y => stretch_bar(
+            left ? inset : 0, y - 0.5 * t, right ? width - inset : width, y + 0.5 * t,
+        ))
         for (const i of range(heads)) {
             const back = 0.42 * len * i
             if (right) polys.push(stretch_head(width - back, 1, mid, half, len, barb))
@@ -1198,8 +1210,12 @@ function stretch_hook_arrow(side: 'left' | 'right'): StretchShape {
             ? [ r, 2 * r, width ]
             : [ width - r, 0, width - 2 * r ]
         const hook = stretch_arc(cx, mid, r, 0, 180)
+        const inset = stretch_inset(0.5 * t, half, len)
         return [
-            stretch_bar(x0, mid - 0.5 * t, x1, mid + 0.5 * t),
+            stretch_bar(
+                side == 'left' ? x0 : x0 + inset, mid - 0.5 * t,
+                side == 'left' ? x1 - inset : x1, mid + 0.5 * t,
+            ),
             stretch_stroke(hook, t),
             stretch_head(side == 'left' ? width : 0, side == 'left' ? 1 : -1, mid, half, len),
         ]

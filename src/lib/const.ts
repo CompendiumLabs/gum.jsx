@@ -54,6 +54,7 @@ const DEFAULTS = {
     point: 0.05,
     N: 100,
     svg_size: 500,
+    unit_size: 1000,  // image size at which stroke_width = 1 is one pixel
     calc_size: 16,
 }
 

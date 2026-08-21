@@ -102,9 +102,20 @@ katex's own label, each drawing a **filled** outline into a box of katex's
 same reason `MathRule` fills a rectangle.
 
 Arrows are a stem with barbed heads laid on top (overlapping fills union, so
-the stem can simply run the whole width); braces, hooks, groups and the
-`\utilde` tilde come from tracing a centerline offset along its normals in both
-directions. The three assemblies differ only in their kerns, which follow
+the stem can simply run the width); braces, hooks, groups and the `\utilde`
+tilde come from tracing a centerline offset along its normals in both
+directions.
+
+A head tapers to nothing at its tip, so a stem run flush to the tip pokes out
+the sides just behind it — most visibly on the double arrows, whose rules sit
+furthest off the centerline, where it forked the arrowhead. The stem now stops
+where the head has widened enough to cover it, which is `Arrow`'s
+`stroke_offset` trick from `geometry.ts` expressed in em rather than in stroke
+pixels. The `Arrow`/`ArrowHead` classes themselves cannot be reused here: they
+are stroked, and `stroke-width` is a pixel attribute, so a math arrow built
+from them would go hairline at large font sizes.
+
+The three assemblies differ only in their kerns, which follow
 katex: a stretchy accent sits directly on the body, `accentUnder` hangs beneath
 it (with 0.12 em of clearance for `\utilde`), and an `xArrow` straddles the
 math axis with its labels 2 mu clear at script size.

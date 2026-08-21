@@ -831,7 +831,9 @@ function remap_rect(rect: Rect, coord_in: Rect, coord_out: Rect): Rect {
     ]
 }
 
-function rescaler(lim_in: Limit, lim_out: Limit): (x0: number | Pair, offset?: boolean) => number {
+// the offset component of an MNumber is in stroke units (see Context.unit), so
+// a geometric nudge of "half a stroke" keeps pace with the stroke it pads
+function rescaler(lim_in: Limit, lim_out: Limit, unit: number = 1): (x0: number | Pair, offset?: boolean) => number {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
@@ -839,11 +841,11 @@ function rescaler(lim_in: Limit, lim_out: Limit): (x0: number | Pair, offset?: b
         const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
         const f = (x - in_lo) / in_len
         const x1 = out_lo + f * out_len
-        return offset ? x1 + c : x1
+        return offset ? x1 + c * unit : x1
     }
 }
 
-function resizer(lim_in: Limit, lim_out: Limit): (x0: number | Pair, offset?: boolean) => number {
+function resizer(lim_in: Limit, lim_out: Limit, unit: number = 1): (x0: number | Pair, offset?: boolean) => number {
     const [ in_lo, in_hi ] = lim_in
     const [ out_lo, out_hi ] = lim_out
     const [ in_len, out_len ] = [ in_hi - in_lo, out_hi - out_lo ]
@@ -851,7 +853,7 @@ function resizer(lim_in: Limit, lim_out: Limit): (x0: number | Pair, offset?: bo
     return (x0: number | Pair, offset: boolean = true) => {
         const [ x, c ] = is_array(x0) ? x0 : [ x0, 0 ]
         const x1 = x * ratio
-        return offset ? x1 + c : x1
+        return offset ? x1 + c * unit : x1
     }
 }
 

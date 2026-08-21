@@ -148,6 +148,16 @@ The `Context` class handles coordinate system mapping:
 - Handles rotations, aspect ratios, alignments, and expansions
 - Pre-computes scalers for performance
 - Core method: `map(spec)` transforms child specs into new contexts
+- Carries a **stroke unit** (`unit`, pixels per unit of `stroke_width`). The root `Svg` sets it
+  from the rendered size (`max(w, h) / D.unit_size`, so `stroke_width = 1` is one pixel at a
+  1000px render) and `map()` inherits it unchanged, so strokes scale with the image rather than
+  staying a fixed pixel width. `Element.props()` resolves `stroke_width`, `stroke_dasharray` and
+  `stroke_dashoffset` against it at emit time, and the root emits a scaled default `stroke-width`
+  so implicit strokes scale too. The offset half of an `MNumber` is in the same unit, so
+  `Arrow`'s half-a-stroke pullback keeps pace. A container may rebase `unit` to its own box
+  (via `ctx.clone({ unit })`) so its strokes scale with its content rather than the image —
+  math wants pixels per em. `stroke_width` itself stays a plain number; the scale lives in the
+  context, which is what keeps arithmetic like `0.5 * stroke_width` valid.
 
 ### Coordinate Systems
 
@@ -322,8 +332,11 @@ over-accents (`\overrightarrow` and friends), all of `accentUnder`, and the `\x.
 extensible arrows. No font carries stretchable versions of any of these, so gum draws
 them from a shape table keyed by katex's own label, using katex's `katexImagesData`
 heights and minimum widths. Arrows are a stem with barbed heads laid on top (overlapping
-fills union); braces, hooks, groups and the `\utilde` tilde come from tracing a
-centerline offset along its normals in both directions. Each shape is emitted as a
+fills union), the stem stopping where the head has widened enough to cover it so it
+cannot fork the tip — `Arrow`'s `stroke_offset` trick in em rather than stroke pixels,
+since `Arrow`/`ArrowHead` themselves are stroked and would not scale. Braces, hooks,
+groups and the `\utilde` tilde come from tracing a centerline offset along its normals
+in both directions. Each shape is emitted as a
 **filled** polygon: math shapes must be filled rather than stroked because `stroke-width`
 is a pixel attribute that does not scale with the coordinate system — the same reason
 `MathRule` fills a rectangle. Note that a `Polygon` maps its points through its *own*

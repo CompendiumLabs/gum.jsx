@@ -131,6 +131,7 @@ interface ContextArgs {
     coord?: Rect
     transform?: string
     meta?: Metadata
+    unit?: number
 }
 
 interface MapArgs {
@@ -146,6 +147,7 @@ class Context {
     coord: Rect
     prec: number
     meta: Metadata
+    unit: number
     transform: string | undefined
     rescalex: (v: number | MNumber, offset?: boolean) => number
     rescaley: (v: number | MNumber, offset?: boolean) => number
@@ -153,7 +155,7 @@ class Context {
     resizey: (v: number | MNumber, offset?: boolean) => number
 
     constructor(args: ContextArgs = {}) {
-        const { prect = D.rect, coord = D.coord, transform, prec = D.prec, meta } = args
+        const { prect = D.rect, coord = D.coord, transform, prec = D.prec, meta, unit = 1 } = args
         this.args = args
 
         // coordinate transform
@@ -167,14 +169,21 @@ class Context {
         // percolated upwards
         this.meta = meta ?? new Metadata() // meta data
 
+        // stroke unit: pixels per unit of stroke_width (and of the offset part
+        // of an MNumber). Set at the root from the image size and inherited by
+        // every child, so strokes scale with the image rather than staying a
+        // fixed pixel width; a container may rebase it to its own box (math
+        // sets it to pixels per em) so that its strokes scale with its content
+        this.unit = unit
+
         // make rescaler / resizer
         // there are heavily used, so precompute what we can (haven't profiled yet)
         const [ cx1, cy1, cx2, cy2 ] = coord
         const [ px1, py1, px2, py2 ] = prect
-        this.rescalex = rescaler([ cx1, cx2 ], [ px1, px2 ])
-        this.rescaley = rescaler([ cy1, cy2 ], [ py1, py2 ])
-        this.resizex = resizer([ cx1, cx2 ], [ px1, px2 ])
-        this.resizey = resizer([ cy1, cy2 ], [ py1, py2 ])
+        this.rescalex = rescaler([ cx1, cx2 ], [ px1, px2 ], unit)
+        this.rescaley = rescaler([ cy1, cy2 ], [ py1, py2 ], unit)
+        this.resizex = resizer([ cx1, cx2 ], [ px1, px2 ], unit)
+        this.resizey = resizer([ cy1, cy2 ], [ py1, py2 ], unit)
     }
 
     clone(args: ContextArgs): Context {
@@ -232,7 +241,7 @@ class Context {
         // return new context
         const prect1 = cbox_rect([ x, y, w, h ])
         const prect = upright ? upright_rect(prect1)! : prect1
-        return new Context({ prect, coord, transform, prec: this.prec, meta: this.meta })
+        return new Context({ prect, coord, transform, prec: this.prec, meta: this.meta, unit: this.unit })
     }
 }
 
@@ -318,6 +327,11 @@ interface ElementArgs extends SpecArgs {
     [key: string]: any
 }
 
+// stroke lengths are given in stroke units (see Context.unit) and resolved to
+// pixels at emit time; a dash array is a list of them
+const STROKE_KEYS = [ 'stroke_width', 'stroke_dasharray', 'stroke_dashoffset' ]
+const scale_stroke = (v: number | number[], unit: number) => Array.isArray(v) ? v.map(x => x * unit) : v * unit
+
 // NOTE: if children gets here, it was ignored by the constructor (so dump it)
 class Element {
     args: Attrs
@@ -398,9 +412,10 @@ class Element {
     }
 
     props(ctx: Context): Attrs {
-        const { transform } = ctx
-        if (transform == null) return this.attr
-        return  { ...this.attr, transform }
+        const { transform, unit } = ctx
+        const attr: Attrs = transform != null ? { ...this.attr, transform } : { ...this.attr }
+        for (const k of STROKE_KEYS) if (attr[k] != null) attr[k] = scale_stroke(attr[k], unit)
+        return attr
     }
 
     inner(_ctx: Context): string {
@@ -666,7 +681,7 @@ class Svg extends Group {
     prec: number
 
     constructor(args: SvgArgs = {}) {
-        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, stroke_width = 1, prec = D.prec, ...attr } = THEME(args, 'Svg')
         const children = ensure_children(children0)
         const size_base = ensure_pair(size0)
 
@@ -683,7 +698,10 @@ class Svg extends Group {
         const dims_attr = dims ? { width, height } : {}
 
         // pass to Group
-        super({ tag: 'svg', children, aspect, xmlns, font_family, font_weight, ...dims_attr, ...attr })
+        // the root carries the default stroke width as an inherited presentation
+        // attribute (like stroke and fill), so strokes with no explicit width
+        // still scale with the image instead of staying a fixed pixel hairline
+        super({ tag: 'svg', children, aspect, xmlns, font_family, font_weight, stroke_width, ...dims_attr, ...attr })
         this.args = args
 
         // additional props
@@ -720,10 +738,12 @@ class Svg extends Group {
     svg(args?: ContextArgs): string {
         const { size, prec } = this
 
-        // make new context
+        // make new context; the stroke unit scales with the image, so a stroke
+        // of width 1 is one pixel when the image is D.unit_size across
         const [ w, h ] = size
         const prect = [ 0, 0, w, h ] as Rect
-        const ctx = new Context({ prect, prec, ...args })
+        const unit = Math.max(w, h) / D.unit_size
+        const ctx = new Context({ prect, prec, unit, ...args })
 
         // render children
         return super.svg(ctx)
