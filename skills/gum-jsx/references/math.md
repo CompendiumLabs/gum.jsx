@@ -8,6 +8,9 @@ Parses a LaTeX string with KaTeX and converts it into gum math elements such as 
 
 Parameters:
 - `children` — the LaTeX source string
+- `inline` = `false` — shorthand for selecting `style="text"` when no explicit style is provided
+- `style` — explicit TeX math style; defaults to `display`, or `text` when `inline` is true
+- `strut` = `true` — reserve a minimum top-level math line box
 - any **MathText** layout parameters are also accepted
 
 **Example**
@@ -17,12 +20,12 @@ Prompt: There are two latex equations framed by rounded borders arranged vertica
 Generated code:
 ```jsx
 <VStack spacing>
-  <TextFrame rounded border={2}>
+  <Frame padding rounded border={2}>
     <Latex>{"\\int_0^{\\infty} \\exp(-x^2) dx = \\sqrt{\\pi}"}</Latex>
-  </TextFrame>
-  <TextFrame rounded border={2}>
+  </Frame>
+  <Frame padding rounded border={2}>
     <Latex>{"\\sin^2(\\theta) + \\cos^2(\\theta) = 1"}</Latex>
-  </TextFrame>
+  </Frame>
 </VStack>
 ```
 
@@ -30,14 +33,15 @@ Generated code:
 
 *Inherits*: **HStack** > **Group** > **Element**
 
-Arranges math items in a horizontal row with automatic inter-atom spacing. Strings, numbers, and booleans are automatically converted to math symbols, nested **MathText** is flattened, and ordinary gum **Element** values can be mixed inline as well.
+Arranges math items in a horizontal row with automatic inter-atom spacing. Strings and numbers are parsed as LaTeX (as in **Latex**), nested **MathText** is flattened, and ordinary gum **Element** values can be mixed inline as well.
 
 For math-to-math neighbors, spacing is derived from atom classes like `mord`, `mbin`, and `mrel`. For mixed or non-math neighbors, the fallback `spacing` value is used.
 
 Parameters:
 - `children` — math items, nested arrays of math items, or ordinary `Element`s
 - `spacing` = `0.25` — default spacing used between non-math neighbors and mixed math/non-math neighbors
-- `vshift` = `0.1` — vertical shift applied to the rendered row
+- `style` = `text` — TeX style used when parsing string and scalar children
+- `strut` = `false` — reserve a minimum top-level math line box
 - all usual stack layout parameters are also accepted
 
 **Example**
@@ -46,7 +50,7 @@ Prompt: a MathText row expressing "alpha = blue x red" where blue and red are re
 
 Generated code:
 ```jsx
-<TextFrame rounded>
+<Frame padding rounded>
   <MathText>
     <MathSymbol>\alpha</MathSymbol>
     <MathSymbol>=</MathSymbol>
@@ -54,21 +58,20 @@ Generated code:
     <MathSymbol>\times</MathSymbol>
     <Square rounded fill={red} />
   </MathText>
-</TextFrame>
+</Frame>
 ```
 
 ## SupSub
 
-*Inherits*: **HStack** > **Group** > **Element**
+*Inherits*: **MathText** > **Group** > **Element**
 
-Places a superscript and subscript stack to the right of a base expression. The base comes from `children`, and `sup` / `sub` can be either elements or scalar values, which are automatically wrapped as math symbols.
+Attaches a superscript and/or subscript to a base expression. The base comes from `children`, and `sup` / `sub` can be either elements or strings, which are parsed as LaTeX (so `sub="i=0"` or `sup="n+1"` work directly). Scripts are rendered one style level down and shifted following the TeX rules. When the base is a `MathOp` that takes limits in display style (such as `\sum`, `\prod`, or `\lim`), the scripts are stacked above and below the operator instead of placed to its right; this can be forced either way with `limits`.
 
 Parameters:
 - `children` — a single base element
 - `sup` / `sub` — the superscript and subscript content
-- `hspacing` = `0.025` — horizontal gap between the base and the script stack
-- `vspacing` = `-0.025` — spacing between the superscript and subscript rows
-- `vshift` = `0.025` — vertical offset applied to the script stack
+- `style` = `text` — the math style of the base (`display`, `text`, `script`, or `scriptscript`)
+- `limits` — stack scripts above and below the base (defaults to the base operator's `limits` flag)
 
 **Example**
 
@@ -76,13 +79,13 @@ Prompt: x squared with an i subscript
 
 Generated code:
 ```jsx
-<TextFrame rounded border={10} fill={gray} margin>
+<Frame padding rounded border={10} fill={gray} margin>
   <MathText>
     <SupSub sup="2" sub="i">
       <MathSymbol>x</MathSymbol>
     </SupSub>
   </MathText>
-</TextFrame>
+</Frame>
 ```
 
 ## Frac
