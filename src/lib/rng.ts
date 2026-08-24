@@ -65,13 +65,23 @@ class RNG {
 }
 
 //
-// single instance
+// instances
 //
 
+// `rng` backs the random/uniform/normal/integer that user code calls. `uids`
+// backs gum's own internal draws (element ids for clip/mask). They are separate
+// so that adding a clipped element to a figure does not shift the "random" data
+// the figure draws elsewhere; setSeed resets both so evaluations stay repeatable.
 const rng = new RNG()
+const uids = new RNG()
 
 function setSeed(seed: number): void {
     rng.setSeed(seed)
+    uids.setSeed(seed)
+}
+
+function uidRandom(): number {
+    return uids.random()
 }
 
 function random(): number {
@@ -94,4 +104,4 @@ function integer(lo: number, hi?: number): number {
 // exports
 //
 
-export { setSeed, random, uniform, normal, integer }
+export { setSeed, random, uniform, normal, integer, uidRandom }

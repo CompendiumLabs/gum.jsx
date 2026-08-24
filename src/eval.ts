@@ -4,6 +4,7 @@ import type { ParseConfig } from 'papaparse'
 
 import { setTheme, type ThemeName } from './lib/theme'
 import { setStrict } from './lib/strict'
+import { setSeed } from './lib/rng'
 import { is_string, ensure_pair } from './lib/utils'
 import { parseTable } from './lib/table'
 import { is_element, Svg } from './elems/core'
@@ -62,8 +63,15 @@ interface EvaluateArgs extends SvgArgs {
   context?: GumContext
   debug?: boolean
   strict?: boolean
+  seed?: number
   loadFile?: LoadFile
 }
+
+// the random generator is process-wide, so without this a figure that calls
+// random/uniform/normal would draw differently on every evaluation in a
+// long-lived process (a pipe server, the dev loop). Reseeding here makes the
+// output a pure function of (code, args); 42 matches the generator's own default
+const DEFAULT_SEED = 42
 
 function uint8ArrayToDataUrl(data: Uint8Array): string {
   let binary = ''
@@ -105,7 +113,7 @@ function makeContext(loadFile: LoadFile): GumContext {
   }
 }
 
-function evaluateGum(code: string, { theme, context = {}, debug = false, strict = false, loadFile, ...args }: EvaluateArgs = {}): Svg {
+function evaluateGum(code: string, { theme, context = {}, debug = false, strict = false, seed = DEFAULT_SEED, loadFile, ...args }: EvaluateArgs = {}): Svg {
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
@@ -118,6 +126,9 @@ function evaluateGum(code: string, { theme, context = {}, debug = false, strict 
 
   // turn silent rendering fallbacks into thrown errors
   setStrict(strict)
+
+  // reset the random generator so repeated evaluations agree
+  setSeed(seed)
 
   // create evaluation context
   const evalContext = loadFile == null ? context : {

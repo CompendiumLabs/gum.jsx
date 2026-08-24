@@ -71,6 +71,7 @@ interface CliArgs {
   rasterSize?: Size
   dev: boolean
   strict: boolean
+  seed?: number
   loadFile: LoadFile
 }
 

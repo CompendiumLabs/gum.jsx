@@ -16,7 +16,7 @@ import { devCommand } from './dev'
 
 function transformArgs(cmd: Command) {
   const [ file0 ] = cmd.args
-  let { format, output, theme, background, size, rasterSize, dev, strict } = cmd.opts()
+  let { format, output, theme, background, size, rasterSize, dev, strict, seed } = cmd.opts()
 
   // add white background for light theme
   if (theme == 'light' && background == null) background = 'white'
@@ -41,7 +41,7 @@ function transformArgs(cmd: Command) {
       : readFileSync(file, encoding as BufferEncoding)
   }
 
-  return { file, format, output, theme, background, size, rasterSize, dev, strict, loadFile }
+  return { file, format, output, theme, background, size, rasterSize, dev, strict, seed, loadFile }
 }
 
 //
@@ -64,7 +64,7 @@ function convertToTree(elem: Element): any {
 //
 
 async function runCommand(args: CliArgs) {
-  const { file, format, output, theme, background, size: size0 = 1000, rasterSize, dev, strict, loadFile } = args
+  const { file, format, output, theme, background, size: size0 = 1000, rasterSize, dev, strict, seed, loadFile } = args
 
   // divert to dev command if update is on
   if (dev) {
@@ -76,7 +76,7 @@ async function runCommand(args: CliArgs) {
   const code = file ? readFileSync(file, 'utf-8') : await readStdin()
 
   // evaluate gum with size
-  const elem = evaluateGum(code, { size: size0, theme, strict, loadFile })
+  const elem = evaluateGum(code, { size: size0, theme, strict, seed, loadFile })
 
   // rasterize output
   let out: string | Buffer
@@ -114,6 +114,7 @@ program.name('gum')
   .argument('[file]', 'gum.jsx file to render (reads from stdin if not provided)')
   .option('-d, --dev', 'live update display', false)
   .option('--strict', 'throw on rendering fallbacks instead of drawing them', false)
+  .option('--seed <seed>', 'seed for random/uniform/normal/integer', (value: string) => parseInt(value))
   .option('-f, --format <format>', 'format to output')
   .option('-t, --theme <theme>', 'theme to use', 'light')
   .option('-b, --background <background>', 'background color')

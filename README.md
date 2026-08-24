@@ -98,6 +98,8 @@ CLI options:
 | `-o, --output <output>` | Output file | stdout |
 | `-r, --raster-size <size>` | Max rasterized PNG size | auto |
 | `-d, --dev` | Live update display | off |
+| `--strict` | Throw on rendering fallbacks instead of drawing them | off |
+| `--seed <seed>` | Seed for `random`/`uniform`/`normal`/`integer` | 42 |
 
 ## Math Rendering
 

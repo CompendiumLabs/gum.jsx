@@ -33,6 +33,7 @@ gum test.jsx -o test.png
 # -b, --background <color> background color (default: white)
 # -o, --output <output>    output file (default: null)
 # --strict                 throw on rendering fallbacks instead of drawing them
+# --seed <seed>            seed for random/uniform/normal/integer (default: 42)
 ```
 
 ### Math CLI
