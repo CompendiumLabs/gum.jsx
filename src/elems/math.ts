@@ -1231,7 +1231,7 @@ function brace_outline(width: number, height: number, thick: number, thin: numbe
 // normals both ways, see offset_polyline)
 const STRETCH_THICKNESS = TEX.rule
 const STRETCH_SAMPLES = 12
-const STRETCH_LINE_GAP = 0.11   // between the rules of a double arrow or =
+const STRETCH_LINE_GAP = 0.194  // between the centres of the rules of a double arrow, as in Computer Modern's ⇒ and = (rules at 0.133-0.173 and 0.327-0.367 em)
 const STRETCH_ARC = 92          // ArrowHead's barb spread: cot(arc/2) is the head's depth per half-height, 0.97 in Computer Modern
 const STRETCH_CURVE = 0.7       // ArrowHead's barb bow, matching Computer Modern's heads
 const STRETCH_UNDER_KERN = 0.1  // clearance between a body and a decoration hung beneath it
@@ -1240,6 +1240,20 @@ const STRETCH_UNDER_KERN = 0.1  // clearance between a body and a decoration hun
 // the round caps stay inside the box (the box is the decoration's metrics)
 function stretch_head_size(height: number, t: number): number {
     return 2 * Math.max(0.5 * height - 0.5 * t, 0) / Math.sin(0.5 * d2r * STRETCH_ARC)
+}
+
+// how far back from the tip a head's barb has opened `dy` from the shaft. The
+// barb is a circular arc that leaves the tip turned toward the shaft by
+// curve * arc/2 (see ArrowHead), so it opens much more slowly than a straight
+// barb at arc/2 would. Beyond the barb's end it is the barb's full reach
+function stretch_barb_reach(size: number, dy: number): number {
+    const half = 0.5 * d2r * STRETCH_ARC
+    const chord = 0.5 * size
+    const theta0 = (1 - STRETCH_CURVE) * half
+    const radius = chord / (2 * Math.sin(STRETCH_CURVE * half))
+    const cos1 = Math.cos(theta0) - dy / radius
+    if (cos1 < Math.cos(theta0 + 2 * STRETCH_CURVE * half)) return chord * Math.cos(half)
+    return radius * (Math.sin(Math.acos(cos1)) - Math.sin(theta0))
 }
 
 // the box a shape draws into; `y` is the top of its band, so two arrows can
@@ -1280,9 +1294,12 @@ function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb
             out.push(new Arrow({ points: [ [ xs, mid ], [ xe, mid ] ], arrow_start: left, arrow_end: right, coord, ...head_attr, ...attr }))
         } else {
             // two stems straddle the centerline and stop where they meet the
-            // barbs, as in \Rightarrow; the head is placed on its own
+            // barbs, as in \Rightarrow; the head is placed on its own. The tip
+            // sits half a stroke in from the end (arrow_exact), and a stem ends
+            // where its centerline crosses the barb's, so its round cap lies
+            // inside the barb's stroke and the join seals without a notch
             const gap = 0.5 * STRETCH_LINE_GAP
-            const inset = gap / Math.tan(0.5 * d2r * STRETCH_ARC)
+            const inset = 0.5 * t + stretch_barb_reach(size, gap)
             const [ x0, x1 ] = [ left ? xs + inset : xs + 0.5 * t, right ? xe - inset : xe - 0.5 * t ]
             for (const dy of [ -gap, gap ]) out.push(new Line({ points: [ [ x0, mid + dy ], [ x1, mid + dy ] ], coord, ...attr }))
             if (right) out.push(new ArrowHead({ angle: 0, pos: [ xe, mid ], size, arc: STRETCH_ARC, curve: STRETCH_CURVE, barb: end_barb, ...attr }))
@@ -1301,17 +1318,23 @@ function stretch_arrow({ left = false, right = false, lines = 1, heads = 1, barb
 
 // \hookrightarrow: the tail is a half circle sitting above the stem and opening
 // toward the head -- like a ⊂ whose lower arm runs on as the stem and whose
-// upper arm is the free end -- so it is centred half its height above the line
+// upper arm is the free end. Its bottom sits on the stem's centerline and its
+// top and outer side stay half a stroke inside the box, so the stroke's caps
+// and outer edge do not spill out
 function stretch_hook_arrow(side: 'left' | 'right'): StretchShape {
     return box => {
         const { width, height, thickness: t, y, coord } = box
         const mid = y + 0.5 * height
-        const r = 0.25 * height
+        const r = 0.25 * (height - t)
         const attr = stretch_stroke_attr(box)
-        const [ cx, start, end ] = side == 'left' ? [ r, 90, 270 ] : [ width - r, -90, 90 ]
-        const hook = new Arc({ pos: [ cx, mid - r ], rad: r - 0.5 * t, start, end, ...attr })
+        const [ cx, start, end ] = side == 'left' ? [ r + 0.5 * t, 90, 270 ] : [ width - r - 0.5 * t, -90, 90 ]
+        const hook = new Arc({ pos: [ cx, mid - r ], rad: r, start, end, ...attr })
+        // Arrow pulls its tail in by half a stroke to keep the cap inside, so
+        // the stem is given a tail that far behind the arc's end: its cap then
+        // lands exactly on the arc's, and the two join without a seam
+        const tail = side == 'left' ? cx - 0.5 * t : cx + 0.5 * t
         const arrow = new Arrow({
-            points: side == 'left' ? [ [ r, mid ], [ width, mid ] ] : [ [ width - r, mid ], [ 0, mid ] ],
+            points: side == 'left' ? [ [ tail, mid ], [ width, mid ] ] : [ [ tail, mid ], [ 0, mid ] ],
             arrow_size: stretch_head_size(height, t), arrow_arc: STRETCH_ARC, arrow_curve: STRETCH_CURVE, arrow_exact: true, coord, ...attr,
         })
         return [ hook, arrow ]
