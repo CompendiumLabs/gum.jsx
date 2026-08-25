@@ -43,13 +43,14 @@ For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of
 
 These are components that can be used to create text elements. `Text` is a fairly sophisticated component that handles text wrapping, line spacing, and other text-related features. You can specify the wrap width (in "ems", that is, in proportion to the line height) with the `wrap` parameter and the alignment with the `justify` parameter. Feel free to intersperse non-text elements with text elements to create more complex layouts.
 
-`TextStack` is a simple component that stacks text elements vertically. Specifying a `wrap` width will cause every child element to be wrapped to the specified width. You can specify the vertical spacing between the elements with the `spacing` parameter. The `TitleFrame` is a `Frame` subclass that automatically adds a boxed title to the top of the frame. Finally, `Slide` is basically a `TextStack` wrapped in a `TitleFrame`.
+`TextStack` is a simple component that stacks text elements vertically. Specifying a `wrap` width will cause every child element to be wrapped to the specified width. You can specify the vertical spacing between the elements with the `spacing` parameter. `Bullets` is a bulleted list whose items are wrapped to the same em width, so it sizes consistently with surrounding text. The `TitleFrame` is a `Frame` subclass that automatically adds a boxed title to the top of the frame. Finally, `Slide` is a fixed 16:9 canvas holding a `TitleFrame` filled with a `TextStack` of its children; text size is set by `wrap`, and content that is too tall is shrunk to fit.
 
 `Latex` does what it sounds like: it renders a single LaTeX equation. This uses MathJax under the hood, so it supports most but not all inline LaTeX features.
 
 **Components**:
 - *Text*: a text element with wrapping
 - *TextStack*: a stack of text elements
+- *Bullets*: a bulleted list of text items, with optional nested lists
 - *TitleFrame*: a frame with a title
 - *Slide*: a slide with a title and content
 

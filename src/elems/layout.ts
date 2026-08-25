@@ -188,7 +188,9 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
     // add up lengths required to make expandables height 1 (w = a)
     // set length to satisfy: L_expand * (1 - S_sum) * F_total = sum(w) = sum(a)
     const L_expand = (expo.length > 0) ? sum(expo.map(c => c.aspect)) / ((1 - S_sum) * F_total) : undefined
-    const L_target = aspect0 ?? ((over.length > 0) ? L_over : L_expand) as number
+    // a requested aspect is in output terms, so map it into the internal
+    // (horizontal) frame like the computed lengths (inverted when vertical)
+    const L_target = (aspect0 != null ? getAspect0(aspect0) : ((over.length > 0) ? L_over : L_expand)) as number
 
     // allocate space to expand then flex children
     // S_exp0 gets full length of expandables given realized L_target

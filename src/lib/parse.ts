@@ -418,4 +418,66 @@ function runJSX(text: string, context: Record<string, any> = {}, debug: boolean 
   return output
 }
 
-export { runJSX }
+//
+// prelude
+//
+
+// collect the names bound by a declaration pattern
+function patternNames(node: ASTNode, names: string[]): void {
+  if (node.type == 'Identifier') {
+    names.push(node.name)
+  } else if (node.type == 'ObjectPattern') {
+    for (const prop of node.properties) {
+      patternNames(prop.type == 'RestElement' ? prop.argument : prop.value, names)
+    }
+  } else if (node.type == 'ArrayPattern') {
+    for (const elem of node.elements) {
+      if (elem != null) patternNames(elem, names)
+    }
+  } else if (node.type == 'RestElement') {
+    patternNames(node.argument, names)
+  } else if (node.type == 'AssignmentPattern') {
+    patternNames(node.left, names)
+  }
+}
+
+// names declared at the top level of a program
+function declaredNames(tree: ASTNode): string[] {
+  const names: string[] = []
+  for (const node of tree.body) {
+    if (node.type == 'VariableDeclaration') {
+      for (const decl of node.declarations) patternNames(decl.id, names)
+    } else if (node.type == 'FunctionDeclaration' || node.type == 'ClassDeclaration') {
+      if (node.id != null) names.push(node.id.name)
+    }
+  }
+  return names
+}
+
+// run a prelude of declarations and return its top-level bindings as an
+// object, so they can be injected as context for later code
+function runPrelude(text: string, context: Record<string, any> = {}, debug: boolean = false): Record<string, any> {
+  // strip comment lines and bail on empty input
+  const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
+  if (code0.length == 0) return {}
+
+  // parse and collect bindings
+  const tree = parseJSX(code0)
+  const names = declaredNames(tree)
+  const body = walkTree(tree)
+
+  if (debug) {
+    console.log('-----------PRELUDE--------------')
+    console.log(body)
+    console.log('--------------------------------')
+    console.log()
+  }
+
+  // wrap in a function so declarations can shadow context names
+  const context0 = { ...CONTEXT, ...context }
+  const jsCode = `return (function run() { "use strict";\n${body}\nreturn { ${names.join(', ')} }; })()`
+  const func = new Function('__COMPONENT__', ...Object.keys(context0), jsCode)
+  return func(component, ...Object.values(context0))
+}
+
+export { runJSX, runPrelude }

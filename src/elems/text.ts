@@ -1,15 +1,15 @@
 // text elements
 
-import type { Attrs, AlignValue, Rect, Limit } from '../lib/types'
+import type { Attrs, AlignValue, Rect, Limit, Padding } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext, maxis } from '../lib/const'
-import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join } from '../lib/utils'
+import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 import { fontFace } from '../fonts/fonts'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
-import { Context, Element, Group, spec_split, ensure_children, escape_text } from './core'
+import { Context, Element, Group, spec_split, ensure_children, escape_text, is_element } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HStack, VStack } from './layout'
 import type { BoxArgs, StackArgs } from './layout'
@@ -162,7 +162,6 @@ function split_span(child: Span, text: string, font_args: Attrs = {}): Element[]
 
 function compress_spans(children: any[], font_args: Attrs = {}): Element[] {
     return children.flatMap((child: any, i: number) => {
-        const first_child = i == 0
         const last_child = i == children.length - 1
 
         // convert scalars to strings
@@ -172,30 +171,27 @@ function compress_spans(children: any[], font_args: Attrs = {}): Element[] {
         // process Text into Span's
         // process Spans into Span's (with args)
         // process Elements into ElemSpan's
+        // every child but the last ends in a space, so a child never needs
+        // to start with one (a leading space would double up)
         if (is_string(child)) {
-            let text = compress_whitespace(child)
-            if (first_child) text = text.trimStart()
+            let text = compress_whitespace(child).trimStart()
             if (!last_child) text = ensure_tail(text)
             if (last_child) text = text.trimEnd()
             return splitWords(text).map((w: string) =>
                 new Span({ children: [ w ], ...font_args })
             )
         } else if (child instanceof Text) {
-            return child.spans.map((s: Element, i: number) => {
-                if (!(s instanceof Span)) return s
+            const spans = child.spans.flatMap((s: Element, i: number) => {
+                if (!(s instanceof Span)) return [ s ]
                 let { text } = s
-                if (i == 0 && first_child) text = text.trimStart()
-                if (i == child.spans.length - 1 && !last_child) text = ensure_tail(text)
-                if (i == child.spans.length - 1 && last_child) text = text.trimEnd()
+                if (i == 0) text = text.trimStart()
+                if (i == child.spans.length - 1) text = text.trimEnd()
                 return split_span(s, text, font_args)
             })
-            .flat()
+            return last_child ? spans : [ ...spans, new Span({ children: [ ' ' ], ...font_args }) ]
         } else if (child instanceof Span) {
-            let { text } = child
-            if (first_child) text = text.trimStart()
-            if (!last_child) text = ensure_tail(text)
-            if (last_child) text = text.trimEnd()
-            return split_span(child, text, font_args)
+            const spans = split_span(child, child.text.trim(), font_args)
+            return last_child ? spans : [ ...spans, new Span({ children: [ ' ' ], ...font_args }) ]
         } else if (child instanceof ElemSpan) {
             return child.clone({ spacing: !last_child })
         } else {
@@ -291,10 +287,12 @@ class TextStack extends VStack {
         const font_attr = prefix_join('font', font_attr0)
         const children = ensure_children(children0)
 
-        // apply wrap to children
-        const elems = children.map((c: Element) =>
-            c.clone({ ...font_attr, ...text_attr, wrap, justify })
-        )
+        // apply wrap and justify to children, unless they set their own (a
+        // narrower wrap makes larger text, which is how headings are made)
+        const elems = children.map((c: Element) => {
+            const { wrap: wrap0, justify: justify0 } = c.args ?? {}
+            return c.clone({ ...font_attr, ...text_attr, wrap: wrap0 ?? wrap, justify: justify0 ?? justify })
+        })
 
         // pass to VStack
         super({ children: elems, ...attr })
@@ -330,6 +328,86 @@ class TextFrame extends TextBox {
     }
 }
 
+//
+// bullet list
+//
+
+interface BulletsArgs extends StackArgs {
+    wrap?: number
+    marker?: string | Element
+    indent?: number
+    gap?: number
+    font_family?: string
+    font_weight?: number
+    font_style?: string
+}
+
+// vertical extent of an item's first line in its own coordinates, where the
+// marker should sit; non-text items get one em measured off their width
+function first_line(item: Element, wrap: number): Limit {
+    if (item instanceof Text && item.children.length > 0) {
+        const rect = item.children[0].spec.rect
+        if (rect != null) return [ rect[1], rect[3] ]
+    }
+    const aspect = item.spec.aspect
+    const em = aspect != null ? Math.min(1, aspect / wrap) : 1
+    return [ 0, em ]
+}
+
+// a bulleted list: each item is a Text wrapped to the body width with a marker
+// in the indent, level with its first line. nested Bullets are indented without
+// a marker. widths are in em so the text size matches surrounding text with the
+// same wrap; the gap between items is also in em
+class Bullets extends VStack {
+    constructor(args: BulletsArgs = {}) {
+        const { children: children0, wrap = 25, marker: marker0 = '•', indent = 1.5, gap = 0.5, spacing: spacing0, justify = 'left', ...attr0 } = THEME(args, 'Bullets')
+        const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
+        const children: any[] = ensure_children(children0)
+
+        // the body is narrower than the list by the indent
+        const wrap_body = wrap - indent
+        if (wrap_body <= 0) throw new Error(`Bullets indent (${indent}) must be less than wrap (${wrap})`)
+        const pad = indent / wrap_body
+        const padding: Padding = [ pad, 0, 0, 0 ]
+        const marker: Element = is_element(marker0) ? marker0 : new Text({ children: [ marker0 ] as any, ...font_attr })
+
+        // build item rows
+        const rows = children.map((child: any) => {
+            // sublists are indented but get no marker
+            if (child instanceof Bullets) {
+                const sub = child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr })
+                return new Box({ children: [ sub ], padding, adjust: false })
+            }
+
+            // wrap text items to the body width, take other elements as they are
+            const body: Element = (is_string(child) || is_scalar(child)) ?
+                new Text({ children: [ child ] as any, wrap: wrap_body, justify, ...font_attr, ...text_attr }) :
+                child instanceof Text ? child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr }) : child
+
+            // place the marker in the indent, level with the first line
+            const [ y1, y2 ] = first_line(body, wrap_body)
+            const mark = marker.clone({ rect: [ -pad, y1, 0, y2 ] })
+            const row = new Group({ children: [ body, mark ] as Element[], aspect: body.spec.aspect })
+            return new Box({ children: [ row ], padding, adjust: false })
+        })
+
+        // convert the gap in em into a stack spacing fraction
+        const heights = rows.map(r => r.spec.aspect != null ? wrap / r.spec.aspect : 0)
+        const content = sum(heights)
+        const gaps = gap * Math.max(rows.length - 1, 0)
+        const spacing = spacing0 ?? (content + gaps > 0 ? gaps / (content + gaps) : 0)
+
+        // pass to VStack
+        super({ children: rows, spacing, justify, ...attr })
+        this.args = args
+    }
+}
+
+//
+// text styles
+//
+
 class Bold extends Text {
     constructor(args: TextArgs = {}) {
         const attr = THEME(args, 'Bold')
@@ -348,5 +426,5 @@ class Italic extends Text {
 // exports
 //
 
-export { Span, ElemSpan, TextLine, Text, TextStack, TextBox, TextFrame, Bold, Italic }
-export type { SpanArgs, ElemSpanArgs, TextLineArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs }
+export { Span, ElemSpan, TextLine, Text, TextStack, TextBox, TextFrame, Bullets, Bold, Italic }
+export type { SpanArgs, ElemSpanArgs, TextLineArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, BulletsArgs }

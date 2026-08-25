@@ -2,14 +2,14 @@
 
 import { THEME } from '../lib/theme'
 import { black, white } from '../lib/const'
-import { prefix_split } from '../lib/utils'
+import { prefix_split, pad_rect } from '../lib/utils'
 
-import { spec_split, is_element, ensure_children, Rectangle, Group } from './core'
+import { spec_split, align_frac, is_element, ensure_children, Rectangle, Group } from './core'
 import { Box, Attach } from './layout'
 import { RoundedRect } from './geometry'
 import { Span, TextFrame, TextStack } from './text'
 
-import type { AlignValue, Padding, Rounded, Point } from '../lib/types'
+import type { AlignValue, Padding, Rounded, Point, Rect } from '../lib/types'
 import type { Element } from './core'
 import type { BoxArgs } from './layout'
 
@@ -67,12 +67,14 @@ class TitleBox extends Box {
             title_box = new TextFrame({ children: [ title_span ], pos: title_pos, ysize: title_size, rounded: title_rounded, ...title_attr })
             title_mask = new Group({ children: [
                 new Rectangle({ x: '0%', y: '0%', width: '100%', height: '100%', fill: white }),
-                new RoundedRect({ pos: [ 0.5, 0 ], ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black })
+                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black })
             ], fill_rule: 'evenodd' })
         }
 
-        // make outer box
-        const box = new Box({ children, mask: title_mask, ...attr })
+        // make inner box; when the outer box is given a shape (aspect or flex)
+        // the inner box fills it rather than hugging the content
+        const sized = spec.flex === true || spec.aspect != null
+        const box = new Box({ children, mask: title_mask, flex: sized, ...attr })
 
         // pass to Box for margin
         super({ children: [ box, title_box ], margin, ...spec })
@@ -93,26 +95,73 @@ class TitleFrame extends TitleBox {
 }
 
 interface SlideArgs extends TitleFrameArgs {
+    aspect?: number | 'auto'
     padding?: Padding
     margin?: Padding
     rounded?: Rounded
     border_stroke?: string
+    background?: string
     wrap?: number
     spacing?: number
     justify?: AlignValue
+    valign?: AlignValue
 }
 
-class Slide extends TitleFrame {
+const SLIDE_ASPECT = 16 / 9
+
+// convert a padding given in units of the outer height into the inner-relative
+// fractions that Box uses with adjust = false, and return the inner aspect
+function canvas_padding(pad: Padding | undefined, aspect: number): { padding: Rect, aspect: number } {
+    const [ l, t, r, b ] = pad_rect(pad)
+    const w = aspect - l - r
+    const h = 1 - t - b
+    if (w <= 0 || h <= 0) throw new Error(`Slide padding/margin too large for aspect ${aspect}`)
+    return { padding: [ l / w, t / h, r / w, b / h ], aspect: w / h }
+}
+
+// a slide is a fixed-aspect canvas (16:9 by default) holding a TitleFrame that
+// fills it inside the margin; margin and padding are fractions of the slide
+// height, so they are the same distance in every direction. content is a
+// TextStack embedded in the frame's padded area: it fills the width when it
+// fits and is shrunk to fit the height when it does not (see `overflow`)
+class Slide extends Box {
+    // ratio of content height to the available height (> 1 means it was shrunk)
+    overflow: number
+
     constructor(args: SlideArgs = {}) {
-        const { children, aspect, padding = 0.1, margin = 0.1, border = 1, rounded = 0.01, border_stroke = '#bbb', title_size = 0.1, wrap = 25, spacing = 0.05, justify = 'left', ...attr0 } = THEME(args, 'Slide')
-        const [ text_attr, attr ] = prefix_split([ 'text' ], attr0)
+        const {
+            children, aspect: aspect0 = SLIDE_ASPECT, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
+            border_stroke = '#bbb', background, title_size = 0.1, wrap = 25, spacing = 0.05,
+            justify = 'left', valign = 'center', ...attr0
+        } = THEME(args, 'Slide')
+        const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
+        const [ spec, attr ] = spec_split(attr1)
+        const aspect = aspect0 == 'auto' ? SLIDE_ASPECT : aspect0
 
-        // stack up children
-        const stack = new TextStack({ children, spacing, justify, wrap, ...text_attr })
+        // margin is in canvas units; frame padding is also in canvas units, so
+        // convert it into the frame's own height units before applying it
+        const { padding: margin1, aspect: aspect_frame } = canvas_padding(margin, aspect)
+        const [ _ml, mt, _mr, mb ] = pad_rect(margin)
+        const pad_frame = pad_rect(padding).map(p => p / (1 - mt - mb)) as Rect
+        const { padding: padding1, aspect: aspect_content } = canvas_padding(pad_frame, aspect_frame)
 
-        // pass to TitleFrame
-        super({ children: [ stack ], aspect, padding, margin, border, rounded, border_stroke, title_size, ...attr })
+        // stack up content, aligned within the content area
+        const align: [ number, number ] = [ 0.5, align_frac(valign) ]
+        const stack = new TextStack({ children, spacing, justify, wrap, align, ...text_attr })
+
+        // the frame flexes to fill the canvas inside the margin
+        const frame = new TitleFrame({
+            children: [ stack ], flex: true, padding: padding1, adjust: false,
+            border, rounded, border_stroke, title_size, ...attr
+        })
+
+        // the canvas is the slide itself: fixed aspect with the margin inside it
+        super({ children: [ frame ], aspect, padding: margin1, adjust: false, fill: background, ...spec })
         this.args = args
+
+        // content taller than the area gets scaled down to fit the height
+        const aspect_stack = stack.spec.aspect
+        this.overflow = aspect_stack != null ? aspect_content / aspect_stack : 1
     }
 }
 
@@ -120,5 +169,5 @@ class Slide extends TitleFrame {
 // exports
 //
 
-export { LabelBox, TitleBox, TitleFrame, Slide }
+export { LabelBox, TitleBox, TitleFrame, Slide, SLIDE_ASPECT }
 export type { LabelBoxArgs, TitleBoxArgs, TitleFrameArgs, SlideArgs }

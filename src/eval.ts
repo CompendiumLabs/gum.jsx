@@ -9,7 +9,7 @@ import { is_string, ensure_pair } from './lib/utils'
 import { parseTable } from './lib/table'
 import { is_element, Svg } from './elems/core'
 import type { SvgArgs } from './elems/core'
-import { runJSX } from './lib/parse'
+import { runJSX, runPrelude } from './lib/parse'
 import { PngImage, type PngImageArgs } from './elems/image'
 import type { LoadFile, Size } from './lib/types'
 
@@ -61,6 +61,16 @@ type GumContext = Record<string, any>
 interface EvaluateArgs extends SvgArgs {
   theme?: ThemeName
   context?: GumContext
+  prelude?: string | GumContext
+  debug?: boolean
+  strict?: boolean
+  seed?: number
+  loadFile?: LoadFile
+}
+
+interface PreludeArgs {
+  theme?: ThemeName
+  context?: GumContext
   debug?: boolean
   strict?: boolean
   seed?: number
@@ -109,24 +119,43 @@ function makeContext(loadFile: LoadFile): GumContext {
 
 const DEFAULT_SEED = 42
 
-function evaluateGum(code: string, { theme, context = {}, debug = false, strict = false, seed, loadFile, ...args }: EvaluateArgs = {}): Svg {
+function setGlobals({ theme, strict = false, seed }: { theme?: ThemeName, strict?: boolean, seed?: number }): void {
+  setStrict(strict)
+  setSeed(seed ?? DEFAULT_SEED)
+  if (seed != null) setUIDSeed(seed)
+  if (theme != null) setTheme(theme)
+}
+
+function makeEvalContext(context: GumContext, theme?: ThemeName, loadFile?: LoadFile): GumContext {
+  return loadFile == null ? context : {
+    theme,
+    ...context,
+    ...makeContext(loadFile)
+  }
+}
+
+// evaluate shared code (a prelude of declarations) and return its top-level
+// bindings, which can be passed as `context` or `prelude` to evaluateGum so
+// that several pieces of code share definitions
+function evaluatePrelude(code: string, { theme, context = {}, debug = false, strict = false, seed, loadFile }: PreludeArgs = {}): GumContext {
+  setGlobals({ theme, strict, seed })
+  const evalContext = makeEvalContext(context, theme, loadFile)
+  return runPrelude(code, evalContext, debug)
+}
+
+function evaluateGum(code: string, { theme, context = {}, prelude, debug = false, strict = false, seed, loadFile, ...args }: EvaluateArgs = {}): Svg {
   // check if code is provided
   if (code == null || code.trim() == '') {
     throw new ErrorNoCode()
   }
 
   // set global options
-  setStrict(strict)
-  setSeed(seed ?? DEFAULT_SEED)
-  if (seed != null) setUIDSeed(seed)
-  if (theme != null) setTheme(theme)
+  setGlobals({ theme, strict, seed })
 
-  // create evaluation context
-  const evalContext = loadFile == null ? context : {
-    theme,
-    ...context,
-    ...makeContext(loadFile)
-  }
+  // create evaluation context, with prelude bindings layered on top
+  const baseContext = makeEvalContext(context, theme, loadFile)
+  const preludeContext = prelude == null ? {} : is_string(prelude) ? runPrelude(prelude, baseContext, debug) : prelude
+  const evalContext = { ...baseContext, ...preludeContext }
 
   // parse to property tree
   const result = runJSX(code, evalContext, debug)
@@ -168,5 +197,5 @@ function fitSize([ w0, h0 ]: Size, max_size?: Size | number): Size {
 // export
 //
 
-export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, evaluateGum, parseTable, fitSize }
-export type { EvaluateArgs, TableRow, LoadTable, GumContext }
+export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, runPrelude, evaluateGum, evaluatePrelude, parseTable, fitSize }
+export type { EvaluateArgs, PreludeArgs, TableRow, LoadTable, GumContext }
