@@ -9,7 +9,7 @@ const cache = new Map<string, Promise<string>>();
 function fetchSvg(path: string): Promise<string> {
   let pending = cache.get(path);
   if (!pending) {
-    pending = fetch(`/data/${path}`).then(r => {
+    pending = fetch(`data/${path}`).then(r => {
       if (!r.ok) throw new Error(`${path}: ${r.statusText}`);
       return r.text();
     });

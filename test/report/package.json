@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "build": "bun run build.ts",
+    "preview": "bun run preview.ts",
     "start": "NODE_ENV=production bun src/index.ts"
   },
   "dependencies": {

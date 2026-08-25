@@ -8,6 +8,7 @@ bun scripts/test.ts --report   # in the repo root: writes test/data
 bun install                    # once, here
 bun dev                        # then open the printed URL
 PORT=4000 bun dev              # on a port other than 3000
+bun run build && bun run preview   # static build in dist/, then serve it
 ```
 
 `bun scripts/test.ts --report` writes one SVG per example per theme
@@ -25,6 +26,13 @@ SVGs are fetched and inlined rather than put in an `<img>`, so they draw with
 the page's fonts: `fonts.css` names gum's faces — IBM Plex out of `src/fonts`
 and the KaTeX ones out of the `katex` package — so the figures use the same
 glyphs the renderer measured.
+
+`bun run build` writes a self-contained `dist/`: the bundle plus a copy of the
+data (`dist/manifest.json` and `dist/data/`), since a static site has no server
+to route those. The app fetches both *relative* to the page, so `dist/` also
+works from a subdirectory (`http://host/whatever/dist/`), and the dev server
+still serves them from `test/data`. It needs the data to exist, so run
+`bun scripts/test.ts --report` before building.
 
 Click a card for the full view; `←`/`→` step through the filtered set and the
 open example is kept in the URL hash, so a card can be linked to.

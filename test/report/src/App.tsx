@@ -31,11 +31,18 @@ export function App() {
   const [theme, toggleTheme] = useTheme();
 
   useEffect(() => {
-    fetch("/manifest.json")
+    // relative, so the app works both at the server root and from a built dist
+    fetch("manifest.json")
       .then(async r => {
-        const data = await r.json();
+        const text = await r.text();
+        let data: Manifest & { error?: string };
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`manifest.json: ${r.status} ${r.statusText} (not json) \u2014 run \`bun scripts/test.ts --report\``);
+        }
         if (!r.ok) throw new Error(data.error ?? r.statusText);
-        setManifest(data as Manifest);
+        setManifest(data);
       })
       .catch(e => setError(String(e)));
   }, []);
