@@ -7,6 +7,7 @@ A browser for the test suite: every example in `docs/code`, `gala/code` and
 bun scripts/test.ts --report   # in the repo root: writes test/data
 bun install                    # once, here
 bun dev                        # then open the printed URL
+PORT=4000 bun dev              # on a port other than 3000
 ```
 
 `bun scripts/test.ts --report` writes one SVG per example per theme

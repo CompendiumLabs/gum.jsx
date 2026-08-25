@@ -13,7 +13,11 @@ function serveData(path: string, type: string) {
   return new Response(file(join(DATA, rel)), { headers: { "content-type": type } });
 }
 
+// listen on PORT (default 3000)
+const PORT = Number(process.env.PORT ?? 3000);
+
 const server = serve({
+  port: PORT,
   routes: {
     "/*": index,
     "/manifest.json": async () => {

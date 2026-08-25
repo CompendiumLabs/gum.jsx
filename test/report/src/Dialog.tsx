@@ -43,7 +43,7 @@ export function Dialog({ example, theme, index, count, onClose, onStep }: {
       <div
         ref={panel} tabIndex={-1}
         onClick={e => e.stopPropagation()}
-        className="flex h-full w-full max-w-[1500px] flex-col overflow-hidden rounded-xl border border-gray-300 bg-white
+        className="flex h-[60%] w-[90%] flex-col overflow-hidden rounded-xl border border-gray-300 bg-white
                    text-gray-900 shadow-2xl dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
       >
         <div className="flex flex-none items-center gap-3 border-b border-gray-300 px-4 py-3 dark:border-neutral-700">
@@ -56,7 +56,7 @@ export function Dialog({ example, theme, index, count, onClose, onStep }: {
           </button>
         </div>
 
-        <div key={example.id} className="grid min-h-0 flex-1 grid-rows-2 gap-4 p-4">
+        <div key={example.id} className="grid min-h-0 flex-1 grid-cols-2 gap-4 p-4">
           <div className="flex min-h-0 flex-col">
             <h3 className={label}>render ({theme})</h3>
             <Figure example={example} theme={theme} className={`${box} flex-1`} />
