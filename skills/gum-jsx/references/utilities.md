@@ -79,7 +79,7 @@ There are a number of functions designed to make working with arrays easier. The
 
 **Example**
 
-Prompt: a scatter plot of points with emojis for: mount fuji, a rocket, a whale, a watermellon, and a donut
+Prompt: a scatter plot of points with emojis for: mount fuji, a rocket, a whale, a watermelon, and a donut
 
 Generated code:
 ```jsx

@@ -50,7 +50,7 @@ Subunits:
 
 **Example**
 
-Prompt: Various food emojis are arrnaged in a spaced out grid and framed with the title "Fruits & Veggies". Each emoji is framed by a rounded square
+Prompt: Various food emojis are arranged in a spaced out grid and framed with the title "Fruits & Veggies". Each emoji is framed by a rounded square
 
 Generated code:
 ```jsx

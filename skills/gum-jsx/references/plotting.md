@@ -113,7 +113,7 @@ Subunits:
 
 **Example**
 
-Prompt: a horizontal axis with 5 ticks labeled with emojis for: mount fuji, a rocket, a whale, a watermellon, and a donut
+Prompt: a horizontal axis with 5 ticks labeled with emojis for: mount fuji, a rocket, a whale, a watermelon, and a donut
 
 Generated code:
 ```jsx

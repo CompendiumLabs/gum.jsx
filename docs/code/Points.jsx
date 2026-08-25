@@ -1,4 +1,4 @@
-// A plot of three different increasing curves of varying steepness and multiple points spaced at regular intervals. The x-axis label is "time (seconds)", the y-axis label is "space (meters)", and the title is "Spacetime Vibes". There are axis ticks in both directions with assiated faint grid lines.
+// A plot of three different increasing curves of varying steepness and multiple points spaced at regular intervals. The x-axis label is "time (seconds)", the y-axis label is "space (meters)", and the title is "Spacetime Vibes". There are axis ticks in both directions with associated faint grid lines.
 <Plot coord={[-1, -1, 1, 1]} margin={0.2} grid
   xlabel="time (seconds)" ylabel="space (meters)"
   title="Spacetime Vibes"

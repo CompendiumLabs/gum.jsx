@@ -1,4 +1,4 @@
-// a horizontal axis with 5 ticks labeled with emojis for: mount fuji, a rocket, a whale, a watermellon, and a donut
+// a horizontal axis with 5 ticks labeled with emojis for: mount fuji, a rocket, a whale, a watermelon, and a donut
 const emoji = ['🗻', '🚀', '🐳', '🍉', '🍩']
 const ticks = zip(linspace(0, 1, emoji.length), emoji)
 return <Box padding={[0.5, 1]}>
