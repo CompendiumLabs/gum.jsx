@@ -77,6 +77,9 @@ const uids = new RNG()
 
 function setSeed(seed: number): void {
     rng.setSeed(seed)
+}
+
+function setUIDSeed(seed: number): void {
     uids.setSeed(seed)
 }
 
@@ -104,4 +107,4 @@ function integer(lo: number, hi?: number): number {
 // exports
 //
 
-export { setSeed, random, uniform, normal, integer, uidRandom }
+export { setSeed, setUIDSeed, random, uniform, normal, integer, uidRandom }
