@@ -32,7 +32,10 @@ export function Dialog({ example, theme, index, count, onClose, onStep }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, onStep]);
 
-  const box = "rounded-lg border border-gray-300 overflow-hidden dark:border-neutral-700";
+  // no overflow utility here: Figure clips on its own, and Code scrolls. Tailwind
+  // resolves conflicts by stylesheet order, not class order, so an `overflow-hidden`
+  // passed down here would beat Code's own `overflow-auto` and freeze the pane
+  const box = "rounded-lg border border-gray-300 dark:border-neutral-700";
   const label = "mb-1 flex-none text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-neutral-400";
 
   return (
@@ -53,7 +56,7 @@ export function Dialog({ example, theme, index, count, onClose, onStep }: {
           </button>
         </div>
 
-        <div key={example.id} className="grid min-h-0 flex-1 grid-cols-2 gap-4 p-4">
+        <div key={example.id} className="grid min-h-0 flex-1 grid-rows-2 gap-4 p-4">
           <div className="flex min-h-0 flex-col">
             <h3 className={label}>render ({theme})</h3>
             <Figure example={example} theme={theme} className={`${box} flex-1`} />
