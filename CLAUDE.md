@@ -346,7 +346,7 @@ Convenience keys (these map into the above keys):
 - `xlim/ylim`: Specify the coordinate limits for a specific dimension
 - `spin`: Specifies a `rotate` value and applies `rotate_invar`
 - `orient`: Specifies a `rotate` value and applies `rotate_adjust`
-- `upright`: Whether to keep the child upright (true) or allow it to rotate (false)
+- `upright`: Whether to order the child's pixel rect (true) so a flipped parent coord (a `Graph`) places it but does not flip its insides; defaults to true for compound elements (`Box`, `Stack`, `Grid`, the text and math elements, `Arc`, `RoundedRect`) and false for point geometry, which should see the flip
 - `offset`: Whether to offset the child by the parent's rect (true) or not (false)
 
 ## Math Elements

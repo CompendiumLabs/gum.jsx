@@ -94,7 +94,7 @@ class Box extends Group {
         const outer = new Group({ children: [ rect_bg, inner, rect_fg ], rect: rect_outer, clip: rect_cl })
 
         // pass to Group
-        super({ children: [ outer ], aspect: aspect_outer, ...attr })
+        super({ children: [ outer ], aspect: aspect_outer, upright: true, ...attr })
         this.args = args
     }
 }
@@ -239,7 +239,7 @@ class Stack extends Group {
         }) : []
 
         // pass to Group
-        super({ children: items, aspect, ...attr })
+        super({ children: items, aspect, upright: true, ...attr })
         this.args = args
     }
 }
@@ -375,7 +375,7 @@ class Grid extends Group {
         )
 
         // pass to Group
-        super({ children: items, aspect, ...attr })
+        super({ children: items, aspect, upright: true, ...attr })
         this.args = args
     }
 }

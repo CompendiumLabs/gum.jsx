@@ -270,21 +270,21 @@ function get_tick_span(size: number = 1, side: Zone): Limit {
     }
 }
 
-function ensure_ticklabel(label: Element | Label | number | [number, string], args: Attrs = {}): Label {
+function ensure_ticklabel(label: Element | Label | number | [number, string | Element], args: Attrs = {}): Label {
     const { direc = 'h', prec = D.prec, ...attr } = args
 
     // handle element cases
     if (label instanceof Label) return label.clone(attr) as Label
     if (is_element(label)) return new Label({ children: [ label ], direc, loc: label.args.loc, ...attr })
 
-    // handle scalar case
+    // handle scalar and [loc, label] cases (the label may itself be an element)
     const [ spec, attr1 ] = spec_split(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
-    const child = new Span({ children: [ rounder(str, prec) ], ...attr1 })
+    const child = is_element(str) ? str : new Span({ children: [ rounder(str, prec) ], ...attr1 })
     return new Label({ children: [ child ], direc, loc, ...spec })
 }
 
-type TickArgs = Label | number | [number, string]
+type TickArgs = Label | number | [number, string | Element]
 
 interface AxisArgs extends GroupArgs {
     lim?: Limit
@@ -559,13 +559,16 @@ class Graph extends Group {
         // flip coordinate system if requested
         if (flip) coord = flip_rect(coord, true)
 
-        // map coordinate system to all elements
+        // map coordinate system to all elements: a child with a rect is placed
+        // in the (flipped) coord, and so is an upright child (text, math, and
+        // layout containers), whose own coord is internal to it; anything else
+        // (point geometry) takes the coord as its own so its points are data
         const items = children.map((e: any) => {
-            if (e.spec.rect != null) {
-                const child = e instanceof Arc && flip ? e.clone({ upright: false }) : e
+            const child = e instanceof Arc && flip ? e.clone({ upright: false }) : e
+            if (child.spec.rect != null || child.spec.upright) {
                 return new Group({ children: [ child ], coord })
             } else {
-                return e.clone({ coord })
+                return child.clone({ coord })
             }
         })
 
@@ -614,7 +617,7 @@ interface PlotArgs extends BoxArgs {
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
         let {
-            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = 0.125, title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, coord: coord0 = 'auto', aspect: aspect0 = 'auto', clip, debug = false, ...attr0
+            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [0.1, 0.15], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, coord: coord0 = 'auto', aspect: aspect0 = 'auto', clip, debug = false, ...attr0
         } = THEME(args, 'Plot')
         const children = ensure_children(children0)
 

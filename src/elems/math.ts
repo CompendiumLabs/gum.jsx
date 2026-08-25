@@ -541,7 +541,7 @@ class MathGroup extends Group {
 
     constructor(body: WithMath<Group>, attr: GroupArgs = {}) {
         const { coord, aspect } = body.spec
-        super({ children: body.children, coord, aspect, ...attr })
+        super({ children: body.children, coord, aspect, upright: true, ...attr })
         this.math = body.math
     }
 }
@@ -577,7 +577,7 @@ class MathShape extends Group {
     math: MathSpec
 
     constructor({ metrics, klass = 'mord', ...attr }: MathShapeSpec) {
-        super({ aspect: metrics_aspect(metrics), ...attr })
+        super({ aspect: metrics_aspect(metrics), upright: true, ...attr })
         this.math = make_math({ left: klass, right: klass, ...metrics })
     }
 
@@ -827,7 +827,7 @@ class MathRow extends Group {
         const { metrics, ...layout } = layout_math_row(math_items)
 
         // pass to Group
-        super({ ...layout, ...attr })
+        super({ ...layout, upright: true, ...attr })
         this.args = args
 
         // set math metrics
@@ -890,7 +890,7 @@ class MathCol extends Group {
         const { metrics, ...layout } = layout_math_col(math_items, { justify, spacing })
 
         // pass to Group
-        super({ ...layout, ...attr })
+        super({ ...layout, upright: true, ...attr })
         this.args = args
 
         // set math metrics
@@ -939,7 +939,7 @@ class MathBox extends Group {
         const coord: Rect = [ 0, 0, outer_advance, outer_height ]
         const aspect = metrics_aspect(metrics)
 
-        super({ children: [ item ], coord, aspect, ...attr })
+        super({ children: [ item ], coord, aspect, upright: true, ...attr })
         this.args = args
         this.math = inherit_metrics(child, metrics)
     }
@@ -1152,7 +1152,7 @@ class MathArray extends Group {
         const coord: Rect = [ 0, ytop, advance, ybot ]
 
         // pass to Group
-        super({ children, coord, aspect: metrics_aspect(metrics), ...attr })
+        super({ children, coord, aspect: metrics_aspect(metrics), upright: true, ...attr })
         this.args = args
 
         // a tabular body is a single Ord atom
