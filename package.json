@@ -46,6 +46,7 @@
     "mark": "bun ./scripts/mark.ts",
     "bench:render": "bun ./scripts/bench-render.ts",
     "test": "bun ./scripts/test.ts",
+    "report": "cd test/report && bun install && bun run dev",
     "skill": "bun ./scripts/skill.ts && cd skills && rm -f gum-jsx.skill && zip -r gum-jsx.skill gum-jsx",
     "claude": "bun run skill && bun ./scripts/claude.ts"
   },
@@ -74,7 +75,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.72.1",
-    "shiki": "^4.4.3"
+    "@anthropic-ai/sdk": "^0.72.1"
   }
 }

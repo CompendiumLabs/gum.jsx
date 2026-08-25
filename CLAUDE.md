@@ -104,9 +104,22 @@ An example that deliberately exercises a fallback opts out with a `@nostrict` co
 strict mode), the gotchas, the outstanding gaps (`\middle`, `\tag`, `CD` arrows), and which
 `test/code/math_*.jsx` file covers what.
 
-Pass `--report` to also render every example in both themes to SVG (`test/report/<docs|gala|test>/<light|dark>/`) and generate a visual report at `test/report/index.html` with a light/dark toggle and a per-card image/code switch (from the `test/template.html` template; both renders are inlined into the page, code is syntax-highlighted at build time with `shiki`, and the bundled fonts are copied alongside with `@font-face` rules so math renders correctly; the report directory is generated and gitignored):
+Pass `--report` to also render every example in both themes to SVG
+(`test/data/<docs|gala|test>/<light|dark>/<name>.svg`) and write
+`test/data/manifest.json`, which lists every example with its source, its pass/fail status,
+and the paths of the renders that exist (`test/data` is generated and gitignored):
 ```bash
 bun scripts/test.ts --report
+```
+
+`test/report` is a Bun + React app that browses that data: a card per example with its
+render, a search/group/status filter, a light/dark toggle that switches both the page and
+which render is shown, and a full view with the code (highlighted client-side with `shiki`)
+beside the picture. It reads `/manifest.json` and fetches the SVG files under `/data/`,
+inlining them so they draw with the page's fonts (`src/fonts.css` names IBM Plex out of
+`src/fonts` and the KaTeX faces out of the `katex` package). See `test/report/README.md`:
+```bash
+bun run report   # bun install + dev server in test/report
 ```
 
 Or test a single file:
@@ -254,7 +267,7 @@ Key functions for rect manipulation:
 - `scripts/mark.ts` - The `gum-down` CLI for displaying Markdown in the terminal
 - `scripts/dev.ts` - The development server for running the `gum` command
 - `scripts/skill.ts` - Creates a ZIP file for the Claude skill
-- `scripts/test.ts` - Runs all `docs/code/` and `gala/code/` examples as a test suite
+- `scripts/test.ts` - Runs all `docs/code/`, `gala/code/` and `test/code/` examples as a test suite, and with `--report` writes the render data in `test/data/`
 
 **Documentation:**
 - `docs/text/` - Text documentation

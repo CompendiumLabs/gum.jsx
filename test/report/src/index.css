@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* dark mode follows the `dark` class on <html>, toggled by the theme button */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* shiki emits both palettes as css variables (defaultColor: false); pick one
+   by theme. The <pre> it wraps the code in gets no background of its own —
+   the panel around it already has one */
+.code .shiki { background: transparent !important; }
+.code .shiki, .code .shiki span { color: var(--shiki-light); }
+.dark .code .shiki, .dark .code .shiki span { color: var(--shiki-dark); }
+
+/* inlined gum SVG: fill the box, keep the aspect (viewBox + xMidYMid meet) */
+.svg > svg { display: block; width: 100%; height: 100%; }
+
+/* no focus rings: cards and panels are focused programmatically for keyboard
+   and scroll routing, not as something to draw attention to */
+*:focus, *:focus-visible { outline: none; }

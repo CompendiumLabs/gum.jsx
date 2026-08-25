@@ -2,4 +2,11 @@ node_modules
 package-lock.json
 .codex
 sandbox
-test/report
+
+# generated test data
+test/data
+
+# we're only using the report in dev mode
+report/bun.lock
+report/node_modules
+report/dist

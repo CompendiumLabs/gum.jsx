@@ -1,13 +1,9 @@
 #! /usr/bin/env bun
 
-import { join, basename, dirname } from 'path'
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from 'fs'
-
-import { createHighlighter } from 'shiki'
+import { join, basename } from 'path'
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs'
 
 import { evaluateGum } from '../src/eval'
-import { FONT_PATHS, fontFace } from '../src/fonts/fonts'
-import { light, regular, bold } from '../src/lib/const'
 
 const dataDir = 'docs/data'
 function loadFile(path: string, encoding: string = 'utf8') {
@@ -30,14 +26,14 @@ type Render = {
 }
 
 type Result = {
-    dir: string
+    group: string
     file: string
     path: string
     code: string
     renders: Record<Theme, Render>
 }
 
-const dirs = ['docs/code', 'gala/code', 'test/code']
+const groups = ['docs', 'gala', 'test']
 const report = process.argv.includes('--report')
 const results: Result[] = []
 
@@ -69,7 +65,8 @@ function render(code: string, theme: Theme): Render {
     }
 }
 
-for (const dir of dirs) {
+for (const group of groups) {
+    const dir = join(group, 'code')
     const files = readdirSync(dir).filter(f => f.endsWith('.jsx')).sort()
     for (const file of files) {
         const path = join(dir, file)
@@ -82,7 +79,7 @@ for (const dir of dirs) {
             const detail = errors.map(t => `${t}: ${renders[t].error}`).join('; ')
             console.error(`FAIL ${path}: ${detail}`)
         }
-        results.push({ dir, file, path, code, renders })
+        results.push({ group, file, path, code, renders })
     }
 }
 
@@ -91,126 +88,68 @@ const passed = results.filter(isPass).length
 const failed = results.length - passed
 
 //
-// html report
+// report data
 //
 
-const reportDir = 'test/report'
-const templatePath = 'test/template.html'
+// the svg files plus a manifest go in test/data; the viewer in test/report is a
+// react app that reads them (see test/report/README.md)
+const outDir = 'test/data'
 
-function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
+type Entry = {
+    id: string
+    name: string
+    group: string
+    path: string
+    code: string
+    status: 'pass' | 'fail'
+    renders: Record<Theme, { svg: string | null, error: string | null }>
 }
 
-// bundle the fonts the svg output references (same registry the rasterizer uses)
-// and emit @font-face rules for them
-function writeFonts(): string {
-    const fontDir = join(reportDir, 'fonts')
-    mkdirSync(fontDir, { recursive: true })
-    const rules: string[] = []
-    const addFace = (family: string, path: string, weight?: number, style?: string) => {
-        const file = basename(path)
-        copyFileSync(path, join(fontDir, file))
-        const weightRule = weight != null ? ` font-weight: ${weight};` : ''
-        const styleRule = style != null ? ` font-style: ${style};` : ''
-        rules.push(`@font-face { font-family: "${family}"; src: url("fonts/${file}");${weightRule}${styleRule} }`)
+type Manifest = {
+    generated: string
+    themes: Theme[]
+    groups: string[]
+    passed: number
+    failed: number
+    examples: Entry[]
+}
+
+// one svg file per example per theme (docs/light/Box.svg, ...) and a manifest
+// listing what got written, with the source and any strict error alongside
+function writeData() {
+    rmSync(outDir, { recursive: true, force: true })
+    for (const group of groups) {
+        for (const theme of themes) mkdirSync(join(outDir, group, theme), { recursive: true })
     }
-    for (const [ name, path ] of Object.entries(FONT_PATHS)) {
-        const { family, weight, style } = fontFace(name)
-        if (typeof path == 'string') {
-            addFace(family, path, weight, style)
-        } else {
-            addFace(family, path.light, light)
-            addFace(family, path.regular, regular)
-            addFace(family, path.bold, bold)
+
+    const examples = results.map(result => {
+        const { group, file, path, code, renders } = result
+        const name = file.replace(/\.jsx$/, '')
+        const entry: Entry = {
+            id: `${group}/${name}`, name, group, path, code,
+            status: isPass(result) ? 'pass' : 'fail',
+            renders: { light: { svg: null, error: null }, dark: { svg: null, error: null } },
         }
-    }
-    return rules.join('\n')
-}
-
-// syntax highlighting is done at build time; shiki's dual-theme output carries
-// both palettes as css variables, so the page's theme toggle selects one
-type Highlight = (code: string) => string
-
-async function makeHighlighter(): Promise<Highlight> {
-    const highlighter = await createHighlighter({ langs: ['jsx'], themes: ['github-light', 'github-dark'] })
-    return (code: string) => highlighter.codeToHtml(code, {
-        lang: 'jsx',
-        themes: { light: 'github-light', dark: 'github-dark' },
-        defaultColor: false,
-    })
-}
-
-// svg files are written standalone for inspection, but inlined into the page
-// so they can use the page's @font-face declarations; both themes are inlined
-// and the page toggle picks which one is visible. Code is kept in an inert
-// template until the card is opened in the shared example dialog.
-function makeCard(result: Result, highlight: Highlight): string {
-    const { file, code, renders } = result
-    const status = isPass(result) ? 'pass' : 'fail'
-    const images = themes.map(theme => {
-        const { svg, error } = renders[theme]
-        const banner = error == null ? '' : `<div class="error">${escapeHtml(error)}</div>`
-        const inner = svg == null ? banner : `${banner}${svg}`
-        return `<div class="image theme-${theme}">${inner}</div>`
-    }).join('\n  ')
-    return `<article class="card ${status}" tabindex="0" role="button" aria-haspopup="dialog">
-  <div class="head">
-    <span class="name">${escapeHtml(file)}</span>
-    <span class="status ${status}">${status.toUpperCase()}</span>
-  </div>
-  <div class="card-view">
-  ${images}
-  </div>
-  <template class="code-template">${highlight(code.trim())}</template>
-</article>`
-}
-
-function makeSection(dir: string, items: Result[], highlight: Highlight): string {
-    const cards = items.map(item => makeCard(item, highlight)).join('\n')
-    return `<h2 id="${escapeHtml(dir)}">${escapeHtml(dir)}</h2>\n<div class="grid">\n${cards}\n</div>`
-}
-
-async function writeReport() {
-    // write rendered svg files, one subdirectory per theme (docs/light, docs/dark, ...)
-    for (const result of results) {
-        const { dir, file, renders } = result
         for (const theme of themes) {
-            const { svg } = renders[theme]
-            if (svg == null) continue
-            const outDir = join(reportDir, dirname(dir), theme)
-            mkdirSync(outDir, { recursive: true })
-            writeFileSync(join(outDir, file.replace(/\.jsx$/, '.svg')), svg)
+            const { svg, error } = renders[theme]
+            if (svg != null) {
+                const rel = join(group, theme, `${name}.svg`)
+                writeFileSync(join(outDir, rel), svg)
+                entry.renders[theme].svg = rel
+            }
+            entry.renders[theme].error = error ?? null
         }
+        return entry
+    })
+
+    const manifest: Manifest = {
+        generated: new Date().toISOString(), themes, groups, passed, failed, examples,
     }
-
-    // fill in template
-    const fonts = writeFonts()
-    const highlight = await makeHighlighter()
-    const summary = `<span class="pass">${passed} passed</span>, ` +
-        `<span class="fail">${failed} failed</span> &mdash; ${new Date().toLocaleString()}`
-    const sections = dirs
-        .map(dir => makeSection(dir, results.filter(r => r.dir == dir), highlight))
-        .join('\n')
-    const template = readFileSync(templatePath, 'utf-8')
-    const html = template
-        .replace('{{fonts}}', fonts)
-        .replace('{{summary}}', summary)
-        .replace('{{sections}}', sections)
-
-    // write index page
-    writeFileSync(join(reportDir, 'index.html'), html)
-    console.error(`report written to ${join(reportDir, 'index.html')}`)
+    writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2))
+    console.error(`wrote ${examples.length} examples to ${outDir}`)
 }
 
-if (report) {
-    rmSync(reportDir, { recursive: true, force: true })
-    mkdirSync(reportDir, { recursive: true })
-    await writeReport()
-}
+if (report) writeData()
 
 console.log()
 console.error(`${passed} passed`)
