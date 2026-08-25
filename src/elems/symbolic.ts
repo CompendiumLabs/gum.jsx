@@ -6,7 +6,6 @@ import { zip, linspace, ensure_function, detect_coords, resolve_limits, is_scala
 
 import { Element, Group, spec_split } from './core'
 import { Line, Spline, Polygon, Arrow, Dot, Fill } from './geometry'
-import { Box } from './layout'
 
 import type { Point, Limit, Rect } from '../lib/types'
 import type { ElementArgs, GroupArgs } from './core'
@@ -283,14 +282,8 @@ class SymFill extends Fill {
 // symfield class
 //
 
-function default_arrow(direc: number | Point): Box {
-    const theta = is_scalar(direc) ? direc : vector_angle(direc)
-    const arrow = new Arrow({ points: [ [0, 0.5], [1, 0.5] ] })
-    return new Box({ children: [ arrow ], spin: theta })
-}
-
 interface FieldArgs extends GroupArgs {
-    points?: Point[]
+    points?: [Point, number][]
     shape?: Element
     size?: number | Point
     arrow_size?: number
@@ -314,31 +307,29 @@ class Field extends Group {
     }
 }
 
-interface SymFieldArgs extends SymArgs, GroupArgs {
-    func?: (x: number, y: number) => number | Point
-    shape?: Element | ((direc: Point) => Element)
+interface SymFieldArgs extends SymArgsBase, FieldArgs {
+    func?: (x: number, y: number) => number
 }
 
-class SymField extends SymPoints {
+class SymField extends Field {
     constructor(args: SymFieldArgs = {}) {
-        const { func, xlim: xlim0, ylim: ylim0, N = 10, point_size: point_size0, shape: shape0, coord: coord0, ...attr } = THEME(args, 'SymField')
+        const { func, xlim: xlim0, ylim: ylim0, N = 10, point_size: point_size0, coord: coord0, ...attr } = THEME(args, 'SymField')
         const { h: xlim, v: ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
-        const shape = ensure_shapefunc(shape0 ?? default_arrow)
-        const point_size = point_size0 ?? 0.25 / N
+        const point_size = point_size0 ?? 0.75 / N
 
         // check for function
         if (func == null) throw new Error('`func` must be provided')
 
         // create points and shape function
-        const points = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
-        const fshap = (x: number, y: number, _t: number, _i: number) => shape(func(x, y))
+        const grid = (xlim != null && ylim != null) ? lingrid(xlim, ylim, N) : []
+        const points: [Point, number][] = grid.map(([x, y]) => [[x, y], func(x, y)])
 
         // compute real limits
-        const [ xvals, yvals ] = points.length > 0 ? zip(...points) as [number[], number[]] : [ [], [] ]
+        const [ xvals, yvals ] = grid.length > 0 ? zip(...grid) as [number[], number[]] : [ [], [] ]
         const coord = coord0 ?? detect_coords(xvals, yvals, xlim, ylim)
 
-        // pass to SymPoints
-        super({ shape: fshap, xvals, yvals, point_size, coord, ...attr })
+        // pass to Field
+        super({ points, size: point_size, coord, ...attr })
         this.args = args
     }
 }
