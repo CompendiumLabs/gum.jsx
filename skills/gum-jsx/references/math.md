@@ -172,7 +172,7 @@ The body is a single child: a LaTeX string, which is parsed as in **Latex**, or 
 
 Parameters:
 - `children` — the radicand, a LaTeX string or a single math element
-- `index` — an optional index, a math element (such as a **MathText**), placed above and to the left of the surd at script-script size
+- `index` — an optional index, a LaTeX string or a math element, placed above and to the left of the surd at script-script size
 - `rule-size` = `0.04` — the thickness of the rule over the body in em (`line-width` is accepted as an alias)
 - `padding` = `0` — padding around the body, in em
 - `style` = `text` — the TeX math style to set the body in
@@ -189,7 +189,7 @@ Generated code:
   <MathSymbol>+</MathSymbol>
   <Sqrt>{"\\frac{a}{b}"}</Sqrt>
   <MathSymbol>+</MathSymbol>
-  <Sqrt index={<MathSymbol>3</MathSymbol>}>z</Sqrt>
+  <Sqrt index="3">z</Sqrt>
 </MathText>
 ```
 
@@ -244,17 +244,14 @@ Parameters:
 
 **Example**
 
-Prompt: an overline and an underline, each spanning a body with height or depth, and
+Prompt: an overline and an underline, each spanning a body with height or depth, and a red overline drawn over a fraction
 
 Generated code:
 ```jsx
-// a red overline drawn over a fraction
 <MathText>
-  <Overline>{"x^2 + y"}</Overline>
+  <Overline>x^2 + y</Overline>
   <MathSymbol>+</MathSymbol>
-  <Underline>{"g_y + z"}</Underline>
-  <MathSymbol>=</MathSymbol>
-  <Overline color={red}>{"\\frac{a}{b}"}</Overline>
+  <Underline>g_y + z</Underline>
 </MathText>
 ```
 
@@ -282,9 +279,9 @@ Prompt: an overbrace with a label counting its terms, and an underbrace naming a
 Generated code:
 ```jsx
 <MathText>
-  <HorizBrace label="n">{"a + b + c"}</HorizBrace>
+  <HorizBrace label="\text{head}">a + b + c</HorizBrace>
   <MathSymbol>+</MathSymbol>
-  <HorizBrace over={false} label={<TextMode>tail</TextMode>} color={blue}>{"y + z"}</HorizBrace>
+  <HorizBrace over={false} label="\text{tail}">x+y</HorizBrace>
 </MathText>
 ```
 
@@ -328,10 +325,11 @@ Generated code:
 
 Lays out math cells in rows and columns, following LaTeX's `array` metrics: every row gets a strut so short rows still take a full line, columns are as wide as their widest cell and separated by `\arraycolsep`, and the whole array is centered on the math axis. This is what **Latex** builds for every tabular environment, from `matrix` and `pmatrix` through `cases`, `aligned` and `array`, with `\hline`/`\hdashline` and the `|`/`:` column separators.
 
-From JSX the cells can be given as a flat list plus `ncol`, which is reshaped into rows the way **Grid** does (nested arrays in JSX children are flattened), or as a list of rows. Each cell is a math element; wrap a LaTeX string in a **MathText** to use it as a cell. The array has no delimiters of its own; wrap it in a **Bracket** for a `pmatrix` or `bmatrix`, which stretches its delimiters to the array's height.
+From JSX the cells can be given as a flat list plus `ncol`, which is reshaped into rows the way **Grid** does (nested arrays in JSX children are flattened), or as a list of rows. Each cell is a LaTeX string (parsed in `style`) or a math element. The array has no delimiters of its own; wrap it in a **Bracket** for a `pmatrix` or `bmatrix`, which stretches its delimiters to the array's height.
 
 Parameters:
 - `children` — the cells, either a flat list chunked by `ncol` or a list of rows
+- `style` = `text` — the TeX style string cells are parsed in
 - `ncol` — the number of columns to chunk a flat list of cells into; defaults to the number of aligned columns in `cols`, else `1`
 - `cols` — the column descriptors, in order, as objects: `{ type: 'align', align: 'l' | 'c' | 'r' }` for a column (with optional `pregap`/`postgap` in em) and `{ type: 'separator', separator: '|' | ':' }` for a solid or dashed rule between columns. Columns beyond the descriptors are centered
 - `stretch` = `1` — the row spacing multiplier, LaTeX's `\arraystretch`
@@ -350,16 +348,15 @@ Prompt: a 2x2 matrix in parentheses, and a right-aligned table with a rule betwe
 Generated code:
 ```jsx
 // its rows and a dashed rule between its columns
-const cell = s => <MathText>{s}</MathText>
 return <MathText spacing={1}>
   <Bracket>
-    <MathArray ncol={2}>{['a', 'b', 'c', 'd'].map(cell)}</MathArray>
+    <MathArray ncol={2}>{['a', 'b', 'c', 'd']}</MathArray>
   </Bracket>
   <MathArray
     cols={[{ type: 'align', align: 'r' }, { type: 'separator', separator: ':' }, { type: 'align', align: 'r' }]}
     hlines={[[], [false], []]}
   >
-    {['x', '100', 'y^2', '5'].map(cell)}
+    {['x', '100', 'y^2', '5']}
   </MathArray>
 </MathText>
 ```

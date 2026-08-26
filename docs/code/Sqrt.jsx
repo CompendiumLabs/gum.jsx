@@ -4,5 +4,5 @@
   <MathSymbol>+</MathSymbol>
   <Sqrt>{"\\frac{a}{b}"}</Sqrt>
   <MathSymbol>+</MathSymbol>
-  <Sqrt index={<MathSymbol>3</MathSymbol>}>z</Sqrt>
+  <Sqrt index="3">z</Sqrt>
 </MathText>

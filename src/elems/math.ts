@@ -812,17 +812,17 @@ function layout_math_row(items: WithMath[]): MathLayout {
     return { children, coord, aspect, metrics }
 }
 
-interface MathRowArgs extends GroupArgs {
-    children?: WithMath[]
+interface MathRowArgs extends Omit<GroupArgs, 'children'> {
+    children?: MathLeaf[]
+    style?: MathStyle
 }
 
 class MathRow extends Group {
     math: MathSpec
 
     constructor(args: MathRowArgs = {}) {
-        const { children: children0, ...attr } = THEME(args, 'MathRow')
-        const items = ensure_children(children0)
-        const math_items = items.map(ensure_math)
+        const { children: children0, style = 'text', ...attr } = THEME(args, 'MathRow')
+        const math_items = normalize_math_items(children0, style)
 
         // compute layout
         const { metrics, ...layout } = layout_math_row(math_items)
@@ -873,8 +873,9 @@ function layout_math_col(items: WithMath[], { justify = 'center', spacing = 0 }:
     return { children, coord, aspect, metrics }
 }
 
-interface MathColArgs extends GroupArgs {
-    children?: WithMath[]
+interface MathColArgs extends Omit<GroupArgs, 'children'> {
+    children?: MathLeaf[]
+    style?: MathStyle
     spacing?: number
     justify?: Align
 }
@@ -883,9 +884,8 @@ class MathCol extends Group {
     math: MathSpec
 
     constructor(args: MathColArgs = {}) {
-        const { children: children0, justify, spacing = 0, ...attr } = THEME(args, 'MathCol')
-        const items = ensure_children(children0)
-        const math_items = items.map(ensure_math)
+        const { children: children0, justify, spacing = 0, style = 'text', ...attr } = THEME(args, 'MathCol')
+        const math_items = normalize_math_items(children0, style)
 
         // compute layout
         const { metrics, ...layout } = layout_math_col(math_items, { justify, spacing })
@@ -903,8 +903,9 @@ class MathCol extends Group {
 // math box/rule
 //
 
-interface MathBoxArgs extends GroupArgs {
-    children?: WithMath[]
+interface MathBoxArgs extends Omit<GroupArgs, 'children'> {
+    children?: MathLeaf[]
+    style?: MathStyle
     advance?: number
     padding?: Padding
     top?: number
@@ -917,9 +918,8 @@ class MathBox extends Group {
     math: MathSpec
 
     constructor(args: MathBoxArgs = {}) {
-        const { children: children0, advance: advance0, padding: padding0, justify = 'center', vanchor: vanchor0, ...attr } = THEME(args, 'MathBox')
-        const child0 = check_singleton(children0)
-        const child = ensure_math(child0)
+        const { children: children0, advance: advance0, padding: padding0, justify = 'center', vanchor: vanchor0, style = 'text', ...attr } = THEME(args, 'MathBox')
+        const child = math_child(children0, style, 'MathBox')
 
         // get metrics info
         const [ ylo, yhi ] = metrics_bounds(child.math)
@@ -992,7 +992,8 @@ type ArrayCol =
 const ARRAY_ALIGN: Record<ArrayAlign, Align> = { l: 'left', c: 'center', r: 'right' }
 
 interface MathArrayArgs extends Omit<GroupArgs, 'children'> {
-    children?: WithMath[][] | WithMath[]  // rows of cells, or a flat list chunked by ncol
+    children?: MathLeaf[][] | MathLeaf[]  // rows of cells, or a flat list chunked by ncol
+    style?: MathStyle              // style string cells are parsed in
     cols?: ArrayCol[]              // column alignments and separators
     ncol?: number                  // columns to chunk a flat child list into
     stretch?: number               // \arraystretch
@@ -1026,13 +1027,13 @@ function array_rules(x1: number, y1: number, x2: number, y2: number, dashed: boo
 // cells either come as rows (how convert_tree builds them) or, since JSX
 // flattens nested children, as one flat list chunked by the column count --
 // the same bargain Grid strikes
-function normalize_rows(children: WithMath[][] | WithMath[] | undefined, ncol0: number | undefined, cols: ArrayCol[]): Element[][] {
+function normalize_rows(children: MathLeaf[][] | MathLeaf[] | undefined, ncol0: number | undefined, cols: ArrayCol[]): MathLeaf[][] {
     if (children == null) return []
     const items: any[] = is_array(children as any) ? children as any[] : [ children ]
     if (items.length == 0) return []
     if (items.every(is_array)) return items.map(row => ensure_children(row))
 
-    const flat = ensure_children(items as Element[])
+    const flat = ensure_children(items)
     const ncol = Math.max(1, ncol0 ?? cols.filter(col => col.type == 'align').length)
     return range(Math.ceil(flat.length / ncol)).map(r => flat.slice(r * ncol, (r + 1) * ncol))
 }
@@ -1043,9 +1044,11 @@ class MathArray extends Group {
     constructor(args: MathArrayArgs = {}) {
         const {
             children: children0, cols = [], ncol: ncol0, stretch = 1, jot = false, colsep = ARRAY_COL_SEP,
-            outer = false, hlines = [], rowgaps = [], thickness = ARRAY_RULE, fill: fill0, ...attr
+            outer = false, hlines = [], rowgaps = [], thickness = ARRAY_RULE, fill: fill0, style = 'text', ...attr
         } = THEME(args, 'MathArray')
-        const rows0 = normalize_rows(children0, ncol0, cols).map(row => row.map(ensure_math))
+        const rows0 = normalize_rows(children0, ncol0, cols).map(row =>
+            row.map(cell => normalize_math_leaf(cell, style) ?? EMPTY_MATH)
+        )
         const fill = shape_ink({ fill: fill0, color: attr.color as string | undefined })
 
         // LaTeX gives every row a strut so short rows still occupy a full line
@@ -1631,8 +1634,15 @@ function normalize_math_leaf(child: MathLeaf, style: MathStyle = 'text'): WithMa
     }
 }
 
-function normalize_math_children(children0: Element | Element[], style: MathStyle = 'text'): WithMath[] {
-    const children = is_array(children0) ? children0 : [ children0 ]
+type MathLeafTree = MathLeaf | MathLeafTree[]
+
+// each child as one math item, kept whole (a MathText child stays a row)
+function normalize_math_items(children: MathLeaf[] | undefined, style: MathStyle = 'text'): WithMath[] {
+    return ensure_children(children).map(child => normalize_math_leaf(child, style)).filter(item => item != null)
+}
+
+function normalize_math_children(children0: MathLeafTree, style: MathStyle = 'text'): WithMath[] {
+    const children: MathLeafTree[] = is_array(children0) ? children0 : [ children0 ]
     const out: WithMath[] = []
 
     for (const child of children) {
@@ -1893,12 +1903,9 @@ class SupSub extends MathRow {
 // frac
 //
 
-interface FracArgs extends GroupArgs {
-    numer?: Element
-    denom?: Element
+interface FracArgs extends Omit<GroupArgs, 'children'> {
+    children?: MathLeaf[]  // [ numerator, denominator ]
     has_bar?: boolean
-    left?: Element | null
-    right?: Element | null
     padding?: Padding
     rule_size?: number
     style?: MathStyle
@@ -2016,7 +2023,7 @@ class Overline extends LineDecoration {
 //
 
 interface SqrtArgs extends GroupArgs {
-    index?: Element | null
+    index?: MathLeaf
     padding?: Padding
     rule_size?: number
     line_width?: number
@@ -2151,8 +2158,8 @@ class Sqrt extends MathGroup {
 
         // TeX always sets a root index in scriptscript style. Keep it inside
         // the surd's horizontal advance, aligned with the upper-left shoulder.
-        if (index != null) {
-            const index0 = ensure_math(index)
+        const index0 = normalize_math_leaf(index, 'scriptscript')
+        if (index0 != null) {
             const index_elem = scale_math(index0, relative_scale(style, 'scriptscript'))
             const [ , index_bottom ] = metrics_bounds(index_elem.math)
             const right = 0.65 * radical_width

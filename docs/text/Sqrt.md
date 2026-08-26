@@ -8,7 +8,7 @@ The body is a single child: a LaTeX string, which is parsed as in [Latex](/docs/
 
 Parameters:
 - `children` — the radicand, a LaTeX string or a single math element
-- `index` — an optional index, a math element (such as a [MathText](/docs/MathText)), placed above and to the left of the surd at script-script size
+- `index` — an optional index, a LaTeX string or a math element, placed above and to the left of the surd at script-script size
 - `rule-size` = `0.04` — the thickness of the rule over the body in em (`line-width` is accepted as an alias)
 - `padding` = `0` — padding around the body, in em
 - `style` = `text` — the TeX math style to set the body in
