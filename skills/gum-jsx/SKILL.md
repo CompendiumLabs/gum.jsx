@@ -285,7 +285,7 @@ These are the raw layout components that assist you in arranging elements in a f
 
 **File**: [geometry](references/geometry.md)
 
-These are the basic geometric shapes that can be used to create more complex figures. Both `Rect` and `Ellipse` are aspectless by default but can be given an aspect ratio to control their shape (i.e., a circle is an `Ellipse` with an aspect of `1`).
+These are the basic geometric shapes that can be used to create more complex figures. Both `Rect` and `Ellipse` are aspectless by default but can be given an aspect ratio to control their shape (i.e., a circle is an `Ellipse` with an aspect of `1`). `Arc` is the portion of an `Ellipse` between two angles.
 
 `Line` is actually more general than just a single straight line. It can be used to draw piecewise linear paths by passing a list of points. For the case of simple unit lines, use `UnitLine` and its specialized variants `VLine` and `HLine` instead. For closed paths, either pass `closed` to `Line` or use `Polygon` instead.
 
@@ -294,11 +294,13 @@ For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of
 **Components**:
 - *Rect*: a rectangle
 - *Ellipse*: an ellipse
+- *Arc*: an elliptical arc between two angles
 - *Line*/*Polygon*/*Fill*: a piecewise linear path (possibly closed)
 - *Spline*: a multi-segment Bézier spline (possibly closed)
 - *UnitLine*/*VLine*/*HLine*: a single unit line
-- *RoundedLine*: a single unit line with rounded corners
-- *Arrow*: a straight line arrow between two points
+- *RoundedLine*: a piecewise linear path with rounded corners at each turn
+- *Arrow*: an arrow between two points, with a straight, curved (`curve`), or rounded city-block (`rounded`) shaft
+- *ArrowHead*: customizable arrowhead (no shaft)
 
 ## Text
 
@@ -306,13 +308,12 @@ For multi-segment Bézier splines, `Spline` is the way to go. It takes a list of
 
 These are components that can be used to create text elements. `Text` is a fairly sophisticated component that handles text wrapping, line spacing, and other text-related features. You can specify the wrap width (in "ems", that is, in proportion to the line height) with the `wrap` parameter and the alignment with the `justify` parameter. Feel free to intersperse non-text elements with text elements to create more complex layouts.
 
-`TextStack` is a simple component that stacks text elements vertically. Specifying a `wrap` width will cause every child element to be wrapped to the specified width. You can specify the vertical spacing between the elements with the `spacing` parameter. The `TitleFrame` is a `Frame` subclass that automatically adds a boxed title to the top of the frame. Finally, `Slide` is basically a `TextStack` wrapped in a `TitleFrame`.
-
-`Latex` does what it sounds like: it renders a single LaTeX equation. This uses MathJax under the hood, so it supports most but not all inline LaTeX features.
+`TextStack` is a simple component that stacks text elements vertically. Specifying a `wrap` width will cause every child element to be wrapped to the specified width. You can specify the vertical spacing between the elements with the `spacing` parameter. `Bullets` is a bulleted list whose items are wrapped to the same em width, so it sizes consistently with surrounding text. The `TitleFrame` is a `Frame` subclass that automatically adds a boxed title to the top of the frame. Finally, `Slide` is a fixed 16:9 canvas holding a `TitleFrame` filled with a `TextStack` of its children; text size is set by `wrap`, and content that is too tall is shrunk to fit.
 
 **Components**:
 - *Text*: a text element with wrapping
 - *TextStack*: a stack of text elements
+- *Bullets*: a bulleted list of text items, with optional nested lists
 - *TitleFrame*: a frame with a title
 - *Slide*: a slide with a title and content
 
@@ -320,13 +321,19 @@ These are components that can be used to create text elements. `Text` is a fairl
 
 **File**: [math](references/math.md)
 
-These are components for creating mathematical expressions. By far the most common usage is to pass a LaTeX style math expression to the `Latex` component. However, you can get very fine grained control over the layout of mathematical expressions with `MathText` as your outer wrapper and the `SupSub`, `Frac`, and `Bracket` components.
+These are components for creating mathematical expressions. By far the most common usage is to pass a LaTeX style math expression to the `Latex` component (`Tex` is the same with inline style by default). However, you can get very fine grained control over the layout of mathematical expressions with `MathText` as your outer wrapper and the `SupSub`, `Frac`, `Sqrt`, `Bracket`, and `MathArray` components. Bodies given as strings to these are parsed as LaTeX, so you can mix the two approaches freely.
 
 **Components**:
 - *Latex*: a single LaTeX equation from a string
 - *MathText*: display a list of math components
 - *SupSub*: a superscript and/or subscript
 - *Frac*: a fraction (numerator/denominator)
+- *Sqrt*: a radical with an optional index
+- *Accent*: an accent glyph (hat, bar, tilde, vec, dot, ...) over a base
+- *Overline*/*Underline*: a rule over or under a body
+- *HorizBrace*: an over/under brace with an optional label
+- *MathStretch*: a drawn stretchy decoration (extensible arrows, braces, segments) of a given width
+- *MathArray*: cells laid out as a matrix or table, with optional rules
 - *Bracket*: auto-sized brackets (round, square, curly, angle, or custom)
 
 ## Symbolic
@@ -355,18 +362,21 @@ The `Plot` element in particular is highly customizable, and you can pass argume
 - *Graph*: a graph containing multiple elements with a specified coordinate system
 - *Plot*: a plot containing a graph, axes, and labels
 - *Axis*/*HAxis*/*VAxis*: a single axis for a plot
+- *Scale*/*HScale*/*VScale*: a row of tick marks
+- *Labels*/*HLabels*/*VLabels*: tick labels placed along an axis
+- *Mesh*/*HMesh*/*VMesh*/*Mesh2D*: grid lines over an area
+- *Legend*: a boxed legend of badges and labels
 - *Bars*/*BarPlot*: a bar plot (bare or wrapped in a `Plot`)
 
 ## Networks
 
 **File**: [networks](references/networks.md)
 
-These are components for creating network diagrams. The core element is `Network`, which is a container element that accepts a list of `Node`s and `Edge`s, as well as potentially other elements like labels. A `Node` can specify an `id` to be used to reference it from an `Edge` as either the source (`from`) or destination (`to`). Default values for `Node` and `Edge` arguments can be specified with `node-` and `edge-` prefixed arguments passed to the `Network` element.
+These are components for creating network diagrams. The core element is `Network`, which is a container element that accepts a list of `Node`s and `Edge`s, as well as potentially other elements like labels. A `Node` can specify an `id` to be used to reference it from an `Edge` as either the source (`start`) or destination (`end`). Default values for `Node` and `Edge` arguments can be specified with `node-` and `edge-` prefixed arguments passed to the `Network` element.
 
-The `Edge` element has a `dir1` and `dir2` parameter to specify the direction of the arrowhead for the source and destination nodes, respectively. You can also toggle arrowheads on either side with `arrow`/`from-arrow`/`to-arrow` or specify the `curve` parameter to control the curvature of the edge.
+`Edge` is an `Arrow` between two nodes given as `start` and `end`. The side of each node the edge leaves from is inferred from their relative positions but can be set with `start-side`/`end-side`. You can toggle arrowheads on either end with `arrow`/`arrow-start`/`arrow-end`, and shape the path with `curve` (spline curvature) or `rounded` (a city-block route with rounded corners).
 
 **Components**:
-- *ArrowSpline*: a curved path with optional arrowheads at either or both ends
 - *Node*: a node in a network
 - *Edge*: an edge in a network
 - *Network*: a network containing nodes and edges

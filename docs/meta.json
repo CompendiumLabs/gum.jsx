@@ -19,6 +19,7 @@
         "Fill",
         "Spline",
         "Arrow",
+        "ArrowHead",
         "RoundedLine"
     ],
     "text": [
@@ -32,6 +33,12 @@
         "MathText",
         "SupSub",
         "Frac",
+        "Sqrt",
+        "Accent",
+        "Overline",
+        "HorizBrace",
+        "MathStretch",
+        "MathArray",
         "Bracket"
     ],
     "symbolic": [
@@ -45,6 +52,10 @@
         "Graph",
         "Plot",
         "Axis",
+        "Scale",
+        "Labels",
+        "Mesh",
+        "Legend",
         "BarPlot"
     ],
     "networks": [

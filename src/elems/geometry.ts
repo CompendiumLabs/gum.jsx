@@ -754,7 +754,7 @@ class Arc extends Path {
 //
 
 interface ArrowHeadArgs extends ElementArgs {
-    direc?: number
+    angle?: number
     arc?: number
     base?: boolean
     exact?: boolean
