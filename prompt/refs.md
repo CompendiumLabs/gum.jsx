@@ -63,6 +63,7 @@ These are components for creating mathematical expressions. By far the most comm
 **Components**:
 - *Latex*: a single LaTeX equation from a string
 - *MathText*: display a list of math components
+- *TextMode*: literal upright text inside math, as `\text{...}` (with `family`/`bold`/`italic` faces)
 - *SupSub*: a superscript and/or subscript
 - *Frac*: a fraction (numerator/denominator)
 - *Sqrt*: a radical with an optional index

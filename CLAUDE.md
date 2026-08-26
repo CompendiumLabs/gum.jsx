@@ -399,9 +399,11 @@ directly since gum cannot express katex's `withFont("mathrm")` through `TEX_FONT
 
 Font commands flow down as `font_family` in the converter's `attr`: `TEX_FONT_FAMILY` is katex's
 `fontMap` (`\mathbf` → `KaTeX_Main-Bold`, `\mathcal` → `KaTeX_Caligraphic`, …) and
-`text_font_family` composes the `\text*` family/weight/shape. `MathSymbol` only honours the
-requested face where it has the glyph (`resolve_font_override`), falling back to the symbol's own
-face as katex does, which is also how `\boldsymbol` gets Math-BoldItalic letters and Main-Bold
+`text_font_family` composes the `\text*` family/weight/shape, carried separately as `text_face` in
+the `ConvertCtx` so it reaches only text-mode symbols (math inside `\text{}` keeps its face);
+`TextMode` is the JSX element for literal `\text{}` (`family`/`bold`/`italic`), built as text-mode symbols without the parser. `MathSymbol` only honours
+the requested face where it has the glyph (`resolve_font_override`), falling back to the symbol's
+own face as katex does, which is also how `\boldsymbol` gets Math-BoldItalic letters and Main-Bold
 operators. `\color` flows the same way as `color`; every `MathShape` takes it as a `fill` alias
 so drawn shapes follow it.
 

@@ -677,9 +677,10 @@ class MathSymbol extends MathSpan {
         const text = check_string(children0)
 
         // try to get symbol entry; an unresolved command name (as opposed to a
-        // literal character) would otherwise be drawn verbatim, backslash and all
+        // literal character, a lone backslash included) would otherwise be
+        // drawn verbatim, backslash and all
         const entry = get_symbol_entry(mode, text)
-        if (entry == null && text.startsWith('\\')) {
+        if (entry == null && text.startsWith('\\') && text.length > 1) {
             strictError('symbol', `no ${mode}-mode symbol '${text}'`)
         }
         const { font, family, replace } = entry ??
@@ -1544,7 +1545,7 @@ class MathStretch extends MathShape {
 
 interface HorizBraceArgs extends Omit<GroupArgs, 'children'> {
     children?: MathLeaf[]
-    label?: WithMath | null
+    label?: MathLeaf
     over?: boolean
     style?: MathStyle
     height?: number
@@ -1563,10 +1564,17 @@ class HorizBrace extends MathGroup {
         // and fractions stay full size
         const body = math_child(children, is_script_style(style) ? style : 'display', 'HorizBrace')
 
+        // the label is set at script size, like the script it is written as in
+        // TeX (\overbrace{...}^{label}), so a string parses in the script style
+        const note_style = over ? sup_style(style) : sub_style(style)
+        const label0 = normalize_math_leaf(label, note_style)
+        const note = label0 != null
+            ? { item: scale_math(label0, relative_scale(style, note_style)), kern: BRACE_LABEL_KERN }
+            : null
+
         // the brace is a stretchy decoration with a floor on its width (so a
         // brace over a narrow body does not collapse into a squiggle) and its
         // label riding beyond it; an over/underbrace is an inner atom
-        const note = label != null ? { item: label, kern: BRACE_LABEL_KERN } : null
         super(place_stretch(body, over ? 'overbrace' : 'underbrace', over, BRACE_KERN, { height, thickness, ...attr }, note, 'minner'), spec)
         this.args = args
     }
@@ -2528,17 +2536,69 @@ function convert_enclose(tree: TreeEnclose, ctx: ConvertCtx): WithMath {
 }
 
 //
+// text mode
+//
+
+type TextModeFamily = 'main' | 'sans' | 'mono'
+
+interface TextModeArgs extends MathTextArgs {
+    family?: TextModeFamily
+    bold?: boolean
+    italic?: boolean
+}
+
+const TEXT_MODE_FAMILY: Record<TextModeFamily, TextFace['family']> = {
+    main: 'Main', sans: 'SansSerif', mono: 'Typewriter',
+}
+
+// plain text inside math, set the way \text{...} sets it: each character of a
+// string child is a text-mode symbol in the face composed from `family`/
+// `bold`/`italic` over any `font_family` given (a space is the face's space
+// glyph, as in katex), so the text is literal (no TeX parsing) and the symbols
+// are built directly rather than through the parser; elements mix inline as
+// in MathText
+class TextMode extends MathText {
+    constructor(args: TextModeArgs = {}) {
+        const { children: children0, family, bold, italic, style = 'text', strut, ...attr0 } = THEME(args, 'TextMode')
+        const [ spec, attr ] = spec_split(attr0)
+        const inputs = ensure_children(children0)
+
+        // compose the text face over the one given
+        const face = parse_text_face(attr.font_family as string | undefined)
+        const font_family = text_face_family({
+            ...face,
+            ...(family != null ? { family: TEXT_MODE_FAMILY[family] } : {}),
+            ...(bold != null ? { bold } : {}),
+            ...(italic != null ? { italic } : {}),
+        })
+
+        // one text-mode symbol per character
+        const elems = inputs.flatMap(child =>
+            (is_string(child) || is_scalar(child))
+                ? [ ...String(child) ].map(c => new MathSymbol({ children: [ c ], mode: 'text', ...attr, font_family }))
+                : [ child ]
+        )
+
+        // pass to MathText
+        super({ children: elems, style, strut, ...spec })
+        this.args = args
+    }
+}
+
+//
 // parse katex tree
 //
 
 const EMPTY_MATH = new MathSpacer()
 
 // what flows down the conversion: `attr` is whatever every leaf inherits (the
-// Latex element's own attributes, `font_family` from font commands, `color`
-// from \color), `style` is the TeX style in force, and `size` the \tiny ...
-// \Huge multiplier in force, so a nested size change is relative to the
-// enclosing one (katex's sizeMultiplier)
-type ConvertCtx = { attr: Attrs, style: MathStyle, size: number }
+// Latex element's own attributes, `font_family` from math font commands,
+// `color` from \color), `text_face` the face the \text* commands have
+// composed for text-mode symbols (math inside text keeps the math face, as in
+// katex), `style` is the TeX style in force, and `size` the \tiny ... \Huge
+// multiplier in force, so a nested size change is relative to the enclosing
+// one (katex's sizeMultiplier)
+type ConvertCtx = { attr: Attrs, style: MathStyle, size: number, text_face?: FontFamily }
 
 function ctx_style(ctx: ConvertCtx, style: MathStyle): ConvertCtx {
     return style == ctx.style ? ctx : { ...ctx, style }
@@ -2546,6 +2606,12 @@ function ctx_style(ctx: ConvertCtx, style: MathStyle): ConvertCtx {
 
 function ctx_attr(ctx: ConvertCtx, attr: Attrs): ConvertCtx {
     return { ...ctx, attr: { ...ctx.attr, ...attr } }
+}
+
+// the attributes a symbol inherits: a text-mode symbol takes the composed text
+// face over the math one
+function symbol_attr(mode: SymbolMode, { attr, text_face }: ConvertCtx): Attrs {
+    return mode == 'text' && text_face != null ? { ...attr, font_family: text_face } : attr
 }
 
 // convert a body into a single atom of the given class: sealed, so a fragment
@@ -2644,11 +2710,10 @@ function convert_horiz_brace(tree: TreeHorizBrace, note: TreeNode | null, ctx: C
     const { isOver, base } = tree
     const { attr, style } = ctx
 
-    // the label rides at script size, like the script it was written as
+    // the label is converted in the script style it was written as; HorizBrace
+    // scales it to script size
     const note_style = isOver ? sup_style(style) : sub_style(style)
-    const label = note != null
-        ? scale_math(convert_tree(note, ctx_style(ctx, note_style)), relative_scale(style, note_style))
-        : null
+    const label = note != null ? convert_tree(note, ctx_style(ctx, note_style)) : null
 
     // TeX sets the braced body in display style, so operators take limits and
     // fractions stay full size
@@ -2677,10 +2742,10 @@ function convert_tree(tree: Tree | TreeNode | null, ctx: ConvertCtx): WithMath {
 
         if (type == 'mathord' || type == 'textord') {
             const { mode, text } = tree
-            return new MathSymbol({ children: [ text ], mode, ...attr })
+            return new MathSymbol({ children: [ text ], mode, ...symbol_attr(mode, ctx) })
         } else if (type == 'atom') {
             const { mode, text, family } = tree
-            return new MathSymbol({ children: [ text ], mode, family, ...attr })
+            return new MathSymbol({ children: [ text ], mode, family, ...symbol_attr(mode, ctx) })
         } else if (type == 'ordgroup') {
             // a braced group is a single Ord atom for spacing (TeX Rule 20)
             return convert_atom(tree.body, ctx, 'mord')
@@ -2693,11 +2758,11 @@ function convert_tree(tree: Tree | TreeNode | null, ctx: ConvertCtx): WithMath {
         } else if (type == 'text') {
             // \textbf and friends compose with the text face already in force
             const { body, font } = tree
-            const font_family = font != null ? text_font_family(font, attr.font_family as string | undefined) : undefined
-            if (font != null && font_family == null) {
+            const text_face = font != null ? text_font_family(font, ctx.text_face ?? attr.font_family as string | undefined) : undefined
+            if (font != null && text_face == null) {
                 strictError('font', `no font family mapped for '${font}'`)
             }
-            return convert_tree(body, font_family == null ? ctx : ctx_attr(ctx, { font_family }))
+            return convert_tree(body, text_face == null ? ctx : { ...ctx, text_face })
         } else if (type == 'font') {
             const { font, body } = tree
             const font_family = TEX_FONT_FAMILY[font]
@@ -2945,5 +3010,5 @@ class Tex extends Latex {
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex }
-export type { MathClass, MathSpec, MathStyle, MathMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs }
+export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex, TextMode }
+export type { MathClass, MathSpec, MathStyle, MathMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs, TextModeArgs }
