@@ -35,7 +35,6 @@
     "./gala/*": "./gala/*",
     "./package.json": "./package.json"
   },
-  "scripts": {},
   "dependencies": {
     "@types/node": "^25.2.3",
     "@types/papaparse": "^5.5.2",
