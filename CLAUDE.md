@@ -46,12 +46,13 @@ all of them and ships the CLIs and the test suite. The siblings, each linked loc
 - `@gum-jsx/node` (`../gum-jsx-node`): the node runtime — `rasterizeSvg`/`rasterizePixels` via
   node-canvas, kitty `formatImage`, `ansi`, `readStdin`. Core has no `canvas` dependency.
 - `@gum-jsx/mark` (`../gum-jsx-mark`): Markdown → terminal rendering (`displayMarkdown`).
-- `@gum-jsx/docs` (`../gum-jsx-docs`): the documentation and gallery examples (`docs/`, `gala/`)
-  and the loaders that index them — content only, with no dependency on core.
+- `@gum-jsx/docs` (`../gum-jsx-docs`): the documentation and gallery examples (`docs/`, `gala/`),
+  the loaders that index them, and the Claude skill built from them (`skills/gum-jsx`, by its
+  `scripts/skill.ts`) — content only, with no dependency on core.
 - `gum-jsx` (`../gum-jsx`): re-exports all of the above (`gum-jsx`, `gum-jsx/eval`, `gum-jsx/math`,
   `gum-jsx/render`, `gum-jsx/mark`, `gum-jsx/meta`), the `gum`/`gum-tex`/`gum-down` bins, the
-  strict-mode test runner (`gum-jsx/test`), the feature tests in `test/code`, the report app, and
-  the Claude skill (`skills/gum-jsx`, built from `@gum-jsx/docs` by its `scripts/skill.ts`).
+  strict-mode test runner (`gum-jsx/test`), the feature tests in `test/code`, and the report
+  app.
 
 An add-on registers its elements and fonts through the registries below, and reaches core
 internals through the subpath exports `@gum-jsx/core/lib/*`, `@gum-jsx/core/elems/*`,
