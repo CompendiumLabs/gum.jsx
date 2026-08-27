@@ -28,7 +28,7 @@
 bun i gum-jsx
 ```
 
-This will install the `gum` command and the `gum-jsx` package. Add a `-g` flag to install globally. To download the skill file (which is just a zip), click on the release on the right or use `skills/gum-jsx.skill`.
+This installs the batteries-included `gum-jsx` package: the `gum`, `gum-tex`, and `gum-down` commands plus everything below. Add a `-g` flag to install globally. The pieces are also published separately as pure libraries: `@gum-jsx/core` (this repo: the JSX → SVG evaluator and elements, browser-safe), `@gum-jsx/math` (LaTeX), `@gum-jsx/node` (PNG rasterizing and terminal output), and `@gum-jsx/mark` (Markdown to terminal). The Claude skill (`skills/gum-jsx.skill`, a zip built from these docs) is in the `gum-jsx` package.
 
 See [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx) for React bindings. See [gum.py](https://github.com/CompendiumLabs/gum.py) for a Python wrapper.
 
@@ -45,7 +45,7 @@ Write some `gum.jsx` code:
 Then evaluate it to SVG:
 
 ```javascript
-import { evaluateGum } from 'gum/eval'
+import { evaluateGum } from 'gum-jsx/eval'   // or '@gum-jsx/core/eval'
 const elem = evaluateGum(jsx)
 const svg = elem.svg()
 ```
@@ -57,7 +57,7 @@ Which will produce the following:
 You can also use JavaScript directly:
 
 ```javascript
-import { Svg, Box, Text, Circle, Plot, SymLine, pi, sin } from 'gum'
+import { Svg, Box, Text, Circle, Plot, SymLine, pi, sin } from 'gum-jsx'   // or '@gum-jsx/core'
 const elem = new Plot({
   children: [ new SymLine({ fy: sin, stroke: blue, stroke_width: 2 }) ],
   xlim: [0, 2*pi], ylim: [-1.5, 1.5], grid: true, margin: [0.2, 0.1], aspect: 2,
@@ -103,74 +103,9 @@ CLI options:
 
 ## Math Rendering
 
-The LaTeX pipeline is also available standalone as a lightweight alternative to MathJax/KaTeX for server-side math rendering. By default the output is sized naturally to the math at `font_size` pixels per em (plus optional `padding` in em); alternatively pass `size` (a number or `[width, height]`) to fit the math into a box of that size:
-
-```javascript
-import { mathToSvg } from 'gum/math'
-import { mathToPng, mathToKitty } from 'gum/render'
-const svg = mathToSvg('\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', { font_size: 24 })
-const png = mathToPng('e^{i\\pi} + 1 = 0', { font_size: 32, inline: true, padding: 0.5, background: 'white', scale: 2 })
-const fit = mathToSvg('E = mc^2', { size: 400 })  // fit into a 400×400 box
-```
-
-Options: `inline` (text style rather than display style), `font_size` (px per em), `size` (overall box, overrides `font_size`), `padding` (em), `color`, `background`, `theme` (`light`/`dark`), and `scale` (raster scale factor for PNG). There is also `mathToElement`, which returns the `Svg` element itself.
-
-The same is available from the command line with `gum-tex`:
-
-```bash
-gum-tex '\sum_{n=1}^\infty \frac{1}{n^2} = \frac{\pi^2}{6}' -o sum.svg
-gum-tex -S 32 -t light -o euler.png < euler.tex
-gum-tex 'E = mc^2' -s 400 -o emc.png   # fit into a 400px box
-gum-tex 'E = mc^2'   # display in the terminal
-```
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `tex` | LaTeX source | `--file` or stdin |
-| `-i, --inline` | Inline (text) style rather than display style | off |
-| `-F, --file <file>` | Read LaTeX source from file | |
-| `-s, --size <size>` | Overall size to fit the math into (overrides font size) | natural |
-| `-S, --font-size <size>` | Font size in pixels | 100 |
-| `-p, --padding <padding>` | Padding around the math in em | 0.25 |
-| `-t, --theme <theme>` | Theme: `light` or `dark` | dark |
-| `-c, --color <color>` | Text color | theme color |
-| `-b, --background <color>` | Background color (`none` for transparent) | white for light theme |
-| `-x, --scale <scale>` | Raster scale factor for PNG/kitty output | 1 |
-| `-f, --format <format>` | Format: `svg`, `png`, `kitty` | auto |
-| `-o, --output <output>` | Output file | stdout |
+LaTeX math (`<Latex>`, `<Tex>`, and the standalone `mathToSvg`/`mathToPng` and `gum-tex` CLI) is provided by the [`@gum-jsx/math`](https://www.npmjs.com/package/@gum-jsx/math) package. Importing it registers the math elements, so `<Latex>` works in evaluated code; the `gum` command picks it up automatically when it is installed.
 
 ## Markdown Display
 
-There is also a Markdown-to-terminal renderer that displays fenced `gum` code blocks, image links (`.png`, `.svg`, `.jsx`), and TeX math (`$...$` and `$$...$$`) inline as kitty images, with ANSI styling for the rest:
+The Markdown-to-terminal renderer (`displayMarkdown` and the `gum-down` command), which shows fenced `gum` blocks, images, and TeX math inline as kitty images, is the [`@gum-jsx/mark`](https://www.npmjs.com/package/@gum-jsx/mark) package.
 
-````markdown
-# Sine wave
-
-The function $\sin(x)$ looks like this:
-
-```gum width=600 height=300
-<Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} aspect={2}>
-  <SymLine fy={sin} stroke={blue} />
-</Plot>
-```
-````
-
-Display it with `gum-down` (code block options `width=`, `height=`, and `theme=` override the global settings):
-
-```bash
-gum-down notes.md -t light -w 800
-```
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `file` | Markdown file to render | stdin |
-| `-t, --theme <theme>` | Theme: `light` or `dark` | dark |
-| `-w, --width <pixels>` | Max width for gum blocks (and math) | 1000 (math: 750/600) |
-| `-H, --height <pixels>` | Max height for gum blocks (and math) | 500 (math: 75/40) |
-
-Or from JavaScript:
-
-```javascript
-import { displayMarkdown } from 'gum/mark'
-process.stdout.write(displayMarkdown(markdown, { theme: 'light', width: 800 }))
-```

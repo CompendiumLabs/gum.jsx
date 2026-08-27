@@ -109,7 +109,7 @@ function textFont(font_family: string, font_weight: number): Font {
     // get font info
     const font = getFont(font_family)
     if (font == null) {
-        throw new Error(`Font not loaded: '${font_family}' (await loadFonts(['${font_family}']), loadMathFonts(), or loadFonts() before evaluating)`)
+        throw new Error(`Font not loaded: '${font_family}' (await loadFonts(['${font_family}']) or loadFonts() before evaluating)`)
     }
 
     // match the static face browser font matching would select

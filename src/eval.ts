@@ -10,7 +10,7 @@ import { parseTable } from './lib/table'
 import { is_element, Svg } from './elems/core'
 import type { SvgArgs } from './elems/core'
 import { runJSX, runPrelude } from './lib/parse'
-import './gum' // registers the core elements and context for evaluated code
+import './gum' // registers the core elements and context for evaluated code (add-ons such as @gum-jsx/math register theirs when imported)
 import { PngImage, type PngImageArgs } from './elems/image'
 import type { LoadFile, Size } from './lib/types'
 
