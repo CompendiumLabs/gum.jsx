@@ -19,7 +19,7 @@ echo '<Rectangle rounded fill={blue} />' | gum -f svg
 echo '<Rectangle rounded fill={blue} />' | gum -o test.png
 
 # Generate SVG/PNG from a .jsx file
-gum docs/code/box.jsx -o test.svg
+gum ../gum-jsx-docs/docs/code/Box.jsx -o test.svg
 
 # Run options:
 # file: gum.jsx file to render (reads from stdin if not provided)
@@ -35,8 +35,8 @@ gum docs/code/box.jsx -o test.svg
 
 ### Packages
 
-This repo is `@gum-jsx/core`: the JSX → SVG evaluator, the core elements, fonts, and the docs
-and gallery examples — a pure, platform-neutral library with no CLI. Everything under
+This repo is `@gum-jsx/core`: the JSX → SVG evaluator, the core elements, and the fonts — a
+pure, platform-neutral library with no CLI. Everything under
 `@gum-jsx/*` is a library; the batteries-included `gum-jsx` package (`../gum-jsx`) depends on
 all of them and ships the CLIs and the test suite. The siblings, each linked locally with
 `bun link` while unpublished (see their `CLAUDE.md`s):
@@ -46,16 +46,17 @@ all of them and ships the CLIs and the test suite. The siblings, each linked loc
 - `@gum-jsx/node` (`../gum-jsx-node`): the node runtime — `rasterizeSvg`/`rasterizePixels` via
   node-canvas, kitty `formatImage`, `ansi`, `readStdin`. Core has no `canvas` dependency.
 - `@gum-jsx/mark` (`../gum-jsx-mark`): Markdown → terminal rendering (`displayMarkdown`).
+- `@gum-jsx/docs` (`../gum-jsx-docs`): the documentation and gallery examples (`docs/`, `gala/`)
+  and the loaders that index them — content only, with no dependency on core.
 - `gum-jsx` (`../gum-jsx`): re-exports all of the above (`gum-jsx`, `gum-jsx/eval`, `gum-jsx/math`,
   `gum-jsx/render`, `gum-jsx/mark`, `gum-jsx/meta`), the `gum`/`gum-tex`/`gum-down` bins, the
   strict-mode test runner (`gum-jsx/test`), the feature tests in `test/code`, the report app, and
-  the Claude skill (`skills/gum-jsx`, built from the docs here by its `scripts/skill.ts`).
+  the Claude skill (`skills/gum-jsx`, built from `@gum-jsx/docs` by its `scripts/skill.ts`).
 
 An add-on registers its elements and fonts through the registries below, and reaches core
 internals through the subpath exports `@gum-jsx/core/lib/*`, `@gum-jsx/core/elems/*`,
-`@gum-jsx/core/fonts`, `@gum-jsx/core/eval`, `@gum-jsx/core/meta` and the data exports
-(`./docs/*`, `./gala/*`, `./package.json` — which is how `gum-jsx`'s test runner and skill
-builder find this package's examples) — that is the surface core commits to.
+`@gum-jsx/core/fonts`, `@gum-jsx/core/eval` and `./package.json` — that is the surface core
+commits to.
 
 ### Testing
 
@@ -66,7 +67,8 @@ bun tsc --noEmit
 ```
 
 The example suite lives in `gum-jsx` (`../gum-jsx`): `bun scripts/test.ts` there renders every
-example in `docs/code/` and `gala/code/` here plus its own `test/code/` in **strict mode**
+example in `@gum-jsx/docs` (`../gum-jsx-docs`: `docs/code/`, `gala/code/`) plus its own
+`test/code/` in **strict mode**
 (`src/lib/strict.ts`), which turns the permissive rendering fallbacks into thrown `StrictError`s
 so silent breakage shows up as a failure: unparseable TeX (`parse`), a katex node with no gum
 equivalent (`node`), an unknown command name drawn verbatim (`symbol`), a TeX font command with
@@ -78,7 +80,7 @@ comment. `bun scripts/test.ts --report` there also writes every render to `test/
 
 Or test a single file:
 ```bash
-gum docs/code/box.jsx -o test.svg
+gum ../gum-jsx-docs/docs/code/Box.jsx -o test.svg
 ```
 
 ## Architecture
@@ -227,15 +229,14 @@ Key functions for rect manipulation:
 - `parse.ts` - JSX parser (Acorn) and AST walker
 - `registry.ts` - Element and context registries for the JSX evaluator
 - `strict.ts` - Strict mode: turns silent rendering fallbacks into thrown errors
-- `meta.ts` - Documentation metadata loading (`getDocs`, `getGala`; used by `gum-jsx`'s skill builder)
 
 **Scripts:**
 
 **Documentation:**
-- `docs/text/` - Text documentation
-- `docs/code/` - Component examples (one per element type)
-- `gala/text/` - Gallery text documentation
-- `gala/code/` - Gallery code examples
+
+The docs and gallery live in `@gum-jsx/docs` (`../gum-jsx-docs`): `docs/text/` and `docs/code/`
+(one page and one example per element), `gala/text/` and `gala/code/` (the gallery). Add or edit
+a page there, not here.
 
 ## Important Patterns
 

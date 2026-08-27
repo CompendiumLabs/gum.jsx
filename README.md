@@ -28,7 +28,7 @@
 bun i gum-jsx
 ```
 
-This installs the batteries-included `gum-jsx` package: the `gum`, `gum-tex`, and `gum-down` commands plus everything below. Add a `-g` flag to install globally. The pieces are also published separately as pure libraries: `@gum-jsx/core` (this repo: the JSX → SVG evaluator and elements, browser-safe), `@gum-jsx/math` (LaTeX), `@gum-jsx/node` (PNG rasterizing and terminal output), and `@gum-jsx/mark` (Markdown to terminal). The Claude skill (`skills/gum-jsx.skill`, a zip built from these docs) is in the `gum-jsx` package.
+This installs the batteries-included `gum-jsx` package: the `gum`, `gum-tex`, and `gum-down` commands plus everything below. Add a `-g` flag to install globally. The pieces are also published separately as pure libraries: `@gum-jsx/core` (this repo: the JSX → SVG evaluator and elements, browser-safe), `@gum-jsx/math` (LaTeX), `@gum-jsx/node` (PNG rasterizing and terminal output), `@gum-jsx/mark` (Markdown to terminal), and `@gum-jsx/docs` (the documentation and gallery examples). The Claude skill (`skills/gum-jsx.skill`, a zip built from those docs) is in the `gum-jsx` package.
 
 See [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx) for React bindings. See [gum.py](https://github.com/CompendiumLabs/gum.py) for a Python wrapper.
 
@@ -67,7 +67,7 @@ const svg = elem.svg()
 
 ## Command Line
 
-You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal. For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `gala/code/` to try out.
+You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal. For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `gala/code/` of `@gum-jsx/docs` to try out.
 
 Generate an SVG from a `gum.jsx` file:
 

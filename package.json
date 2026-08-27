@@ -15,24 +15,15 @@
     "src/lib",
     "src/types",
     "src/elems",
-    "src/fonts",
-    "docs",
-    "docs/text",
-    "docs/code",
-    "docs/data",
-    "gala/text",
-    "gala/code"
+    "src/fonts"
   ],
   "exports": {
     ".": "./src/gum.ts",
     "./eval": "./src/eval.ts",
-    "./meta": "./src/meta.ts",
     "./fonts": "./src/fonts/fonts.ts",
     "./fonts/*": "./src/fonts/*",
     "./lib/*": "./src/lib/*.ts",
     "./elems/*": "./src/elems/*.ts",
-    "./docs/*": "./docs/*",
-    "./gala/*": "./gala/*",
     "./package.json": "./package.json"
   },
   "dependencies": {
