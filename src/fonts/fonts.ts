@@ -1,6 +1,6 @@
 import { parse as parseFont, type Font } from 'opentype.js'
 import { is_browser, is_string } from '../lib/utils'
-import { sans, mono, moji, bold } from '../lib/const'
+import { sans, mono, moji } from '../lib/const'
 
 //
 // load font data as arraybuffer
@@ -70,102 +70,48 @@ function parseFontFamily(data: FontData): FontEntry {
 }
 
 //
-// load core fonts (vite resolves these as assets via static string analysis)
+// font registry
 //
 
-const FONT_PATHS: Record<string, FontPath> = {
-    [sans]: {
-        // @ts-ignore
-        light: (await import('./IBMPlexSans-Light.ttf')).default,
-        // @ts-ignore
-        regular: (await import('./IBMPlexSans-Regular.ttf')).default,
-        // @ts-ignore
-        bold: (await import('./IBMPlexSans-Bold.ttf')).default,
-    },
-    [mono]: {
-        // @ts-ignore
-        light: (await import('./IBMPlexMono-Light.ttf')).default,
-        // @ts-ignore
-        regular: (await import('./IBMPlexMono-Regular.ttf')).default,
-        // @ts-ignore
-        bold: (await import('./IBMPlexMono-Bold.ttf')).default,
-    },
-    // @ts-ignore
-    [moji]: (await import('./NotoEmoji-Variable.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Math': (await import('katex/dist/fonts/KaTeX_Math-Italic.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Main': (await import('katex/dist/fonts/KaTeX_Main-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_AMS': (await import('katex/dist/fonts/KaTeX_AMS-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Size1': (await import('katex/dist/fonts/KaTeX_Size1-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Size2': (await import('katex/dist/fonts/KaTeX_Size2-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Size3': (await import('katex/dist/fonts/KaTeX_Size3-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Size4': (await import('katex/dist/fonts/KaTeX_Size4-Regular.ttf')).default,
-    // the remaining KaTeX faces, behind \mathbf, \mathcal, \textit and friends;
-    // each is its own family name, so the SVG output selects a face by name alone
-    // @ts-ignore
-    'KaTeX_Main-Bold': (await import('katex/dist/fonts/KaTeX_Main-Bold.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Main-Italic': (await import('katex/dist/fonts/KaTeX_Main-Italic.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Main-BoldItalic': (await import('katex/dist/fonts/KaTeX_Main-BoldItalic.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Math-BoldItalic': (await import('katex/dist/fonts/KaTeX_Math-BoldItalic.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Caligraphic': (await import('katex/dist/fonts/KaTeX_Caligraphic-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Fraktur': (await import('katex/dist/fonts/KaTeX_Fraktur-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Script': (await import('katex/dist/fonts/KaTeX_Script-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_SansSerif': (await import('katex/dist/fonts/KaTeX_SansSerif-Regular.ttf')).default,
-    // @ts-ignore
-    'KaTeX_SansSerif-Bold': (await import('katex/dist/fonts/KaTeX_SansSerif-Bold.ttf')).default,
-    // @ts-ignore
-    'KaTeX_SansSerif-Italic': (await import('katex/dist/fonts/KaTeX_SansSerif-Italic.ttf')).default,
-    // @ts-ignore
-    'KaTeX_Typewriter': (await import('katex/dist/fonts/KaTeX_Typewriter-Regular.ttf')).default,
-}
-
-//
-// css faces
-//
-
-// a registry name is one font file, but the SVG output (and any @font-face
-// rules a host writes) should address the bold and italic KaTeX faces the way
-// fontconfig and katex.min.css know them: by the base family plus a weight and
-// a style, so the rasterizer and browsers can find them
+// a registry name is one font file (or a light/regular/bold set), but the SVG
+// output (and any @font-face rules a host writes) may need to address a face
+// the way fontconfig and browsers know it: by a base family plus a weight and
+// a style. Faces that are their own family need no entry here.
 type FontFace = { family: string, weight?: number, style?: 'italic' }
 
-const FONT_FACES: Record<string, FontFace> = {
-    'KaTeX_Main-Bold': { family: 'KaTeX_Main', weight: bold },
-    'KaTeX_Main-Italic': { family: 'KaTeX_Main', style: 'italic' },
-    'KaTeX_Main-BoldItalic': { family: 'KaTeX_Main', weight: bold, style: 'italic' },
-    'KaTeX_Math-BoldItalic': { family: 'KaTeX_Math', weight: bold, style: 'italic' },
-    'KaTeX_SansSerif-Bold': { family: 'KaTeX_SansSerif', weight: bold },
-    'KaTeX_SansSerif-Italic': { family: 'KaTeX_SansSerif', style: 'italic' },
-}
+// the file(s) behind each registered family name; populated by registerFonts
+const FONT_PATHS: Record<string, FontPath> = {}
+
+// the css face for registry names that are not their own family
+const FONT_FACES: Record<string, FontFace> = {}
 
 // the css face for a registry name (the name itself for ordinary families)
 function fontFace(name: string): FontFace {
     return FONT_FACES[name] ?? { family: name }
 }
 
-//
-// font registry (populated by loadFonts / registerFont)
-//
+// the family names registered so far (the default set for loadFonts)
+function registeredFonts(): string[] {
+    return Object.keys(FONT_PATHS)
+}
 
-// named groups: text fonts are what ordinary gum text uses, math fonts are the
-// KaTeX faces used by Latex/Tex; loading everything is the default but a math-
-// only host (e.g. gum/math in the browser) can load just MATH_FONTS
-const TEXT_FONTS: string[] = [ sans, mono, moji ]
-const MATH_FONTS: string[] = Object.keys(FONT_PATHS).filter(name => name.startsWith('KaTeX_'))
-const CORE_FONTS: string[] = Object.keys(FONT_PATHS)
+// make families known to the registry without loading them: in node they are
+// read from disk on first use, in the browser a host loads them with
+// loadFonts. Core registers its text fonts below; the math fonts are
+// registered by fonts/math.ts.
+function registerFonts(paths: Record<string, FontPath>, faces: Record<string, FontFace> = {}): void {
+    for (const [ name, path ] of Object.entries(paths)) {
+        FONT_PATHS[name] = path
+        FONT_PENDING.delete(name)
+        delete FONTS[name]
+        delete FONT_DATA[name]
+    }
+    Object.assign(FONT_FACES, faces)
+}
+
+//
+// loaded fonts
+//
 
 const FONT_DATA: Record<string, FontData> = {}
 const FONTS: Record<string, FontEntry> = {}
@@ -197,8 +143,8 @@ function ensure_names(names: string | string[]): string[] {
     return is_string(names) ? [ names ] : names
 }
 
-// load fonts by family name (default: all core fonts); memoized per family
-function loadFonts(names: string | string[] = CORE_FONTS): Promise<void> {
+// load fonts by family name (default: everything registered); memoized per family
+function loadFonts(names: string | string[] = registeredFonts()): Promise<void> {
     return Promise.all(ensure_names(names).map(name => {
         const path = FONT_PATHS[name]
         if (path == null) return Promise.reject(new Error(`Unknown font family: ${name}`))
@@ -206,21 +152,13 @@ function loadFonts(names: string | string[] = CORE_FONTS): Promise<void> {
     })).then(() => {})
 }
 
-function loadMathFonts(): Promise<void> {
-    return loadFonts(MATH_FONTS)
-}
-
-function loadTextFonts(): Promise<void> {
-    return loadFonts(TEXT_FONTS)
-}
-
-// check whether the given fonts (default: all core fonts) are available for text measurement
-function fontsLoaded(names: string | string[] = CORE_FONTS): boolean {
+// check whether the given fonts (default: everything registered) are available for text measurement
+function fontsLoaded(names: string | string[] = registeredFonts()): boolean {
     return ensure_names(names).every(name => name in FONTS)
 }
 
-// get a loaded font entry; in node, core fonts are loaded on demand from disk
-// (synchronously), so hosts never need to await loadFonts() there; in the
+// get a loaded font entry; in node, registered fonts are loaded on demand from
+// disk (synchronously), so hosts never need to await loadFonts() there; in the
 // browser the font must have been loaded beforehand, otherwise returns null
 function getFont(name: string): FontEntry | null {
     const font = FONTS[name]
@@ -231,19 +169,49 @@ function getFont(name: string): FontEntry | null {
     return FONTS[name]
 }
 
+// register one family and load it right away
+async function registerFont(name: string, path: FontPath, face?: FontFace): Promise<void> {
+    registerFonts({ [name]: path }, face != null ? { [name]: face } : {})
+    await loadFontEntry(name, path)
+}
+
 //
-// allow additional fonts to be loaded
+// core text fonts (vite resolves these as assets via static string analysis)
 //
 
-async function registerFont(name: string, path: string): Promise<void> {
-    FONT_PATHS[name] = path
-    FONT_PENDING.delete(name)
-    await loadFontEntry(name, path)
+const TEXT_FONT_PATHS: Record<string, FontPath> = {
+    [sans]: {
+        // @ts-ignore
+        light: (await import('./IBMPlexSans-Light.ttf')).default,
+        // @ts-ignore
+        regular: (await import('./IBMPlexSans-Regular.ttf')).default,
+        // @ts-ignore
+        bold: (await import('./IBMPlexSans-Bold.ttf')).default,
+    },
+    [mono]: {
+        // @ts-ignore
+        light: (await import('./IBMPlexMono-Light.ttf')).default,
+        // @ts-ignore
+        regular: (await import('./IBMPlexMono-Regular.ttf')).default,
+        // @ts-ignore
+        bold: (await import('./IBMPlexMono-Bold.ttf')).default,
+    },
+    // @ts-ignore
+    [moji]: (await import('./NotoEmoji-Variable.ttf')).default,
+}
+
+// what ordinary gum text uses (the math fonts are in fonts/math.ts)
+const TEXT_FONTS: string[] = Object.keys(TEXT_FONT_PATHS)
+
+registerFonts(TEXT_FONT_PATHS)
+
+function loadTextFonts(): Promise<void> {
+    return loadFonts(TEXT_FONTS)
 }
 
 //
 // exports
 //
 
-export { FONT_PATHS, FONT_DATA, FONTS, TEXT_FONTS, MATH_FONTS, CORE_FONTS, getFont, fontFace, loadFonts, loadMathFonts, loadTextFonts, fontsLoaded, registerFont }
-export type { FontWeight, FontSet, FontEntry, FontFace }
+export { FONT_PATHS, FONT_FACES, FONT_DATA, FONTS, TEXT_FONTS, registeredFonts, getFont, fontFace, registerFonts, registerFont, loadFonts, loadTextFonts, fontsLoaded }
+export type { FontWeight, FontPath, FontSet, FontEntry, FontFace }

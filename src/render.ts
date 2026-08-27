@@ -9,14 +9,22 @@ import { formatImage, formatPixels, readStdin, type FormatImageArgs } from './li
 import { fitSize } from './eval'
 import { mathToElement, type MathArgs } from './math'
 
-// register bundled fonts so SVG <text> resolves consistently
-for (const [ family, path ] of Object.entries(FONT_PATHS)) {
-  if (typeof path == 'string') {
-    registerFont(path, { family })
-  } else {
-    registerFont(path.light, { family, weight: String(light) })
-    registerFont(path.regular, { family, weight: String(regular) })
-    registerFont(path.bold, { family, weight: String(bold) })
+// register the gum font registry with node-canvas so SVG <text> resolves
+// consistently; done lazily at first draw so fonts registered after this
+// module is imported (the math faces, or a host's own) are picked up too
+const CANVAS_FONTS: Set<string> = new Set()
+
+function registerCanvasFonts(): void {
+  for (const [ family, path ] of Object.entries(FONT_PATHS)) {
+    if (CANVAS_FONTS.has(family)) continue
+    CANVAS_FONTS.add(family)
+    if (typeof path == 'string') {
+      registerFont(path, { family })
+    } else {
+      registerFont(path.light, { family, weight: String(light) })
+      registerFont(path.regular, { family, weight: String(regular) })
+      registerFont(path.bold, { family, weight: String(bold) })
+    }
   }
 }
 
@@ -31,6 +39,8 @@ interface RasterizeResult {
 }
 
 function drawSvgCanvas(svg: string | Buffer, { size, background }: RasterizeArgs = {}): RasterizeResult {
+  registerCanvasFonts()
+
   // create image object
   const buf = Buffer.isBuffer(svg) ? svg : Buffer.from(svg)
   const img = new Image()

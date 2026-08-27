@@ -6,6 +6,8 @@ import { EMPTY_VRANGE, DEFAULT_VRANGE, textHasGlyphs, rawTextMetrics, type TextM
 import { StrictError, strictError } from '../lib/strict'
 import { is_array, is_scalar, is_string, is_boolean, is_object, check_singleton, check_array, check_string, ensure_vector, merge_limits, prefix_split, join_limits, sum, max, range, rotate_aspect, pad_rect } from '../lib/utils'
 import symbols from '../lib/symbols'
+import { registerElements } from '../lib/registry'
+import '../fonts/math'
 import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children } from './core'
 import { Polygon, Line, Arc, Arrow, ArrowHead, Ellipse } from './geometry'
 import { Span } from './text'
@@ -3014,8 +3016,20 @@ class Tex extends Latex {
 }
 
 //
+// registration
+//
+
+// bind the math elements in evaluated JSX (the math fonts are registered by
+// the fonts/math import above)
+const MATH_ELEMS = {
+    MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex, TextMode,
+}
+
+registerElements(MATH_ELEMS)
+
+//
 // exports
 //
 
-export { MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex, TextMode }
+export { MATH_ELEMS, MathSpan, MathSymbol, MathOp, MathSpacer, MathRow, MathCol, MathBox, MathRule, MathArray, MathStretch, HorizBrace, MathText, SupSub, Frac, Underline, Overline, Sqrt, Accent, Bracket, Latex, Tex, TextMode }
 export type { MathClass, MathSpec, MathStyle, MathMetrics, FontFamily, MathSymbolArgs, MathOpArgs, MathTextArgs, TextModeArgs }

@@ -129,14 +129,33 @@ gum docs/code/box.jsx -o test.svg
 
 ## Architecture
 
+### Registries
+
+Two registries let core and add-ons (today the math elements; later separate packages) declare
+what they provide with separate calls, instead of one static table:
+
+- **Elements and context** (`src/lib/registry.ts`): `registerContext(values)` binds constants and
+  utilities as globals of evaluated JSX and `registerElements(elems)` binds element constructors
+  by tag name (also recorded in `ELEMS`). `src/lib/parse.ts` reads the live `CONTEXT` at
+  evaluation time. `src/gum.ts` registers the core names (`CORE_ELEMS`) and `src/elems/math.ts`
+  registers `MATH_ELEMS` when imported; `src/eval.ts` imports `./gum` so evaluating always has
+  core available.
+- **Fonts** (`src/fonts/fonts.ts`): `registerFonts(paths, faces?)` makes families known by name
+  without loading them — `FONT_PATHS` maps a name to a file (or a light/regular/bold set) and
+  `FONT_FACES` gives the css face for names that are not their own family. `fonts.ts` registers
+  the text fonts (IBM Plex Sans/Mono, Noto Emoji; `TEXT_FONTS`) and `src/fonts/math.ts`
+  registers the 18 KaTeX faces from the `katex` package (`MATH_FONTS`) when imported, which
+  `src/elems/math.ts` does. `registerFont(name, path, face?)` registers one family and loads it.
+  `loadFonts()` and `fontsLoaded()` default to everything registered (`registeredFonts()`).
+
 ### Fonts
 
-Text layout measures real glyph metrics with opentype.js, so the fonts (`src/fonts/fonts.ts`: IBM Plex Sans/Mono, Noto Emoji, and the KaTeX faces from the `katex` package) must be loaded before elements are constructed. Loading is per family and memoized:
+Text layout measures real glyph metrics with opentype.js, so the fonts must be loaded before elements are constructed. Loading is per family and memoized:
 
-- **node**: nothing to do — fonts are read from disk on first use (`getFont`), so `gum-tex 'x^2'` only parses the KaTeX faces it touches.
-- **browser**: fonts are fetched, so hosts must `await loadFonts()` (all core fonts), `await loadMathFonts()` (all 18 KaTeX faces, ~500 kB — enough for `Latex`/`Tex`/`gum/math`), `loadTextFonts()`, or `loadFonts([...names])` before evaluating. `gum/math` kicks off `loadMathFonts()` on import without blocking. A missing font throws `Font not loaded: '<family>'` from `textFont`.
+- **node**: nothing to do — registered fonts are read from disk on first use (`getFont`), so `gum-tex 'x^2'` only parses the KaTeX faces it touches.
+- **browser**: fonts are fetched, so hosts must `await loadFonts()` (everything registered), `await loadMathFonts()` (all 18 KaTeX faces, ~500 kB — enough for `Latex`/`Tex`/`gum/math`), `loadTextFonts()`, or `loadFonts([...names])` before evaluating. `gum/math` kicks off `loadMathFonts()` on import without blocking. A missing font throws `Font not loaded: '<family>'` from `textFont`.
 
-The SVG output references fonts by family name (plus `font-weight`/`font-style` for the bold and italic KaTeX faces); a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw. The KaTeX faces are registered under one name per file for measurement (`KaTeX_Main`, `KaTeX_Main-Bold`, `KaTeX_Main-Italic`, `KaTeX_Math-BoldItalic`, `KaTeX_Caligraphic`, `KaTeX_Typewriter`, …), but fontconfig (which the rasterizer uses) and `katex.min.css` know the bold/italic ones as the base family at weight 700 or style italic, so `Span` emits the css face from `fontFace()` and `scripts/test.ts` writes `@font-face` rules the same way.
+The SVG output references fonts by family name (plus `font-weight`/`font-style` for the bold and italic KaTeX faces); a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw. The KaTeX faces are registered under one name per file for measurement (`KaTeX_Main`, `KaTeX_Main-Bold`, `KaTeX_Main-Italic`, `KaTeX_Math-BoldItalic`, `KaTeX_Caligraphic`, `KaTeX_Typewriter`, …), but fontconfig (which the rasterizer uses) and `katex.min.css` know the bold/italic ones as the base family at weight 700 or style italic, so `Span` emits the css face from `fontFace()`. `src/render.ts` hands the registry to node-canvas lazily at the first rasterization, so fonts registered after it is imported are still found.
 
 ### Component System
 
@@ -214,7 +233,7 @@ Key functions for rect manipulation:
 1. **Parse** (`src/lib/parse.ts`): JSX code → AST using Acorn parser
    - Walks the AST and converts JSX elements to `new ComponentName({ ...props })`
    - Handles JSX expressions, spreads, and nested children
-   - Imports `KEYS`/`VALS` from `src/gum.ts` to inject all components and utilities as globals
+   - Injects the registered `CONTEXT` (`src/lib/registry.ts`) as globals: components, constants, and utilities
 
 2. **Evaluate** (`src/eval.ts`): AST → Element tree
    - Runs the transformed code to instantiate components
@@ -233,7 +252,7 @@ Key functions for rect manipulation:
 ### File Organization
 
 **Top-level modules:**
-- `src/gum.ts` - Re-exports all elements and utilities; defines named constants (`none`, `blue`, `red`, etc.) and `KEYS`/`VALS` for the JSX evaluator
+- `src/gum.ts` - Re-exports all elements and utilities; defines named constants (`none`, `blue`, `red`, etc.) and registers the core names for the JSX evaluator
 - `src/defaults.ts` - `DEFAULTS`, `THEME()` function, and theme management
 - `src/eval.ts` - Code evaluation and element validation
 - `src/render.ts` - SVG rendering to PNG via node-canvas
@@ -256,6 +275,7 @@ Key functions for rect manipulation:
 - `utils.ts` - Math utilities, array/vector ops, rect manipulation, color handling
 - `text.ts` - Text measurement and wrapping using opentype.js
 - `parse.ts` - JSX parser (Acorn) and AST walker
+- `registry.ts` - Element and context registries for the JSX evaluator
 - `strict.ts` - Strict mode: turns silent rendering fallbacks into thrown errors
 - `meta.ts` - Documentation metadata loading
 - `term.ts` - Terminal utilities (stdin, Kitty protocol)

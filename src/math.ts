@@ -12,7 +12,7 @@ import { setTheme, type ThemeName } from './lib/theme'
 import { setStrict } from './lib/strict'
 import type { Size } from './lib/types'
 import { is_browser } from './lib/utils'
-import { loadMathFonts } from './fonts/fonts'
+import { loadMathFonts } from './fonts/math'
 
 // math layout only needs the KaTeX faces; in the browser start that download
 // on import (without blocking), hosts must still `await loadMathFonts()` before

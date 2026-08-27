@@ -1,7 +1,7 @@
 /* the fonts gum's svg output names: IBM Plex for text, the KaTeX faces for
    math. The plex faces come straight out of the repo (src/fonts) and the
    katex ones out of the katex package, so the inlined figures render with the
-   same glyphs the rasterizer measured. Mirrors FONT_PATHS in src/fonts/fonts.ts. */
+   same glyphs the rasterizer measured. Mirrors the font registry (src/fonts/fonts.ts and src/fonts/math.ts). */
 
 
 @font-face {
