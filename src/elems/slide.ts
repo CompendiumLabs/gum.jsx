@@ -1,7 +1,7 @@
 // slide elements
 
 import { THEME } from '../lib/theme'
-import { black, white } from '../lib/const'
+import { black, white, phi } from '../lib/const'
 import { prefix_split, pad_rect } from '../lib/utils'
 
 import { spec_split, align_frac, is_element, ensure_children, Rectangle, Group } from './core'
@@ -107,8 +107,6 @@ interface SlideArgs extends TitleFrameArgs {
     valign?: AlignValue
 }
 
-const SLIDE_ASPECT = 16 / 9
-
 // convert a padding given in units of the outer height into the inner-relative
 // fractions that Box uses with adjust = false, and return the inner aspect
 function canvas_padding(pad: Padding | undefined, aspect: number): { padding: Rect, aspect: number } {
@@ -130,13 +128,13 @@ class Slide extends Box {
 
     constructor(args: SlideArgs = {}) {
         const {
-            children, aspect: aspect0 = SLIDE_ASPECT, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
+            children, aspect: aspect0 = phi, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
             border_stroke = '#bbb', background, title_size = 0.1, wrap = 25, spacing = 0.05,
             justify = 'left', valign = 'center', ...attr0
         } = THEME(args, 'Slide')
         const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
         const [ spec, attr ] = spec_split(attr1)
-        const aspect = aspect0 == 'auto' ? SLIDE_ASPECT : aspect0
+        const aspect = aspect0 == 'auto' ? phi : aspect0
 
         // margin is in canvas units; frame padding is also in canvas units, so
         // convert it into the frame's own height units before applying it
@@ -169,5 +167,5 @@ class Slide extends Box {
 // exports
 //
 
-export { LabelBox, TitleBox, TitleFrame, Slide, SLIDE_ASPECT }
+export { LabelBox, TitleBox, TitleFrame, Slide }
 export type { LabelBoxArgs, TitleBoxArgs, TitleFrameArgs, SlideArgs }

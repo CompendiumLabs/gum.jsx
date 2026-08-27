@@ -18,7 +18,7 @@ import { Span, TextLine, Text, TextBox, TextFrame, TextStack, Bullets, Bold, Ita
 import { Node, Edge, Network } from './elems/network'
 import { SymPoints, SymLine, SymSpline, SymPoly, SymFill, Field, SymField } from './elems/symbolic'
 import { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend } from './elems/plot'
-import { LabelBox, TitleBox, TitleFrame, Slide, SLIDE_ASPECT } from './elems/slide'
+import { LabelBox, TitleBox, TitleFrame, Slide } from './elems/slide'
 import { PngImage, SvgImage, calcPngAspect } from './elems/image'
 import { parseTable } from './lib/table'
 
@@ -47,7 +47,7 @@ registerElements(CORE_ELEMS)
 
 export {
     ELEMS, CONTEXT, CORE_ELEMS, Context, registerContext, registerElements,
-    setTheme, loadFonts, loadTextFonts, fontsLoaded, registerFonts, registerFont, registeredFonts, calcPngAspect, parseTable, SLIDE_ASPECT,
+    setTheme, loadFonts, loadTextFonts, fontsLoaded, registerFonts, registerFont, registeredFonts, calcPngAspect, parseTable,
     is_string, is_boolean, is_array, is_object, is_function, is_element, is_scalar, is_emoji,
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, slate, sans, mono, moji, cmoji, light, regular, bold,
     range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, polard, rounder, interp, palette, add2, sub2, mul2, div2, addn, subn, muln, divn, addc, subc, mulc, divc, conjc, normc, argc, spline1d, spline2d,
