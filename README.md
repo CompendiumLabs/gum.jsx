@@ -1,63 +1,36 @@
-<div align="center">
-<img src="images/logo.svg" alt="logo" width="500" />
-<br/>
-</div>
+# @gum-jsx/core
 
-<div align="center">
-<img src="images/nexus.svg" alt="nexus" width="250" />
-<br/><br/>
-</div>
-
-<p align="center">
-  Gum is a JSX vector graphics language that evaluates to SVG.
-  <br/>
-  It is designed for plots, diagrams, flow charts, and more.
-</p>
-
-<p align="center">
-  <a href="https://compendiumlabs.ai/gum/studio">Live Demo</a>
-  |
-  <a href="https://compendiumlabs.ai/gum/docs">Documentation</a>
-  |
-  <a href="https://compendiumlabs.ai/gum/docs/gala">Gallery</a>
-</p>
+The core of [gum.jsx](https://github.com/CompendiumLabs/gum-jsx): the evaluator that turns gum's JSX dialect into SVG, the element library behind it (layout, geometry, text, plots, networks, symbolic curves), and the fonts (IBM Plex) it measures text with. A pure, platform-neutral library with no CLI and no node-only dependencies — it runs the same in a browser and on a server. The batteries-included [`gum-jsx`](https://github.com/CompendiumLabs/gum-jsx) package wraps it together with the add-ons and ships the `gum` command; install that instead if you want the whole stack.
 
 ## Installation
 
 ```bash
-bun i gum-jsx
+npm install @gum-jsx/core
 ```
 
-This installs the batteries-included `gum-jsx` package: the `gum`, `gum-tex`, and `gum-mark` commands plus everything below. Add a `-g` flag to install globally. The pieces are also published separately as pure libraries: `@gum-jsx/core` (this repo: the JSX → SVG evaluator and elements, browser-safe), `@gum-jsx/math` (LaTeX), `@gum-jsx/node` (PNG rasterizing and terminal output), `@gum-jsx/mark` (Markdown to terminal), and `@gum-jsx/docs` (the documentation and gallery examples, plus the Claude skill built from them: `skills/gum-jsx.skill`).
+## Usage
 
-See [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx) for React bindings. See [gum.py](https://github.com/CompendiumLabs/gum.py) for a Python wrapper.
+`evaluateGum` evaluates a string of gum.jsx and returns the root `Svg` element; `.svg()` serializes it:
 
-## Library Usage
+```javascript
+import { evaluateGum } from '@gum-jsx/core/eval'
 
-Write some `gum.jsx` code:
-
-```jsx
+const jsx = `
 <Plot xlim={[0, 2*pi]} ylim={[-1.5, 1.5]} grid margin={[0.2, 0.1]} aspect={2}>
   <SymLine fy={sin} stroke={blue} stroke-width={2} />
 </Plot>
-```
-
-Then evaluate it to SVG:
-
-```javascript
-import { evaluateGum } from 'gum-jsx/eval'   // or '@gum-jsx/core/eval'
-const elem = evaluateGum(jsx)
+`
+const elem = evaluateGum(jsx, { size: 800, theme: 'light' })
 const svg = elem.svg()
 ```
 
-Which will produce the following:
+The code runs with every element, constant (`pi`, `blue`, `sans`, …) and utility (`linspace`, `zip`, `random`, …) in scope, so most files are a single JSX expression; a file can also declare things and `return` an element. Options: `size` (a number or `[width, height]`), `theme` (`light` or `dark`), `context` (extra names to bind), `prelude` (code or a context evaluated first, see `evaluatePrelude`), `seed` (for `random`/`uniform`/`normal`/`integer`), `strict` (throw on rendering fallbacks instead of drawing them), `loadFile` (how `loadTable(path)` and `<LoadImage id={path} />` in the code read files), `debug`, plus any `Svg` argument such as `padding`, `unit_size` or `bare`.
 
-<img src="images/plot.svg" alt="sine wave plot" width="750" />
-
-You can also use JavaScript directly:
+The elements are plain classes and can be used from JavaScript directly, with props in `snake_case`:
 
 ```javascript
-import { Svg, Box, Text, Circle, Plot, SymLine, pi, sin } from 'gum-jsx'   // or '@gum-jsx/core'
+import { Plot, SymLine, pi, sin, blue } from '@gum-jsx/core'
+
 const elem = new Plot({
   children: [ new SymLine({ fy: sin, stroke: blue, stroke_width: 2 }) ],
   xlim: [0, 2*pi], ylim: [-1.5, 1.5], grid: true, margin: [0.2, 0.1], aspect: 2,
@@ -65,47 +38,14 @@ const elem = new Plot({
 const svg = elem.svg()
 ```
 
-## Command Line
+The [documentation](https://compendiumlabs.ai/gum/docs) has a page and an example per element; the same pages ship in `@gum-jsx/docs`.
 
-You can use the `gum` command to convert `gum.jsx` into SVG text or PNG data. You can even just display it directly in the terminal. For the latter you need a terminal that supports images, such as `ghostty` or `kitty`. There are a bunch of code examples in `docs/code/` and `gala/code/` of `@gum-jsx/docs` to try out.
+## Fonts
 
-Generate an SVG from a `gum.jsx` file:
+Text is measured against real font metrics, so the faces have to be loaded before anything with text is rendered. In node they are read from disk on first use and nothing more is needed. In a browser, fetch them first — `await loadTextFonts()` for IBM Plex (the faces core registers), or `await loadFonts()` for everything registered, including an add-on's — otherwise rendering throws `FontNotLoadedError`. `registerFont(name, path, face)` adds a face of your own, and `FONT_DATA` (in `@gum-jsx/core/fonts`) holds the fetched bytes for handing to `FontFace` so the page can draw the same glyphs the layout measured. Emoji are measured with a fixed advance and left to the host's emoji font.
 
-```bash
-gum input.jsx -o output.svg
-```
+## Extending
 
-Generate a PNG from a `gum.jsx` file:
+Core keeps two registries in `@gum-jsx/core/registry` — `ELEMS`, the element constructors by JSX tag name, and `CONTEXT`, everything bound as a global of evaluated code. An add-on calls `registerElements` (and `registerContext` for constants or functions) on import, so a host that imports only core gets only core's names, and importing the add-on is what makes its tags available; `@gum-jsx/math` does exactly this for `<Latex>` and the KaTeX faces. Internals are reachable through the subpath exports `@gum-jsx/core/lib/*` (`Context`, `types`, `theme`, `strict`, `utils`, …), `@gum-jsx/core/elems/*` (the element modules), and `@gum-jsx/core/fonts` (the font registry) — that is the surface add-ons are written against.
 
-```bash
-gum input.jsx -o output.png
-```
-
-Display a `gum.jsx` file in the terminal:
-```bash
-gum input.jsx
-```
-
-CLI options:
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `file` | Gum JSX file to render | stdin |
-| `-s, --size <size>` | SVG/viewBox size in pixels | 1000 |
-| `-t, --theme <theme>` | Theme: `light` or `dark` | light |
-| `-b, --background <color>` | Background color | white |
-| `-f, --format <format>` | Format: `json`, `svg`, `png`, `kitty` | auto |
-| `-o, --output <output>` | Output file | stdout |
-| `-r, --raster-size <size>` | Max rasterized PNG size | auto |
-| `-d, --dev` | Live update display | off |
-| `--strict` | Throw on rendering fallbacks instead of drawing them | off |
-| `--seed <seed>` | Seed for `random`/`uniform`/`normal`/`integer` | 42 |
-
-## Math Rendering
-
-LaTeX math (`<Latex>`, `<Tex>`, and the standalone `mathToSvg`/`mathToPng` and `gum-tex` CLI) is provided by the [`@gum-jsx/math`](https://www.npmjs.com/package/@gum-jsx/math) package. Importing it registers the math elements, so `<Latex>` works in evaluated code; the `gum` command picks it up automatically when it is installed.
-
-## Markdown Display
-
-The Markdown-to-terminal renderer (`displayMarkdown` and the `gum-mark` command), which shows fenced `gum` blocks, images, and TeX math inline as kitty images, is the [`@gum-jsx/mark`](https://www.npmjs.com/package/@gum-jsx/mark) package.
-
+Strict mode (`strict: true`, `setStrict` in `@gum-jsx/core/lib/strict`) turns the permissive fallbacks — unparseable input, unknown tags or commands, glyphs missing from a face — into thrown `StrictError`s, which is how the `gum-jsx` test suite renders every example.
