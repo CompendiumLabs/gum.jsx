@@ -672,6 +672,7 @@ interface SvgArgs extends GroupArgs {
     font_family?: string
     font_weight?: number
     prec?: number
+    unit_size?: number
 }
 
 class Svg extends Group {
@@ -679,9 +680,10 @@ class Svg extends Group {
     viewrect: Rect
     style: Style
     prec: number
+    unit_size: number
 
     constructor(args: SvgArgs = {}) {
-        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, stroke_width = 1, prec = D.prec, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, stroke_width = 1, prec = D.prec, unit_size = D.unit_size, ...attr } = THEME(args, 'Svg')
         const children = ensure_children(children0)
         const size_base = ensure_pair(size0)
 
@@ -709,6 +711,7 @@ class Svg extends Group {
         this.viewrect = viewrect
         this.style = style_elem
         this.prec = prec
+        this.unit_size = unit_size
     }
 
     props(ctx: Context): Attrs {
@@ -736,13 +739,15 @@ class Svg extends Group {
     }
 
     svg(args?: ContextArgs): string {
-        const { size, prec } = this
+        const { size, prec, unit_size } = this
 
         // make new context; the stroke unit scales with the image, so a stroke
-        // of width 1 is one pixel when the image is D.unit_size across
+        // of width 1 is one pixel when the image is unit_size across (the size
+        // the image was designed at; D.unit_size by default, so a small icon
+        // designed at its own size sets unit_size to that size)
         const [ w, h ] = size
         const prect = [ 0, 0, w, h ] as Rect
-        const unit = Math.max(w, h) / D.unit_size
+        const unit = Math.max(w, h) / unit_size
         const ctx = new Context({ prect, prec, unit, ...args })
 
         // render children

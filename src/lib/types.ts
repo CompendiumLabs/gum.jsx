@@ -68,6 +68,7 @@ interface CliArgs {
   theme: ThemeName
   background?: string
   size?: Size
+  unitSize?: number
   rasterSize?: Size
   dev: boolean
   strict: boolean

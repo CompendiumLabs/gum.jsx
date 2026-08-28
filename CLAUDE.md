@@ -24,6 +24,7 @@ gum ../gum-jsx-docs/docs/code/Box.jsx -o test.svg
 # Run options:
 # file: gum.jsx file to render (reads from stdin if not provided)
 # -s, --size <size>        size of the svg/viewBox (default: 1000)
+# -u, --unit-size <size>   image size at which stroke_width = 1 is one pixel (default: 1000)
 # -r, --raster-size <size> max rasterized PNG size (default: null)
 # -f, --format <format>    format: svg, png, kitty (default: kitty or inferred)
 # -t, --theme <theme>      theme to use (default: light)
@@ -100,7 +101,7 @@ what they provide with separate calls, instead of one static table:
 - **Fonts** (`src/fonts/fonts.ts`): `registerFonts(paths, faces?)` makes families known by name
   without loading them — `FONT_PATHS` maps a name to a file (or a light/regular/bold set) and
   `FONT_FACES` gives the css face for names that are not their own family. `fonts.ts` registers
-  the text fonts (IBM Plex Sans/Mono, Noto Emoji; `TEXT_FONTS`) and `@gum-jsx/math` registers
+  the text fonts (IBM Plex Sans/Mono; `TEXT_FONTS`) and `@gum-jsx/math` registers
   the 18 KaTeX faces from the `katex` package (`MATH_FONTS`) when imported.
   `registerFont(name, path, face?)` registers one family and loads it.
   `loadFonts()` and `fontsLoaded()` default to everything registered (`registeredFonts()`).
@@ -110,7 +111,7 @@ what they provide with separate calls, instead of one static table:
 Text layout measures real glyph metrics with opentype.js, so the fonts must be loaded before elements are constructed. Loading is per family and memoized:
 
 - **node**: nothing to do — registered fonts are read from disk on first use (`getFont`), so a render only parses the faces it touches.
-- **browser**: fonts are fetched, so hosts must `await loadFonts()` (everything registered), `loadTextFonts()`, `loadFonts([...names])`, or `@gum-jsx/math`'s `loadMathFonts()` (all 18 KaTeX faces, ~500 kB) before evaluating. A missing font throws `Font not loaded: '<family>'` from `textFont`.
+- **browser**: fonts are fetched, so hosts must `await loadFonts()` (everything registered), `loadTextFonts()`, `loadFonts([...names])`, or `@gum-jsx/math`'s `loadMathFonts()` (all 18 KaTeX faces, ~480 kB) / `loadBaseMathFonts()` (the 7 ordinary math needs, ~190 kB) before evaluating. A missing font throws `FontNotLoadedError` (exported from `@gum-jsx/core` and `@gum-jsx/core/fonts`; `.font` is the family) from `textFont`, so a host can `loadFonts([e.font])` and retry — `@gum-jsx/math`'s `mathToSvgAsync` does exactly that.
 
 The SVG output references fonts by family name (plus `font-weight`/`font-style` for the bold and italic KaTeX faces); a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw. A face that is not its own family (the bold and italic KaTeX faces, registered one name per file for measurement) is emitted by `Span` as the base family plus weight/style via `fontFace()`, which is how fontconfig (used by the rasterizer) and browsers know it. `@gum-jsx/node` hands the registry to node-canvas lazily at the first rasterization, so fonts registered after it is imported are still found.
 
@@ -163,7 +164,10 @@ The `Context` class handles coordinate system mapping:
 - Carries a **stroke unit** (`unit`, pixels per unit of `stroke_width`). The root `Svg` sets it
   from the rendered size (`max(w, h) / D.unit_size`, so `stroke_width = 1` is one pixel at a
   1000px render) and `map()` inherits it unchanged, so strokes scale with the image rather than
-  staying a fixed pixel width. `Element.props()` resolves `stroke_width`, `stroke_dasharray` and
+  staying a fixed pixel width. The reference size is the `unit_size` prop of `Svg` (default
+  `D.unit_size`; `--unit-size` on the CLI): it is the size the image was designed at, so a
+  32px icon sets `unit_size={32}` to get pixel strokes and still scales them when rendered
+  larger. `Element.props()` resolves `stroke_width`, `stroke_dasharray` and
   `stroke_dashoffset` against it at emit time, and the root emits a scaled default `stroke-width`
   so implicit strokes scale too. The offset half of an `MNumber` is in the same unit, so
   `Arrow`'s half-a-stroke pullback keeps pace. A container may rebase `unit` to its own box

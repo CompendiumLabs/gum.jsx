@@ -1,6 +1,6 @@
 import { parse as parseFont, type Font } from 'opentype.js'
 import { is_browser, is_string } from '../lib/utils'
-import { sans, mono, moji } from '../lib/const'
+import { sans, mono } from '../lib/const'
 
 //
 // load font data as arraybuffer
@@ -157,6 +157,17 @@ function fontsLoaded(names: string | string[] = registeredFonts()): boolean {
     return ensure_names(names).every(name => name in FONTS)
 }
 
+// thrown by text measurement when a font is registered but not loaded yet (browser
+// only); `font` names the family so a host can loadFonts([font]) and retry
+class FontNotLoadedError extends Error {
+    font: string
+    constructor(font: string) {
+        super(`Font not loaded: '${font}' (await loadFonts(['${font}']) or loadFonts() before evaluating)`)
+        this.name = 'FontNotLoadedError'
+        this.font = font
+    }
+}
+
 // get a loaded font entry; in node, registered fonts are loaded on demand from
 // disk (synchronously), so hosts never need to await loadFonts() there; in the
 // browser the font must have been loaded beforehand, otherwise returns null
@@ -196,11 +207,11 @@ const TEXT_FONT_PATHS: Record<string, FontPath> = {
         // @ts-ignore
         bold: (await import('./IBMPlexMono-Bold.ttf')).default,
     },
-    // @ts-ignore
-    [moji]: (await import('./NotoEmoji-Variable.ttf')).default,
 }
 
-// what ordinary gum text uses (the math fonts are in fonts/math.ts)
+// what ordinary gum text uses (the math fonts are in @gum-jsx/math); emoji
+// are measured with a constant advance (lib/text.ts) and drawn by whatever
+// emoji face the renderer falls back to, so none is bundled
 const TEXT_FONTS: string[] = Object.keys(TEXT_FONT_PATHS)
 
 registerFonts(TEXT_FONT_PATHS)
@@ -213,5 +224,5 @@ function loadTextFonts(): Promise<void> {
 // exports
 //
 
-export { FONT_PATHS, FONT_FACES, FONT_DATA, FONTS, TEXT_FONTS, registeredFonts, getFont, fontFace, registerFonts, registerFont, loadFonts, loadTextFonts, fontsLoaded }
+export { FONT_PATHS, FONT_FACES, FONT_DATA, FONTS, TEXT_FONTS, FontNotLoadedError, registeredFonts, getFont, fontFace, registerFonts, registerFont, loadFonts, loadTextFonts, fontsLoaded }
 export type { FontWeight, FontPath, FontSet, FontEntry, FontFace }

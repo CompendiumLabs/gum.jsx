@@ -4,11 +4,11 @@ import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 import type { Font } from 'opentype.js'
 
-import { DEFAULTS as D, sans, moji, light, regular } from './const'
+import { DEFAULTS as D, sans, light, regular } from './const'
 import { is_string, compress_whitespace, sum, zip, max, min } from './utils'
 import { wrapWidths } from './wrap'
 import { isStrict, strictError } from './strict'
-import { getFont, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
+import { getFont, FontNotLoadedError, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
 
 import type { Limit } from './types'
 
@@ -63,40 +63,15 @@ function closest_weight(weight: number): FontWeight {
     return 'bold'
 }
 
-function arrayEquals(a: number[], b: number[]): boolean {
-    return a.length == b.length && a.every((x, i) => x == b[i])
-}
+// emoji are not measured from a font: every emoji glyph in Noto Emoji (the
+// face gum used to ship, 2 MB) has the same advance, 1300/1024 em, and each
+// run from splitEmojiRuns is one emoji sequence (a ZWJ family or a flag is one
+// glyph), so a constant reproduces the measurement exactly. The emoji itself
+// is drawn by whatever emoji face the renderer falls back to.
+const EMOJI_ADVANCE = 1300 / 1024
 
-function emojiSizer(text: string): number {
-    // get emoji font
-    const font0 = getFont(moji)
-    if (font0 == null) return 1.25
-    const font = is_font_set(font0) ? font0.light : font0
-
-    // get glyphs
-    const { unitsPerEm } = font
-    const glyphs = font.stringToGlyphs(text)
-
-    // handle simple case
-    if (glyphs.length == 1) {
-        const { advanceWidth = 0 } = glyphs[0]
-        return advanceWidth / unitsPerEm
-    }
-
-    // find substitution
-    const subs = font.substitution.getFeature('ccmp')
-    const indices = glyphs.map(g => g.index)
-    const sub = subs.find(s => arrayEquals(s.sub, indices))
-
-    // if no substitution found, return sum of glyph widths
-    if (sub == null) {
-        const width = sum(glyphs.map(g => g.advanceWidth))
-        return width / unitsPerEm
-    }
-
-    // get glyph advance
-    const { advanceWidth = 0 } = font.glyphs.get(sub.by)
-    return advanceWidth / unitsPerEm
+function emojiSizer(_text: string): number {
+    return EMOJI_ADVANCE
 }
 
 type TextSizerArgs = {
@@ -108,9 +83,7 @@ type TextSizerArgs = {
 function textFont(font_family: string, font_weight: number): Font {
     // get font info
     const font = getFont(font_family)
-    if (font == null) {
-        throw new Error(`Font not loaded: '${font_family}' (await loadFonts(['${font_family}']) or loadFonts() before evaluating)`)
-    }
+    if (font == null) throw new FontNotLoadedError(font_family)
 
     // match the static face browser font matching would select
     if (!is_font_set(font)) return font

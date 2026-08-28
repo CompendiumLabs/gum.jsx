@@ -6,7 +6,7 @@ import './types/linebreak.d.ts'
 import { setTheme } from './lib/theme'
 import { sans, mono, moji, cmoji, light, regular, bold, none, black, white, gray, blue, red, green, yellow, purple, lightgray, darkgray, slate, e, pi, phi, r2d, d2r } from './lib/const'
 import { is_scalar, is_string, is_boolean, is_object, is_function, is_array, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, norm, range, linspace, enumerate, repeat, meshgrid, lingrid, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, minimum, maximum, min, max, clamp, rescale, normalize, sigmoid, logit, smoothstep, setSeed, random, uniform, normal, integer, interp, palette, polar, polard, rounder, add2, sub2, mul2, div2, addn, subn, muln, divn, addc, subc, mulc, divc, conjc, normc, argc } from './lib/utils'
-import { loadFonts, loadTextFonts, fontsLoaded, registerFonts, registerFont, registeredFonts } from './fonts/fonts'
+import { loadFonts, loadTextFonts, fontsLoaded, registerFonts, registerFont, registeredFonts, FontNotLoadedError } from './fonts/fonts'
 import { ELEMS, CONTEXT, registerContext, registerElements, type ElementConstructor } from './lib/registry'
 import { is_emoji } from './lib/text'
 
@@ -47,7 +47,7 @@ registerElements(CORE_ELEMS)
 
 export {
     ELEMS, CONTEXT, CORE_ELEMS, Context, registerContext, registerElements,
-    setTheme, loadFonts, loadTextFonts, fontsLoaded, registerFonts, registerFont, registeredFonts, calcPngAspect, parseTable,
+    setTheme, loadFonts, loadTextFonts, fontsLoaded, registerFonts, registerFont, registeredFonts, FontNotLoadedError, calcPngAspect, parseTable,
     is_string, is_boolean, is_array, is_object, is_function, is_element, is_scalar, is_emoji,
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, slate, sans, mono, moji, cmoji, light, regular, bold,
     range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, polard, rounder, interp, palette, add2, sub2, mul2, div2, addn, subn, muln, divn, addc, subc, mulc, divc, conjc, normc, argc, spline1d, spline2d,
