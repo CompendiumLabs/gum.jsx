@@ -6,7 +6,7 @@
 
 ### Running the CLI
 
-The `gum` command (and `gum-tex`, `gum-down`) is shipped by the batteries-included `gum-jsx`
+The `gum` command (and `gum-tex`, `gum-mark`) is shipped by the batteries-included `gum-jsx`
 package (`../gum-jsx`); install it globally or run `bun scripts/gum.ts` there. To test the output
 of a `gum.jsx` snippet or file, pipe it to `gum`. If you have vision capabilities, this can be
 useful for seeing the actual output of the code, either in SVG or PNG format.
@@ -39,8 +39,9 @@ gum ../gum-jsx-docs/docs/code/Box.jsx -o test.svg
 This repo is `@gum-jsx/core`: the JSX → SVG evaluator, the core elements, and the fonts — a
 pure, platform-neutral library with no CLI. Everything under
 `@gum-jsx/*` is a library; the batteries-included `gum-jsx` package (`../gum-jsx`) depends on
-all of them and ships the CLIs and the test suite. The siblings, each linked locally with
-`bun link` while unpublished (see their `CLAUDE.md`s):
+all of them and ships the CLIs and the test suite. The siblings, each its own repo and npm
+package versioned in lockstep with core, and resolved to the sibling checkouts through the
+`gum-org` bun workspace during development (see `../CLAUDE.md` and their `CLAUDE.md`s):
 
 - `@gum-jsx/math` (`../gum-jsx-math`): the LaTeX elements (`Latex`, `Tex`, `MathArray`, …), the
   KaTeX faces, `mathToSvg`/`mathToPng`.
@@ -51,7 +52,7 @@ all of them and ships the CLIs and the test suite. The siblings, each linked loc
   the loaders that index them, and the Claude skill built from them (`skills/gum-jsx`, by its
   `scripts/skill.ts`) — content only, with no dependency on core.
 - `gum-jsx` (`../gum-jsx`): re-exports all of the above (`gum-jsx`, `gum-jsx/eval`, `gum-jsx/math`,
-  `gum-jsx/render`, `gum-jsx/mark`, `gum-jsx/meta`), the `gum`/`gum-tex`/`gum-down` bins, the
+  `gum-jsx/render`, `gum-jsx/mark`, `gum-jsx/meta`), the `gum`/`gum-tex`/`gum-mark` bins, the
   strict-mode test runner (`gum-jsx/test`), the feature tests in `test/code`, and the report
   app.
 

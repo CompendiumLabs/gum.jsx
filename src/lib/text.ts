@@ -1,5 +1,7 @@
 // font shaping
 
+/// <reference path="../types/linebreak.d.ts" />
+/// <reference path="../types/opentype.d.ts" />
 import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
 import type { Font } from 'opentype.js'

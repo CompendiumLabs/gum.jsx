@@ -1,3 +1,5 @@
+/// <reference path="../types/opentype.d.ts" />
+
 import { parse as parseFont, type Font } from 'opentype.js'
 import { is_browser, is_string } from '../lib/utils'
 import { sans, mono } from '../lib/const'

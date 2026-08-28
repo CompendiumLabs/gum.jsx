@@ -28,7 +28,7 @@
 bun i gum-jsx
 ```
 
-This installs the batteries-included `gum-jsx` package: the `gum`, `gum-tex`, and `gum-down` commands plus everything below. Add a `-g` flag to install globally. The pieces are also published separately as pure libraries: `@gum-jsx/core` (this repo: the JSX → SVG evaluator and elements, browser-safe), `@gum-jsx/math` (LaTeX), `@gum-jsx/node` (PNG rasterizing and terminal output), `@gum-jsx/mark` (Markdown to terminal), and `@gum-jsx/docs` (the documentation and gallery examples, plus the Claude skill built from them: `skills/gum-jsx.skill`).
+This installs the batteries-included `gum-jsx` package: the `gum`, `gum-tex`, and `gum-mark` commands plus everything below. Add a `-g` flag to install globally. The pieces are also published separately as pure libraries: `@gum-jsx/core` (this repo: the JSX → SVG evaluator and elements, browser-safe), `@gum-jsx/math` (LaTeX), `@gum-jsx/node` (PNG rasterizing and terminal output), `@gum-jsx/mark` (Markdown to terminal), and `@gum-jsx/docs` (the documentation and gallery examples, plus the Claude skill built from them: `skills/gum-jsx.skill`).
 
 See [react-gum-jsx](https://github.com/CompendiumLabs/react-gum-jsx) for React bindings. See [gum.py](https://github.com/CompendiumLabs/gum.py) for a Python wrapper.
 
@@ -107,5 +107,5 @@ LaTeX math (`<Latex>`, `<Tex>`, and the standalone `mathToSvg`/`mathToPng` and `
 
 ## Markdown Display
 
-The Markdown-to-terminal renderer (`displayMarkdown` and the `gum-down` command), which shows fenced `gum` blocks, images, and TeX math inline as kitty images, is the [`@gum-jsx/mark`](https://www.npmjs.com/package/@gum-jsx/mark) package.
+The Markdown-to-terminal renderer (`displayMarkdown` and the `gum-mark` command), which shows fenced `gum` blocks, images, and TeX math inline as kitty images, is the [`@gum-jsx/mark`](https://www.npmjs.com/package/@gum-jsx/mark) package.
 
