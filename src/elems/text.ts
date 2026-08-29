@@ -1,6 +1,6 @@
 // text elements
 
-import type { Attrs, AlignValue, Rect, Limit, Padding } from '../lib/types'
+import type { Attrs, AlignValue, Rect, Limit } from '../lib/types'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext, maxis } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum } from '../lib/utils'
@@ -9,7 +9,7 @@ import { fontFace } from '../fonts/fonts'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
-import { Context, Element, Group, spec_split, ensure_children, escape_text, is_element } from './core'
+import { Context, Element, Group, Spacer, spec_split, ensure_children, escape_text, is_element } from './core'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HStack, VStack } from './layout'
 import type { BoxArgs, StackArgs } from './layout'
@@ -342,25 +342,13 @@ interface BulletsArgs extends StackArgs {
     font_style?: string
 }
 
-// vertical extent of an item's first line in its own coordinates, where the
-// marker should sit; non-text items get one em measured off their width
-function first_line(item: Element, wrap: number): Limit {
-    if (item instanceof Text && item.children.length > 0) {
-        const rect = item.children[0].spec.rect
-        if (rect != null) return [ rect[1], rect[3] ]
-    }
-    const aspect = item.spec.aspect
-    const em = aspect != null ? Math.min(1, aspect / wrap) : 1
-    return [ 0, em ]
-}
-
 // a bulleted list: each item is a Text wrapped to the body width with a marker
 // in the indent, level with its first line. nested Bullets are indented without
 // a marker. widths are in em so the text size matches surrounding text with the
 // same wrap; the gap between items is also in em
 class Bullets extends VStack {
     constructor(args: BulletsArgs = {}) {
-        const { children: children0, wrap = 25, marker: marker0 = '•', indent = 1.5, gap = 0.5, spacing: spacing0, justify = 'left', ...attr0 } = THEME(args, 'Bullets')
+        const { children: children0, wrap = 25, marker: marker0 = '•', indent = 0.75, gap = 0.5, spacing: spacing0, justify = 'left', ...attr0 } = THEME(args, 'Bullets')
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
         const children: any[] = ensure_children(children0)
@@ -368,28 +356,26 @@ class Bullets extends VStack {
         // the body is narrower than the list by the indent
         const wrap_body = wrap - indent
         if (wrap_body <= 0) throw new Error(`Bullets indent (${indent}) must be less than wrap (${wrap})`)
-        const pad = indent / wrap_body
-        const padding: Padding = [ pad, 0, 0, 0 ]
-        const marker: Element = is_element(marker0) ? marker0 : new Text({ children: [ marker0 ] as any, ...font_attr })
+
+        // the indent is a fixed fraction of each row, so it never sets the row
+        // height. the marker sits in a one-line box (indent em by one em) at
+        // the top of the indent: level with the first line of the body, or
+        // shrunk to the row when the body is shorter than a line
+        const cell = { stack_size: indent / wrap }
+        const marker: Element = is_element(marker0) ? marker0 : new Text({ children: [ marker0 ] as any, align: ['left', 'center'], ...font_attr })
+        const mark = new Group({ children: [ marker ], aspect: indent, align: [ 'center', 'top' ], ...cell })
 
         // build item rows
         const rows = children.map((child: any) => {
             // sublists are indented but get no marker
             if (child instanceof Bullets) {
                 const sub = child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr })
-                return new Box({ children: [ sub ], padding, adjust: false })
+                return new HStack({ children: [ new Spacer(cell), sub ] })
             }
 
             // wrap text items to the body width, take other elements as they are
-            const body: Element = (is_string(child) || is_scalar(child)) ?
-                new Text({ children: [ child ] as any, wrap: wrap_body, justify, ...font_attr, ...text_attr }) :
-                child instanceof Text ? child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr }) : child
-
-            // place the marker in the indent, level with the first line
-            const [ y1, y2 ] = first_line(body, wrap_body)
-            const mark = marker.clone({ rect: [ -pad, y1, 0, y2 ] })
-            const row = new Group({ children: [ body, mark ] as Element[], aspect: body.spec.aspect })
-            return new Box({ children: [ row ], padding, adjust: false })
+            const body: Element = child instanceof Text ? child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr }) : child
+            return new HStack({ children: [ mark, body ] })
         })
 
         // convert the gap in em into a stack spacing fraction
