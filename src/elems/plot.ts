@@ -62,14 +62,14 @@ interface BarsArgs extends GroupArgs {
 
 class Bars extends Group {
     constructor(args: BarsArgs = {}) {
-        const { children: children0, data, direc = 'v', width = 0.75, zero = 0, ...attr0 } = THEME(args, 'Bars')
+        const { children: children0, data, direc = 'v', width = 0.75, zero = 0, env, ...attr0 } = THEME(args, 'Bars')
         const [ spec, attr ] = spec_split(attr0)
         const children = ensure_children(children0)
         const idirec = invert_orient(direc)
 
         // handle data array case
         const bars = data != null ?
-          data.map((value: any) => new Bar({ direc, value, ...attr })) :
+          data.map((value: any) => new Bar({ direc, value, env, ...attr })) :
           children
 
         // make rects from sizes
@@ -83,7 +83,7 @@ class Bars extends Group {
         })
 
         // pass to Group
-        super({ children: items, coord: 'auto', ...spec })
+        super({ children: items, coord: 'auto', env, ...spec })
         this.args = args
     }
 }
@@ -120,14 +120,14 @@ interface ScaleArgs extends GroupArgs {
 
 class Scale extends Group {
     constructor(args: ScaleArgs = {}) {
-        const { children: children0, locs, direc = 'h', span = D.lim, ...attr0 } = THEME(args, 'Scale')
+        const { children: children0, locs, direc = 'h', span = D.lim, env, ...attr0 } = THEME(args, 'Scale')
         const [ spec, tick_attr ] = spec_split(attr0)
         const tick_dir = invert_orient(direc)
 
         // make tick placeholders
         const ticks0 = children0 != null ? ensure_children(children0) :
           auto_array(locs, span).map((t: number) =>
-            new UnitLine({ direc: tick_dir, tick_loc: t, tick_span: span })
+            new UnitLine({ direc: tick_dir, tick_loc: t, tick_span: span, env })
           )
 
         // arrange tick lines
@@ -138,7 +138,7 @@ class Scale extends Group {
         })
 
         // set coordinate system
-        super({ children: ticks, ...spec })
+        super({ children: ticks, env, ...spec })
         this.args = args
     }
 }
@@ -178,11 +178,11 @@ class Label extends Anchor {
     loc?: number
 
     constructor(args: LabelArgs = {}) {
-        const { children: children0, loc, tick, direc = 'h', spin = 0, justify: justify0, ...attr } = THEME(args, 'Label')
+        const { children: children0, loc, tick, direc = 'h', spin = 0, justify: justify0, env, ...attr } = THEME(args, 'Label')
         const child = ensure_singleton(children0)
-        const elem = is_element(child) ? child : new Span({ children: [ child ?? '' ] })
+        const elem = is_element(child) ? child : new Span({ children: [ child ?? '' ], env })
         const justify = justify0 ?? calcLabelJustify(direc, spin)
-        super({ children: [ elem ], spin, justify, aspect: 1, ...attr })
+        super({ children: [ elem ], spin, justify, aspect: 1, env, ...attr })
         this.args = args
         this.loc = loc
     }
@@ -211,7 +211,7 @@ interface LabelsArgs extends GroupArgs {
 // label elements must have an aspect to properly size them
 class Labels extends Group {
     constructor(args: LabelsArgs = {}) {
-        const { children: children0, direc = 'h', ...attr0 } = THEME(args, 'Labels')
+        const { children: children0, direc = 'h', env, ...attr0 } = THEME(args, 'Labels')
         const [ spec, label_attr ] = spec_split(attr0)
         const children = ensure_children(children0)
 
@@ -223,7 +223,7 @@ class Labels extends Group {
         })
 
         // pass to Group
-        super({ children: items, ...spec })
+        super({ children: items, env, ...spec })
         this.args = args
     }
 }
@@ -271,17 +271,17 @@ function get_tick_span(size: number = 1, side: Zone): Limit {
 }
 
 function ensure_ticklabel(label: Element | Label | number | [number, string | Element], args: Attrs = {}): Label {
-    const { direc = 'h', prec = D.prec, ...attr } = args
+    const { direc = 'h', prec = D.prec, env, ...attr } = args
 
     // handle element cases
     if (label instanceof Label) return label.clone(attr) as Label
-    if (is_element(label)) return new Label({ children: [ label ], direc, loc: label.args.loc, ...attr })
+    if (is_element(label)) return new Label({ children: [ label ], direc, loc: label.args.loc, env, ...attr })
 
     // handle scalar and [loc, label] cases (the label may itself be an element)
     const [ spec, attr1 ] = spec_split(attr)
     const [ loc, str ] = is_scalar(label) ? [ label, label ] : label
-    const child = is_element(str) ? str : new Span({ children: [ rounder(str, prec) ], ...attr1 })
-    return new Label({ children: [ child ], direc, loc, ...spec })
+    const child = is_element(str) ? str : new Span({ children: [ rounder(str, prec) ], env, ...attr1 })
+    return new Label({ children: [ child ], direc, loc, env, ...spec })
 }
 
 type TickArgs = Label | number | [number, string | Element]
@@ -311,7 +311,7 @@ class Axis extends Group {
     locs: number[]
 
     constructor(args: AxisArgs = {}) {
-        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0, label_justify: label_justify0, label_loc, arrow_left = false, arrow_right = false, arrow_top = false, arrow_bottom = false, arrow_size = 2, prec = D.prec, debug, ...attr0 } = THEME(args, 'Axis')
+        const { children, lim = D.lim, direc = 'h', ticks: ticks0, tick_side = 'inner', label_side = 'outer', label_size = 1.5, label_offset = 0, label_justify: label_justify0, label_loc, arrow_left = false, arrow_right = false, arrow_top = false, arrow_bottom = false, arrow_size = 2, prec = D.prec, debug, env, ...attr0 } = THEME(args, 'Axis')
         const [ label_attr, tick_attr, line_attr, arrow_attr0, attr ] = prefix_split([ 'label', 'tick', 'line', 'arrow' ], attr0)
         const [ arrow_left_attr, arrow_right_attr, arrow_top_attr, arrow_bottom_attr, arrow_attr ] = prefix_split([ 'left', 'right', 'top', 'bottom' ], arrow_attr0)
         const tick_lim = get_tick_lim(tick_side)
@@ -332,11 +332,11 @@ class Axis extends Group {
         const label_attr1 = { direc, prec, ...label_attr }
         const label_elems = children != null ?
           ensure_children(children).map((c: Element) => c.clone({ ...label_attr1 })) :
-          auto_array(ticks0, lim).map((t: TickArgs) => ensure_ticklabel(t, label_attr1))
+          auto_array(ticks0, lim).map((t: TickArgs) => ensure_ticklabel(t, { env, ...label_attr1 }))
 
         // extract tick elements from labels
         const tick_elems = label_elems.map((l: Element) => {
-            const tick = l.args.tick ?? new UnitLine({ direc: idirec })
+            const tick = l.args.tick ?? new UnitLine({ direc: idirec, env })
             const span = get_tick_span(l.args.tick_size, tick_side)
             return tick.clone({ tick_loc: l.args.loc, tick_span: span })
         })
@@ -347,7 +347,7 @@ class Axis extends Group {
             const { size = arrow_size, ...attr2 } = { ...arrow_attr, ...attr1 }
             const pos: Point = direc == 'v' ? [ 0.5, loc ] : [ loc, 0.5 ]
             const size1 = direc == 'v' ? { xsize: size } : { ysize: size }
-            return new ArrowHead({ angle, pos, ...size1, ...attr2 })
+            return new ArrowHead({ angle, pos, env, ...size1, ...attr2 })
         }
         const arrows = direc == 'v' ? [
             arrow_bottom ? arrow_head(0, 90, arrow_bottom_attr) : null,
@@ -358,12 +358,12 @@ class Axis extends Group {
         ]
 
         // accumulate children
-        const cline = new UnitLine({ direc, lim, coord, ...line_attr })
-        const scale = new Scale({ children: tick_elems, direc, rect: scale_rect, coord, debug, ...tick_attr })
-        const label = new Labels({ children: label_elems, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug })
+        const cline = new UnitLine({ direc, lim, coord, env, ...line_attr })
+        const scale = new Scale({ children: tick_elems, direc, rect: scale_rect, coord, debug, env, ...tick_attr })
+        const label = new Labels({ children: label_elems, direc, justify: label_justify, loc: label_loc, rect: label_rect, coord, debug, env })
 
         // pass to Group
-        super({ children: [ cline, scale, label, ...arrows ], debug, ...attr })
+        super({ children: [ cline, scale, label, ...arrows ], debug, env, ...attr })
         this.args = args
 
         // additional props (for Plot grids)
@@ -396,12 +396,12 @@ interface OuterLabelArgs extends ElementArgs {
 
 class OuterLabel extends Attach {
     constructor(args: OuterLabelArgs = {}) {
-        const { children: children0, side = 'top', extent = 0.1, offset, loc, justify, ...attr0 } = args
+        const { children: children0, side = 'top', extent = 0.1, offset, loc, justify, env, ...attr0 } = args
         const text = check_singleton(children0)
         const [ spec, attr ] = spec_split(attr0)
-        const label0 = is_element(text) ? text : new Span({ children: [ text ], ...attr })
+        const label0 = is_element(text) ? text : new Span({ children: [ text ], env, ...attr })
         const label = (side == 'left' || side == 'right') ? label0.clone({ rotate: -90 }) : label0
-        super({ children: [ label ], side, extent, offset, loc, justify, ...spec })
+        super({ children: [ label ], side, extent, offset, loc, justify, env, ...spec })
         this.args = args
     }
 }
@@ -463,10 +463,10 @@ class VMesh extends Mesh {
 
 class Mesh2D extends Group {
     constructor(args: Mesh2DArgs = {}) {
-        let { children: children0, locs, xlocs, ylocs, direc = 'h', xlim, ylim, coord, ...attr } = THEME(args, 'Mesh2D')
-        const hmesh = new HMesh({ locs: xlocs ?? locs, xlim, ylim, coord })
-        const vmesh = new VMesh({ locs: ylocs ?? locs, xlim, ylim, coord })
-        super({ children: [ hmesh, vmesh ], ...attr })
+        let { children: children0, locs, xlocs, ylocs, direc = 'h', xlim, ylim, coord, env, ...attr } = THEME(args, 'Mesh2D')
+        const hmesh = new HMesh({ locs: xlocs ?? locs, xlim, ylim, coord, env })
+        const vmesh = new VMesh({ locs: ylocs ?? locs, xlim, ylim, coord, env })
+        super({ children: [ hmesh, vmesh ], env, ...attr })
         this.args = args
     }
 }
@@ -495,25 +495,25 @@ function ensure_legendlabel(label: any, attr: Attrs = {}): Element {
 // TODO: have a .badge/.label api for plottable elements
 class Legend extends Frame {
     constructor(args: LegendArgs = {}) {
-        const { children, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, justify = 'left', debug, ...attr0 } = THEME(args, 'Legend')
+        const { children, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, justify = 'left', debug, env, ...attr0 } = THEME(args, 'Legend')
         const [ badge_attr, text_attr, attr ] = prefix_split([ 'badge', 'text' ], attr0)
 
         // construct legend badges and labels
-        const badges = children.map((b: any) => ensure_legendbadge(b, badge_attr))
+        const badges = children.map((b: any) => ensure_legendbadge(b, { env, ...badge_attr }))
 
         // construct legend grid
         const rows = badges.map((b: any) => {
             const { label } = b.attr
             const { aspect } = b.spec
             const b1 = b.clone({ aspect: aspect ?? 1, label: null })
-            const spacer = new Spacer({ aspect: hspacing })
-            const text = ensure_legendlabel(label, text_attr)
-            return new HStack({ children: [ b1, spacer, text ], debug })
+            const spacer = new Spacer({ aspect: hspacing, env })
+            const text = ensure_legendlabel(label, { env, ...text_attr })
+            return new HStack({ children: [ b1, spacer, text ], debug, env })
         })
-        const vs = new VStack({ children: rows, spacing: vspacing, justify, even: true })
+        const vs = new VStack({ children: rows, spacing: vspacing, justify, even: true, env })
 
         // pass to Frame
-        super({ children: [ vs ], rounded, padding, fill, ...attr })
+        super({ children: [ vs ], rounded, padding, fill, env, ...attr })
         this.args = args
     }
 }
@@ -549,7 +549,7 @@ function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?:
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args: GraphArgs = {}) {
-        let { children: children0, xlim, ylim, coord: coord0 = 'auto', aspect, padding = 0, flip = true, ...attr } = THEME(args, 'Graph')
+        let { children: children0, xlim, ylim, coord: coord0 = 'auto', aspect, padding = 0, flip = true, env, ...attr } = THEME(args, 'Graph')
         const children = ensure_children(children0)
 
         // get default outer limits
@@ -566,14 +566,14 @@ class Graph extends Group {
         const items = children.map((e: any) => {
             const child = e instanceof Arc && flip ? e.clone({ upright: false }) : e
             if (child.spec.rect != null || child.spec.upright) {
-                return new Group({ children: [ child ], coord })
+                return new Group({ children: [ child ], coord, env })
             } else {
                 return child.clone({ coord })
             }
         })
 
         // pass to Group
-        super({ children: items, aspect, ...attr })
+        super({ children: items, aspect, env, ...attr })
         this.args = args
     }
 }
@@ -616,8 +616,7 @@ interface PlotArgs extends BoxArgs {
 
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
-        let {
-            children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [0.1, 0.15], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, coord: coord0 = 'auto', aspect: aspect0 = 'auto', clip, debug = false, ...attr0
+        let { children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [0.1, 0.15], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, coord: coord0 = 'auto', aspect: aspect0 = 'auto', clip, debug = false, env, ...attr0
         } = THEME(args, 'Plot')
         const children = ensure_children(children0)
 
@@ -673,7 +672,7 @@ class Plot extends Box {
         const fg_elems: Element[] = []
 
         // default xaxis generation
-        if (xaxis === true) xaxis = new HAxis({ ticks: xticks, lim: xlim })
+        if (xaxis === true) xaxis = new HAxis({ ticks: xticks, lim: xlim, env })
         if (xaxis != null && xaxis !== false) {
             const xtick_size1 = xtick_size * (ymax - ymin)
             const xaxis_ylim = [ xanchor - xtick_size1, xanchor + xtick_size1 ]
@@ -682,7 +681,7 @@ class Plot extends Box {
         }
 
         // default yaxis generation
-        if (yaxis === true) yaxis = new VAxis({ ticks: yticks, lim: ylim })
+        if (yaxis === true) yaxis = new VAxis({ ticks: yticks, lim: ylim, env })
         if (yaxis != null && yaxis !== false) {
             const ytick_size1 = ytick_size * (xmax - xmin)
             const yaxis_xlim = [ yanchor - ytick_size1, yanchor + ytick_size1 ]
@@ -693,7 +692,7 @@ class Plot extends Box {
         // automatic xgrid generation
         if (xgrid != null && xgrid !== false) {
             const locs = (xgrid === true && xaxis != null && xaxis !== false) ? xaxis.locs : xgrid
-            const xgrid_elem = new HMesh({ locs: locs as number[], ...xgrid_attr })
+            const xgrid_elem = new HMesh({ locs: locs as number[], env, ...xgrid_attr })
             bg_elems.unshift(xgrid_elem)
         } else {
             xgrid = undefined
@@ -702,40 +701,40 @@ class Plot extends Box {
         // automatic ygrid generation
         if (ygrid != null && ygrid !== false) {
             const locs = (ygrid === true && yaxis != null && yaxis !== false) ? yaxis.locs : ygrid
-            const ygrid_elem = new VMesh({ locs: locs as number[], ...ygrid_attr })
+            const ygrid_elem = new VMesh({ locs: locs as number[], env, ...ygrid_attr })
             bg_elems.unshift(ygrid_elem)
         } else {
             ygrid = undefined
         }
 
         // create graph from core elements
-        const bg_graph = new Graph({ children: bg_elems, coord, aspect: undefined })
-        const fg_graph = new Graph({ children: fg_elems, coord, aspect: undefined })
-        const el_graph = new Graph({ children, coord, aspect: undefined, clip, debug })
+        const bg_graph = new Graph({ children: bg_elems, coord, aspect: undefined, env })
+        const fg_graph = new Graph({ children: fg_elems, coord, aspect: undefined, env })
+        const el_graph = new Graph({ children, coord, aspect: undefined, clip, debug, env })
         const items: Element[] = [ bg_graph, el_graph, fg_graph ]
 
         // optional xaxis label
         if (xlabel != null) {
-            xlabel = new OuterLabel({ children: [ xlabel ], side: 'bottom', debug, extent: xlabel_size, offset: xlabel_offset, ...xlabel_attr })
+            xlabel = new OuterLabel({ children: [ xlabel ], side: 'bottom', debug, extent: xlabel_size, offset: xlabel_offset, env, ...xlabel_attr })
             items.push(xlabel)
         }
 
         // optional yaxis label
         if (ylabel != null) {
-            const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: [ ylabel ], rotate: -90 })
-            ylabel = new OuterLabel({ children: [ ylabel_text ], side: 'left', extent: ylabel_size, offset: ylabel_offset, debug, ...ylabel_attr })
+            const ylabel_text = is_element(ylabel) ? ylabel : new Span({ children: [ ylabel ], rotate: -90, env })
+            ylabel = new OuterLabel({ children: [ ylabel_text ], side: 'left', extent: ylabel_size, offset: ylabel_offset, debug, env, ...ylabel_attr })
             items.push(ylabel)
         }
 
         // optional plot title
         if (title != null) {
-            title = new OuterLabel({ children: [ title ], side: 'top', extent: title_size, offset: title_offset, debug, ...title_attr })
+            title = new OuterLabel({ children: [ title ], side: 'top', extent: title_size, offset: title_offset, debug, env, ...title_attr })
             items.push(title)
         }
 
         // pass to Box
-        const inner = new Group({ children: items, aspect })
-        super({ children: [ inner ], margin, ...attr })
+        const inner = new Group({ children: items, aspect, env })
+        super({ children: [ inner ], margin, env, ...attr })
         this.args = args
     }
 }
@@ -752,14 +751,14 @@ interface BarPlotArgs extends PlotArgs {
 
 class BarPlot extends Plot {
     constructor(args: BarPlotArgs = {}) {
-        const { children: children0, direc = 'v', data, aspect = 2, xtick_side = 'outer', ...attr0 } = THEME(args, 'BarPlot')
+        const { children: children0, direc = 'v', data, aspect = 2, xtick_side = 'outer', env, ...attr0 } = THEME(args, 'BarPlot')
         const [ bar_attr, attr ] = prefix_split([ 'bar' ], attr0)
         const children = ensure_children(children0)
 
         // handle data array case
         const sibs = data != null ? data.map((child: any) => {
             const [ label, value ] = ensure_vector(child, 2)
-            return new Bar({ label, value })
+            return new Bar({ label, value, env })
         }) : children
 
         // separate out bars and not-bars
@@ -768,7 +767,7 @@ class BarPlot extends Plot {
 
         // extract labels and create bars
         const labs = yes_bars.map((child: any) => child.attr.label)
-        const bars = new Bars({ children: yes_bars, direc, ...bar_attr })
+        const bars = new Bars({ children: yes_bars, direc, env, ...bar_attr })
 
         // determine axis ticks
         const tickdir = direc === 'v' ? 'x' : 'y'
@@ -776,7 +775,7 @@ class BarPlot extends Plot {
         const [ lname, limit ] = [ `${tickdir}lim`, [ -0.75, yes_bars.length - 0.25 ] ]
 
         // pass on to Plot
-        super({ children: [ bars, ...not_bars ], [tname]: ticks, [lname]: limit, aspect, xtick_side, ...attr })
+        super({ children: [ bars, ...not_bars ], [tname]: ticks, [lname]: limit, aspect, xtick_side, env, ...attr })
         this.args = args
     }
 }

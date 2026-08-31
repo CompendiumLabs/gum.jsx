@@ -3,7 +3,6 @@
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 
-import { CONTEXT } from './registry'
 
 //
 // parser utils
@@ -37,10 +36,12 @@ function isWhitespace(s: any): boolean {
   return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
 }
 
+// a class has a non-writable prototype, a plain function a writable one and an
+// arrow function none (an Env-bound element constructor is a Proxy over the
+// class, so the prototype's own constructor is not consulted)
 function isClass(func: any): boolean {
   return (typeof func === 'function') &&
          (func.prototype != null) &&
-         (func.prototype.constructor === func) &&
          (Object.getOwnPropertyDescriptor(func, 'prototype')!.writable === false)
 }
 
@@ -378,7 +379,9 @@ function component(klass: any, props: Record<string, any>, ...children0: any[]):
   return isClass(klass) ? new klass(args) : klass(args)
 }
 
-function runJSX(text: string, context: Record<string, any> = {}, debug: boolean = false): any {
+// run gum.jsx code with `scope` bound as its globals (see Env.scope) and
+// return what it evaluates to
+function runJSX(text: string, scope: Record<string, any> = {}, debug: boolean = false): any {
   // strip comment lines (to allow comments before bare elements)
   const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
 
@@ -403,15 +406,12 @@ function runJSX(text: string, context: Record<string, any> = {}, debug: boolean 
     console.log()
   }
 
-  // merge contexts
-  const context0 = { ...CONTEXT, ...context }
-
   // construct function
   const jsCode = `return ${jsCode0}`
-  const func = new Function('__COMPONENT__', ...Object.keys(context0), jsCode)
+  const func = new Function('__COMPONENT__', ...Object.keys(scope), jsCode)
 
   // execute function
-  const output0 = func(component, ...Object.values(context0))
+  const output0 = func(component, ...Object.values(scope))
   const output = typeof(output0) == 'function' ? output0() : output0
 
   // return gum object
@@ -455,8 +455,8 @@ function declaredNames(tree: ASTNode): string[] {
 }
 
 // run a prelude of declarations and return its top-level bindings as an
-// object, so they can be injected as context for later code
-function runPrelude(text: string, context: Record<string, any> = {}, debug: boolean = false): Record<string, any> {
+// object, so they can be added to the scope of later code
+function runPrelude(text: string, scope: Record<string, any> = {}, debug: boolean = false): Record<string, any> {
   // strip comment lines and bail on empty input
   const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
   if (code0.length == 0) return {}
@@ -473,11 +473,10 @@ function runPrelude(text: string, context: Record<string, any> = {}, debug: bool
     console.log()
   }
 
-  // wrap in a function so declarations can shadow context names
-  const context0 = { ...CONTEXT, ...context }
+  // wrap in a function so declarations can shadow scope names
   const jsCode = `return (function run() { "use strict";\n${body}\nreturn { ${names.join(', ')} }; })()`
-  const func = new Function('__COMPONENT__', ...Object.keys(context0), jsCode)
-  return func(component, ...Object.values(context0))
+  const func = new Function('__COMPONENT__', ...Object.keys(scope), jsCode)
+  return func(component, ...Object.values(scope))
 }
 
 export { runJSX, runPrelude }

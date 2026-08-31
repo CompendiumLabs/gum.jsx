@@ -10,7 +10,9 @@ import { DEFAULTS as D, sans, light, regular } from './const'
 import { is_string, compress_whitespace, sum, zip, max, min } from './utils'
 import { wrapWidths } from './wrap'
 import { isStrict, strictError } from './strict'
-import { getFont, FontNotLoadedError, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
+import { resolveEnv } from './default'
+import { FontNotLoadedError, type FontSet, type FontEntry, type FontWeight } from '../fonts/fonts'
+import type { Env } from '../env'
 
 import type { Limit } from './types'
 
@@ -76,15 +78,17 @@ function emojiSizer(_text: string): number {
     return EMOJI_ADVANCE
 }
 
+// the font is looked up in the registry of `env` (default: the default Env)
 type TextSizerArgs = {
     font_family?: string
     font_weight?: number
     calc_size?: number
+    env?: Env
 }
 
-function textFont(font_family: string, font_weight: number): Font {
+function textFont(font_family: string, font_weight: number, env?: Env): Font {
     // get font info
-    const font = getFont(font_family)
+    const font = resolveEnv(env).fonts.get(font_family)
     if (font == null) throw new FontNotLoadedError(font_family)
 
     // match the static face browser font matching would select
@@ -96,20 +100,20 @@ function textFont(font_family: string, font_weight: number): Font {
 // a character the resolved face has no glyph for measures as .notdef (a
 // quarter em) while the renderer draws it from whatever face it substitutes,
 // so the text silently comes out mis-spaced; only checked in strict mode
-function checkGlyphs(font: Font, text: string, font_family: string): void {
+function checkGlyphs(font: Font, text: string, font_family: string, env?: Env): void {
     for (const ch of text) {
         if (ch == ' ' || ch == '\n' || ch == '\t') continue
         if (font.charToGlyphIndex(ch) == 0) {
             const code = ch.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')
-            strictError('glyph', `no glyph for U+${code} '${ch}' in '${font_family}'`)
+            strictError(env, 'glyph', `no glyph for U+${code} '${ch}' in '${font_family}'`)
         }
     }
 }
 
 // whether a face can actually draw every character of a string, so a caller
 // can pick a different one rather than emit .notdef boxes
-function textHasGlyphs(text: string, { font_family = sans, font_weight = light }: TextSizerArgs = {}): boolean {
-    const font = textFont(font_family, font_weight)
+function textHasGlyphs(text: string, { font_family = sans, font_weight = light, env }: TextSizerArgs = {}): boolean {
+    const font = textFont(font_family, font_weight, env)
     for (const ch of text) {
         if (ch == ' ' || ch == '\n' || ch == '\t') continue
         if (font.charToGlyphIndex(ch) == 0) return false
@@ -117,10 +121,10 @@ function textHasGlyphs(text: string, { font_family = sans, font_weight = light }
     return true
 }
 
-function textSizer(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size }: TextSizerArgs = {}): number {
-    const font = textFont(font_family, font_weight)
+function textSizer(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size, env }: TextSizerArgs = {}): number {
+    const font = textFont(font_family, font_weight, env)
     const runs = splitEmojiRuns(text)
-    if (isStrict()) runs.forEach(run => { if (!run.emoji) checkGlyphs(font, run.text, font_family) })
+    if (isStrict(env)) runs.forEach(run => { if (!run.emoji) checkGlyphs(font, run.text, font_family, env) })
     return sum(runs.map(run =>
         run.emoji ? emojiSizer(run.text) :
         (font.getAdvanceWidth(run.text, calc_size) / calc_size)
@@ -136,14 +140,14 @@ function fontVertical(font: Font, text: string): Limit {
     return [ yMin / units, yMax / units ]
 }
 
-function textVertical(text: string, { font_family = sans, font_weight = light }: TextSizerArgs = {}): Limit {
-    const font = textFont(font_family, font_weight)
+function textVertical(text: string, { font_family = sans, font_weight = light, env }: TextSizerArgs = {}): Limit {
+    const font = textFont(font_family, font_weight, env)
     return fontVertical(font, text)
 }
 
 // italic correction: how far the final glyph's ink overhangs its advance width
-function textItalic(text: string, { font_family = sans, font_weight = light }: TextSizerArgs = {}): number {
-    const font = textFont(font_family, font_weight)
+function textItalic(text: string, { font_family = sans, font_weight = light, env }: TextSizerArgs = {}): number {
+    const font = textFont(font_family, font_weight, env)
     const glyphs = font.stringToGlyphs(text)
     const last = glyphs[glyphs.length - 1]
     if (last == null) return 0
@@ -264,4 +268,4 @@ function mergeStrings(items: any[]): any[] {
 
 export { is_emoji, textMetrics, rawTextMetrics, textSizer, textVertical, textItalic, textHasGlyphs, getBreaks, splitWords, wrapWidths, wrapText, mergeStrings }
 export { DEFAULT_METRICS, EMPTY_METRICS, DEFAULT_VRANGE, EMPTY_VRANGE }
-export type { TextMetrics }
+export type { TextMetrics, TextSizerArgs }

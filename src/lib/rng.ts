@@ -1,5 +1,7 @@
 // random number generator
 
+import { defaultEnv } from './default'
+
 //
 // rng class
 //
@@ -65,46 +67,42 @@ class RNG {
 }
 
 //
-// instances
+// default instances
 //
 
-// `rng` backs the random/uniform/normal/integer that user code calls. `uids`
-// backs gum's own internal draws (element ids for clip/mask). They are separate
-// so that adding a clipped element to a figure does not shift the "random" data
-// the figure draws elsewhere; setSeed resets both so evaluations stay repeatable.
-const rng = new RNG()
-const uids = new RNG()
+// the seed every evaluation starts from unless it asks for another
+const DEFAULT_SEED = 42
+
+// `random`/`uniform`/`normal`/`integer` here draw from the default Env's user
+// stream (src/lib/default.ts), for host code that imports them directly;
+// evaluated code gets the same functions bound to the Env it runs in (see
+// Env.scope in src/env.ts). Every Env keeps two streams: `rng` backs these,
+// `uids` backs gum's own internal draws (element ids for clip/mask), so that
+// adding a clipped element to a figure does not shift the "random" data the
+// figure draws elsewhere.
 
 function setSeed(seed: number): void {
-    rng.setSeed(seed)
-}
-
-function setUIDSeed(seed: number): void {
-    uids.setSeed(seed)
-}
-
-function uidRandom(): number {
-    return uids.random()
+    defaultEnv().rng.setSeed(seed)
 }
 
 function random(): number {
-    return rng.random()
+    return defaultEnv().rng.random()
 }
 
 function uniform(lo: number = 0, hi: number = 1): number {
-    return rng.uniform(lo, hi)
+    return defaultEnv().rng.uniform(lo, hi)
 }
 
 function normal(mean: number = 0, stdv: number = 1): number {
-    return rng.normal(mean, stdv)
+    return defaultEnv().rng.normal(mean, stdv)
 }
 
 function integer(lo: number, hi?: number): number {
-    return rng.integer(lo, hi)
+    return defaultEnv().rng.integer(lo, hi)
 }
 
 //
 // exports
 //
 
-export { setSeed, setUIDSeed, random, uniform, normal, integer, uidRandom }
+export { RNG, DEFAULT_SEED, setSeed, random, uniform, normal, integer }

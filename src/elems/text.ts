@@ -1,11 +1,12 @@
 // text elements
 
 import type { Attrs, AlignValue, Rect, Limit } from '../lib/types'
+import { resolveEnv } from '../lib/default'
+import type { Env } from '../env'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext, maxis } from '../lib/const'
 import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
-import { fontFace } from '../fonts/fonts'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 
@@ -31,9 +32,9 @@ interface SpanArgs extends ElementArgs {
 // no wrapping at all, clobber newlines, mainly internal use
 // the output attributes for a font: the bold and italic KaTeX faces are
 // addressed by base family plus weight and style (see fontFace)
-function font_css({ font_family, font_weight, font_style }: { font_family?: string, font_weight?: number, font_style?: string }): Attrs {
+function font_css({ font_family, font_weight, font_style }: { font_family?: string, font_weight?: number, font_style?: string }, env?: Env): Attrs {
     if (font_family == null) return {}
-    const face = fontFace(font_family)
+    const face = resolveEnv(env).fonts.face(font_family)
     if (face.family == font_family) return {}
     return { font_family: face.family, font_weight: face.weight ?? font_weight, font_style: face.style ?? font_style }
 }
@@ -44,14 +45,14 @@ class Span extends Element {
     vshift: number
 
     constructor(args: SpanArgs = {}) {
-        const { children: children0, color, vshift = vtext, stroke = none, ...attr0 } = THEME(args, 'Span')
+        const { children: children0, color, vshift = vtext, stroke = none, env, ...attr0 } = THEME(args, 'Span')
         const text0 = check_string(children0)
         const [ font_attr0, attr ] = prefix_split([ 'font' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
 
         // compress whitespace, since that's what SVG does
         const text = compress_whitespace(text0)
-        const { advance, vrange, raw_vrange = vrange, italic = 0 } = textMetrics(text, font_attr)
+        const { advance, vrange, raw_vrange = vrange, italic = 0 } = textMetrics(text, { ...font_attr, env })
 
         // adjust metrics for vertical shift
         const [ ymin, ymax ] = vrange
@@ -62,7 +63,7 @@ class Span extends Element {
 
         // pass to element; the font is measured by its registry name but named
         // in the output by its css face (family plus weight and style)
-        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...font_css(font_attr), ...attr })
+        super({ tag: 'text', unary: false, aspect: advance, fill: color, stroke, ...font_attr, ...font_css(font_attr, env), ...attr })
         this.args = args
 
         // additional props
@@ -195,7 +196,7 @@ function compress_spans(children: any[], font_args: Attrs = {}): Element[] {
         } else if (child instanceof ElemSpan) {
             return child.clone({ spacing: !last_child })
         } else {
-            return [ new ElemSpan({ children: [ child ], spacing: !last_child }) ]
+            return [ new ElemSpan({ children: [ child ], spacing: !last_child, env: font_args.env }) ]
         }
     })
 }
@@ -228,10 +229,10 @@ interface TextLineArgs extends GroupArgs {
 
 class TextLine extends Group {
     constructor(args: TextLineArgs = {}) {
-        const { children: children0, padding, justify = 'left', wrap, debug, ...attr } = THEME(args, 'TextLine')
+        const { children: children0, padding, justify = 'left', wrap, debug, env, ...attr } = THEME(args, 'TextLine')
         const children = ensure_children(children0)
-        const line = new HStack({ children, spacing: padding, align: justify, debug })
-        super({ children: [ line ], aspect: wrap ?? line.spec.aspect, ...attr })
+        const line = new HStack({ children, spacing: padding, align: justify, debug, env })
+        super({ children: [ line ], aspect: wrap ?? line.spec.aspect, env, ...attr })
         this.args = args
     }
 }
@@ -247,12 +248,12 @@ class Text extends VStack {
     spans: Element[]
 
     constructor(args: TextArgs = {}) {
-        const { children: children0, wrap, spacing, padding, justify, debug, ...attr0 } = THEME(args, 'Text')
+        const { children: children0, wrap, spacing, padding, justify, debug, env, ...attr0 } = THEME(args, 'Text')
         const children = ensure_children(children0)
     	const [ spec, attr ] = spec_split(attr0)
 
         // split into words and elements
-        const spans = compress_spans(children, attr)
+        const spans = compress_spans(children, { env, ...attr })
 
         // wrap text to line widths
         const measure = (span: Element) => span.spec.aspect ?? 1
@@ -260,11 +261,11 @@ class Text extends VStack {
 
         // construct text lines
         const lines = rows.map(row =>
-            new TextLine({ children: normalize_line(row), padding, justify, wrap, debug })
+            new TextLine({ children: normalize_line(row), padding, justify, wrap, debug, env })
         )
 
         // pass to VStack
-        super({ children: lines, spacing, even: true, ...spec })
+        super({ children: lines, spacing, even: true, env, ...spec })
         this.args = args
 
         // additional props
@@ -307,11 +308,11 @@ interface TextBoxArgs extends BoxArgs {
 
 class TextBox extends Box {
     constructor(args: TextBoxArgs = {}) {
-        const { children, padding = 0.1, justify, wrap, ...attr0 } = THEME(args, 'TextBox')
+        const { children, padding = 0.1, justify, wrap, env, ...attr0 } = THEME(args, 'TextBox')
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
-        const text = new Text({ children, justify, wrap, ...text_attr, ...font_attr })
-        super({ children: [ text ], padding, ...attr })
+        const text = new Text({ children, justify, wrap, env, ...text_attr, ...font_attr })
+        super({ children: [ text ], padding, env, ...attr })
         this.args = args
     }
 }
@@ -348,7 +349,7 @@ interface BulletsArgs extends StackArgs {
 // same wrap; the gap between items is also in em
 class Bullets extends VStack {
     constructor(args: BulletsArgs = {}) {
-        const { children: children0, wrap = 25, marker: marker0 = '•', indent = 0.75, gap = 0.5, spacing: spacing0, justify = 'left', ...attr0 } = THEME(args, 'Bullets')
+        const { children: children0, wrap = 25, marker: marker0 = '•', indent = 0.75, gap = 0.5, spacing: spacing0, justify = 'left', env, ...attr0 } = THEME(args, 'Bullets')
         const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
         const children: any[] = ensure_children(children0)
@@ -362,20 +363,20 @@ class Bullets extends VStack {
         // the top of the indent: level with the first line of the body, or
         // shrunk to the row when the body is shorter than a line
         const cell = { stack_size: indent / wrap }
-        const marker: Element = is_element(marker0) ? marker0 : new Text({ children: [ marker0 ] as any, align: ['left', 'center'], ...font_attr })
-        const mark = new Group({ children: [ marker ], aspect: indent, align: [ 'center', 'top' ], ...cell })
+        const marker: Element = is_element(marker0) ? marker0 : new Text({ children: [ marker0 ] as any, align: ['left', 'center'], env, ...font_attr })
+        const mark = new Group({ children: [ marker ], aspect: indent, align: [ 'center', 'top' ], env, ...cell })
 
         // build item rows
         const rows = children.map((child: any) => {
             // sublists are indented but get no marker
             if (child instanceof Bullets) {
                 const sub = child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr })
-                return new HStack({ children: [ new Spacer(cell), sub ] })
+                return new HStack({ children: [ new Spacer({ env, ...cell }), sub ], env })
             }
 
             // wrap text items to the body width, take other elements as they are
             const body: Element = child instanceof Text ? child.clone({ wrap: wrap_body, justify, ...font_attr, ...text_attr }) : child
-            return new HStack({ children: [ mark, body ] })
+            return new HStack({ children: [ mark, body ], env })
         })
 
         // convert the gap in em into a stack spacing fraction
@@ -385,7 +386,7 @@ class Bullets extends VStack {
         const spacing = spacing0 ?? (content + gaps > 0 ? gaps / (content + gaps) : 0)
 
         // pass to VStack
-        super({ children: rows, spacing, justify, ...attr })
+        super({ children: rows, spacing, justify, env, ...attr })
         this.args = args
     }
 }

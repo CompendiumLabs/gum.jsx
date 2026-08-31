@@ -3,6 +3,8 @@
 import { none, black, white } from './const'
 import { map_object } from './utils'
 import type { ThemeName } from './types'
+import { resolveEnv } from './default'
+import type { Env } from '../env'
 
 //
 // base layer
@@ -109,20 +111,16 @@ const THEMES: Record<ThemeName, ThemeLayer> = {
 }
 
 //
-// theme management
+// theme lookup
 //
 
-// theme state
-let theme: ThemeLayer = THEME_LIGHT
-function setTheme(name: ThemeName): void {
-    theme = THEMES[name]
-}
-
-// theme function
-function THEME<T extends Object>(args: T, elem: string): T {
+// the theme layer is selected by the Env the element is constructed against
+// (args.env, else the default Env)
+function THEME<T extends object>(args: T, elem: string): T {
     // get element defaults
+    const { env } = args as { env?: Env }
     const BOOLEANS_ELEMENT = BOOLEANS[elem] ?? {}
-    const DEFAULTS_ELEMENT = theme[elem] ?? {}
+    const DEFAULTS_ELEMENT = THEMES[resolveEnv(env).theme][elem] ?? {}
 
     // map in booleans from args
     const ARGS_MAPPED = map_object(args, (k: string, v: any) => (v === true) && (k in BOOLEANS_ELEMENT) ? BOOLEANS_ELEMENT[k] : v)
@@ -135,5 +133,5 @@ function THEME<T extends Object>(args: T, elem: string): T {
 // exports
 //
 
-export { THEME, setTheme }
+export { THEME, THEMES }
 export type { ThemeName }

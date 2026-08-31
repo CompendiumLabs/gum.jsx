@@ -43,15 +43,15 @@ class Node extends Frame {
     id: string | undefined
 
     constructor(args: NodeArgs = {}) {
-        const { children: children0, id, ysize = 0.2, rounded = 0.05, padding = 0.1, wrap, justify = 'center', ...attr } = THEME(args, 'Node')
+        const { children: children0, id, ysize = 0.2, rounded = 0.05, padding = 0.1, wrap, justify = 'center', env, ...attr } = THEME(args, 'Node')
         const [ text_attr, frame_attr ] = prefix_split([ 'text' ], attr)
         const child = check_singleton(children0)
 
         // check for single string child and make text element
-        const inner = is_string(child) ? new Text({ children: [ child ], wrap, justify, ...text_attr }) : child
+        const inner = is_string(child) ? new Text({ children: [ child ], wrap, justify, env, ...text_attr }) : child
 
         // pass to Frame
-        super({ children: [ inner ], ysize, rounded, padding, ...frame_attr })
+        super({ children: [ inner ], ysize, rounded, padding, env, ...frame_attr })
         this.args = args
     }
 }
@@ -124,7 +124,7 @@ class Edge extends Element {
         const start_dir = side_direc(start_side)
         const end_dir = mul2(side_direc(end_side), -1)
 
-        const path = new Arrow({ points: [ start, ...this.points, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, ...attr })
+        const path = new Arrow({ points: [ start, ...this.points, end ], start_dir: start_dir, end_dir: end_dir, coord: ctx.coord, env: this.env, ...attr })
         return path.svg(ctx)
     }
 }

@@ -24,9 +24,22 @@ const elem = evaluateGum(jsx, { size: 800, theme: 'light' })
 const svg = elem.svg()
 ```
 
-The code runs with every element, constant (`pi`, `blue`, `sans`, …) and utility (`linspace`, `zip`, `random`, …) in scope, so most files are a single JSX expression; a file can also declare things and `return` an element. Options: `size` (a number or `[width, height]`), `theme` (`light` or `dark`), `context` (extra names to bind), `prelude` (code or a context evaluated first, see `evaluatePrelude`), `seed` (for `random`/`uniform`/`normal`/`integer`), `strict` (throw on rendering fallbacks instead of drawing them), `loadFile` (how `loadTable(path)` and `<LoadImage id={path} />` in the code read files), `debug`, plus any `Svg` argument such as `padding`, `unit_size` or `bare`.
+The code runs with every element, constant (`pi`, `blue`, `sans`, …) and utility (`linspace`, `zip`, `random`, …) in scope, so most files are a single JSX expression; a file can also declare things and `return` an element. Options: `size` (a number or `[width, height]`), `theme` (`light` or `dark`), `bindings` (extra names to bind), `prelude` (code or the bindings of code evaluated first, see `evaluatePrelude`), `seed` (for `random`/`uniform`/`normal`/`integer`), `strict` (throw on rendering fallbacks instead of drawing them), `loadFile` (how `loadTable(path)` and `<LoadImage id={path} />` in the code read files), `debug`, plus any `Svg` argument such as `padding`, `unit_size` or `bare`.
 
-The elements are plain classes and can be used from JavaScript directly, with props in `snake_case`:
+`evaluateGum` is the default **Env**'s `evaluate`. An `Env` is everything code evaluates against — the elements and names in scope, the fonts, the theme, strict mode and the random streams — and every element carries the Env it was built with, so nothing about a render is global: a dark evaluation leaves no dark theme behind, and two Envs with different settings or element sets can be used side by side. The default Env is `gum`; make your own for other defaults or an isolated element set:
+
+```javascript
+import { gum, Env } from '@gum-jsx/core'
+import { math } from '@gum-jsx/math'
+
+gum.use(math)                                   // <Latex> in the default Env (what gum-jsx does for you)
+const dark = new Env({ theme: 'dark' }).use(math)
+const elem = dark.evaluate(jsx, { size: 800 })  // or gum.with({ theme: 'dark' }).evaluate(...)
+```
+
+`new Env({ theme, strict, seed, plugins })` starts with core's elements, names and text fonts; `use(plugin)` adds an add-on's (a plugin is `{ elems, bindings, fonts }`, and `registerElements`/`registerBindings`/`registerFonts` add one kind); `with(settings)` derives an Env with other settings (its registries are copied, so `use` on either leaves the other alone); `evaluate` and `prelude` run code. The evaluation scope also binds `env` itself.
+
+The elements are plain classes and can be used from JavaScript directly, with props in `snake_case`; an element built this way uses the default Env unless it is given one (`new Plot({ env, ... })`):
 
 ```javascript
 import { Plot, SymLine, pi, sin, blue } from '@gum-jsx/core'
@@ -42,10 +55,10 @@ The [documentation](https://compendiumlabs.ai/gum/docs) has a page and an exampl
 
 ## Fonts
 
-Text is measured against real font metrics, so the faces have to be loaded before anything with text is rendered. In node they are read from disk on first use and nothing more is needed. In a browser, fetch them first — `await loadTextFonts()` for IBM Plex (the faces core registers), or `await loadFonts()` for everything registered, including an add-on's — otherwise rendering throws `FontNotLoadedError`. `registerFont(name, path, face)` adds a face of your own, and `FONT_DATA` (in `@gum-jsx/core/fonts`) holds the fetched bytes for handing to `FontFace` so the page can draw the same glyphs the layout measured. Emoji are measured with a fixed advance and left to the host's emoji font.
+Text is measured against real font metrics, so the faces have to be loaded before anything with text is rendered. In node they are read from disk on first use and nothing more is needed. In a browser, fetch them first — `await loadTextFonts()` for IBM Plex (the faces every Env starts with), or `await gum.loadFonts()` for everything the Env knows, including a plugin's — otherwise rendering throws `FontNotLoadedError`. Each Env has a font registry (`env.fonts`, a `FontRegistry`: `register`, `names`, `face`, `load`, `loaded`, `get`, `data`); `env.registerFont(name, path, face)` adds a face of your own and loads it, and `env.fonts.data(name)` holds the fetched bytes for handing to `FontFace` so the page can draw the same glyphs the layout measured. Loaded files are cached process-wide by path, so Envs sharing a family share one copy. Emoji are measured with a fixed advance and left to the host's emoji font.
 
 ## Extending
 
-Core keeps two registries in `@gum-jsx/core/registry` — `ELEMS`, the element constructors by JSX tag name, and `CONTEXT`, everything bound as a global of evaluated code. An add-on calls `registerElements` (and `registerContext` for constants or functions) on import, so a host that imports only core gets only core's names, and importing the add-on is what makes its tags available; `@gum-jsx/math` does exactly this for `<Latex>` and the KaTeX faces. Internals are reachable through the subpath exports `@gum-jsx/core/lib/*` (`Context`, `types`, `theme`, `strict`, `utils`, …), `@gum-jsx/core/elems/*` (the element modules), and `@gum-jsx/core/fonts` (the font registry) — that is the surface add-ons are written against.
+An add-on is a plugin: an object `{ elems, bindings, fonts }` (`EnvPlugin`) that an Env applies with `use`, so a host that never uses it gets only core's names, and importing the add-on does nothing on its own; `@gum-jsx/math` exports `math` this way for `<Latex>` and the KaTeX faces. An add-on's elements subclass core's and take `env` in their args like every element (see `Element.env`), so they read the theme, strict mode and fonts of the Env they are built in. Internals are reachable through the subpath exports `@gum-jsx/core/env` (`Env`, `defaultEnv`, `resolveEnv`), `@gum-jsx/core/lib/*` (`Context`, `types`, `theme`, `strict`, `utils`, …), `@gum-jsx/core/elems/*` (the element modules), and `@gum-jsx/core/fonts` (the font registry) — that is the surface add-ons are written against.
 
-Strict mode (`strict: true`, `setStrict` in `@gum-jsx/core/lib/strict`) turns the permissive fallbacks — unparseable input, unknown tags or commands, glyphs missing from a face — into thrown `StrictError`s, which is how the `gum-jsx` test suite renders every example.
+Strict mode (`strict: true` on an Env or an evaluation) turns the permissive fallbacks — unparseable input, unknown tags or commands, glyphs missing from a face — into thrown `StrictError`s, which is how the `gum-jsx` test suite renders every example.

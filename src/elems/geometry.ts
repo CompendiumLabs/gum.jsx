@@ -818,7 +818,7 @@ interface ArrowArgs extends GroupArgs {
 
 class Arrow extends Group {
     constructor(args: ArrowArgs = {}) {
-        const { points: points0, start_dir: start_dir0, end_dir: end_dir0, arrow_size = 0.08, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, rounded, stroke_width = 1, stroke_linecap, fill, coord, ...attr0 } = THEME(args, 'Arrow')
+        const { points: points0, start_dir: start_dir0, end_dir: end_dir0, arrow_size = 0.08, arrow, arrow_start: arrow_start0 = false, arrow_end: arrow_end0 = true, curve, rounded, stroke_width = 1, stroke_linecap, fill, coord, env, ...attr0 } = THEME(args, 'Arrow')
         const [ line_attr0, arrow_attr0, start_attr0, end_attr0, attr ] = prefix_split([ 'line', 'arrow', 'start', 'end' ], attr0)
 
         // arrow defaults
@@ -856,17 +856,17 @@ class Arrow extends Group {
         // make line path: prefer rounded city-block over spline curve over straight
         const points = [ start_pos, ...points0.slice(1, -1), end_pos ]
         const line_elem = (rounded != null) ?
-            new RoundedLine({ points, radius: rounded, coord, ...line_attr }) :
+            new RoundedLine({ points, radius: rounded, coord, env, ...line_attr }) :
             curve ?
-            new Spline({ points, start_dir, end_dir, curve, coord, ...line_attr }) :
-            new Line({ points, coord, ...line_attr })
+            new Spline({ points, start_dir, end_dir, curve, coord, env, ...line_attr }) :
+            new Line({ points, coord, env, ...line_attr })
 
         // make arrowheads
-        const start_elem = arrow_start ? new ArrowHead({ angle: start_ang, pos: start, size: arrow_size, ...start_attr }) : null
-        const end_elem = arrow_end ? new ArrowHead({ angle: end_ang, pos: end, size: arrow_size, ...end_attr }) : null
+        const start_elem = arrow_start ? new ArrowHead({ angle: start_ang, pos: start, size: arrow_size, env, ...start_attr }) : null
+        const end_elem = arrow_end ? new ArrowHead({ angle: end_ang, pos: end, size: arrow_size, env, ...end_attr }) : null
 
         // pass to Group
-        super({ children: [ line_elem, start_elem, end_elem ], coord, ...attr })
+        super({ children: [ line_elem, start_elem, end_elem ], coord, env, ...attr })
         this.args = args
     }
 }

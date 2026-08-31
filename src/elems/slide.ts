@@ -23,23 +23,23 @@ interface LabelBoxArgs extends BoxArgs {
 
 class LabelBox extends Box {
     constructor(args: LabelBoxArgs = {}) {
-        const { children: children0, label: label0, ...attr0 } = THEME(args, 'LabelBox')
+        const { children: children0, label: label0, env, ...attr0 } = THEME(args, 'LabelBox')
         const [ label_attr, attr1 ] = prefix_split(['label'], attr0)
         const [ spec, attr ] = spec_split(attr1)
         const children = ensure_children(children0)
 
         // enclose children in a box
-        const inner = new Box({ children, ...attr })
+        const inner = new Box({ children, env, ...attr })
 
         // make optional label box
         let attach: Attach | null = null
         if (label0 != null) {
-            const label = is_element(label0) ? label0 : new Span({ children: [ label0 ] })
-            attach = new Attach({ children: [ label ], ...label_attr })
+            const label = is_element(label0) ? label0 : new Span({ children: [ label0 ], env })
+            attach = new Attach({ children: [ label ], env, ...label_attr })
         }
 
         // pass layout spec to the outer box, not the inner box
-        super({ children: [ inner, attach ], ...spec })
+        super({ children: [ inner, attach ], env, ...spec })
         this.args = args
     }
 }
@@ -54,7 +54,7 @@ interface TitleBoxArgs extends BoxArgs {
 
 class TitleBox extends Box {
     constructor(args: TitleBoxArgs = {}) {
-        const { children, title, title_size = 0.1, title_offset = 0, title_rounded = 0.1, margin, ...attr0 } = THEME(args, 'TitleBox')
+        const { children, title, title_size = 0.1, title_offset = 0, title_rounded = 0.1, margin, env, ...attr0 } = THEME(args, 'TitleBox')
         const [ title_attr, attr1 ] = prefix_split(['title'], attr0)
         const [ spec, attr ] = spec_split(attr1)
 
@@ -63,21 +63,21 @@ class TitleBox extends Box {
         let title_mask: Element | undefined = undefined
         if (title != null) {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
-            const title_span = is_element(title) ? title : new Span({ children: [ title ] })
-            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, ysize: title_size, rounded: title_rounded, ...title_attr })
+            const title_span = is_element(title) ? title : new Span({ children: [ title ], env })
+            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, ysize: title_size, rounded: title_rounded, env, ...title_attr })
             title_mask = new Group({ children: [
-                new Rectangle({ x: '0%', y: '0%', width: '100%', height: '100%', fill: white }),
-                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black })
-            ], fill_rule: 'evenodd' })
+                new Rectangle({ x: '0%', y: '0%', width: '100%', height: '100%', fill: white, env }),
+                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black, env })
+            ], fill_rule: 'evenodd' , env})
         }
 
         // make inner box; when the outer box is given a shape (aspect or flex)
         // the inner box fills it rather than hugging the content
         const sized = spec.flex === true || spec.aspect != null
-        const box = new Box({ children, mask: title_mask, flex: sized, ...attr })
+        const box = new Box({ children, mask: title_mask, flex: sized, env, ...attr })
 
         // pass to Box for margin
-        super({ children: [ box, title_box ], margin, ...spec })
+        super({ children: [ box, title_box ], margin, env, ...spec })
         this.args = args
     }
 }
@@ -130,23 +130,24 @@ class Slide extends Box {
         const {
             children, aspect: aspect0, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
             border_stroke = '#bbb', background, title_size = 0.1, wrap = 25, spacing = 0.05,
-            justify = 'left', align, ...attr0
+            justify = 'left', align, env, ...attr0
         } = THEME(args, 'Slide')
         const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
         const [ spec, attr ] = spec_split(attr1)
         const aspect = aspect0 == 'auto' ? undefined : aspect0
 
         // stack up content, aligned within the content area
-        const stack = new TextStack({ children, spacing, justify, wrap, align, ...text_attr })
+        const stack = new TextStack({ children, spacing, justify, wrap, align, env, ...text_attr })
 
         // the frame flexes to fill the canvas inside the margin
         const frame = new TitleFrame({
+            env,
             children: [ stack ], aspect, padding,
             border, rounded, border_stroke, title_size, ...attr
         })
 
         // the canvas is the slide itself: fixed aspect with the margin inside it
-        super({ children: [ frame ], padding: margin, fill: background, ...spec })
+        super({ children: [ frame ], padding: margin, fill: background, env, ...spec })
         this.args = args
 
         // content taller than the area gets scaled down to fit the height

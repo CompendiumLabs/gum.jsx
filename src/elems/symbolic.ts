@@ -124,10 +124,10 @@ interface SymPointsArgs extends SymArgs, GroupArgs {
 
 class SymPoints extends Group {
     constructor(args: SymPointsArgs = {}) {
-        const { f, fx, fy, point_size = D.point, point_shape: point_shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, ...attr0 } = THEME(args, 'SymPoints')
+        const { f, fx, fy, point_size = D.point, point_shape: point_shape0, xlim: xlim0, ylim: ylim0, tlim, xvals, yvals, tvals, N, coord: coord0, env, ...attr0 } = THEME(args, 'SymPoints')
         const [ spec, attr ] = spec_split(attr0)
         const fsize = ensure_function(point_size)
-        const fshap = ensure_shapefunc(point_shape0 ?? new Dot(attr))
+        const fshap = ensure_shapefunc(point_shape0 ?? new Dot({ env, ...attr }))
         const { h: xlim, v: ylim } = resolve_limits(xlim0, ylim0, coord0 as Rect)
 
         // compute point values
@@ -147,7 +147,7 @@ class SymPoints extends Group {
         const coord = coord0 ?? detect_coords(xvals1, yvals1, xlim, ylim)
 
         // pass to element
-        super({ children, coord, ...spec })
+        super({ children, coord, env, ...spec })
         this.args = args
     }
 }
@@ -291,10 +291,10 @@ interface FieldArgs extends GroupArgs {
 
 class Field extends Group {
     constructor(args: FieldArgs = {}) {
-        const { points: points0, shape: shape0, size = D.point, arrow_size = 0.5, ...attr0 } = THEME(args, 'Field')
+        const { points: points0, shape: shape0, size = D.point, arrow_size = 0.5, env, ...attr0 } = THEME(args, 'Field')
         const [ spec, attr ] = spec_split(attr0)
         const points = check_array(points0)
-        const shape = shape0 ?? new Arrow({ points: [ [0, 0.5], [1, 0.5] ], arrow_size })
+        const shape = shape0 ?? new Arrow({ points: [ [0, 0.5], [1, 0.5] ], arrow_size, env })
 
         // create children
         const children = points.map(([ p, d ]) =>
@@ -302,7 +302,7 @@ class Field extends Group {
         )
 
         // pass to Group
-        super({ children, ...spec })
+        super({ children, env, ...spec })
         this.args = args
     }
 }

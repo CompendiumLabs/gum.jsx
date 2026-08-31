@@ -18,12 +18,12 @@
   ],
   "exports": {
     ".": "./src/gum.ts",
+    "./env": "./src/env.ts",
     "./eval": "./src/eval.ts",
     "./fonts": "./src/fonts/fonts.ts",
     "./fonts/*": "./src/fonts/*",
     "./lib/*": "./src/lib/*.ts",
     "./elems/*": "./src/elems/*.ts",
-    "./registry": "./src/lib/registry.ts",
     "./package.json": "./package.json"
   },
   "scripts": {

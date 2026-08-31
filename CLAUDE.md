@@ -56,10 +56,10 @@ package versioned in lockstep with core, and resolved to the sibling checkouts t
   strict-mode test runner (`gum-jsx/test`), the feature tests in `test/code`, and the report
   app.
 
-An add-on registers its elements and fonts through the registries below, and reaches core
-internals through the subpath exports `@gum-jsx/core/lib/*`, `@gum-jsx/core/elems/*`,
-`@gum-jsx/core/fonts`, `@gum-jsx/core/eval` and `./package.json` — that is the surface core
-commits to.
+An add-on is an `EnvPlugin` (its elements, bindings and fonts) that a host applies to an `Env`
+(below), and reaches core internals through the subpath exports `@gum-jsx/core/env`,
+`@gum-jsx/core/lib/*`, `@gum-jsx/core/elems/*`, `@gum-jsx/core/fonts`, `@gum-jsx/core/eval` and
+`./package.json` — that is the surface core commits to.
 
 ### Testing
 
@@ -69,7 +69,11 @@ Run type checking:
 bun tsc --noEmit
 ```
 
-The example suite lives in `gum-jsx` (`../gum-jsx`): `bun scripts/test.ts` there renders every
+The tests live in `gum-jsx` (`../gum-jsx`): its suite starts with the Env checks (`test/env.ts`
+there — settings never leak between evaluations, plugins and derived Envs are isolated, seeds
+and ids behave) and then renders every example.
+
+The example suite lives in `gum-jsx` (`../gum-jsx`): `bun test/run.ts` there renders every
 example in `@gum-jsx/docs` (`../gum-jsx-docs`: `docs/code/`, `gala/code/`) plus its own
 `test/code/` in **strict mode**
 (`src/lib/strict.ts`), which turns the permissive rendering fallbacks into thrown `StrictError`s
@@ -78,7 +82,7 @@ equivalent (`node`), an unknown command name drawn verbatim (`symbol`), a TeX fo
 no gum face mapped (`font`), and a character missing from the resolved face (`glyph`). Strict
 mode is **off by default** everywhere else; it is a `strict` flag on `evaluateGum` and `--strict`
 on the CLIs. An example that deliberately exercises a fallback opts out with a `@nostrict`
-comment. `bun scripts/test.ts --report` there also writes every render to `test/data` for the
+comment. `bun test/run.ts --report` there also writes every render to `test/data` for the
 `test/report` browser (`bun run report`).
 
 Or test a single file:
@@ -88,40 +92,68 @@ gum ../gum-jsx-docs/docs/code/Box.jsx -o test.svg
 
 ## Architecture
 
-### Registries
+### The Env
 
-Two registries let core and add-ons (today the math elements; later separate packages) declare
-what they provide with separate calls, instead of one static table:
+There is no process-global state. An **`Env`** (`src/env.ts`) is everything gum.jsx code runs
+against, and every element carries the one it was built with:
 
-- **Elements and context** (`src/lib/registry.ts`): `registerContext(values)` binds constants and
-  utilities as globals of evaluated JSX and `registerElements(elems)` binds element constructors
-  by tag name (also recorded in `ELEMS`). `src/lib/parse.ts` reads the live `CONTEXT` at
-  evaluation time. `src/gum.ts` registers the core names (`CORE_ELEMS`) and `@gum-jsx/math`
-  registers `MATH_ELEMS` when imported; `src/eval.ts` imports `./gum` so evaluating always has
-  core available.
-- **Fonts** (`src/fonts/fonts.ts`): `registerFonts(paths, faces?)` makes families known by name
-  without loading them — `FONT_PATHS` maps a name to a file (or a light/regular/bold set) and
-  `FONT_FACES` gives the css face for names that are not their own family. `fonts.ts` registers
-  the text fonts (IBM Plex Sans/Mono; `TEXT_FONTS`) and `@gum-jsx/math` registers
-  the 18 KaTeX faces from the `katex` package (`MATH_FONTS`) when imported.
-  `registerFont(name, path, face?)` registers one family and loads it.
-  `loadFonts()` and `fontsLoaded()` default to everything registered (`registeredFonts()`).
+- **Registries**: `elems` (element constructors by JSX tag name), `bindings` (constants and
+  utilities bound as globals of evaluated code) and `fonts` (a `FontRegistry`, below). `new Env()`
+  starts with core's (`corePlugin`: `CORE_ELEMS`, the constants and utilities, the text fonts);
+  `use(plugin)` adds an `EnvPlugin` (`{ elems?, bindings?, fonts? }`) — `@gum-jsx/math` exports
+  `math` this way, and `registerElements`/`registerBindings`/`registerFonts` add one kind.
+- **Settings**: `theme`, `strict`, and two random streams — `rng` behind the `random`/`uniform`/
+  `normal`/`integer` that evaluated code calls, `uids` behind gum's own draws (clip and mask ids),
+  separate so a clipped element never shifts the data. `with(settings)` derives an Env with other
+  settings: registries copied (so `use` on either leaves the other alone), streams shared unless a
+  `seed` is given.
+- **Evaluation**: `scope(extra)` is what evaluated code sees — `env` itself, the bindings, the
+  random functions on this Env's stream and the elements *bound to this Env* (`boundElems`: a
+  `Proxy` per constructor that adds `env` to the args, so `<Circle />` and `new Circle()` in user
+  code, and a user `class Foo extends Circle`, all land in the evaluating Env; `src/lib/parse.ts`
+  binds the scope as the code's globals). `evaluate(code, args)` runs against `with({ theme,
+  strict })` plus a fresh `rng` (seeded `seed ?? DEFAULT_SEED`, so evaluations are repeatable) and,
+  only if seeded, fresh `uids` (otherwise ids keep advancing across evaluations, so several
+  figures on one page never collide); `prelude(code, args)` returns a prelude's bindings.
+  `evaluateGum`/`evaluatePrelude` (`src/eval.ts`) are the default Env's.
+- **The default Env** (`src/lib/default.ts`): `defaultEnv()` (exported as `gum` from the entry)
+  is created lazily through a factory `src/env.ts` installs, because the elements import
+  `default.ts` for their fallback and `env.ts` imports the elements — nothing else may import
+  `src/gum.ts` or `src/eval.ts` (the tops of the import graph) from below. `setDefaultEnv`
+  replaces it. Host code that constructs elements without `env` gets it.
+
+**How elements get their Env**: every element takes `env` in its args (`ElementArgs.env`) and
+`Element.env` is a getter over its stored `args` (`resolveEnv(this.args.env)`, the default Env
+when absent), which works because every element stores its outermost args after `super`, even
+when it builds fresh args for `super`. What reads it: `THEME(args, elem)` (`src/lib/theme.ts`)
+picks the theme layer from `args.env`; `strictError(env, kind, message)` / `isStrict(env)`
+(`src/lib/strict.ts`); `textFont(family, weight, env)` and the other measurers in `src/lib/text.ts`
+take `env` in their `TextSizerArgs`; `makeUID(prefix, env)` draws from `env.uids`. The rule for
+element code: **every internal construction site passes `env`** — a constructor that needs it
+destructures `env` alongside its other props, last before the rest (`const { foo, env, ...attr } = THEME(args, 'X')`;
+THEME passes `args` through, so `env` comes out of it like anything else) and writes
+`new Child({ ..., env })` and `super({ env, ... })` explicitly — once `env` is destructured it is
+no longer in `...attr`, so every `super` must name it. Render-time code uses `env: this.env`, and
+helpers that take no element get an `env` parameter. A constructor that never touches `env` can
+leave it in `...attr`, where it flows to `super` on its own. A site that drops it silently falls back to the default Env (wrong theme, strict mode
+or fonts); the `gum-jsx` suite walks every example tree in strict mode and fails on such a stray,
+and its `test/env.ts` checks the leak and isolation semantics directly.
 
 ### Fonts
 
-Text layout measures real glyph metrics with opentype.js, so the fonts must be loaded before elements are constructed. Loading is per family and memoized:
+Text layout measures real glyph metrics with opentype.js, so the fonts must be loaded before elements are constructed. Each Env has a `FontRegistry` (`src/fonts/fonts.ts`, `env.fonts`): `paths` maps a family name to a file (or a light/regular/bold set) and `faces` gives the css face for names that are not their own family; `register`, `names`, `has`, `face`, `load`, `loaded`, `get` (the parsed font, for measurement) and `data` (the bytes). Every Env starts with the text fonts (IBM Plex Sans/Mono; `TEXT_FONT_PLUGIN`, `TEXT_FONTS`), a plugin adds its own (`@gum-jsx/math`: the 18 KaTeX faces, `MATH_FONTS`), and `env.registerFont(name, path, face?)` registers one family and loads it. Loaded files are cached **process-wide by path** (the bytes and the parsed `Font`), so Envs that share a family share one fetch and one parse, and re-registering a name under a new path simply reads the new file:
 
-- **node**: nothing to do — registered fonts are read from disk on first use (`getFont`), so a render only parses the faces it touches.
-- **browser**: fonts are fetched, so hosts must `await loadFonts()` (everything registered), `loadTextFonts()`, `loadFonts([...names])`, or `@gum-jsx/math`'s `loadMathFonts()` (all 18 KaTeX faces, ~480 kB) / `loadBaseMathFonts()` (the 7 ordinary math needs, ~190 kB) before evaluating. A missing font throws `FontNotLoadedError` (exported from `@gum-jsx/core` and `@gum-jsx/core/fonts`; `.font` is the family) from `textFont`, so a host can `loadFonts([e.font])` and retry — `@gum-jsx/math`'s `mathToSvgAsync` does exactly that.
+- **node**: nothing to do — registered fonts are read from disk on first use (`FontRegistry.get`), so a render only parses the faces it touches.
+- **browser**: fonts are fetched, so hosts must `await env.loadFonts()` (everything registered), `loadTextFonts(env?)`, `env.loadFonts([...names])`, or `@gum-jsx/math`'s `loadMathFonts(env?)` (all 18 KaTeX faces, ~480 kB) / `loadBaseMathFonts(env?)` (the 7 ordinary math needs, ~190 kB) before evaluating. A missing font throws `FontNotLoadedError` (exported from `@gum-jsx/core` and `@gum-jsx/core/fonts`; `.font` is the family) from `textFont`, so a host can `env.loadFonts([e.font])` and retry — `@gum-jsx/math`'s `mathToSvgAsync` does exactly that. An unregistered family is a plain `Error` (`Unknown font family`).
 
-The SVG output references fonts by family name (plus `font-weight`/`font-style` for the bold and italic KaTeX faces); a browser host also needs `@font-face` rules (the URLs are in `FONT_PATHS`) for the glyphs to actually draw. A face that is not its own family (the bold and italic KaTeX faces, registered one name per file for measurement) is emitted by `Span` as the base family plus weight/style via `fontFace()`, which is how fontconfig (used by the rasterizer) and browsers know it. `@gum-jsx/node` hands the registry to node-canvas lazily at the first rasterization, so fonts registered after it is imported are still found.
+The SVG output references fonts by family name (plus `font-weight`/`font-style` for the bold and italic KaTeX faces); a browser host also needs `@font-face` rules (the URLs are in `env.fonts.paths`) for the glyphs to actually draw. A face that is not its own family (the bold and italic KaTeX faces, registered one name per file for measurement) is emitted by `Span` as the base family plus weight/style via `env.fonts.face()`, which is how fontconfig (used by the rasterizer) and browsers know it. `@gum-jsx/node` hands an Env's registry to node-canvas at each rasterization (tracking what it has registered), so fonts registered after it is imported are still found.
 
 ### Component System
 
 The library is built around a class hierarchy split across element modules:
 
 **Element** (`src/elems/core.ts`) - Base class for all components
-- Stores `args` (constructor arguments) as a dictionary for easy cloning
+- Stores `args` (constructor arguments) as a dictionary for easy cloning; `env` (a getter over `args.env`) is the Env it was built against
 - Has a `spec` object containing layout parameters (rect, coord, aspect, aspect0, expand, align, upright, offset, rotate, rotate_adjust, rotate_invar)
 - Has an `attr` object containing SVG attributes (stroke, fill, etc.)
 - Renders to SVG via the `svg(ctx)` method that takes a Context object
@@ -193,12 +225,12 @@ Key functions for rect manipulation:
 ### Evaluation Pipeline
 
 1. **Parse** (`src/lib/parse.ts`): JSX code → AST using Acorn parser
-   - Walks the AST and converts JSX elements to `new ComponentName({ ...props })`
+   - Walks the AST and converts JSX elements to `__COMPONENT__(ComponentName, props, ...children)`
    - Handles JSX expressions, spreads, and nested children
-   - Injects the registered `CONTEXT` (`src/lib/registry.ts`) as globals: components, constants, and utilities
+   - Binds the Env's scope (`Env.scope`: the Env-bound components, constants, utilities and random functions) as the code's globals
 
-2. **Evaluate** (`src/eval.ts`): AST → Element tree
-   - Runs the transformed code to instantiate components
+2. **Evaluate** (`src/env.ts`, `Env.evaluate`; `src/eval.ts` for the default Env): AST → Element tree
+   - Derives the Env for the call (theme, strict, a fresh seeded random stream) and runs the transformed code to instantiate components against it
    - Wraps result in `Svg` component if needed
    - Validates that result is an Element
 
@@ -214,9 +246,9 @@ Key functions for rect manipulation:
 ### File Organization
 
 **Top-level modules:**
-- `src/gum.ts` - Re-exports all elements and utilities; defines named constants (`none`, `blue`, `red`, etc.) and registers the core names for the JSX evaluator
-- `src/defaults.ts` - `DEFAULTS`, `THEME()` function, and theme management
-- `src/eval.ts` - Code evaluation and element validation
+- `src/env.ts` - `Env` (registries, settings, `use`/`with`/`scope`/`evaluate`/`prelude`), `corePlugin` (`CORE_ELEMS`, the constants and utilities), `bindConstructor`, the evaluation errors; installs the default Env's factory
+- `src/gum.ts` - The package entry: re-exports all elements and utilities, the named constants (`none`, `blue`, `red`, etc.), `Env` and the default Env `gum`
+- `src/eval.ts` - `evaluateGum`/`evaluatePrelude` against the default Env, `fitSize`
 
 **Element modules (`src/elems/`):**
 - `core.ts` - `Context`, `Element`, `Group`, `Svg`, `Rect`, plus `prefix_split`, `spec_split`, `align_frac`, `is_element`
@@ -233,8 +265,10 @@ Key functions for rect manipulation:
 - `utils.ts` - Math utilities, array/vector ops, rect manipulation, color handling
 - `text.ts` - Text measurement and wrapping using opentype.js
 - `parse.ts` - JSX parser (Acorn) and AST walker
-- `registry.ts` - Element and context registries for the JSX evaluator
-- `strict.ts` - Strict mode: turns silent rendering fallbacks into thrown errors
+- `default.ts` - The default Env (a leaf module: `defaultEnv`, `resolveEnv`, `setDefaultEnv`)
+- `theme.ts` - The theme layers and `THEME()`, which picks the layer from `args.env`
+- `rng.ts` - The `RNG` class and the default Env's `random`/`uniform`/... for host code
+- `strict.ts` - Strict mode: turns silent rendering fallbacks into thrown errors (`strictError(env, kind, message)`)
 
 **Scripts:**
 
@@ -253,7 +287,7 @@ All components take a single `args` parameter (a dictionary) and store it:
 class MyComponent extends Element {
     constructor(args = {}) {
         const { myProp, ...attr } = args
-        super({ tag: 'g', ...attr })
+        super({ tag: 'g', ...attr })   // `env` rides in attr here; once destructured, name it in super explicitly
         this.args = args
         this.myProp = myProp
     }
@@ -273,10 +307,11 @@ Use `prefix_split(prefixes, attr)` to split prefixed attributes for passing to s
 ```javascript
 class Plot extends Group {
     constructor(args = {}) {
-        const [ xaxis_attr, yaxis_attr, attr ] = prefix_split(['xaxis', 'yaxis'], args)
-        const xaxis = new Axis({ ...xaxis_attr, direc: 'h' })
-        const yaxis = new Axis({ ...yaxis_attr, direc: 'v' })
-        super({ children: [ xaxis, yaxis ], ...attr })
+        const { env, ...attr0 } = THEME(args, 'Plot')
+        const [ xaxis_attr, yaxis_attr, attr ] = prefix_split(['xaxis', 'yaxis'], attr0)
+        const xaxis = new Axis({ ...xaxis_attr, direc: 'h', env })   // children are built against the same Env
+        const yaxis = new Axis({ ...yaxis_attr, direc: 'v', env })
+        super({ children: [ xaxis, yaxis ], env, ...attr })
     }
 }
 ```

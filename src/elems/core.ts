@@ -3,7 +3,8 @@
 import { THEME } from '../lib/theme'
 import { DEFAULTS as D, svgns, sans, light, blue, red, d2r } from '../lib/const'
 import { is_scalar, abs, cos, sin, tan, cot, mul2, div2, filter_object, expand_rect, rect_box, cbox_rect, rect_cbox, merge_points, merge_rects, join_limits, ensure_pair, rounder, heavisign, abs_min, abs_max, rect_radial, rotate_aspect, remap_rect, rescaler, resizer, rect_size, vector_angle, polard, upright_rect } from '../lib/utils'
-import { uidRandom } from '../lib/rng'
+import { resolveEnv } from '../lib/default'
+import type { Env } from '../env'
 
 import type { Point, Rect, Size, AlignValue, Align, Side, Attrs, MNumber, MPoint, Spec, Limit } from '../lib/types'
 
@@ -324,6 +325,7 @@ interface ElementArgs extends SpecArgs {
     spin?: number
     orient?: number
     debug?: boolean
+    env?: Env
     [key: string]: any
 }
 
@@ -341,7 +343,7 @@ class Element {
     attr: Attrs
 
     constructor(args: ElementArgs = {}) {
-        const { tag, unary, children, pos, size: size0, xsize: xsize0, ysize: ysize0, rad, xrad, yrad, xrect, yrect, flex, spin, orient, ...attr0 } = args
+        const { tag, unary, children, pos, size: size0, xsize: xsize0, ysize: ysize0, rad, xrad, yrad, xrect, yrect, flex, spin, orient, env: _env, ...attr0 } = args
         const [ spec, attr ] = spec_split(attr0, false)
         this.args = args
 
@@ -391,6 +393,13 @@ class Element {
 
         // warn if children are passed
         if (children != null) console.error(`Got children in ${this.constructor.name}`)
+    }
+
+    // the Env the element was constructed against, from its outermost args
+    // (every element stores the args it was given after super, so a subclass
+    // that builds fresh args for super still reports the Env it got)
+    get env(): Env {
+        return resolveEnv(this.args.env)
     }
 
     clone(args: Attrs = {}): Element {
@@ -502,8 +511,9 @@ function ensure_children(children: any): Element[] {
     return (children ?? []).filter((c: Element) => c != null)
 }
 
-function makeUID(prefix: string): string {
-    return `${prefix}-${uidRandom().toString(36).slice(2, 10)}`
+// an id for a clip path or mask, drawn from the Env's id stream
+function makeUID(prefix: string, env?: Env): string {
+    return `${prefix}-${resolveEnv(env).uids.random().toString(36).slice(2, 10)}`
 }
 
 interface GroupArgs extends ElementArgs {
@@ -517,11 +527,11 @@ class Group extends Element {
     children: Element[]
 
     constructor(args: GroupArgs = {}) {
-        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0, mask: mask0, debug = false, tag = 'g', ...attr } = args
+        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0, mask: mask0, debug = false, tag = 'g', env, ...attr } = args
         const children = ensure_children(children0)
 
         // handle boolean args
-        const clip = clip0 === true ? new Rectangle() : clip0
+        const clip = clip0 === true ? new Rectangle({ env }) : clip0
 
         // automatic aspect and coord detection
         const aspect = aspect0 == 'auto' ? children_aspect(children) : aspect0
@@ -529,7 +539,7 @@ class Group extends Element {
 
         // create debug boxes
         if (debug) {
-            const dargs = { stroke_dasharray: 3, opacity: 0.5 }
+            const dargs = { stroke_dasharray: 3, opacity: 0.5, env }
             const orects = children.map((c: Element) => new Rectangle({ rect: c.spec.rect, ...dargs, stroke: blue }))
             const irects = children.map((c: Element) => new Rectangle({ ...c.spec, ...dargs, stroke: red }))
             children.push(...irects, ...orects)
@@ -538,23 +548,23 @@ class Group extends Element {
         // make clip path
         let clip_path: string | undefined
         if (clip != null) {
-            const clip_id = makeUID('clip')
+            const clip_id = makeUID('clip', env)
             clip_path = `url(#${clip_id})`
-            const clip_elem = new ClipPath({ children: [ clip ], id: clip_id })
+            const clip_elem = new ClipPath({ children: [ clip ], id: clip_id, env })
             children.push(clip_elem)
         }
 
         // make mask
         let mask: string | undefined
         if (mask0 != null) {
-            const mask_id = makeUID('mask')
+            const mask_id = makeUID('mask', env)
             mask = `url(#${mask_id})`
-            const mask_elem = new Mask({ children: [ mask0 ], id: mask_id })
+            const mask_elem = new Mask({ children: [ mask0 ], id: mask_id, env })
             children.push(mask_elem)
         }
 
         // pass to Element
-        super({ tag, unary: false, aspect, coord, clip_path, mask, ...attr })
+        super({ tag, unary: false, aspect, coord, clip_path, mask, env, ...attr })
         this.args = args
 
         // additional props
@@ -622,8 +632,8 @@ class Style extends Element {
     text: string
 
     constructor(args: ElementArgs = {}) {
-        const { children } = args
-        super({ tag: 'style', unary: false })
+        const { children , env} = args
+        super({ tag: 'style', unary: false, env })
         this.text = children
     }
 
@@ -683,7 +693,7 @@ class Svg extends Group {
     unit_size: number
 
     constructor(args: SvgArgs = {}) {
-        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, stroke_width = 1, prec = D.prec, unit_size = D.unit_size, ...attr } = THEME(args, 'Svg')
+        const { children: children0, size : size0 = D.svg_size, padding = 1, bare = false, dims = true, filters, aspect: aspect0 = 'auto', view: view0, style, xmlns = svgns, font_family = sans, font_weight = light, stroke_width = 1, prec = D.prec, unit_size = D.unit_size, env, ...attr } = THEME(args, 'Svg')
         const children = ensure_children(children0)
         const size_base = ensure_pair(size0)
 
@@ -696,14 +706,14 @@ class Svg extends Group {
         const viewrect = expand_rect(viewrect0, padding) as Rect
 
         // make style element
-        const style_elem = new Style({ children: style ?? '' })
+        const style_elem = new Style({ children: style ?? '', env })
         const dims_attr = dims ? { width, height } : {}
 
         // pass to Group
         // the root carries the default stroke width as an inherited presentation
         // attribute (like stroke and fill), so strokes with no explicit width
         // still scale with the image instead of staying a fixed pixel hairline
-        super({ tag: 'svg', children, aspect, xmlns, font_family, font_weight, stroke_width, ...dims_attr, ...attr })
+        super({ tag: 'svg', children, aspect, xmlns, font_family, font_weight, stroke_width, env, ...dims_attr, ...attr })
         this.args = args
 
         // additional props

@@ -1,6 +1,7 @@
 // layout components
 
 import { THEME } from '../lib/theme'
+import type { Env } from '../env'
 import { DEFAULTS as D, none } from '../lib/const'
 import { is_scalar, ensure_vector, ensure_pair, log, exp, max, sum, zip, div2, cumsum, reshape, repeat, meshgrid, padvec, normalize, mean, identity, invert, aspect_invariant, check_singleton, check_array, rect_center, rect_radius, join_limits, radial_rect, norm_side, intersperse, prefix_split, merge_points, pad_rect } from '../lib/utils'
 import { wrapWidths } from '../lib/wrap'
@@ -15,11 +16,11 @@ import type { ElementArgs, GroupArgs } from './core'
 // padding/margin utils
 //
 
-function maybe_rounded_rect(rounded: Rounded | undefined): Element {
+function maybe_rounded_rect(rounded: Rounded | undefined, env?: Env): Element {
     if (rounded == null) {
-        return new Rectangle()
+        return new Rectangle({ env })
     } else {
-        return new RoundedRect({ rounded })
+        return new RoundedRect({ rounded, env })
     }
 }
 
@@ -74,12 +75,12 @@ interface BoxArgs extends GroupArgs {
 
 class Box extends Group {
     constructor(args: BoxArgs = {}) {
-        const { children: children0, padding, margin, border, fill, shape: shape0, rounded, aspect, clip, adjust = true, debug = false, ...attr0 } = THEME(args, 'Box')
+        const { children: children0, padding, margin, border, fill, shape: shape0, rounded, aspect, clip, adjust = true, debug = false, env, ...attr0 } = THEME(args, 'Box')
         const [ border_attr, fill_attr, attr] = prefix_split([ 'border', 'fill' ], attr0)
         const children = ensure_children(children0)
 
         // ensure shape is a function
-        const shape = shape0 ?? maybe_rounded_rect(rounded)
+        const shape = shape0 ?? maybe_rounded_rect(rounded, env)
 
         // compute layout
         const { rect_inner, rect_outer, aspect_outer } = computeBoxLayout(children, { padding, margin, aspect: aspect as number | undefined, adjust })
@@ -90,11 +91,11 @@ class Box extends Group {
         const rect_fg = border != null ? shape.clone({ stroke_width: border, ...border_attr }) : null
 
         // make inner groups
-        const inner = new Group({ children, rect: rect_inner, debug })
-        const outer = new Group({ children: [ rect_bg, inner, rect_fg ], rect: rect_outer, clip: rect_cl })
+        const inner = new Group({ children, rect: rect_inner, debug, env })
+        const outer = new Group({ children: [ rect_bg, inner, rect_fg ], rect: rect_outer, clip: rect_cl, env })
 
         // pass to Group
-        super({ children: [ outer ], aspect: aspect_outer, upright: true, ...attr })
+        super({ children: [ outer ], aspect: aspect_outer, upright: true, env, ...attr })
         this.args = args
     }
 }
@@ -275,19 +276,19 @@ interface HWrapArgs extends StackArgs {
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args: HWrapArgs = {}) {
-        const { children: children0, hspacing, vspacing, wrap, justify = 'left', measure: measure0, debug, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, hspacing, vspacing, wrap, justify = 'left', measure: measure0, debug, env, ...attr } = THEME(args, 'HWrap')
         const children = ensure_children(children0)
         const measure = measure0 ?? default_measure
 
         // intersperse spacers if needed and wrap widths
-        const items = hspacing > 0 ? intersperse(children, new Spacer({ aspect: hspacing })) : children
+        const items = hspacing > 0 ? intersperse(children, new Spacer({ aspect: hspacing, env })) : children
         const { rows } = wrapWidths(items, measure, wrap)
 
         // make HStack rows
-        const lines = rows.map(row => new HStack({ children: row, align: justify, aspect: wrap, debug }))
+        const lines = rows.map(row => new HStack({ children: row, align: justify, aspect: wrap, debug, env }))
 
         // pass to VStack
-        super({ children: lines, spacing: vspacing, even: true, debug, ...attr })
+        super({ children: lines, spacing: vspacing, even: true, debug, env, ...attr })
         this.args = args
     }
 }
@@ -353,7 +354,7 @@ interface GridArgs extends GroupArgs {
 
 class Grid extends Group {
     constructor(args: GridArgs = {}) {
-        const { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect: aspect0, ...attr } = THEME(args, 'Grid')
+        const { children: children0, rows: rows0, cols: cols0, widths, heights, spacing, aspect: aspect0, env, ...attr } = THEME(args, 'Grid')
         const children = ensure_children(children0)
 
         // reshape children to grid
@@ -361,7 +362,7 @@ class Grid extends Group {
         let grid = reshape(children, [rows, cols])
 
         // fill in missing rows and columns
-        const spacer = new Spacer()
+        const spacer = new Spacer({ env })
         const filler = repeat(spacer, cols)
         grid = grid.map(row => padvec(row, cols, spacer))
         grid = padvec(grid, rows, filler)
@@ -377,7 +378,7 @@ class Grid extends Group {
         )
 
         // pass to Group
-        super({ children: items, aspect, upright: true, ...attr })
+        super({ children: items, aspect, upright: true, env, ...attr })
         this.args = args
     }
 }
@@ -397,12 +398,12 @@ class Points extends Group {
     points: Point[]
 
     constructor(args: PointsArgs = {}) {
-        const { points: points0, point_size = D.point, point_shape: point_shape0, ...attr0 } = THEME(args, 'Points')
+        const { points: points0, point_size = D.point, point_shape: point_shape0, env, ...attr0 } = THEME(args, 'Points')
         const [ spec, attr ] = spec_split(attr0)
         const points = check_array(points0)
-        const shape = point_shape0 ?? new Dot(attr)
+        const shape = point_shape0 ?? new Dot({ env, ...attr })
         const children = points.map((pos: Point) => shape.clone({ pos, size: point_size })) ?? []
-        super({ children, ...spec })
+        super({ children, env, ...spec })
         this.args = args
         this.points = points
     }

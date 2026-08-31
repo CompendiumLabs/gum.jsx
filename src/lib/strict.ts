@@ -5,7 +5,11 @@
 // katex node becomes empty space, an unknown command name gets drawn verbatim,
 // a missing glyph gets measured as .notdef. That is the right default for
 // authoring, but it hides real breakage from a test suite. Strict mode turns
-// each of those fallbacks into a thrown StrictError instead.
+// each of those fallbacks into a thrown StrictError instead. It is a flag on
+// the Env (src/env.ts) an element is constructed against.
+
+import { resolveEnv } from './default'
+import type { Env } from '../env'
 
 // the kinds of fallback that can be reported
 type StrictKind =
@@ -25,26 +29,20 @@ class StrictError extends Error {
     }
 }
 
-// strict state
-let strict = false
-
-function setStrict(value: boolean): void {
-    strict = value
-}
-
-function isStrict(): boolean {
-    return strict
+// whether the given Env (default: the default Env) is strict
+function isStrict(env?: Env): boolean {
+    return resolveEnv(env).strict
 }
 
 // report a rendering fallback: throws in strict mode, otherwise returns and
 // lets the caller carry on with whatever it drew before
-function strictError(kind: StrictKind, message: string): void {
-    if (strict) throw new StrictError(kind, message)
+function strictError(env: Env | undefined, kind: StrictKind, message: string): void {
+    if (isStrict(env)) throw new StrictError(kind, message)
 }
 
 //
 // exports
 //
 
-export { StrictError, setStrict, isStrict, strictError }
+export { StrictError, isStrict, strictError }
 export type { StrictKind }
