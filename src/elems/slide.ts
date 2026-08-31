@@ -128,38 +128,30 @@ class Slide extends Box {
 
     constructor(args: SlideArgs = {}) {
         const {
-            children, aspect: aspect0 = phi, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
+            children, aspect: aspect0, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
             border_stroke = '#bbb', background, title_size = 0.1, wrap = 25, spacing = 0.05,
-            justify = 'left', valign = 'center', ...attr0
+            justify = 'left', align, ...attr0
         } = THEME(args, 'Slide')
         const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
         const [ spec, attr ] = spec_split(attr1)
-        const aspect = aspect0 == 'auto' ? phi : aspect0
-
-        // margin is in canvas units; frame padding is also in canvas units, so
-        // convert it into the frame's own height units before applying it
-        const { padding: margin1, aspect: aspect_frame } = canvas_padding(margin, aspect)
-        const [ _ml, mt, _mr, mb ] = pad_rect(margin)
-        const pad_frame = pad_rect(padding).map(p => p / (1 - mt - mb)) as Rect
-        const { padding: padding1, aspect: aspect_content } = canvas_padding(pad_frame, aspect_frame)
+        const aspect = aspect0 == 'auto' ? undefined : aspect0
 
         // stack up content, aligned within the content area
-        const align: [ number, number ] = [ 0.5, align_frac(valign) ]
         const stack = new TextStack({ children, spacing, justify, wrap, align, ...text_attr })
 
         // the frame flexes to fill the canvas inside the margin
         const frame = new TitleFrame({
-            children: [ stack ], flex: true, padding: padding1, adjust: false,
+            children: [ stack ], aspect, padding,
             border, rounded, border_stroke, title_size, ...attr
         })
 
         // the canvas is the slide itself: fixed aspect with the margin inside it
-        super({ children: [ frame ], aspect, padding: margin1, adjust: false, fill: background, ...spec })
+        super({ children: [ frame ], padding: margin, fill: background, ...spec })
         this.args = args
 
         // content taller than the area gets scaled down to fit the height
-        const aspect_stack = stack.spec.aspect
-        this.overflow = aspect_stack != null ? aspect_content / aspect_stack : 1
+        const { aspect: aspect_stack } = stack.spec
+        this.overflow = (aspect != null && aspect_stack != null) ? aspect / aspect_stack : 1
     }
 }
 
