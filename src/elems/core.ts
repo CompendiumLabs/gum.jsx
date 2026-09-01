@@ -539,9 +539,8 @@ class Group extends Element {
 
         // create debug boxes
         if (debug) {
-            const dargs = { stroke_dasharray: 3, opacity: 0.5, env }
-            const orects = children.map((c: Element) => new Rectangle({ rect: c.spec.rect, ...dargs, stroke: blue }))
-            const irects = children.map((c: Element) => new Rectangle({ ...c.spec, ...dargs, stroke: red }))
+            const orects = children.map((c: Element) => new Rectangle({ rect: c.spec.rect, stroke: blue, stroke_width: 2, opacity: 0.75, env }))
+            const irects = children.map((c: Element) => new Rectangle({ ...c.spec, stroke: red, stroke_width: 2, opacity: 0.75, env }))
             children.push(...irects, ...orects)
         }
 
