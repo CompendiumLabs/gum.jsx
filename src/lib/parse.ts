@@ -142,7 +142,12 @@ const handlers: Record<string, (node: ASTNode) => any> = {
   },
   ArrowFunctionExpression(node) {
     const { params, body } = node
-    return `(${params.map(walkTree).join(', ')}) => ${walkTree(body)}`
+    // acorn drops parentheses, so an expression body that would otherwise
+    // parse as a block (an object literal) or a parameter list (a sequence)
+    // has to get them back
+    const wrap = body.type == 'ObjectExpression' || body.type == 'SequenceExpression'
+    const text = wrap ? `(${walkTree(body)})` : walkTree(body)
+    return `(${params.map(walkTree).join(', ')}) => ${text}`
   },
   ConditionalExpression(node) {
     const { test, consequent, alternate } = node
