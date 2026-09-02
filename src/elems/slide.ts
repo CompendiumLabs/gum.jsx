@@ -65,8 +65,12 @@ class TitleBox extends Box {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
             const title_span = is_element(title) ? title : new Span({ children: [ title ], env })
             title_box = new TextFrame({ children: [ title_span ], pos: title_pos, ysize: title_size, rounded: title_rounded, env, ...title_attr })
+            // the mask shows everything but the title cutout; the cover rect is in
+            // box coordinates (with margin for overflow), not viewport percentages,
+            // which measure from the viewport origin and break when a host crops
+            // the viewBox
             title_mask = new Group({ children: [
-                new Rectangle({ x: '0%', y: '0%', width: '100%', height: '100%', fill: white, env }),
+                new Rectangle({ rect: [ -0.5, -0.5, 1.5, 1.5 ], fill: white, env }),
                 new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black, env })
             ], fill_rule: 'evenodd' , env})
         }

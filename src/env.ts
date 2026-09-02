@@ -383,7 +383,7 @@ class Env {
     // the root Svg for what code evaluated to
     wrapSvg(result: any, args: SvgArgs = {}): Svg {
         // handle array result (from JSX fragments)
-        if (Array.isArray(result)) {
+        if (Array.isArray(result) && result.every(is_element)) {
             return new Svg({ children: result, ...args, env: this })
         }
 
