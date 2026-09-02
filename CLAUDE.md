@@ -26,9 +26,12 @@ gum ../gum-jsx-docs/docs/code/Box.jsx -o test.svg
 # -s, --size <size>        size of the svg/viewBox (default: 1000)
 # -u, --unit-size <size>   image size at which stroke_width = 1 is one pixel (default: 1000)
 # -r, --raster-size <size> max rasterized PNG size (default: null)
-# -f, --format <format>    format: svg, png, kitty (default: kitty or inferred)
-# -t, --theme <theme>      theme to use (default: light)
-# -b, --background <color> background color (default: white)
+# -f, --format <format>    format: svg, png, kitty, layout, json (default: kitty or inferred)
+# -z, --zoom <region>      region to zoom into, as x0,y0,x1,y1 fractions of the figure
+# --depth <levels>         layout format: levels below the root to list (default: 4)
+# --select <text>          layout format: only elements whose path, type, id, or class contains this
+# -t, --theme <theme>      theme to use (default: dark)
+# -b, --background <color> background color (default: white for light, none otherwise)
 # -o, --output <output>    output file (default: null)
 # --strict                 throw on rendering fallbacks instead of drawing them
 # --seed <seed>            seed for random/uniform/normal/integer (default: 42)
@@ -58,8 +61,8 @@ package versioned in lockstep with core, and resolved to the sibling checkouts t
 
 An add-on is an `EnvPlugin` (its elements, bindings and fonts) that a host applies to an `Env`
 (below), and reaches core internals through the subpath exports `@gum-jsx/core/env`,
-`@gum-jsx/core/lib/*`, `@gum-jsx/core/elems/*`, `@gum-jsx/core/fonts`, `@gum-jsx/core/eval` and
-`./package.json` — that is the surface core commits to.
+`@gum-jsx/core/lib/*`, `@gum-jsx/core/elems/*`, `@gum-jsx/core/fonts`, `@gum-jsx/core/eval`,
+`@gum-jsx/core/inspect` and `./package.json` — that is the surface core commits to.
 
 ### Testing
 
@@ -249,6 +252,7 @@ Key functions for rect manipulation:
 - `src/env.ts` - `Env` (registries, settings, `use`/`with`/`scope`/`evaluate`/`prelude`), `corePlugin` (`CORE_ELEMS`, the constants and utilities), `bindConstructor`, the evaluation errors; installs the default Env's factory
 - `src/gum.ts` - The package entry: re-exports all elements and utilities, the named constants (`none`, `blue`, `red`, etc.), `Env` and the default Env `gum`
 - `src/eval.ts` - `evaluateGum`/`evaluatePrelude` against the default Env, `fitSize`
+- `src/inspect.ts` - Inspecting a rendered `Svg`: `zoomSvg(elem, zoom)` rebuilds it with the viewBox cropped to a fractional region `[x0, y0, x1, y1]` and magnified to the original size box (`validateZoom` checks the region, `zoomRect` maps it to view coordinates); `layoutSvg(elem, { depth, select, zoom })` walks the tree the way `Group.inner` does (`ctx.map(child.spec)`) and lists each element's placed and allocated pixel boxes as text (`layoutRows` for the rows). Shared by the studio's snapshot/exec tools and the `gum` CLI's `--zoom`/`--format layout`
 
 **Element modules (`src/elems/`):**
 - `core.ts` - `Context`, `Element`, `Group`, `Svg`, `Rect`, plus `prefix_split`, `spec_split`, `align_frac`, `is_element`

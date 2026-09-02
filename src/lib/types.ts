@@ -57,7 +57,7 @@ type Spec = {
 
 // command line arguments
 type ThemeName = 'light' | 'dark'
-type OutputFormat = 'json' | 'svg' | 'png' | 'kitty'
+type OutputFormat = 'json' | 'svg' | 'png' | 'kitty' | 'layout'
 type LoadFileData = string | Uint8Array
 type LoadFile = (path: string, encoding?: string) => LoadFileData
 
@@ -73,6 +73,9 @@ interface CliArgs {
   dev: boolean
   strict: boolean
   seed?: number
+  zoom?: Rect
+  depth?: number
+  select?: string
   loadFile: LoadFile
 }
 

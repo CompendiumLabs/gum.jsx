@@ -20,6 +20,7 @@
     ".": "./src/gum.ts",
     "./env": "./src/env.ts",
     "./eval": "./src/eval.ts",
+    "./inspect": "./src/inspect.ts",
     "./fonts": "./src/fonts/fonts.ts",
     "./fonts/*": "./src/fonts/*",
     "./lib/*": "./src/lib/*.ts",

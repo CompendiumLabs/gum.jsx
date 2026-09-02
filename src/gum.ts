@@ -20,6 +20,7 @@ import { Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLab
 import { LabelBox, TitleBox, TitleFrame, Slide } from './elems/slide'
 import { PngImage, SvgImage, calcPngAspect } from './elems/image'
 import { parseTable } from './lib/table'
+import { validateZoom, zoomRect, zoomSvg, layoutRows, layoutSvg, LAYOUT_DEPTH } from './inspect'
 
 const Rect = Rectangle
 
@@ -30,6 +31,7 @@ const gum = defaultEnv()
 export {
     Env, gum, corePlugin, CORE_ELEMS, bindConstructor, defaultEnv, setDefaultEnv, Context,
     FontRegistry, FontNotLoadedError, TEXT_FONTS, loadTextFonts, calcPngAspect, parseTable,
+    validateZoom, zoomRect, zoomSvg, layoutRows, layoutSvg, LAYOUT_DEPTH,
     is_string, is_boolean, is_array, is_object, is_function, is_element, is_scalar, is_emoji,
     e, pi, phi, r2d, d2r, none, white, black, blue, red, green, yellow, purple, gray, lightgray, darkgray, slate, sans, mono, moji, cmoji, light, regular, bold,
     range, linspace, enumerate, repeat, meshgrid, lingrid, zip, reshape, split, concat, slice, sum, prod, mean, cumsum, min, max, minimum, maximum, norm, clamp, rescale, normalize, exp, log, log10, sin, cos, tan, abs, pow, sqrt, sign, floor, ceil, round, atan, atan2, sigmoid, logit, smoothstep, polar, polard, rounder, interp, palette, add2, sub2, mul2, div2, addn, subn, muln, divn, addc, subc, mulc, divc, conjc, normc, argc, spline1d, spline2d,
@@ -43,5 +45,6 @@ export type { FontPath, FontFace, FontPlugin } from './fonts/fonts'
 export type { ThemeName } from './lib/theme'
 export type { SplineFuncArgs } from './lib/interp'
 export type { PngImageArgs, SvgImageArgs } from './elems/image'
+export type { Zoom, LayoutOptions, LayoutRow } from './inspect'
 
 export type * from './lib/types'
