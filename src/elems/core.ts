@@ -589,8 +589,9 @@ class Group extends Element {
     }
 
     svg(ctx?: Context): string {
-        const props = this.props(ctx!)
-        if (Object.keys(props).length == 0) return this.inner(ctx!).trim()
+        ctx ??= new Context()
+        const props = this.props(ctx)
+        if (Object.keys(props).length == 0) return this.inner(ctx).trim()
         return super.svg(ctx)
     }
 }
@@ -607,8 +608,9 @@ class ClipPath extends Group {
     }
 
     svg(ctx?: Context): string {
+        ctx ??= new Context()
         const def = super.svg(ctx)
-        ctx!.meta.addDef(def)
+        ctx.meta.addDef(def)
         return ''
     }
 }
@@ -621,8 +623,9 @@ class Mask extends Group {
     }
 
     svg(ctx?: Context): string {
+        ctx ??= new Context()
         const def = super.svg(ctx)
-        ctx!.meta.addDef(def)
+        ctx.meta.addDef(def)
         return ''
     }
 }

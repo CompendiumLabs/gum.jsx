@@ -14,21 +14,45 @@
     "access": "public"
   },
   "files": [
-    "src"
+    "src",
+    "types"
   ],
   "exports": {
-    ".": "./src/gum.ts",
-    "./env": "./src/env.ts",
-    "./eval": "./src/eval.ts",
-    "./inspect": "./src/inspect.ts",
-    "./fonts": "./src/fonts/fonts.ts",
+    ".": {
+      "types": "./types/gum.d.ts",
+      "import": "./src/gum.ts"
+    },
+    "./env": {
+      "types": "./types/env.d.ts",
+      "import": "./src/env.ts"
+    },
+    "./eval": {
+      "types": "./types/eval.d.ts",
+      "import": "./src/eval.ts"
+    },
+    "./inspect": {
+      "types": "./types/inspect.d.ts",
+      "import": "./src/inspect.ts"
+    },
+    "./fonts": {
+      "types": "./types/fonts/fonts.d.ts",
+      "import": "./src/fonts/fonts.ts"
+    },
     "./fonts/*": "./src/fonts/*",
-    "./lib/*": "./src/lib/*.ts",
-    "./elems/*": "./src/elems/*.ts",
+    "./lib/*": {
+      "types": "./types/lib/*.d.ts",
+      "import": "./src/lib/*.ts"
+    },
+    "./elems/*": {
+      "types": "./types/elems/*.d.ts",
+      "import": "./src/elems/*.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "typecheck": "bun tsc --noEmit"
+    "typecheck": "bun tsc --noEmit",
+    "types": "rm -rf types && bun tsc -p tsconfig.types.json && cp -r src/types types/types",
+    "prepublishOnly": "bun run types"
   },
   "dependencies": {
     "@types/papaparse": "^5.5.2",

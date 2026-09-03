@@ -137,9 +137,11 @@ const UTILS = {
 }
 
 // the core elements by tag name
-const CORE_ELEMS: Record<string, ElementConstructor> = {
+// declared with `satisfies` rather than an annotation so the element names stay
+// literal types (`keyof typeof CORE_ELEMS`) for consumers such as @gum-jsx/react
+const CORE_ELEMS = {
     Element, Group, Svg, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute, Spacer, Ray, Line, UnitLine, HLine, VLine, CoordLine, Segments, Rectangle, Rect, RoundedRect, RoundedLine, Square, Ellipse, Arc, Circle, Dot, Polygon, Path, Spline, Triangle, Fill, VFill, HFill, Arrow, Field, Span, TextLine, Text, TextBox, TextFrame, TextStack, Bullets, Bold, Italic, LabelBox, TitleBox, TitleFrame, ArrowHead, Node, Edge, Network, SymPoints, SymLine, SymSpline, SymPoly, SymFill, SymField, Bar, VBar, HBar, Bars, VBars, HBars, Scale, VScale, HScale, Label, HLabel, VLabel, Labels, HLabels, VLabels, Axis, HAxis, VAxis, OuterLabel, Mesh, HMesh, VMesh, Mesh2D, Graph, Plot, BarPlot, Legend, Slide, PngImage, SvgImage
-}
+} satisfies Record<string, ElementConstructor>
 
 // what every Env starts with: the elements, the constants and utilities bound
 // in evaluated code (the random functions are bound per Env in `scope`), and
