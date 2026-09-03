@@ -134,11 +134,14 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
     // short circuit if empty
     if (children.length == 0) return { ranges: [], aspect: undefined }
 
-    // get size and aspect data from children
+    // get size and aspect data from children: a child's aspect takes part in
+    // the layout unless it opts out with `stack-expand = false`, in which case
+    // it is a fixed share (sized) or an even share of the remainder (unsized)
+    // and only its own placement within that share respects the aspect
     // adjust for direction (invert aspect if horizontal)
     const items = children.map(c => {
         const size = c.attr.stack_size ?? (even ? 1 / children.length : null)
-        const aspect = c.attr.stack_size == null ? c.spec.aspect : null
+        const aspect = (c.attr.stack_expand ?? true) ? c.spec.aspect : null
         return { size, aspect } as StackChild
     })
 
@@ -168,8 +171,9 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
     const expo = items.filter(c => c.size == null && c.aspect != null) as StackChildExpo[]
     const flex = items.filter(c => c.size == null && c.aspect == null) as StackChildFlex[]
 
-    // get target aspect from over-constrained children
-    // this is generically imperfect if len(over) > 1
+    // get target aspect from over-constrained children (sized with an aspect):
+    // the shortest length at which one of them exactly fills its share, so
+    // that child fills the stack and the rest fit inside their shares
     // single element case (exact): s * F_total * L = a
     // multi element case (approximate): agg(s_i / a_i) * F_total * L = 1
     const agg: (x: number[]) => number = x => max(x) as number // fit to max aspect, otherwise will underfit
@@ -185,13 +189,16 @@ function computeStackLayout(direc: string, children: Element[], { spacing = 0, e
         return { ranges, aspect }
     }
 
-    // set length to maximally accommodate over-constrained children (or expandables)
-    // add up lengths required to make expandables height 1 (w = a)
-    // set length to satisfy: L_expand * (1 - S_sum) * F_total = sum(w) = sum(a)
+    // set length to accommodate the expandables: add up the lengths required
+    // to make them height 1 (w = a), so L_expand * (1 - S_sum) * F_total = sum(a)
     const L_expand = (expo.length > 0) ? sum(expo.map(c => c.aspect)) / ((1 - S_sum) * F_total) : undefined
-    // a requested aspect is in output terms, so map it into the internal
-    // (horizontal) frame like the computed lengths (inverted when vertical)
-    const L_target = (aspect0 != null ? getAspect0(aspect0) : ((over.length > 0) ? L_over : L_expand)) as number
+    // the target length is a requested aspect, else the one that lets the
+    // expandables fill the remaining space (an over-constrained child cannot
+    // set it without leaving that space partly empty), else the one that lets
+    // an over-constrained child fill its share; a requested aspect is in
+    // output terms, so map it into the internal (horizontal) frame like the
+    // computed lengths (inverted when vertical)
+    const L_target = (aspect0 != null ? getAspect0(aspect0) : (L_expand ?? L_over)) as number
 
     // allocate space to expand then flex children
     // S_exp0 gets full length of expandables given realized L_target
@@ -238,7 +245,7 @@ class Stack extends Group {
         const items = children.length > 0 ? zip(children, ranges).map(([c, b]) => {
             const rect = join_limits({ [direc]: b })
             const align = c.spec.align ?? justify
-            return c.clone({ rect, align, stack_size: undefined })
+            return c.clone({ rect, align, stack_size: undefined, stack_expand: undefined })
         }) : []
 
         // pass to Group
