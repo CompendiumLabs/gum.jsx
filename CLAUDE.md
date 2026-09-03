@@ -227,10 +227,21 @@ Key functions for rect manipulation:
 
 ### Evaluation Pipeline
 
-1. **Parse** (`src/lib/parse.ts`): JSX code → AST using Acorn parser
-   - Walks the AST and converts JSX elements to `__COMPONENT__(ComponentName, props, ...children)`
-   - Handles JSX expressions, spreads, and nested children
-   - Binds the Env's scope (`Env.scope`: the Env-bound components, constants, utilities and random functions) as the code's globals
+1. **Parse** (`src/lib/parse.ts`): JSX code → JS using the Acorn parser
+   - Rewrites only the JSX ranges of the source, to `__COMPONENT__(Tag, "Tag", line, props, ...children)`
+     calls that span the same lines as the JSX they replace; the rest of the code runs verbatim, so
+     line numbers in the running code are the source's
+   - Handles JSX expressions, spreads, fragments and nested children; a program that is one bare
+     element returns it
+   - Runs the result as a `new Function` body under a `//# sourceURL`, with the Env's scope
+     (`Env.scope`: the Env-bound components, constants, utilities and random functions) bound as
+     the code's globals
+   - Errors (`src/lib/errors.ts`): a parse failure is an `ErrorSyntax` with `line`/`column`; a
+     throw while running is wrapped in an `ErrorRuntime` with the original as `cause`, its `kind`
+     (the original name), the user code `frames` mapped back to source lines, the JSX `sites`
+     being constructed (recorded as the error unwinds through `__COMPONENT__`), the element
+     constructor `trail` from the stack, and `traceback()` for the text form. Both are exported
+     from `@gum-jsx/core/env` and `@gum-jsx/core/eval`
 
 2. **Evaluate** (`src/env.ts`, `Env.evaluate`; `src/eval.ts` for the default Env): AST → Element tree
    - Derives the Env for the call (theme, strict, a fresh seeded random stream) and runs the transformed code to instantiate components against it
@@ -268,7 +279,8 @@ Key functions for rect manipulation:
 **Library modules (`src/lib/`):**
 - `utils.ts` - Math utilities, array/vector ops, rect manipulation, color handling
 - `text.ts` - Text measurement and wrapping using opentype.js
-- `parse.ts` - JSX parser (Acorn) and AST walker
+- `parse.ts` - JSX transform (Acorn, line preserving) and the code runner
+- `errors.ts` - `ErrorSyntax`/`ErrorRuntime` with source positions, stack parsing
 - `default.ts` - The default Env (a leaf module: `defaultEnv`, `resolveEnv`, `setDefaultEnv`)
 - `theme.ts` - The theme layers and `THEME()`, which picks the layer from `args.env`
 - `rng.ts` - The `RNG` class and the default Env's `random`/`uniform`/... for host code

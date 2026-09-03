@@ -1,426 +1,281 @@
-// acorn jsx parser
+// jsx transform and runner
+//
+// the code is parsed with acorn (plus acorn-jsx) and only its jsx ranges are
+// rewritten, into `__COMPONENT__(Tag, "Tag", line, props, ...children)` calls
+// that keep every newline of the range they replace; everything else is the
+// source verbatim. the code that runs therefore has the source's line numbers,
+// which is what lets an error point back at a line (see errors.ts).
 
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
-
+import { ErrorSyntax, ErrorRuntime, addSite } from './errors'
 
 //
-// parser utils
+// parsing
 //
 
 type ASTNode = acorn.Node & Record<string, any>
 
-type PropEntry = {
-    key?: string
-    value?: any
-    spread?: string
-}
-
 const parser = acorn.Parser.extend(jsx())
+
+// parse gum.jsx code; a `return` at the top level is allowed since the code
+// runs as a function body
 function parseJSX(code: string): ASTNode {
-  const tree = parser.parse(code, {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-  })
-  return tree
+    try {
+        return parser.parse(code, {
+            ecmaVersion: 'latest',
+            sourceType: 'module',
+            locations: true,
+            allowReturnOutsideFunction: true,
+        }) as ASTNode
+    } catch (err: any) {
+        // acorn appends the position to the message and puts it in `loc` (zero based column)
+        const loc = err?.loc
+        if (err instanceof SyntaxError && loc != null) {
+            const message = err.message.replace(/\s*\(\d+:\d+\)$/, '')
+            throw new ErrorSyntax(message, loc.line, loc.column + 1)
+        }
+        throw err
+    }
 }
 
-function objectLiteral(obj: PropEntry[]): string {
-  const body = obj.map(({ key, value, spread }) =>
-    spread? `...${spread}` : `${key}: ${value}`
-  )
-  return `{ ${body.join(', ')} }`
+//
+// transform
+//
+
+// a piece of emitted code, with the source range it stands for
+type Piece = {
+    start: number
+    end: number
+    text: string
 }
 
 function isWhitespace(s: any): boolean {
-  return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
+    return (typeof s === 'string') && (s.replace(/\s/g, '') === '')
 }
+
+function isJSX(node: ASTNode | null): boolean {
+    return node != null && (node.type == 'JSXElement' || node.type == 'JSXFragment')
+}
+
+function snakeCase(s: string): string {
+    return s.replace(/-/g, '_')
+}
+
+function countNewlines(code: string, from: number, to: number): number {
+    let count = 0
+    for (let i = from; i < to; i++) {
+        if (code.charCodeAt(i) == 10) count++
+    }
+    return count
+}
+
+// the jsx nodes under a node that are not nested inside other jsx, in source order
+function jsxRoots(node: any, out: ASTNode[]): void {
+    if (node == null || typeof node != 'object') return
+    if (Array.isArray(node)) {
+        for (const item of node) jsxRoots(item, out)
+        return
+    }
+    if (typeof node.type != 'string') return
+    if (isJSX(node)) {
+        out.push(node)
+        return
+    }
+    for (const key of Object.keys(node)) {
+        if (key == 'type' || key == 'start' || key == 'end' || key == 'loc') continue
+        jsxRoots(node[key], out)
+    }
+}
+
+// the source of a node with the jsx inside it transformed
+function transformNode(code: string, node: ASTNode): string {
+    const roots: ASTNode[] = []
+    jsxRoots(node, roots)
+    roots.sort((a, b) => a.start - b.start)
+    let out = ''
+    let pos = node.start
+    for (const root of roots) {
+        out += code.slice(pos, root.start) + emitJSX(code, root)
+        pos = root.end
+    }
+    return out + code.slice(pos, node.end)
+}
+
+// a jsx attribute as an object literal entry
+function emitAttribute(code: string, attr: ASTNode): string {
+    if (attr.type == 'JSXSpreadAttribute') {
+        return `...${transformNode(code, attr.argument)}`
+    }
+    const { name, value } = attr
+    const key = JSON.stringify(snakeCase(code.slice(name.start, name.end)))
+    if (value == null) return `${key}: true`
+    // jsx string attributes are raw (no escape processing), unlike js literals
+    if (value.type == 'Literal') return `${key}: ${JSON.stringify(value.value)}`
+    if (value.type == 'JSXExpressionContainer') return `${key}: ${transformNode(code, value.expression)}`
+    return `${key}: ${emitJSX(code, value)}`
+}
+
+// a jsx child as an argument, or null for one that is dropped (whitespace, comments)
+function emitChild(code: string, child: ASTNode): string | null {
+    switch (child.type) {
+        case 'JSXText':
+            return isWhitespace(child.value) ? null : JSON.stringify(child.value)
+        case 'JSXExpressionContainer':
+            if (child.expression.type == 'JSXEmptyExpression') return null
+            return transformNode(code, child.expression)
+        case 'JSXSpreadChild':
+            return `...${transformNode(code, child.expression)}`
+        default:
+            return emitJSX(code, child)
+    }
+}
+
+// lay pieces out after a position, carrying over the newlines of the source
+// between and inside them so the emitted code keeps the source's lines
+function layout(code: string, pieces: Piece[], from: number, to: number, join: string): string {
+    let out = ''
+    let pos = from
+    for (const [ index, piece ] of pieces.entries()) {
+        const gap = '\n'.repeat(countNewlines(code, pos, piece.start))
+        const inner = countNewlines(code, piece.start, piece.end) - countNewlines(piece.text, 0, piece.text.length)
+        const pad = '\n'.repeat(Math.max(0, inner))
+        out += (index > 0 ? join : '') + gap + piece.text + pad
+        pos = piece.end
+    }
+    return out + '\n'.repeat(countNewlines(code, pos, to))
+}
+
+function childPieces(code: string, children: ASTNode[]): Piece[] {
+    const pieces: Piece[] = []
+    for (const child of children) {
+        const text = emitChild(code, child)
+        if (text != null) pieces.push({ start: child.start, end: child.end, text })
+    }
+    return pieces
+}
+
+// a jsx element or fragment as a component call (or array), spanning the same lines
+function emitJSX(code: string, node: ASTNode): string {
+    if (node.type == 'JSXFragment') {
+        const kids = childPieces(code, node.children)
+        return `[${layout(code, kids, node.start, node.end, ', ')}]`
+    }
+
+    const { openingElement, children } = node
+    const { name, attributes } = openingElement
+    const tag = code.slice(name.start, name.end)
+    const line = node.loc!.start.line
+
+    // props object, then children, in source order
+    const props: Piece[] = attributes.map((attr: ASTNode) => ({ start: attr.start, end: attr.end, text: emitAttribute(code, attr) }))
+    const kids = childPieces(code, children)
+    const propsEnd = props.length > 0 ? props[props.length - 1].end : name.end
+    const kidsEnd = kids.length > 0 ? kids[kids.length - 1].end : propsEnd
+
+    const head = `__COMPONENT__(${tag}, ${JSON.stringify(tag)}, ${line}, {`
+    const body = layout(code, props, name.end, propsEnd, ',')
+    const tail = kids.length > 0 ? `, ${layout(code, kids, propsEnd, kidsEnd, ', ')}` : ''
+    const rest = '\n'.repeat(countNewlines(code, kidsEnd, node.end))
+    return `${head}${body}}${tail}${rest})`
+}
+
+//
+// runner
+//
 
 // a class has a non-writable prototype, a plain function a writable one and an
 // arrow function none (an Env-bound element constructor is a Proxy over the
 // class, so the prototype's own constructor is not consulted)
 function isClass(func: any): boolean {
-  return (typeof func === 'function') &&
-         (func.prototype != null) &&
-         (Object.getOwnPropertyDescriptor(func, 'prototype')!.writable === false)
-}
-
-function snakeCase(s: string): string {
-  return s.replace(/-/g, '_')
+    return (typeof func === 'function') &&
+           (func.prototype != null) &&
+           (Object.getOwnPropertyDescriptor(func, 'prototype')!.writable === false)
 }
 
 function filterChildren(items: any[]): any[] {
-  return items.flat(Infinity)
-    .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
+    return items.flat(Infinity)
+        .filter(item => (item != null) && (item !== false) && (item !== true) && !isWhitespace(item))
 }
 
-function collateTemplate(expressions: ASTNode[], quasis: ASTNode[]): string[] {
-  const exps = expressions.map(e => {
-    const { start } = e
-    const value = `\${${walkTree(e)}}`
-    return { start, value }
-  })
-  const quas = quasis.map(e => {
-    const { start } = e
-    const value = walkTree(e)
-    return { start, value }
-  })
-  return [...exps, ...quas]
-    .sort((a, b) => a.start - b.start)
-    .map(item => item.value)
-}
-
-//
-// tree walker
-//
-
-const handlers: Record<string, (node: ASTNode) => any> = {
-  Program(node) {
-    const { body } = node
-    return body.map(walkTree).join('\n')
-  },
-  Literal(node) {
-    return node.raw
-  },
-  Identifier(node) {
-    return node.name
-  },
-  VariableDeclarator(node) {
-    const { id, init } = node
-    return init != null ? `${walkTree(id)} = ${walkTree(init)}` : `${walkTree(id)}`
-  },
-  VariableDeclaration(node) {
-    const { kind, declarations } = node
-    return `${kind} ${declarations.map(walkTree).join(', ')}`
-  },
-  UnaryExpression(node) {
-    const { operator, argument } = node
-    return `${operator}(${walkTree(argument)})`
-  },
-  BinaryExpression(node) {
-    const { left, right, operator } = node
-    return `(${walkTree(left)}) ${operator} (${walkTree(right)})`
-  },
-  LogicalExpression(node) {
-    const { left, right, operator } = node
-    return `(${walkTree(left)}) ${operator} (${walkTree(right)})`
-  },
-  ArrayExpression(node) {
-    const { elements } = node
-    return `[${elements.map(walkTree).join(', ')}]`
-  },
-  Property(node) {
-    const { key, value } = node
-    return `${walkTree(key)}: ${walkTree(value)}`
-  },
-  RestElement(node) {
-    const { argument } = node
-    return `...${walkTree(argument)}`
-  },
-  SpreadElement(node) {
-    const { argument } = node
-    return `...${walkTree(argument)}`
-  },
-  ObjectExpression(node) {
-    const { properties } = node
-    return `{ ${properties.map(walkTree).join(', ')} }`
-  },
-  MemberExpression(node) {
-    const { object, property, computed } = node
-    const obj = walkTree(object)
-    const prop = walkTree(property)
-    return computed ? `${obj}[${prop}]` : `${obj}.${prop}`
-  },
-  FunctionDeclaration(node) {
-    const { id, params, body } = node
-    const name = walkTree(id)
-    return `function ${name}(${params.map(walkTree).join(', ')}) {\n${walkTree(body)}\n}`
-  },
-  FunctionExpression(node) {
-    const { params, body } = node
-    return `function(${params.map(walkTree).join(', ')}) {\n${walkTree(body)}\n}`
-  },
-  ArrowFunctionExpression(node) {
-    const { params, body } = node
-    // acorn drops parentheses, so an expression body that would otherwise
-    // parse as a block (an object literal) or a parameter list (a sequence)
-    // has to get them back
-    const wrap = body.type == 'ObjectExpression' || body.type == 'SequenceExpression'
-    const text = wrap ? `(${walkTree(body)})` : walkTree(body)
-    return `(${params.map(walkTree).join(', ')}) => ${text}`
-  },
-  ConditionalExpression(node) {
-    const { test, consequent, alternate } = node
-    return `(${walkTree(test)}) ? ${walkTree(consequent)} : ${walkTree(alternate)}`
-  },
-  IfStatement(node) {
-    const { test, consequent, alternate } = node
-    const alt = alternate != null ? ` else ${walkTree(alternate)}` : ''
-    return `if (${walkTree(test)}) ${walkTree(consequent)}${alt}`
-  },
-  LabeledStatement(node) {
-    const { label, body } = node
-    return `${walkTree(label)}: ${walkTree(body)}`
-  },
-  WhileStatement(node) {
-    const { test, body } = node
-    return `while (${walkTree(test)}) ${walkTree(body)}`
-  },
-  DoWhileStatement(node) {
-    const { test, body } = node
-    return `do ${walkTree(body)} while (${walkTree(test)})`
-  },
-  ForStatement(node) {
-    const { init, test, update, body } = node
-    const initText = init != null ? walkTree(init) : ''
-    const testText = test != null ? walkTree(test) : ''
-    const updateText = update != null ? walkTree(update) : ''
-    return `for (${initText}; ${testText}; ${updateText}) ${walkTree(body)}`
-  },
-  ForInStatement(node) {
-    const { left, right, body } = node
-    return `for (${walkTree(left)} in ${walkTree(right)}) ${walkTree(body)}`
-  },
-  ForOfStatement(node) {
-    const { left, right, body, await: isAwait } = node
-    const prefix = isAwait ? 'for await' : 'for'
-    return `${prefix} (${walkTree(left)} of ${walkTree(right)}) ${walkTree(body)}`
-  },
-  SwitchStatement(node) {
-    const { discriminant, cases } = node
-    return `switch (${walkTree(discriminant)}) {\n${cases.map(walkTree).join('\n')}\n}`
-  },
-  SwitchCase(node) {
-    const { test, consequent } = node
-    const head = test != null ? `case ${walkTree(test)}:` : 'default:'
-    const body = consequent.map(walkTree).join('\n')
-    return body.length > 0 ? `${head}\n${body}` : head
-  },
-  ThrowStatement(node) {
-    const { argument } = node
-    return `throw ${walkTree(argument)}`
-  },
-  TryStatement(node) {
-    const { block, handler, finalizer } = node
-    const catchText = handler != null ? ` ${walkTree(handler)}` : ''
-    const finallyText = finalizer != null ? ` finally ${walkTree(finalizer)}` : ''
-    return `try ${walkTree(block)}${catchText}${finallyText}`
-  },
-  CatchClause(node) {
-    const { param, body } = node
-    const paramText = param != null ? ` (${walkTree(param)})` : ''
-    return `catch${paramText} ${walkTree(body)}`
-  },
-  BreakStatement(node) {
-    const { label } = node
-    return label != null ? `break ${walkTree(label)}` : 'break'
-  },
-  ContinueStatement(node) {
-    const { label } = node
-    return label != null ? `continue ${walkTree(label)}` : 'continue'
-  },
-  EmptyStatement(_node) {
-    return ';'
-  },
-  DebuggerStatement(_node) {
-    return 'debugger'
-  },
-  Super(_node) {
-    return 'super'
-  },
-  ThisExpression(_node) {
-    return 'this'
-  },
-  AssignmentExpression(node) {
-    const { left, right, operator } = node
-    return `${walkTree(left)} ${operator} ${walkTree(right)}`
-  },
-  UpdateExpression(node) {
-    const { argument, operator, prefix } = node
-    return prefix ? `${operator}${walkTree(argument)}` : `${walkTree(argument)}${operator}`
-  },
-  NewExpression(node) {
-    const { callee, arguments: args } = node
-    return `new ${walkTree(callee)}(${args.map(walkTree).join(', ')})`
-  },
-  ArrayPattern(node) {
-    const { elements } = node
-    return `[${elements.map(walkTree).join(', ')}]`
-  },
-  ObjectPattern(node) {
-    const { properties } = node
-    return `{ ${properties.map(walkTree).join(', ')} }`
-  },
-  AssignmentPattern(node) {
-    const { left, right } = node
-    return `${walkTree(left)} = ${walkTree(right)}`
-  },
-  SequenceExpression(node) {
-    const { expressions } = node
-    return expressions.map(walkTree).join(', ')
-  },
-  TemplateLiteral(node) {
-    const { quasis, expressions } = node
-    const items = collateTemplate(expressions, quasis)
-    return `\`${items.join('')}\``
-  },
-  TemplateElement(node) {
-    // re-emitted inside backticks, so keep the raw (still-escaped) source
-    const { value } = node
-    const { raw } = value
-    return raw
-  },
-  BlockStatement(node) {
-    const { body } = node
-    return `{\n${body.map(walkTree).join('\n')}\n}`
-  },
-  ExpressionStatement(node) {
-    const { expression } = node
-    return walkTree(expression)
-  },
-  ReturnStatement(node) {
-    const { argument } = node
-    if (argument == null) return 'return'
-    return `return (\n${walkTree(argument)}\n)`
-  },
-  CallExpression(node) {
-    const { callee, arguments: args } = node
-    return `${walkTree(callee)}(${args.map(walkTree).join(', ')})`
-  },
-  ClassDeclaration(node) {
-    const { id, superClass, body } = node
-    const name = walkTree(id)
-    const sup = superClass != null ? ` extends ${walkTree(superClass)}` : ''
-    return `class ${name}${sup} {\n${walkTree(body)}\n}`
-  },
-  ClassBody(node) {
-    const { body } = node
-    return body.map(walkTree).join('\n')
-  },
-  MethodDefinition(node) {
-    const { key, value, computed, static: isStatic, kind } = node
-    const prefix = isStatic ? 'static ' : ''
-    const name = computed ? `[${walkTree(key)}]` : walkTree(key)
-    const params = value.params.map(walkTree).join(', ')
-    const body = walkTree(value.body)
-    if (kind == 'get') return `${prefix}get ${name}() ${body}`
-    if (kind == 'set') return `${prefix}set ${name}(${params}) ${body}`
-    return `${prefix}${name}(${params}) ${body}`
-  },
-  JSXIdentifier(node) {
-    return node.name
-  },
-  JSXEmptyExpression(_node) {
-    return null
-  },
-  JSXExpressionContainer(node) {
-    const { expression } = node
-    return walkTree(expression)
-  },
-  JSXElement(node) {
-    const { openingElement, children } = node
-    const { name, props } = walkTree(openingElement)
-    const pstring = objectLiteral(props)
-    const cstrings = children.map(walkTree).filter((c: any) => c != null)
-    return `__COMPONENT__(\n${name},\n${pstring},\n${cstrings.join(',\n')}\n)`
-  },
-  JSXAttribute(node) {
-    const { name, value } = node
-    // JSX string attributes are raw (no escape processing), unlike JS literals
-    const raw = value?.type == 'Literal' ? JSON.stringify(value.value) : walkTree(value)
-    return {
-      key: snakeCase(walkTree(name)),
-      value: raw ?? true
+// what a jsx element compiles to: build the element, and if that throws record
+// the element and line on the way out
+function component(klass: any, tag: string, line: number, props: Record<string, any>, ...children0: any[]): any {
+    const args = { ...props }
+    const children = filterChildren(children0)
+    if (children.length > 0) args.children = children
+    try {
+        return isClass(klass) ? new klass(args) : klass(args)
+    } catch (err) {
+        addSite(err, { element: tag, line })
+        throw err
     }
-  },
-  JSXMemberExpression(_node) {},
-  JSXNamespacedName(_node) {},
-  JSXOpeningElement(node) {
-    const { name: nameId, attributes } = node
-    const name = walkTree(nameId)
-    const props = attributes.map(walkTree)
-    return { name, props }
-  },
-  JSXClosingElement(_node) {},
-  JSXFragment(node) {
-    const { children } = node
-    const cstrings = children.map(walkTree).filter((c: any) => c != null)
-    return `[${cstrings.join(',\n')}]`
-  },
-  JSXText(node) {
-    if (isWhitespace(node.value)) return null
-    return `${JSON.stringify(node.value)}`
-  },
-  JSXSpreadAttribute(node) {
-    const { argument } = node
-    return {
-      spread: walkTree(argument)
+}
+
+const SOURCE_NAME = 'gum.jsx'
+const PRELUDE_NAME = 'prelude.jsx'
+const WRAPPER = 'run'
+const HEADER_LINES = 1  // lines the wrapper puts before the source
+const STACK_LIMIT = 200 // deep element trees need more than v8's default ten frames
+
+// the function body: the source inside a named function (so top level
+// declarations can shadow the scope names, which are the parameters) and the
+// sourceURL that names its frames
+function wrapBody(body: string, name: string): string {
+    return `return (function ${WRAPPER}() { "use strict";\n${body}\n})()\n//# sourceURL=${name}`
+}
+
+// compile and run a function body against `scope` bound as its globals
+function runBody(body: string, source: string, name: string, scope: Record<string, any>, debug: boolean): any {
+    if (debug) {
+        console.log('-------------JS-----------------')
+        console.log(body)
+        console.log('--------------------------------')
+        console.log()
     }
-  },
-}
 
-function walkTree(node: ASTNode | null): any {
-  if (node == null) return null
+    // construct function (the engine may still reject the transformed code)
+    let func: Function
+    try {
+        func = new Function('__COMPONENT__', ...Object.keys(scope), wrapBody(body, name))
+    } catch (err: any) {
+        throw new ErrorSyntax(err?.message ?? String(err))
+    }
 
-  // get handler function
-  const { type } = node
-  const handler = handlers[type]
-
-  // check for error
-  if (handler == null) throw new Error(`Unknown node type: ${type}`)
-
-  // handle node
-  return handler(node)
-}
-
-//
-// gum runner
-//
-
-function component(klass: any, props: Record<string, any>, ...children0: any[]): any {
-  let args = { ...props }
-  const children = filterChildren(children0)
-  if (children.length > 0) args.children = children
-  return isClass(klass) ? new klass(args) : klass(args)
+    // execute function with enough stack kept to reach the user frames
+    const limit = (Error as any).stackTraceLimit
+    if (typeof limit == 'number') (Error as any).stackTraceLimit = Math.max(limit, STACK_LIMIT)
+    try {
+        return func(component, ...Object.values(scope))
+    } catch (err) {
+        const lines = countNewlines(source, 0, source.length) + 1
+        throw ErrorRuntime.from(err, { name, header: HEADER_LINES, lines, scope, wrapper: WRAPPER })
+    } finally {
+        if (typeof limit == 'number') (Error as any).stackTraceLimit = limit
+    }
 }
 
 // run gum.jsx code with `scope` bound as its globals (see Env.scope) and
-// return what it evaluates to
-function runJSX(text: string, scope: Record<string, any> = {}, debug: boolean = false): any {
-  // strip comment lines (to allow comments before bare elements)
-  const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
+// return what it evaluates to: the value of a bare jsx element, else what the
+// code returns
+function runJSX(text: string, scope: Record<string, any> = {}, debug: boolean = false, name: string = SOURCE_NAME): any {
+    const tree = parseJSX(text)
 
-  // parse code
-  const code = /^\s*</.test(code0) ? code0 : `function run() { "use strict"; ${code0} }`
-  const tree = parseJSX(code)
+    if (debug) {
+        console.log('------------TREE----------------')
+        console.log(JSON.stringify(tree, null, 2))
+        console.log('--------------------------------')
+        console.log()
+    }
 
-  if (debug) {
-    console.log('------------TREE----------------')
-    console.log(JSON.stringify(tree, null, 2))
-    console.log('--------------------------------')
-    console.log()
-  }
+    // a program that is one bare element is returned in place
+    const [ first ] = tree.body
+    const bare = tree.body.length == 1 && first.type == 'ExpressionStatement' && isJSX(first.expression)
+    const body = bare ?
+        `${text.slice(0, first.expression.start)}return (${emitJSX(text, first.expression)})${text.slice(first.expression.end)}` :
+        transformNode(text, tree)
 
-  // convert tree
-  const jsCode0 = walkTree(tree)
-
-  if (debug) {
-    console.log('-------------JS-----------------')
-    console.log(jsCode0)
-    console.log('--------------------------------')
-    console.log()
-  }
-
-  // construct function
-  const jsCode = `return ${jsCode0}`
-  const func = new Function('__COMPONENT__', ...Object.keys(scope), jsCode)
-
-  // execute function
-  const output0 = func(component, ...Object.values(scope))
-  const output = typeof(output0) == 'function' ? output0() : output0
-
-  // return gum object
-  return output
+    return runBody(body, text, name, scope, debug)
 }
 
 //
@@ -429,59 +284,44 @@ function runJSX(text: string, scope: Record<string, any> = {}, debug: boolean = 
 
 // collect the names bound by a declaration pattern
 function patternNames(node: ASTNode, names: string[]): void {
-  if (node.type == 'Identifier') {
-    names.push(node.name)
-  } else if (node.type == 'ObjectPattern') {
-    for (const prop of node.properties) {
-      patternNames(prop.type == 'RestElement' ? prop.argument : prop.value, names)
+    if (node.type == 'Identifier') {
+        names.push(node.name)
+    } else if (node.type == 'ObjectPattern') {
+        for (const prop of node.properties) {
+            patternNames(prop.type == 'RestElement' ? prop.argument : prop.value, names)
+        }
+    } else if (node.type == 'ArrayPattern') {
+        for (const elem of node.elements) {
+            if (elem != null) patternNames(elem, names)
+        }
+    } else if (node.type == 'RestElement') {
+        patternNames(node.argument, names)
+    } else if (node.type == 'AssignmentPattern') {
+        patternNames(node.left, names)
     }
-  } else if (node.type == 'ArrayPattern') {
-    for (const elem of node.elements) {
-      if (elem != null) patternNames(elem, names)
-    }
-  } else if (node.type == 'RestElement') {
-    patternNames(node.argument, names)
-  } else if (node.type == 'AssignmentPattern') {
-    patternNames(node.left, names)
-  }
 }
 
 // names declared at the top level of a program
 function declaredNames(tree: ASTNode): string[] {
-  const names: string[] = []
-  for (const node of tree.body) {
-    if (node.type == 'VariableDeclaration') {
-      for (const decl of node.declarations) patternNames(decl.id, names)
-    } else if (node.type == 'FunctionDeclaration' || node.type == 'ClassDeclaration') {
-      if (node.id != null) names.push(node.id.name)
+    const names: string[] = []
+    for (const node of tree.body) {
+        if (node.type == 'VariableDeclaration') {
+            for (const decl of node.declarations) patternNames(decl.id, names)
+        } else if (node.type == 'FunctionDeclaration' || node.type == 'ClassDeclaration') {
+            if (node.id != null) names.push(node.id.name)
+        }
     }
-  }
-  return names
+    return names
 }
 
 // run a prelude of declarations and return its top-level bindings as an
 // object, so they can be added to the scope of later code
-function runPrelude(text: string, scope: Record<string, any> = {}, debug: boolean = false): Record<string, any> {
-  // strip comment lines and bail on empty input
-  const code0 = text.replace(/^\s*\/\/.*\n/gm, '').trim()
-  if (code0.length == 0) return {}
-
-  // parse and collect bindings
-  const tree = parseJSX(code0)
-  const names = declaredNames(tree)
-  const body = walkTree(tree)
-
-  if (debug) {
-    console.log('-----------PRELUDE--------------')
-    console.log(body)
-    console.log('--------------------------------')
-    console.log()
-  }
-
-  // wrap in a function so declarations can shadow scope names
-  const jsCode = `return (function run() { "use strict";\n${body}\nreturn { ${names.join(', ')} }; })()`
-  const func = new Function('__COMPONENT__', ...Object.keys(scope), jsCode)
-  return func(component, ...Object.values(scope))
+function runPrelude(text: string, scope: Record<string, any> = {}, debug: boolean = false, name: string = PRELUDE_NAME): Record<string, any> {
+    if (text.trim().length == 0) return {}
+    const tree = parseJSX(text)
+    const names = declaredNames(tree)
+    const body = `${transformNode(text, tree)}\nreturn { ${names.join(', ')} };`
+    return runBody(body, text, name, scope, debug)
 }
 
-export { runJSX, runPrelude }
+export { runJSX, runPrelude, parseJSX }

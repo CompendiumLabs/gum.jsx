@@ -7,7 +7,7 @@
 import { ensure_pair } from './lib/utils'
 import { parseTable } from './lib/table'
 import { runJSX, runPrelude } from './lib/parse'
-import { defaultEnv, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender } from './env'
+import { defaultEnv, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, ErrorSyntax, ErrorRuntime } from './env'
 import type { EvaluateArgs, PreludeArgs, TableRow, LoadTable, Bindings } from './env'
 import type { Svg } from './elems/core'
 import type { Size } from './lib/types'
@@ -36,5 +36,5 @@ function fitSize([ w0, h0 ]: Size, max_size?: Size | number): Size {
 // export
 //
 
-export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, runJSX, runPrelude, evaluateGum, evaluatePrelude, parseTable, fitSize }
+export { ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, ErrorSyntax, ErrorRuntime, runJSX, runPrelude, evaluateGum, evaluatePrelude, parseTable, fitSize }
 export type { EvaluateArgs, PreludeArgs, TableRow, LoadTable, Bindings }

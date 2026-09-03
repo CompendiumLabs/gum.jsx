@@ -21,6 +21,7 @@ import type { ParseConfig } from 'papaparse'
 import { RNG, DEFAULT_SEED } from './lib/rng'
 import { FontRegistry, TEXT_FONT_PLUGIN, type FontPath, type FontFace, type FontPlugin } from './fonts/fonts'
 import { runJSX, runPrelude } from './lib/parse'
+import { ErrorSyntax, ErrorRuntime } from './lib/errors'
 import { parseTable } from './lib/table'
 import { setDefaultEnvFactory } from './lib/default'
 import { is_string, map_object } from './lib/utils'
@@ -415,6 +416,6 @@ setDefaultEnvFactory(() => new Env())
 // exports
 //
 
-export { Env, corePlugin, CORE_ELEMS, bindConstructor, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender }
+export { Env, corePlugin, CORE_ELEMS, bindConstructor, ErrorNoCode, ErrorNoReturn, ErrorNoElement, ErrorGenerate, ErrorRender, ErrorSyntax, ErrorRuntime }
 export { defaultEnv, setDefaultEnv, resolveEnv } from './lib/default'
 export type { ElementConstructor, Bindings, EnvPlugin, EnvSettings, EnvArgs, EvaluateArgs, PreludeArgs, TableRow, LoadTable }
