@@ -1,23 +1,24 @@
 // text elements
 
-import type { Attrs, AlignValue, Rect, Limit, Padding } from '../lib/types'
+import type { Attrs, AlignValue, Rect, Limit, Padding, Rounded } from '../lib/types'
 import { resolveEnv } from '../lib/default'
 import type { Env } from '../env'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext, maxis } from '../lib/const'
-import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum, max } from '../lib/utils'
+import { RoundedRect } from './geometry'
+import { check_string, is_scalar, is_string, is_boolean, is_array, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum, max, pad_rect, ensure_pair } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
 import { make_em, em_bounds, em_hink, em_rect, scale_em_spec } from '../lib/em'
 import type { EmSpec, EmMetrics } from '../lib/em'
 
-import { Context, Element, Group, Spacer, spec_split, ensure_children, escape_text, is_element, align_frac } from './core'
+import { Context, Element, Group, Spacer, Rectangle, spec_split, ensure_children, escape_text, is_element, align_frac } from './core'
 import { ensure_em_spec, with_em } from './em'
 import type { WithEm } from './em'
 import type { ElementArgs, GroupArgs } from './core'
-import { Box, HStack, VStack, computeBoxLayout } from './layout'
-import type { BoxArgs, StackArgs } from './layout'
+import { HStack, VStack } from './layout'
+import type { StackArgs } from './layout'
 
 //
 // span class
@@ -250,15 +251,79 @@ function slot_anchor(child: Element, width: number): number {
     return w > 0 ? anchor * (width / w) : 0
 }
 
+//
+// slot layout
+//
+
 // the elements that take a text `width` (in their own em) and a `scale`
 function is_text_sized(elem: Element): boolean {
-    return elem instanceof Text || elem instanceof TextStack || elem instanceof TextBox || elem instanceof Bullets
+    return elem instanceof Text || elem instanceof TextCol || elem instanceof TextRow || elem instanceof TextGrid || elem instanceof TextFigure || elem instanceof TextBox || elem instanceof Bullets
 }
 
-// an element with metrics that is not text itself (a formula) is placed in a
-// slot at the text's em rather than stretched to fill it: its box sits at the
-// top of the slot, justified within the width, and the slot is as tall as the
-// box. one wider than the slot is left to fill it as any element would
+// a child that keeps its own size in a row rather than sharing the slack: a
+// text element with a width (or a figure with a height) of its own, or a
+// formula
+function is_fixed(elem: Element): boolean {
+    if (is_text_sized(elem)) {
+        const { width, height } = elem.args ?? {}
+        return width != null || height != null
+    }
+    return (elem as WithEm).em != null
+}
+
+// a child laid out for a slot `width` wide (none: at its own size): the
+// element to place and its box in the container's em. a text element takes
+// the slot unless it has a width of its own (a `scale` sets what it is laid
+// out at, so the box still fills the slot), a formula keeps its size (shrunk
+// to the slot if wider), and any other element spans the slot at its aspect
+type Laid = { elem: Element, em: EmSpec }
+type LayArgs = { justify?: AlignValue, font_attr?: Attrs, text_attr?: Attrs }
+
+function lay_child(c: Element, width: number | undefined, { justify, font_attr = {}, text_attr = {} }: LayArgs = {}): Laid {
+    if (is_text_sized(c)) {
+        const { width: cwidth, scale: cscale, justify: cjustify } = c.args ?? {}
+        const width_child = cwidth ?? (width != null ? (cscale != null ? width / cscale : width) : undefined)
+        const size_attr = width_child != null ? { width: width_child } : {}
+        const justify_attr = justify != null ? { justify: cjustify ?? justify } : {}
+        const elem = c.clone({ ...font_attr, ...text_attr, ...size_attr, ...justify_attr })
+        return { elem, em: (elem as WithEm).em }
+    }
+    const em0 = (c as WithEm).em
+    if (em0 != null) {
+        const f = (width != null && em0.width > width) ? width / em0.width : 1
+        return { elem: c, em: make_em(scale_em_spec(em0, f)) }
+    }
+    const aspect = c.spec.aspect
+    const w = width ?? aspect ?? 1
+    const h = (aspect != null && aspect > 0) ? w / aspect : w
+    return { elem: c, em: make_em({ width: w, height: h, anchor: 0.5 * h }) }
+}
+
+// a laid child with the top left of its box at (x, y) in a container's em frame
+function place_laid({ elem, em }: Laid, x: number, y: number): Element {
+    return elem.clone({ rect: em_rect(em, x, y + em.anchor) })
+}
+
+// the vertical offsets that align laid children in a row: by their tops,
+// their anchors, their middles or their bottoms
+type RowAlign = 'top' | 'anchor' | 'center' | 'bottom'
+
+function row_offsets(laid: Laid[], align: RowAlign): number[] {
+    const height = max(laid.map(l => l.em.height)) ?? 0
+    const anchor = max(laid.map(l => l.em.anchor)) ?? 0
+    return laid.map(({ em }) =>
+        align == 'anchor' ? anchor - em.anchor :
+        align == 'center' ? 0.5 * (height - em.height) :
+        align == 'bottom' ? height - em.height : 0
+    )
+}
+
+function box_aspect(width: number, height: number): number | undefined {
+    return (width > 0 && height > 0) ? width / height : undefined
+}
+
+// a formula placed in a slot at the text's em, for the containers that
+// stretch their children (Bullets): the slot is as tall as the box
 function place_em_child(elem: Element, width: number, justify: AlignValue): Element {
     const em = (elem as WithEm).em
     if (em == null || is_text_sized(elem) || em.width <= 0 || em.height <= 0 || em.width > width) return elem
@@ -268,18 +333,16 @@ function place_em_child(elem: Element, width: number, justify: AlignValue): Elem
     return with_em(group, { width, height: em.height, anchor: em.anchor, scale: 1 })
 }
 
-// the box of a Box around a text element: the inner box expanded by the
-// padding and margin the Box laid out (fractions of the outer box)
-function box_em(inner: EmSpec, children: Element[], { padding: padding0, margin: margin0, aspect, adjust, env }: { padding?: Padding | boolean, margin?: Padding | boolean, aspect?: number, adjust?: boolean, env?: Env }): EmSpec {
-    // a boolean padding or margin means the Box default
-    const { padding, margin } = THEME({ padding: padding0, margin: margin0, env }, 'Box') as { padding?: Padding, margin?: Padding }
-    const { rect_inner: [ il, it, ir, ib ], rect_outer: [ ol, ot, or_, ob ] } = computeBoxLayout(children, { padding, margin, aspect, adjust })
-    const fw = (ir - il) * (or_ - ol)
-    const fh = (ib - it) * (ob - ot)
-    const top = ot + it * (ob - ot)
-    const width = fw > 0 ? inner.width / fw : inner.width
-    const height = fh > 0 ? inner.height / fh : inner.height
-    return make_em({ width, height, anchor: top * height + inner.anchor, scale: inner.scale })
+// a corner rounding given in em, as the fractions RoundedRect takes
+function em_rounded(rounded: Rounded, width: number, height: number): Rounded {
+    const corner = (r: number | [ number, number ]): [ number, number ] => {
+        const [ rx, ry ] = ensure_pair(r)
+        return [ rx / width, ry / height ]
+    }
+    if (is_boolean(rounded)) return rounded
+    if (is_scalar(rounded)) return corner(rounded)
+    if (is_array(rounded) && rounded.length == 2) return corner(rounded as [ number, number ])
+    return (rounded as [ number, number, number, number ]).map(r => corner(r as number | [ number, number ])) as Rounded
 }
 
 //
@@ -348,82 +411,321 @@ class Text extends VStack {
 }
 
 //
-// text container classes
+// text containers
 //
 
-interface TextStackArgs extends StackArgs {
+// what the text containers share: a width and scale of their own, gaps in em,
+// and font and text attributes handed to their text children
+interface TextContainerArgs extends GroupArgs {
     width?: number
     scale?: number
+    justify?: AlignValue
+    font_family?: string
+    font_weight?: number
+    font_style?: string
 }
 
-// a stack of text blocks, each stretched to the stack's width (the given one,
-// or the widest child's), so a child with a narrower width comes out larger
-class TextStack extends VStack {
+interface TextColArgs extends TextContainerArgs {
+    gap?: number
+}
+
+// a column of text blocks: each child is laid out for the column's width (a
+// text child fills it unless it has a width of its own, a formula sits at the
+// text's size, any other element spans it) and they stack with `gap` em
+// between; the column is as tall as they come to, anchored on its first child
+class TextCol extends Group {
     em: EmSpec
 
-    constructor(args: TextStackArgs = {}) {
-        const { children: children0, width, scale = 1, justify = 'left', ...attr0 } = THEME(args, 'TextStack')
-        const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
+    constructor(args: TextColArgs = {}) {
+        const { children: children0, width, scale = 1, gap = 0.5, justify = 'left', env, ...attr0 } = THEME(args, 'TextCol')
+        const [ font_attr0, text_attr, attr1 ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
+        const [ spec, attr ] = spec_split(attr1)
         const children = ensure_children(children0)
 
-        // apply width and justify to the text children, unless they set their
-        // own (a narrower width makes larger text, which is how headings are
-        // made; a child's `scale` is the same thing said the other way round);
-        // other elements take the width of the stack as they are; a stack with
-        // no width leaves its children's alone
-        const elems = children.map((c: Element) => {
-            const { width: cwidth, scale: cscale, justify: justify0 } = c.args ?? {}
-            const width_child = cwidth ?? ((cscale != null && width != null) ? width / cscale : width)
-            const size_attr = (is_text_sized(c) && width_child != null) ? { width: width_child } : {}
-            const elem = c.clone({ ...font_attr, ...text_attr, ...size_attr, justify: justify0 ?? justify })
-            return width != null ? place_em_child(elem, width, justify0 ?? justify) : elem
+        // lay out the children for the width, or at their own sizes
+        const laid = children.map(c => lay_child(c, width, { justify, font_attr, text_attr }))
+        const col_width = width ?? max(laid.map(l => l.em.width)) ?? 1
+
+        // stack them, justified within the width
+        let y = 0
+        const placed = laid.map((l, i) => {
+            if (i > 0) y += gap
+            const x = align_frac(justify) * (col_width - l.em.width)
+            const elem = place_laid(l, x, y)
+            y += l.em.height
+            return elem
         })
+        const height = y
 
-        // pass to VStack
-        super({ children: elems, ...attr })
+        // pass to Group
+        super({ children: placed, coord: [ 0, 0, col_width, height ], aspect: box_aspect(col_width, height), env, ...attr, ...spec })
         this.args = args
-
-        // every child spans the stack's width; the height follows from the
-        // stack's aspect and the anchor is the first child's
-        const stack_width = width ?? max(elems.map(e => child_em(e).width)) ?? 1
-        const anchor = elems.length > 0 ? slot_anchor(elems[0], stack_width) : 0
-        this.em = block_em(stack_width, this.spec.aspect, scale, anchor)
+        this.em = make_em(scale_em_spec({ width: col_width, height, anchor: laid[0]?.em.anchor ?? 0, scale: 1 }, scale))
     }
 }
 
-interface TextBoxArgs extends BoxArgs {
+interface TextRowArgs extends TextContainerArgs {
+    gap?: number
+    sizes?: number[]
+    valign?: RowAlign
+}
+
+// a row of text blocks side by side, `gap` em apart. with a width, children
+// that carry a size of their own (a text width, a figure height, a formula)
+// keep it and the rest share what is left, or `sizes` splits the width as
+// given; without one the row is as wide as its children. they align by their
+// tops (or anchors, middles, bottoms, by `valign`) and a row narrower than its
+// width is placed by `justify`
+class TextRow extends Group {
+    em: EmSpec
+
+    constructor(args: TextRowArgs = {}) {
+        const { children: children0, width, scale = 1, gap = 1, sizes, valign = 'top', justify = 'left', env, ...attr0 } = THEME(args, 'TextRow')
+        const [ font_attr0, text_attr, attr1 ] = prefix_split([ 'font', 'text' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
+        const [ spec, attr ] = spec_split(attr1)
+        const children = ensure_children(children0)
+        const lay = (c: Element, w: number | undefined) => lay_child(c, w, { justify, font_attr, text_attr })
+        const gaps = gap * Math.max(children.length - 1, 0)
+
+        // lay out the children: by the given splits, by their own sizes with
+        // the slack shared, or at their own sizes
+        let laid: Laid[]
+        if (sizes != null && width != null) {
+            const total = sum(sizes)
+            laid = children.map((c, i) => lay(c, (sizes[i] ?? 0) / total * (width - gaps)))
+        } else if (width != null) {
+            const fixed = children.map(c => is_fixed(c) ? lay(c, undefined) : null)
+            const used = sum(fixed.map(l => l?.em.width ?? 0))
+            const flex = fixed.filter(l => l == null).length
+            const slot = flex > 0 ? Math.max(width - gaps - used, 0) / flex : 0
+            laid = children.map((c, i) => fixed[i] ?? lay(c, slot))
+        } else {
+            laid = children.map(c => lay(c, undefined))
+        }
+
+        // align vertically and pack horizontally
+        const ys = row_offsets(laid, valign)
+        const height = max(laid.map((l, i) => ys[i] + l.em.height)) ?? 0
+        const packed = sum(laid.map(l => l.em.width)) + gaps
+        const row_width = width ?? packed
+        let x = align_frac(justify) * Math.max(row_width - packed, 0)
+        const placed = laid.map((l, i) => {
+            if (i > 0) x += gap
+            const elem = place_laid(l, x, ys[i])
+            x += l.em.width
+            return elem
+        })
+
+        // pass to Group
+        super({ children: placed, coord: [ 0, 0, row_width, height ], aspect: box_aspect(row_width, height), env, ...attr, ...spec })
+        this.args = args
+        const anchor = laid.length > 0 ? ys[0] + laid[0].em.anchor : 0
+        this.em = make_em(scale_em_spec({ width: row_width, height, anchor, scale: 1 }, scale))
+    }
+}
+
+interface TextGridArgs extends TextContainerArgs {
+    cols?: number
+    gap?: number | [ number, number ]
+    valign?: RowAlign
+}
+
+// a grid of text blocks in `cols` equal columns, filled row by row: every
+// cell gets the column width, a row is as tall as its tallest cell, and the
+// gaps (horizontal and vertical) are in em
+class TextGrid extends Group {
+    em: EmSpec
+
+    constructor(args: TextGridArgs = {}) {
+        const { children: children0, cols = 2, width, scale = 1, gap = 1, valign = 'top', justify = 'left', env, ...attr0 } = THEME(args, 'TextGrid')
+        const [ font_attr0, text_attr, attr1 ] = prefix_split([ 'font', 'text' ], attr0)
+        const font_attr = prefix_join('font', font_attr0)
+        const [ spec, attr ] = spec_split(attr1)
+        const [ hgap, vgap ] = ensure_pair(gap)
+        const children = ensure_children(children0)
+        const rows: Element[][] = []
+        for (let i = 0; i < children.length; i += cols) rows.push(children.slice(i, i + cols))
+
+        // the cell width from the grid's, or the widest cell laid at its own size
+        const slot = width != null ? (width - (cols - 1) * hgap) / cols : undefined
+        const laid = rows.map(row => row.map(c => lay_child(c, slot, { justify, font_attr, text_attr })))
+        const cell = slot ?? max(laid.flat().map(l => l.em.width)) ?? 1
+        const grid_width = width ?? cols * cell + (cols - 1) * hgap
+
+        // place the cells row by row
+        let y = 0
+        const placed: Element[] = []
+        let anchor = 0
+        laid.forEach((row, r) => {
+            if (r > 0) y += vgap
+            const ys = row_offsets(row, valign)
+            if (r == 0 && row.length > 0) anchor = ys[0] + row[0].em.anchor
+            row.forEach((l, i) => {
+                const x = i * (cell + hgap) + align_frac(justify) * (cell - l.em.width)
+                placed.push(place_laid(l, x, y + ys[i]))
+            })
+            y += max(row.map((l, i) => ys[i] + l.em.height)) ?? 0
+        })
+        const height = y
+
+        // pass to Group
+        super({ children: placed, coord: [ 0, 0, grid_width, height ], aspect: box_aspect(grid_width, height), env, ...attr, ...spec })
+        this.args = args
+        this.em = make_em(scale_em_spec({ width: grid_width, height, anchor, scale: 1 }, scale))
+    }
+}
+
+interface TextFigureArgs extends GroupArgs {
+    width?: number
+    height?: number
+    scale?: number
+    caption?: string | Element
+    gap?: number
+    justify?: AlignValue
+}
+
+// an element given a size in em, with an optional caption below it: a
+// `height` (or `width`) sets its size, and in a column it takes the column's
+// width with the element fit inside by its aspect. the caption is a text
+// block as wide as the figure (or an element with metrics, a formula say),
+// `gap` em below it; `caption-*` arguments go to a text caption
+class TextFigure extends Group {
+    em: EmSpec
+
+    constructor(args: TextFigureArgs = {}) {
+        const { children: children0, width, height, scale = 1, caption, gap = 0.3, justify = 'center', env, ...attr0 } = THEME(args, 'TextFigure')
+        const [ caption_attr, attr1 ] = prefix_split([ 'caption' ], attr0)
+        const [ spec, attr ] = spec_split(attr1)
+        const child = check_singleton(children0)
+
+        // the figure's box: from its width and height, one of them and the
+        // element's aspect, or the element's own size
+        const child_box = child.spec.aspect == null && (child as WithEm).em != null ? (child as WithEm).em : null
+        const aspect = child.spec.aspect ?? (child_box != null ? box_aspect(child_box.width, child_box.height) : undefined)
+        const [ fig_width, fig_height ] =
+            (width != null && height != null) ? [ width, height ] :
+            height != null ? [ aspect != null ? height * aspect : height, height ] :
+            width != null ? [ width, aspect != null ? width / aspect : width ] :
+            child_box != null ? [ child_box.width, child_box.height ] :
+            [ aspect ?? 1, 1 ]
+
+        // the element fit in the box by its aspect, placed by justify
+        const fit_width = aspect != null ? Math.min(fig_width, fig_height * aspect) : fig_width
+        const fit_height = aspect != null ? fit_width / aspect : fig_height
+        const x0 = align_frac(justify) * (fig_width - fit_width)
+        const y0 = 0.5 * (fig_height - fit_height)
+        const figure = child.clone({ rect: [ x0, y0, x0 + fit_width, y0 + fit_height ] })
+
+        // the caption under it
+        let total_height = fig_height
+        let placed_caption: Element | null = null
+        if (caption != null) {
+            const elem = is_element(caption) ? caption : new Text({ children: [ caption ] as any, env, ...caption_attr })
+            const laid = lay_child(elem, fig_width, { justify })
+            const x = align_frac(justify) * (fig_width - laid.em.width)
+            placed_caption = place_laid(laid, x, fig_height + gap)
+            total_height = fig_height + gap + laid.em.height
+        }
+
+        // pass to Group
+        super({ children: [ figure, placed_caption ], coord: [ 0, 0, fig_width, total_height ], aspect: box_aspect(fig_width, total_height), env, ...attr, ...spec })
+        this.args = args
+        this.em = make_em(scale_em_spec({ width: fig_width, height: total_height, anchor: 0.5 * fig_height, scale: 1 }, scale))
+    }
+}
+
+interface TextBoxArgs extends Omit<GroupArgs, 'aspect'> {
+    padding?: Padding
+    margin?: Padding
+    border?: number | boolean
+    rounded?: Rounded
+    fill?: string
+    aspect?: number | boolean
+    hug?: boolean
     justify?: AlignValue
     width?: number
     scale?: number
+    font_family?: string
+    font_weight?: number
+    font_style?: string
 }
 
-class TextBox extends Box {
+// a box drawn around text (or around one element with metrics, a formula or
+// a column say): `padding` and `margin` are in em, the box is as big as its
+// content plus them, and `rounded` corners are in em too. an `aspect` widens
+// (or heightens) the box around the content, which is centered in it, and
+// `hug` tightens a box whose text fits on one line to that line, so a badge
+// in a column does not span it.
+// `border` is a stroke width and `fill` a background; `border-*` and `fill-*`
+// reach the frame and background
+class TextBox extends Group {
     em: EmSpec
 
     constructor(args: TextBoxArgs = {}) {
-        const { children, padding = 0.1, justify, width, scale, env, ...attr0 } = THEME(args, 'TextBox')
-        const [ font_attr0, text_attr, attr ] = prefix_split([ 'font', 'text' ], attr0)
+        const { children: children0, padding: padding0 = 0.4, margin: margin0, border, fill, rounded: rounded0, aspect: aspect0, hug = false, justify = 'left', width, scale = 1, env, ...attr0 } = THEME(args, 'TextBox')
+        const [ border_attr, fill_attr, font_attr0, text_attr, attr1 ] = prefix_split([ 'border', 'fill', 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
-        const text = new Text({ children, justify, width, scale, env, ...text_attr, ...font_attr })
-        super({ children: [ text ], padding, env, ...attr })
-        this.args = args
+        const [ spec, attr ] = spec_split(attr1)
+        const children = ensure_children(children0)
 
-        // the text's box grown by the padding (and margin) the Box applied
-        const { margin, aspect, adjust } = attr as BoxArgs
-        this.em = box_em(text.em, [ text ], { padding, margin, aspect: aspect as number | undefined, adjust, env })
+        // padding and margin in em; a boolean takes the default
+        const [ pl, pt, pr, pb ] = pad_rect(padding0 === true ? 0.4 : padding0 === false ? 0 : padding0)
+        const [ ml, mt, mr, mb ] = pad_rect(margin0 === true ? 0.4 : (margin0 == null || margin0 === false) ? 0 : margin0)
+
+        // the content, laid out for the width inside them: one element with
+        // metrics is boxed as it is, anything else is set as text
+        const inner_width = width != null ? Math.max(width - pl - pr - ml - mr, 0) : undefined
+        const only = children.length == 1 ? children[0] : null
+        const boxed = only != null && !(only instanceof Text) && ((only as WithEm).em != null || is_text_sized(only))
+        let inner: Laid
+        if (boxed) {
+            inner = lay_child(only!, inner_width, { justify, font_attr, text_attr })
+        } else {
+            const text0 = new Text({ children, justify, width: inner_width, env, ...text_attr, ...font_attr })
+            const text = (hug && inner_width != null && text0.children.length == 1) ? new Text({ children, justify, env, ...text_attr, ...font_attr }) : text0
+            inner = { elem: text, em: text.em }
+        }
+        const { width: w, height: h, anchor } = inner.em
+        let box_width = w + pl + pr
+        let box_height = h + pt + pb
+
+        // an aspect grows the box around the content
+        const aspect = aspect0 === true ? 1 : aspect0 === false ? undefined : aspect0
+        if (aspect != null) {
+            if (box_width / box_height < aspect) box_width = aspect * box_height
+            else box_height = box_width / aspect
+        }
+        const x0 = ml + pl + 0.5 * (box_width - pl - pr - w)
+        const y0 = mt + pt + 0.5 * (box_height - pt - pb - h)
+        const total_width = box_width + ml + mr
+        const total_height = box_height + mt + mb
+
+        // the background and the frame, drawn inside the margin
+        const rounded = rounded0 === true ? 0.3 : rounded0 === false ? undefined : rounded0
+        const shape_rect: Rect = [ ml, mt, ml + box_width, mt + box_height ]
+        const make_shape = (extra: Attrs) => rounded != null
+            ? new RoundedRect({ rounded: em_rounded(rounded, box_width, box_height), rect: shape_rect, env, ...extra })
+            : new Rectangle({ rect: shape_rect, env, ...extra })
+        const background = fill != null ? make_shape({ fill, stroke: none, ...fill_attr }) : null
+        const frame = (border != null && border !== false) ? make_shape({ stroke_width: border === true ? 1 : border, fill: none, ...border_attr }) : null
+        const content = place_laid(inner, x0, y0)
+
+        // pass to Group
+        super({ children: [ background, content, frame ], coord: [ 0, 0, total_width, total_height ], aspect: box_aspect(total_width, total_height), env, ...attr, ...spec })
+        this.args = args
+        this.em = make_em(scale_em_spec({ width: total_width, height: total_height, anchor: y0 + anchor, scale: 1 }, scale))
     }
 }
 
-interface TextFrameArgs extends TextBoxArgs {
-    border?: number
-    rounded?: number
-}
+interface TextFrameArgs extends TextBoxArgs {}
 
 class TextFrame extends TextBox {
     constructor(args: TextFrameArgs = {}) {
         const { border = 1, ...attr } = THEME(args, 'TextFrame')
         super({ border, ...attr })
+        this.args = args
     }
 }
 
@@ -540,5 +842,5 @@ class Italic extends Text {
 // exports
 //
 
-export { Span, ElemSpan, TextLine, Text, TextStack, TextBox, TextFrame, Bullets, Bold, Italic }
-export type { SpanArgs, ElemSpanArgs, TextLineArgs, TextArgs, TextStackArgs, TextBoxArgs, TextFrameArgs, BulletsArgs }
+export { Span, ElemSpan, TextLine, Text, TextCol, TextRow, TextGrid, TextFigure, TextBox, TextFrame, Bullets, Bold, Italic, lay_child, place_laid }
+export type { SpanArgs, ElemSpanArgs, TextLineArgs, TextArgs, TextColArgs, TextRowArgs, TextGridArgs, TextFigureArgs, TextBoxArgs, TextFrameArgs, BulletsArgs, RowAlign, Laid }

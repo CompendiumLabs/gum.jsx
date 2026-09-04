@@ -1,13 +1,13 @@
 // slide elements
 
 import { THEME } from '../lib/theme'
-import { black, white, phi } from '../lib/const'
+import { black, white, none } from '../lib/const'
 import { prefix_split, pad_rect } from '../lib/utils'
 
 import { spec_split, align_frac, is_element, ensure_children, Rectangle, Group } from './core'
 import { Box, Attach } from './layout'
 import { RoundedRect } from './geometry'
-import { Span, TextFrame, TextStack } from './text'
+import { Span, TextFrame, TextCol } from './text'
 
 import type { AlignValue, Padding, Rounded, Point, Rect } from '../lib/types'
 import type { Element } from './core'
@@ -50,28 +50,29 @@ interface TitleBoxArgs extends BoxArgs {
     title_fill?: string
     title_offset?: number
     title_rounded?: number
+    title_padding?: Padding
 }
 
 class TitleBox extends Box {
     constructor(args: TitleBoxArgs = {}) {
-        const { children, title, title_size = 0.1, title_offset = 0, title_rounded = 0.1, margin, env, ...attr0 } = THEME(args, 'TitleBox')
+        const { children, title, title_size = 0.1, title_offset = 0, title_rounded = 0.3, title_padding = [ 0.6, 0.3 ], margin, env, ...attr0 } = THEME(args, 'TitleBox')
         const [ title_attr, attr1 ] = prefix_split(['title'], attr0)
         const [ spec, attr ] = spec_split(attr1)
 
-        // make optional title box
+        // make optional title box; its padding and rounding are in em of the title
         let title_box: TextFrame | null = null
         let title_mask: Element | undefined = undefined
         if (title != null) {
             const title_pos: Point = [ 0.5, title_size * title_offset ]
             const title_span = is_element(title) ? title : new Span({ children: [ title ], env })
-            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, ysize: title_size, rounded: title_rounded, env, ...title_attr })
+            title_box = new TextFrame({ children: [ title_span ], pos: title_pos, ysize: title_size, rounded: title_rounded, padding: title_padding, env, ...title_attr })
             // the mask shows everything but the title cutout; the cover rect is in
             // box coordinates (with margin for overflow), not viewport percentages,
             // which measure from the viewport origin and break when a host crops
             // the viewBox
             title_mask = new Group({ children: [
                 new Rectangle({ rect: [ -0.5, -0.5, 1.5, 1.5 ], fill: white, env }),
-                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black, env })
+                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: [ title_rounded / title_box.em.width, title_rounded / title_box.em.height ], fill: black, env })
             ], fill_rule: 'evenodd' , env})
         }
 
@@ -106,9 +107,12 @@ interface SlideArgs extends TitleFrameArgs {
     border_stroke?: string
     background?: string
     width?: number
-    spacing?: number
+    em?: number
+    gap?: number
     justify?: AlignValue
+    align?: AlignValue
     valign?: AlignValue
+    overflow?: 'shrink' | 'clip' | 'error'
 }
 
 // convert a padding given in units of the outer height into the inner-relative
@@ -123,40 +127,76 @@ function canvas_padding(pad: Padding | undefined, aspect: number): { padding: Re
 
 // a slide is a fixed-aspect canvas (16:9 by default) holding a TitleFrame that
 // fills it inside the margin; margin and padding are fractions of the slide
-// height, so they are the same distance in every direction. content is a
-// TextStack embedded in the frame's padded area: it fills the width when it
-// fits and is shrunk to fit the height when it does not (see `overflow`)
-class Slide extends Box {
+// height, so they are the same distance in every direction. the content is a
+// TextCol of the children in the frame's padded area. its text size is set by
+// `em`, the em as a fraction of the slide height (so 0.05 fits twenty lines),
+// or else by `width`, the content width in em; either way the column spans the
+// content width. content taller than the area is shrunk to fit it, clipped,
+// or an error, by `overflow`; the `overflow` property is the ratio of content
+// height to the area's, so more than 1 means it did not fit
+class Slide extends Group {
     // ratio of content height to the available height (> 1 means it was shrunk)
     overflow: number
 
     constructor(args: SlideArgs = {}) {
         const {
-            children, aspect: aspect0, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
-            border_stroke = '#bbb', background, title_size = 0.1, width = 25, spacing = 0.05,
-            justify = 'left', align, env, ...attr0
+            children, aspect: aspect0 = 16 / 9, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
+            border_stroke = '#bbb', background, title_size = 0.1, width: width0 = 25, em, gap = 0.5,
+            justify = 'left', align = 'center', valign = 'center', overflow: mode = 'shrink', env, ...attr0
         } = THEME(args, 'Slide')
         const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
         const [ spec, attr ] = spec_split(attr1)
+        const [ ml, mt, mr, mb ] = pad_rect(margin)
+        const [ pl, pt, pr, pb ] = pad_rect(padding)
+
+        // the content area, in slide heights: inside the margin and the frame's padding
         const aspect = aspect0 == 'auto' ? undefined : aspect0
+        const area_height = 1 - mt - mb - pt - pb
+        const area_width0 = aspect != null ? aspect - ml - mr - pl - pr : undefined
+        if (area_height <= 0 || (area_width0 != null && area_width0 <= 0)) throw new Error('Slide padding and margin leave no room for content')
 
-        // stack up content, aligned within the content area
-        const stack = new TextStack({ children, spacing, justify, width, align, env, ...text_attr })
+        // the content column: `em` sets its width from the area, else `width` is it
+        const width = (em != null && area_width0 != null) ? area_width0 / em : width0
+        const col = new TextCol({ children, width, gap, justify, env, ...text_attr })
+        const { width: col_width, height: col_height } = col.em
 
-        // the frame flexes to fill the canvas inside the margin
+        // an auto aspect fits the canvas to the content
+        const canvas_aspect = aspect ?? (col_width / Math.max(col_height, 1e-9)) * area_height + ml + mr + pl + pr
+        const area_width = area_width0 ?? canvas_aspect - ml - mr - pl - pr
+
+        // the column spans the area's width, so this many slide heights make an
+        // em; the ratio of its height to the area's is the overflow
+        const em_size = area_width / col_width
+        const ratio = col_height * em_size / area_height
+        if (mode == 'error' && ratio > 1) throw new Error(`Slide content overflows its frame by ${Math.round((ratio - 1) * 100)}%`)
+
+        // place the column in the area: at its size, aligned, unless it must
+        // shrink to fit the height
+        const shrink = mode == 'shrink' && ratio > 1
+        const v = align_frac(valign)
+        const u = align_frac(align)
+        const rect: Rect = shrink
+            ? [ u * (1 - 1 / ratio), 0, u * (1 - 1 / ratio) + 1 / ratio, 1 ]
+            : [ 0, v * (1 - ratio), 1, v * (1 - ratio) + ratio ]
+        const area = new Group({ children: [ col.clone({ rect }) ], aspect: area_width / area_height, clip: mode == 'clip' ? true : undefined, env })
+
+        // the frame fills the canvas inside the margin, its padding as
+        // fractions of itself (so the same distance in every direction)
+        const frame_width = canvas_aspect - ml - mr
+        const frame_height = 1 - mt - mb
+        const frame_aspect = frame_width / frame_height
+        const { padding: frame_padding } = canvas_padding([ pl / frame_height, pt / frame_height, pr / frame_height, pb / frame_height ], frame_aspect)
         const frame = new TitleFrame({
-            env,
-            children: [ stack ], aspect, padding,
-            border, rounded, border_stroke, title_size, ...attr
+            children: [ area ], aspect: frame_aspect, padding: frame_padding, adjust: false,
+            rect: [ ml, mt, canvas_aspect - mr, 1 - mb ],
+            border, rounded, border_stroke, title_size, env, ...attr,
         })
 
-        // the canvas is the slide itself: fixed aspect with the margin inside it
-        super({ children: [ frame ], padding: margin, fill: background, env, ...spec })
+        // the canvas is the slide itself
+        const backdrop = background != null ? new Rectangle({ fill: background, stroke: none, env }) : null
+        super({ children: [ backdrop, frame ], coord: [ 0, 0, canvas_aspect, 1 ], aspect: canvas_aspect, env, ...spec })
         this.args = args
-
-        // content taller than the area gets scaled down to fit the height
-        const { aspect: aspect_stack } = stack.spec
-        this.overflow = (aspect != null && aspect_stack != null) ? aspect / aspect_stack : 1
+        this.overflow = ratio
     }
 }
 
