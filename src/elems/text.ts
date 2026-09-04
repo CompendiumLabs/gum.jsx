@@ -296,9 +296,11 @@ function is_height_flex(elem: Element): boolean {
 // sized by it instead: a figure is that tall at its aspect (no wider than the
 // slot), and a row or column is handed the height to budget among its own
 type Laid = { elem: Element, em: EmSpec }
-type LayArgs = { justify?: AlignValue, height?: number, font_attr?: Attrs, text_attr?: Attrs }
+// `span` (a column) has a figure sized by the height keep the slot's width as
+// its box, with the element fit inside and placed by the figure's own justify
+type LayArgs = { justify?: AlignValue, height?: number, span?: boolean, font_attr?: Attrs, text_attr?: Attrs }
 
-function lay_child(c: Element, width: number | undefined, { justify, height, font_attr = {}, text_attr = {} }: LayArgs = {}): Laid {
+function lay_child(c: Element, width: number | undefined, { justify, height, span = false, font_attr = {}, text_attr = {} }: LayArgs = {}): Laid {
     if (is_text_sized(c)) {
         const { width: cwidth, height: cheight, scale: cscale, justify: cjustify } = c.args ?? {}
         const scaled = (x: number) => cscale != null ? x / cscale : x
@@ -306,7 +308,8 @@ function lay_child(c: Element, width: number | undefined, { justify, height, fon
         const budgeted = height != null && cheight == null && (c instanceof TextRow || c instanceof TextCol || c instanceof TextFigure)
         const height_child = budgeted ? scaled(height!) : undefined
         const by_height = c instanceof TextFigure && height_child != null && cwidth == null
-        const size_attr = by_height ? { height: height_child } : { ...(width_child != null ? { width: width_child } : {}), ...(height_child != null ? { height: height_child } : {}) }
+        const box_attr = (span && width_child != null) ? { width: width_child } : {}
+        const size_attr = by_height ? { ...box_attr, height: height_child } : { ...(width_child != null ? { width: width_child } : {}), ...(height_child != null ? { height: height_child } : {}) }
         const justify_attr = justify != null ? { justify: cjustify ?? justify } : {}
         const relay = (size: Attrs) => {
             const elem = c.clone({ ...font_attr, ...text_attr, ...size, ...justify_attr })
@@ -317,7 +320,7 @@ function lay_child(c: Element, width: number | undefined, { justify, height, fon
             // a figure's height is its box, so a caption overshoots the budget
             // by its own height: take that off and lay it out once more
             const over = laid.em.height - height_child!
-            if (over > 0 && height_child! > over) laid = relay({ height: height_child! - over })
+            if (over > 0 && height_child! > over) laid = relay({ ...box_attr, height: height_child! - over })
             // one that comes out wider than the slot takes the slot instead
             if (width_child != null && laid.em.width > width_child) laid = relay({ width: width_child })
         }
@@ -340,18 +343,25 @@ function place_laid({ elem, em }: Laid, x: number, y: number): Element {
     return elem.clone({ rect: em_rect(em, x, y + em.anchor) })
 }
 
+// a laid child's own `align`, as [ horizontal, vertical ]: it overrides the
+// container's justify (in a column or grid cell) or valign (in a row) for
+// that child alone, as it does in a Stack
+function child_align({ elem }: Laid): [ AlignValue | undefined, AlignValue | undefined ] {
+    const align = elem.spec.align
+    return align != null ? ensure_pair(align) : [ undefined, undefined ]
+}
+
 // the vertical offsets that align laid children in a row: by their tops,
-// their anchors, their middles or their bottoms
+// their anchors, their middles or their bottoms, or a child's own align
 type RowAlign = 'top' | 'anchor' | 'center' | 'bottom'
 
-function row_offsets(laid: Laid[], align: RowAlign): number[] {
+function row_offsets(laid: Laid[], valign: RowAlign): number[] {
     const height = max(laid.map(l => l.em.height)) ?? 0
     const anchor = max(laid.map(l => l.em.anchor)) ?? 0
-    return laid.map(({ em }) =>
-        align == 'anchor' ? anchor - em.anchor :
-        align == 'center' ? 0.5 * (height - em.height) :
-        align == 'bottom' ? height - em.height : 0
-    )
+    return laid.map(l => {
+        const align = child_align(l)[1] ?? valign
+        return align == 'anchor' ? anchor - l.em.anchor : align_frac(align as AlignValue) * (height - l.em.height)
+    })
 }
 
 function box_aspect(width: number, height: number): number | undefined {
@@ -492,14 +502,14 @@ class TextCol extends Group {
         const used = sum(fixed.map(l => l?.em.height ?? 0)) + gap * Math.max(children.length - 1, 0)
         const share = (height != null && nflex > 0) ? (height - used) / nflex : 0
         const budget = share > 0 ? share : undefined
-        const laid = children.map((c, i) => fixed[i] ?? lay_child(c, width, { height: budget, ...lay_args }))
+        const laid = children.map((c, i) => fixed[i] ?? lay_child(c, width, { height: budget, span: true, ...lay_args }))
         const col_width = width ?? max(laid.map(l => l.em.width)) ?? 1
 
-        // stack them, justified within the width
+        // stack them, justified within the width (or by a child's own align)
         let y = 0
         const placed = laid.map((l, i) => {
             if (i > 0) y += gap
-            const x = align_frac(justify) * (col_width - l.em.width)
+            const x = align_frac(child_align(l)[0] ?? justify) * (col_width - l.em.width)
             const elem = place_laid(l, x, y)
             y += l.em.height
             return elem
@@ -617,7 +627,7 @@ class TextGrid extends Group {
             const ys = row_offsets(row, valign)
             if (r == 0 && row.length > 0) anchor = ys[0] + row[0].em.anchor
             row.forEach((l, i) => {
-                const x = i * (cell + hgap) + align_frac(justify) * (cell - l.em.width)
+                const x = i * (cell + hgap) + align_frac(child_align(l)[0] ?? justify) * (cell - l.em.width)
                 placed.push(place_laid(l, x, y + ys[i]))
             })
             y += max(row.map((l, i) => ys[i] + l.em.height)) ?? 0
