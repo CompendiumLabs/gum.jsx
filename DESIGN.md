@@ -63,14 +63,13 @@ but each line box is still one em; the first line is always the top em of a `Tex
 ### Inline elements and math
 
 Non-text children of a `Text` are wrapped in an `ElemSpan`, which is also a 1em line box: an
-arbitrary element is centered in it (the `HStack` default), while a math element is placed by
-its own metrics (`place_inline_math`). Math elements carry a `MathSpec` (`@gum-jsx/math`) with
-`advance`, `vrange` (ink extents in em around the math axis) and `vanchor` (the axis); one em
-of math is one line height, the math axis is pinned to `INLINE_MATH_AXIS = 1 + vtext - maxis`
+arbitrary element is centered in it (the `HStack` default), while an element carrying em
+metrics (`lib/em.ts`: a `width`, `height` and `anchor` in em, the anchor being the math axis;
+the math elements carry them as their `MathSpec`) is placed by them (`place_inline_em`). One em
+of its content is one line height, its anchor is pinned to `INLINE_MATH_AXIS = 1 + vtext - maxis`
 (`0.6` of the line box, `maxis = 0.25` being the axis height above the baseline), and a tall
 formula overflows the line rather than shrinking, as in TeX. This is the only place vertical
-alignment is done from metrics, and the metrics involved are the math package's, not the
-Span's.
+alignment is done from metrics, and the metrics involved are the em record's, not the Span's.
 
 ### Font faces
 

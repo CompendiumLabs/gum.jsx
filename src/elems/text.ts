@@ -9,8 +9,10 @@ import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, re
 import { textMetrics, splitWords } from '../lib/text'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
+import { em_bounds, em_hink } from '../lib/em'
 
 import { Context, Element, Group, Spacer, spec_split, ensure_children, escape_text, is_element } from './core'
+import type { WithEm } from './em'
 import type { ElementArgs, GroupArgs } from './core'
 import { Box, HStack, VStack } from './layout'
 import type { BoxArgs, StackArgs } from './layout'
@@ -101,31 +103,23 @@ interface ElemSpanArgs extends GroupArgs {
     spacing?: boolean | number
 }
 
-// math elements carry inline metrics (advance, ink extents around the math
-// axis) in em units; the line box is 1em tall with the text baseline at
-// 1 + vtext, so the math axis sits maxis above that
+// elements with em metrics (math, see lib/em.ts) are placed in the line by
+// them; the line box is 1em tall with the text baseline at 1 + vtext, so the
+// math axis sits maxis above that
 const INLINE_MATH_AXIS = 1 + vtext - maxis
 
-// the subset of math metrics needed for inline placement (see MathSpec)
-interface InlineMath {
-    advance: number
-    vrange: Limit
-    vanchor: number
-    hrange?: Limit
-}
-
-// place a math element in a 1em line box by its inline metrics: 1em of math
-// is 1 line height, the axis is pinned to the text axis, and tall formulas
-// overflow the line rather than shrinking to fit it (as in TeX). returns the
+// place an element with em metrics in a 1em line box: 1em of its content is 1
+// line height, its anchor is pinned to the line's axis, and a tall formula
+// overflows the line rather than shrinking to fit it (as in TeX). returns the
 // ink width in em along with the positioned child
-function place_inline_math(child: Element, spacing: number): [ Element, number ] {
-    const { advance, vrange: [ ylo, yhi ], vanchor, hrange } = (child as Element & { math: InlineMath }).math
-    const [ xlo, xhi ] = hrange ?? [ 0, advance ]
+function place_inline_em(child: WithEm, spacing: number): [ Element, number ] {
+    const [ xlo, xhi ] = em_hink(child.em)
+    const [ ylo, yhi ] = em_bounds(child.em)
     const width = xhi - xlo
     const aspect = width + spacing
     const xfrac = aspect > 0 ? width / aspect : 1
-    const y0 = INLINE_MATH_AXIS + (ylo - vanchor)
-    const y1 = INLINE_MATH_AXIS + (yhi - vanchor)
+    const y0 = INLINE_MATH_AXIS + ylo
+    const y1 = INLINE_MATH_AXIS + yhi
     const rect: Rect = [ 0, y0, xfrac, y1 ]
     return [ child.clone({ rect, align: 'left' }), aspect ]
 }
@@ -137,9 +131,9 @@ class ElemSpan extends Group {
         const spacing = is_boolean(spacing0) ? (spacing0 ? 0.25 : 0) : spacing0
 
         // HStack centers arbitrary embedded elements in the line box, while
-        // math is aligned to the surrounding text by its metrics
-        const [ child, aspect ] = 'math' in child0 ?
-            place_inline_math(child0, spacing) :
+        // an element with em metrics is aligned to the surrounding text by them
+        const [ child, aspect ] = 'em' in child0 ?
+            place_inline_em(child0 as WithEm, spacing) :
             [ child0.clone({ align: 'left' }), (child0.spec.aspect ?? 1) + spacing ]
 
         super({ children: [ child ], aspect, ...attr })
