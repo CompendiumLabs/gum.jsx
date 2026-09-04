@@ -155,9 +155,12 @@ class Slide extends Group {
         const area_width0 = aspect != null ? aspect - ml - mr - pl - pr : undefined
         if (area_height <= 0 || (area_width0 != null && area_width0 <= 0)) throw new Error('Slide padding and margin leave no room for content')
 
-        // the content column: `em` sets its width from the area, else `width` is it
+        // the content column: `em` sets its width from the area, else `width` is
+        // it; with a fixed aspect the area's height in em is known too, and the
+        // column budgets it to any figures it holds
         const width = (em != null && area_width0 != null) ? area_width0 / em : width0
-        const col = new TextCol({ children, width, gap, justify, env, ...text_attr })
+        const height = area_width0 != null ? width * area_height / area_width0 : undefined
+        const col = new TextCol({ children, width, height, gap, justify, env, ...text_attr })
         const { width: col_width, height: col_height } = col.em
 
         // an auto aspect fits the canvas to the content

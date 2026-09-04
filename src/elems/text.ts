@@ -266,27 +266,62 @@ function is_text_sized(elem: Element): boolean {
 function is_fixed(elem: Element): boolean {
     if (is_text_sized(elem)) {
         const { width, height } = elem.args ?? {}
-        return width != null || height != null
+        return width != null || (elem instanceof TextFigure && height != null)
     }
     return (elem as WithEm).em != null
+}
+
+// a child that is sized by the height a container has to give rather than by
+// its width: an element with an aspect but no metrics (a figure), a TextFigure
+// with no size of its own, or a row or column without a height that holds one
+function is_height_flex(elem: Element): boolean {
+    if (elem instanceof TextFigure) {
+        const { width, height } = elem.args ?? {}
+        return width == null && height == null
+    }
+    if (elem instanceof TextRow || elem instanceof TextCol) {
+        const { height, children } = elem.args ?? {}
+        return height == null && ensure_children(children).some(is_height_flex)
+    }
+    if (is_text_sized(elem) || (elem as WithEm).em != null) return false
+    return elem.spec.aspect != null
 }
 
 // a child laid out for a slot `width` wide (none: at its own size): the
 // element to place and its box in the container's em. a text element takes
 // the slot unless it has a width of its own (a `scale` sets what it is laid
 // out at, so the box still fills the slot), a formula keeps its size (shrunk
-// to the slot if wider), and any other element spans the slot at its aspect
+// to the slot if wider), and any other element spans the slot at its aspect.
+// with a `height` to give, a height-flexible child (see is_height_flex) is
+// sized by it instead: a figure is that tall at its aspect (no wider than the
+// slot), and a row or column is handed the height to budget among its own
 type Laid = { elem: Element, em: EmSpec }
-type LayArgs = { justify?: AlignValue, font_attr?: Attrs, text_attr?: Attrs }
+type LayArgs = { justify?: AlignValue, height?: number, font_attr?: Attrs, text_attr?: Attrs }
 
-function lay_child(c: Element, width: number | undefined, { justify, font_attr = {}, text_attr = {} }: LayArgs = {}): Laid {
+function lay_child(c: Element, width: number | undefined, { justify, height, font_attr = {}, text_attr = {} }: LayArgs = {}): Laid {
     if (is_text_sized(c)) {
-        const { width: cwidth, scale: cscale, justify: cjustify } = c.args ?? {}
-        const width_child = cwidth ?? (width != null ? (cscale != null ? width / cscale : width) : undefined)
-        const size_attr = width_child != null ? { width: width_child } : {}
+        const { width: cwidth, height: cheight, scale: cscale, justify: cjustify } = c.args ?? {}
+        const scaled = (x: number) => cscale != null ? x / cscale : x
+        const width_child = cwidth ?? (width != null ? scaled(width) : undefined)
+        const budgeted = height != null && cheight == null && (c instanceof TextRow || c instanceof TextCol || c instanceof TextFigure)
+        const height_child = budgeted ? scaled(height!) : undefined
+        const by_height = c instanceof TextFigure && height_child != null && cwidth == null
+        const size_attr = by_height ? { height: height_child } : { ...(width_child != null ? { width: width_child } : {}), ...(height_child != null ? { height: height_child } : {}) }
         const justify_attr = justify != null ? { justify: cjustify ?? justify } : {}
-        const elem = c.clone({ ...font_attr, ...text_attr, ...size_attr, ...justify_attr })
-        return { elem, em: (elem as WithEm).em }
+        const relay = (size: Attrs) => {
+            const elem = c.clone({ ...font_attr, ...text_attr, ...size, ...justify_attr })
+            return { elem, em: (elem as WithEm).em }
+        }
+        let laid = relay(size_attr)
+        if (by_height) {
+            // a figure's height is its box, so a caption overshoots the budget
+            // by its own height: take that off and lay it out once more
+            const over = laid.em.height - height_child!
+            if (over > 0 && height_child! > over) laid = relay({ height: height_child! - over })
+            // one that comes out wider than the slot takes the slot instead
+            if (width_child != null && laid.em.width > width_child) laid = relay({ width: width_child })
+        }
+        return laid
     }
     const em0 = (c as WithEm).em
     if (em0 != null) {
@@ -294,7 +329,8 @@ function lay_child(c: Element, width: number | undefined, { justify, font_attr =
         return { elem: c, em: make_em(scale_em_spec(em0, f)) }
     }
     const aspect = c.spec.aspect
-    const w = width ?? aspect ?? 1
+    const by_height = height != null && aspect != null && aspect > 0
+    const w = by_height ? Math.min(width ?? Infinity, height! * aspect) : (width ?? aspect ?? 1)
     const h = (aspect != null && aspect > 0) ? w / aspect : w
     return { elem: c, em: make_em({ width: w, height: h, anchor: 0.5 * h }) }
 }
@@ -427,24 +463,36 @@ interface TextContainerArgs extends GroupArgs {
 
 interface TextColArgs extends TextContainerArgs {
     gap?: number
+    height?: number
 }
 
 // a column of text blocks: each child is laid out for the column's width (a
 // text child fills it unless it has a width of its own, a formula sits at the
 // text's size, any other element spans it) and they stack with `gap` em
-// between; the column is as tall as they come to, anchored on its first child
+// between; the column is as tall as they come to, anchored on its first child.
+// given a `height` to fill, the children sized by their width are laid out
+// first and what is left is split evenly among the height-flexible ones (a
+// figure, or a row or column holding one), which are sized to it
 class TextCol extends Group {
     em: EmSpec
 
     constructor(args: TextColArgs = {}) {
-        const { children: children0, width, scale = 1, gap = 0.5, justify = 'left', env, ...attr0 } = THEME(args, 'TextCol')
+        const { children: children0, width, height, scale = 1, gap = 0.5, justify = 'left', env, ...attr0 } = THEME(args, 'TextCol')
         const [ font_attr0, text_attr, attr1 ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
         const [ spec, attr ] = spec_split(attr1)
         const children = ensure_children(children0)
+        const lay_args = { justify, font_attr, text_attr }
 
-        // lay out the children for the width, or at their own sizes
-        const laid = children.map(c => lay_child(c, width, { justify, font_attr, text_attr }))
+        // lay out the children for the width, or at their own sizes; with a
+        // height, the flexible ones get an even share of what the rest leave
+        const flex = children.map(c => height != null && is_height_flex(c))
+        const fixed = children.map((c, i) => flex[i] ? null : lay_child(c, width, lay_args))
+        const nflex = flex.filter(f => f).length
+        const used = sum(fixed.map(l => l?.em.height ?? 0)) + gap * Math.max(children.length - 1, 0)
+        const share = (height != null && nflex > 0) ? (height - used) / nflex : 0
+        const budget = share > 0 ? share : undefined
+        const laid = children.map((c, i) => fixed[i] ?? lay_child(c, width, { height: budget, ...lay_args }))
         const col_width = width ?? max(laid.map(l => l.em.width)) ?? 1
 
         // stack them, justified within the width
@@ -456,17 +504,18 @@ class TextCol extends Group {
             y += l.em.height
             return elem
         })
-        const height = y
+        const col_height = y
 
         // pass to Group
-        super({ children: placed, coord: [ 0, 0, col_width, height ], aspect: box_aspect(col_width, height), env, ...attr, ...spec })
+        super({ children: placed, coord: [ 0, 0, col_width, col_height ], aspect: box_aspect(col_width, col_height), env, ...attr, ...spec })
         this.args = args
-        this.em = make_em(scale_em_spec({ width: col_width, height, anchor: laid[0]?.em.anchor ?? 0, scale: 1 }, scale))
+        this.em = make_em(scale_em_spec({ width: col_width, height: col_height, anchor: laid[0]?.em.anchor ?? 0, scale: 1 }, scale))
     }
 }
 
 interface TextRowArgs extends TextContainerArgs {
     gap?: number
+    height?: number
     sizes?: number[]
     valign?: RowAlign
 }
@@ -474,29 +523,34 @@ interface TextRowArgs extends TextContainerArgs {
 // a row of text blocks side by side, `gap` em apart. with a width, children
 // that carry a size of their own (a text width, a figure height, a formula)
 // keep it and the rest share what is left, or `sizes` splits the width as
-// given; without one the row is as wide as its children. they align by their
-// tops (or anchors, middles, bottoms, by `valign`) and a row narrower than its
-// width is placed by `justify`
+// given; without one the row is as wide as its children. given a `height` to
+// fill, a height-flexible child (a figure with no size of its own) is made
+// that tall at its aspect and keeps that width like a fixed child. they align
+// by their tops (or anchors, middles, bottoms, by `valign`) and a row
+// narrower than its width is placed by `justify`
 class TextRow extends Group {
     em: EmSpec
 
     constructor(args: TextRowArgs = {}) {
-        const { children: children0, width, scale = 1, gap = 1, sizes, valign = 'top', justify = 'left', env, ...attr0 } = THEME(args, 'TextRow')
+        const { children: children0, width, height, scale = 1, gap = 1, sizes, valign = 'top', justify = 'left', env, ...attr0 } = THEME(args, 'TextRow')
         const [ font_attr0, text_attr, attr1 ] = prefix_split([ 'font', 'text' ], attr0)
         const font_attr = prefix_join('font', font_attr0)
         const [ spec, attr ] = spec_split(attr1)
         const children = ensure_children(children0)
-        const lay = (c: Element, w: number | undefined) => lay_child(c, w, { justify, font_attr, text_attr })
+        const lay = (c: Element, w: number | undefined) => lay_child(c, w, { justify, height, font_attr, text_attr })
         const gaps = gap * Math.max(children.length - 1, 0)
 
         // lay out the children: by the given splits, by their own sizes with
-        // the slack shared, or at their own sizes
+        // the slack shared, or at their own sizes. a figure sized by the
+        // height counts as fixed (no wider than the row), a nested row or
+        // column takes a slot and is handed the height
+        const sized = (c: Element) => height != null && is_height_flex(c) && !(c instanceof TextRow || c instanceof TextCol)
         let laid: Laid[]
         if (sizes != null && width != null) {
             const total = sum(sizes)
             laid = children.map((c, i) => lay(c, (sizes[i] ?? 0) / total * (width - gaps)))
         } else if (width != null) {
-            const fixed = children.map(c => is_fixed(c) ? lay(c, undefined) : null)
+            const fixed = children.map(c => is_fixed(c) ? lay(c, undefined) : sized(c) ? lay(c, width - gaps) : null)
             const used = sum(fixed.map(l => l?.em.width ?? 0))
             const flex = fixed.filter(l => l == null).length
             const slot = flex > 0 ? Math.max(width - gaps - used, 0) / flex : 0
@@ -507,7 +561,7 @@ class TextRow extends Group {
 
         // align vertically and pack horizontally
         const ys = row_offsets(laid, valign)
-        const height = max(laid.map((l, i) => ys[i] + l.em.height)) ?? 0
+        const row_height = max(laid.map((l, i) => ys[i] + l.em.height)) ?? 0
         const packed = sum(laid.map(l => l.em.width)) + gaps
         const row_width = width ?? packed
         let x = align_frac(justify) * Math.max(row_width - packed, 0)
@@ -519,10 +573,10 @@ class TextRow extends Group {
         })
 
         // pass to Group
-        super({ children: placed, coord: [ 0, 0, row_width, height ], aspect: box_aspect(row_width, height), env, ...attr, ...spec })
+        super({ children: placed, coord: [ 0, 0, row_width, row_height ], aspect: box_aspect(row_width, row_height), env, ...attr, ...spec })
         this.args = args
         const anchor = laid.length > 0 ? ys[0] + laid[0].em.anchor : 0
-        this.em = make_em(scale_em_spec({ width: row_width, height, anchor, scale: 1 }, scale))
+        this.em = make_em(scale_em_spec({ width: row_width, height: row_height, anchor, scale: 1 }, scale))
     }
 }
 
