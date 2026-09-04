@@ -4,9 +4,9 @@
 /// <reference path="../types/opentype.d.ts" />
 import EMOJI_REGEX from 'emojibase-regex'
 import LineBreaker from 'linebreak'
-import type { Font } from 'opentype.js'
+import type { Font, Glyph } from 'opentype.js'
 
-import { DEFAULTS as D, sans, light, regular } from './const'
+import { sans, light, regular } from './const'
 import { is_string, compress_whitespace, sum, zip, max, min } from './utils'
 import { wrapWidths } from './wrap'
 import { isStrict, strictError } from './strict'
@@ -82,7 +82,6 @@ function emojiSizer(_text: string): number {
 type TextSizerArgs = {
     font_family?: string
     font_weight?: number
-    calc_size?: number
     env?: Env
 }
 
@@ -121,18 +120,48 @@ function textHasGlyphs(text: string, { font_family = sans, font_weight = light, 
     return true
 }
 
-function textSizer(text: string, { font_family = sans, font_weight = light, calc_size = D.calc_size, env }: TextSizerArgs = {}): number {
+//
+// shaping memo
+//
+
+// shaping a string (opentype's bidi tokenizer plus its ccmp/liga lookups) is by
+// far the costliest step of text layout, and the same word is measured many
+// times over as the text elements clone through layout, so each string is
+// shaped once per face: the glyph run, and from it the advance in em (the
+// glyph advances plus the kerning between neighbors, as opentype's own
+// getAdvanceWidth sums them). the faces are keyed weakly so a font swapped out
+// of a registry takes its memo with it
+type Shaped = { glyphs: Glyph[], advance: number }
+const SHAPE_CACHE = new WeakMap<Font, Map<string, Shaped>>()
+
+function shapeText(font: Font, text: string): Shaped {
+    let cache = SHAPE_CACHE.get(font)
+    if (cache == null) SHAPE_CACHE.set(font, cache = new Map())
+    let shaped = cache.get(text)
+    if (shaped == null) {
+        const glyphs = font.stringToGlyphs(text)
+        const units = font.unitsPerEm ?? 1000
+        let width = 0
+        for (let i = 0; i < glyphs.length; i++) {
+            width += glyphs[i].advanceWidth ?? 0
+            if (i < glyphs.length - 1) width += font.getKerningValue(glyphs[i].index, glyphs[i + 1].index)
+        }
+        cache.set(text, shaped = { glyphs, advance: width / units })
+    }
+    return shaped
+}
+
+function textSizer(text: string, { font_family = sans, font_weight = light, env }: TextSizerArgs = {}): number {
     const font = textFont(font_family, font_weight, env)
     const runs = splitEmojiRuns(text)
     if (isStrict(env)) runs.forEach(run => { if (!run.emoji) checkGlyphs(font, run.text, font_family, env) })
     return sum(runs.map(run =>
-        run.emoji ? emojiSizer(run.text) :
-        (font.getAdvanceWidth(run.text, calc_size) / calc_size)
+        run.emoji ? emojiSizer(run.text) : shapeText(font, run.text).advance
     ))
 }
 
 function fontVertical(font: Font, text: string): Limit {
-    const glyphs = font.stringToGlyphs(text)
+    const { glyphs } = shapeText(font, text)
     const [yMins = [], yMaxs = []] = zip(...glyphs.map(g => [ g.yMin, g.yMax ]))
     const units = font.unitsPerEm ?? 1000
     const yMin = min(yMins) ?? 0
@@ -148,7 +177,7 @@ function textVertical(text: string, { font_family = sans, font_weight = light, e
 // italic correction: how far the final glyph's ink overhangs its advance width
 function textItalic(text: string, { font_family = sans, font_weight = light, env }: TextSizerArgs = {}): number {
     const font = textFont(font_family, font_weight, env)
-    const glyphs = font.stringToGlyphs(text)
+    const { glyphs } = shapeText(font, text)
     const last = glyphs[glyphs.length - 1]
     if (last == null) return 0
     const { xMax = 0, advanceWidth = 0 } = last
