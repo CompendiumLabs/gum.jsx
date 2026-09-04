@@ -5,7 +5,7 @@ import { DEFAULTS as D, none, blue, white } from '../lib/const'
 import { sign, abs, linspace, invert_orient, join_limits, split_limits, ensure_vector, is_scalar, is_string, is_object, ensure_singleton, check_singleton, rounder, enumerate, aspect_invariant, rect_aspect, merge_rects, expand_limits, flip_rect, resolve_limits, smoothstep, prefix_split, prefix_join } from '../lib/utils'
 import { Span } from './text'
 
-import { Element, Group, Spacer, spec_split, is_element, ensure_children } from './core'
+import { Element, Group, Spacer, spec_split, is_element, ensure_children, size_by_em } from './core'
 import { Box, Frame, Attach, HStack, VStack, Anchor } from './layout'
 import { RoundedRect, UnitLine, HLine, Arc, ArrowHead } from './geometry'
 
@@ -549,8 +549,8 @@ function outer_limits(children: Element[], { xlim, ylim, padding = 0 }: { xlim?:
 // plottable things should accept xlim/ylim and may report coords on their own
 class Graph extends Group {
     constructor(args: GraphArgs = {}) {
-        let { children: children0, xlim, ylim, coord: coord0 = 'auto', aspect, padding = 0, flip = true, env, ...attr } = THEME(args, 'Graph')
-        const children = ensure_children(children0)
+        let { children: children0, xlim, ylim, coord: coord0 = 'auto', aspect, padding = 0, flip = true, em, env, ...attr } = THEME(args, 'Graph')
+        const children = size_by_em(ensure_children(children0), em)
 
         // get default outer limits
         let coord = coord0 == 'auto' ? outer_limits(children, { xlim, ylim, padding }) : coord0
@@ -583,6 +583,7 @@ class Graph extends Group {
 //
 
 interface PlotArgs extends BoxArgs {
+    em?: number
     xlim?: Limit
     ylim?: Limit
     axis?: true
@@ -616,9 +617,9 @@ interface PlotArgs extends BoxArgs {
 
 class Plot extends Box {
     constructor(args: PlotArgs = {}) {
-        let { children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [0.1, 0.15], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, coord: coord0 = 'auto', aspect: aspect0 = 'auto', clip, debug = false, env, ...attr0
+        let { children: children0, xlim, ylim, axis = true, xaxis, yaxis, xticks = 5, yticks = 5, xanchor, yanchor, grid, xgrid, ygrid, xlabel, ylabel, title, tick_size = 0.015, label_size = 0.05, label_offset = [0.1, 0.15], title_size = 0.075, title_offset = 0.05, xlabel_size, ylabel_size, xlabel_offset, ylabel_offset, xtick_label_offset = 0.75, ytick_label_offset = 0.25, xtick_size, ytick_size, padding, margin, coord: coord0 = 'auto', aspect: aspect0 = 'auto', clip, em, debug = false, env, ...attr0
         } = THEME(args, 'Plot')
-        const children = ensure_children(children0)
+        const children = size_by_em(ensure_children(children0), em)
 
         // determine coordinate system and aspect
         const coord = coord0 == 'auto' ? outer_limits(children, { xlim, ylim, padding }) : coord0

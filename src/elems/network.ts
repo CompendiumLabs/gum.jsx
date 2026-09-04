@@ -3,13 +3,14 @@
 import { THEME } from '../lib/theme'
 import { abs, sub2, mul2, check_singleton, is_string, rect_center, side_direc, prefix_split, join_limits } from '../lib/utils'
 
-import { Context, Element, Group, ensure_children } from './core'
+import { Context, Element, Group, ensure_children, size_by_em, spec_split } from './core'
 import { Frame } from './layout'
 import { Arrow } from './geometry'
-import { Text } from './text'
+import { Text, TextFrame } from './text'
 
 import type { ElementArgs, GroupArgs } from './core'
-import type { AlignValue, Point, Side } from '../lib/types'
+import type { WithEm } from './em'
+import type { AlignValue, Limit, Padding, Point, Rounded, Side } from '../lib/types'
 
 //
 // cardinal direction utils
@@ -32,27 +33,52 @@ function get_side(p1: Point, p2: Point): Side {
 
 interface NodeArgs extends GroupArgs {
     id?: string
+    em?: number
     ysize?: number
-    rounded?: number
-    padding?: number
+    rounded?: Rounded
+    padding?: Padding
+    border?: number | boolean
+    fill?: string
     width?: number
     justify?: AlignValue
 }
 
-class Node extends Frame {
+// a node is a framed label at a position. given an `em` (coordinate units
+// per em, usually from the Network), the box is sized from the label: a
+// TextFrame hugging the text (or an element with metrics) with `padding` and
+// `rounded` in em, and the node is its em height times `em` tall, so every
+// node in the network shares one text size and a wrapped label makes a
+// taller node rather than smaller text. without one it is a Frame of the
+// given `ysize`, its `padding` and `rounded` fractions of the box, and the
+// text is fit into it
+class Node extends Group {
     id: string | undefined
 
     constructor(args: NodeArgs = {}) {
-        const { children: children0, id, ysize = 0.2, rounded = 0.05, padding = 0.1, width, justify = 'center', env, ...attr } = THEME(args, 'Node')
-        const [ text_attr, frame_attr ] = prefix_split([ 'text' ], attr)
+        const { children: children0, id, em, ysize: ysize0, rounded, padding, border = 1, fill, width, justify = 'center', env, ...attr0 } = THEME(args, 'Node')
+        const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
+        const [ spec, attr ] = spec_split(attr1)
         const child = check_singleton(children0)
+        const sized = em != null && (is_string(child) || (child as WithEm).em != null)
 
-        // check for single string child and make text element
-        const inner = is_string(child) ? new Text({ children: [ child ], width, justify, env, ...text_attr }) : child
+        // the box: hugging the label in em, or a frame the label is fit into
+        let box: Element
+        let ysize = ysize0
+        if (sized) {
+            const label = is_string(child) ? new Text({ children: [ child ], env, ...text_attr }) : child
+            const frame = new TextFrame({ children: [ label ], padding: padding ?? 0.4, rounded: rounded ?? 0.3, border, fill, width, justify, env, ...attr, ...text_attr })
+            ysize ??= em! * frame.em.height
+            box = frame
+        } else {
+            const inner = is_string(child) ? new Text({ children: [ child ], width, justify, env, ...text_attr }) : child
+            box = new Frame({ children: [ inner ], padding: padding ?? 0.1, rounded: rounded ?? 0.05, border, fill, env, ...attr })
+            ysize ??= 0.2
+        }
 
-        // pass to Frame
-        super({ children: [ inner ], ysize, rounded, padding, env, ...frame_attr })
+        // pass to Group
+        super({ children: [ box ], aspect: box.spec.aspect, ysize, upright: true, env, ...spec })
         this.args = args
+        this.id = id
     }
 }
 
@@ -133,12 +159,27 @@ class Edge extends Element {
 // network class
 //
 
+interface NetworkArgs extends GroupArgs {
+    em?: number
+    xlim?: Limit
+    ylim?: Limit
+}
+
+// a network of nodes and edges (and anything else, placed as in a Graph). an
+// `em`, in coordinate units, sets the text size of the whole diagram: it goes
+// to the nodes, which size their boxes from their labels, and to the Group,
+// which sizes any other child with metrics (a Text label, a formula) placed
+// by `pos` without a size of its own
 class Network extends Group {
-    constructor(args: GroupArgs = {}) {
-        const { children: children0, xlim, ylim, coord: coord0, ...attr0 } = THEME(args, 'Network')
-        const [ node_attr, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
+    constructor(args: NetworkArgs = {}) {
+        const { children: children0, em, xlim, ylim, coord: coord0, ...attr0 } = THEME(args, 'Network')
+        const [ node_attr0, edge_attr, attr ] = prefix_split([ 'node', 'edge' ], attr0)
+        const node_attr = em != null ? { em, ...node_attr0 } : node_attr0
         const coord = coord0 ?? join_limits({ h: xlim, v: ylim })
-        const children = ensure_children(children0)
+
+        // size the labels by the em first, so the edges bind to the sized
+        // nodes (the Group would size them too, but after the edges are made)
+        const children = size_by_em(ensure_children(children0), em)
 
         // process nodes and make label map
         const nodes = children.filter((c: Element) => c.args.id != null).map((n: Element) => n.clone({ ...node_attr, ...n.args }))
@@ -151,17 +192,16 @@ class Network extends Group {
                 const n1 = nmap.get(c.args.start)
                 const n2 = nmap.get(c.args.end)
                 return c.clone({ ...edge_attr, ...c.args, start: n1, end: n2, coord })
-            } else if (c instanceof Node) {
+            } else if (c.args.id != null) {
                 // return the already processed node from the map
                 return nmap.get(c.args.id)
             } else {
-                // other elements pass through unchanged
                 return c
             }
         })
 
         // pass to Group
-        super({ children: items, coord, ...attr })
+        super({ children: items, coord, em, ...attr })
         this.args = args
     }
 }
@@ -171,4 +211,4 @@ class Network extends Group {
 //
 
 export { Node, Edge, Network }
-export type { NodeArgs, EdgeArgs }
+export type { NodeArgs, EdgeArgs, NetworkArgs }

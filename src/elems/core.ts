@@ -543,19 +543,38 @@ function makeUID(prefix: string, env?: Env): string {
     return `${prefix}-${resolveEnv(env).uids.random().toString(36).slice(2, 10)}`
 }
 
+// an element with em metrics (text, math, the text containers) placed by
+// `pos` with no size of its own
+type MaybeEm = Element & { em?: { height: number } }
+
+function is_unsized_em(c: Element): boolean {
+    const { pos, size, xsize, ysize, rad, xrad, yrad, rect, xrect, yrect } = c.args ?? {}
+    return (c as MaybeEm).em != null && pos != null && [ size, xsize, ysize, rad, xrad, yrad, rect, xrect, yrect ].every(v => v == null)
+}
+
+// what a group's `em` (coordinate units per em) does to its children: one
+// with metrics placed by `pos` alone is made its em height times `em` tall,
+// so text and formulas dropped into a coordinate frame share one size. it
+// applies to direct children only, a nested group's coordinates being its own
+function size_by_em(children: Element[], em: number | undefined): Element[] {
+    if (em == null) return children
+    return children.map(c => is_unsized_em(c) ? c.clone({ ysize: em * (c as MaybeEm).em!.height }) : c)
+}
+
 interface GroupArgs extends ElementArgs {
     children?: (Element | null)[]
     coord?: Rect | 'auto'
     clip?: true | Element
     mask?: Element
+    em?: number
 }
 
 class Group extends Element {
     children: Element[]
 
     constructor(args: GroupArgs = {}) {
-        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0, mask: mask0, debug = false, tag = 'g', env, ...attr } = args
-        const children = ensure_children(children0)
+        const { children: children0, aspect: aspect0, coord: coord0, clip: clip0, mask: mask0, em, debug = false, tag = 'g', env, ...attr } = args
+        const children = size_by_em(ensure_children(children0), em)
 
         // handle boolean args
         const clip = clip0 === true ? new Rectangle({ env }) : clip0
@@ -862,5 +881,5 @@ class Spacer extends Element {
 // exports
 //
 
-export { Context, Element, Group, Svg, Rectangle, Spacer, Mask, ClipPath, Style, Metadata, is_element, ensure_children, spec_split, align_frac, escape_text }
+export { Context, Element, Group, Svg, Rectangle, Spacer, Mask, ClipPath, Style, Metadata, is_element, ensure_children, size_by_em, spec_split, align_frac, escape_text }
 export type { SpecArgs, ElementArgs, GroupArgs, ContextArgs, SvgArgs, RectArgs }
