@@ -279,6 +279,10 @@ const HELP_KEYS = [ 'pos', 'size', 'xsize', 'ysize', 'rad', 'xrad', 'yrad', 'xre
 const EXTR_KEYS = [ 'stack_size', 'stack_expand' ]
 const RESERVED_KEYS = [ ...SPEC_KEYS, ...HELP_KEYS, ...EXTR_KEYS ]
 
+// the keys a parent sets to place a child (see Element.clone)
+const PLACE_SPEC_KEYS = [ 'rect', 'align', 'expand' ]
+const PLACE_ATTR_KEYS = EXTR_KEYS
+
 function spec_split(attr: Attrs, extended: boolean = true): [Attrs, Attrs] {
     const SPLIT_KEYS = extended ? RESERVED_KEYS : SPEC_KEYS
     const spec  = filter_object(attr, (k: string, v: any) => v != null &&  SPLIT_KEYS.includes(k))
@@ -402,8 +406,31 @@ class Element {
         return resolveEnv(this.args.env)
     }
 
+    // a clone is the element rebuilt from its args with the overrides applied.
+    // when the overrides are only the placement keys a parent sets to put a
+    // child in its box, it is a shallow copy with those keys swapped instead:
+    // rect, align, and expand go to the spec, which only the parent's context
+    // mapping reads, and stack_size and stack_expand go to the attr, which only
+    // an enclosing Stack reads, so no constructor sees them and the rest of
+    // the element (its children, metrics, em box) carries over as is. layout
+    // clones its children this way many times over, and a reconstruction
+    // re-runs everything below (text wrapping, math parsing), so this is what
+    // keeps deep layouts cheap. an unset placement key goes the long way, as
+    // the constructor may derive it from a convenience like pos and size
     clone(args: Attrs = {}): Element {
-        return new (this.constructor as any)({ ...this.args, ...args })
+        const keys = Object.keys(args)
+        const cheap = keys.every(k => PLACE_ATTR_KEYS.includes(k) || (PLACE_SPEC_KEYS.includes(k) && args[k] != null))
+        if (!cheap) return new (this.constructor as any)({ ...this.args, ...args })
+        const copy: Element = Object.assign(Object.create(Object.getPrototypeOf(this)), this)
+        copy.args = { ...this.args, ...args }
+        copy.spec = { ...this.spec }
+        copy.attr = { ...this.attr }
+        for (const k of keys) {
+            const target: Attrs = PLACE_SPEC_KEYS.includes(k) ? copy.spec : copy.attr
+            if (args[k] != null) target[k] = args[k]
+            else delete target[k]
+        }
+        return copy
     }
 
     rect(ctx: Context): Rect {
