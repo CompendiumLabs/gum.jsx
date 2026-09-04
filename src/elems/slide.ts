@@ -105,7 +105,7 @@ interface SlideArgs extends TitleFrameArgs {
     rounded?: Rounded
     border_stroke?: string
     background?: string
-    wrap?: number
+    width?: number
     spacing?: number
     justify?: AlignValue
     valign?: AlignValue
@@ -133,7 +133,7 @@ class Slide extends Box {
     constructor(args: SlideArgs = {}) {
         const {
             children, aspect: aspect0, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
-            border_stroke = '#bbb', background, title_size = 0.1, wrap = 25, spacing = 0.05,
+            border_stroke = '#bbb', background, title_size = 0.1, width = 25, spacing = 0.05,
             justify = 'left', align, env, ...attr0
         } = THEME(args, 'Slide')
         const [ text_attr, attr1 ] = prefix_split([ 'text' ], attr0)
@@ -141,7 +141,7 @@ class Slide extends Box {
         const aspect = aspect0 == 'auto' ? undefined : aspect0
 
         // stack up content, aligned within the content area
-        const stack = new TextStack({ children, spacing, justify, wrap, align, env, ...text_attr })
+        const stack = new TextStack({ children, spacing, justify, width, align, env, ...text_attr })
 
         // the frame flexes to fill the canvas inside the margin
         const frame = new TitleFrame({

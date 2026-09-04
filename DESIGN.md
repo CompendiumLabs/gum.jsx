@@ -52,12 +52,12 @@ mechanism: `vrange` tells a Span what `font-size` and `y` to write, and nothing 
 
 ### Lines and paragraphs
 
-`TextLine` is an `HStack` of Spans (and `ElemSpan`s) with `aspect = wrap` when wrapping, and
+`TextLine` is an `HStack` of Spans (and `ElemSpan`s) with `aspect = width` when wrapping, and
 `Text` is a `VStack` of `TextLine`s with `even: true`, so every line is a line box of the same
-height and line *n* occupies the *n*th slice of the paragraph. Widths given as `wrap` are in
-em because the line box is one em tall: a `Text` with `wrap = 25` is 25em wide and one em per
+height and line *n* occupies the *n*th slice of the paragraph. Widths given as `width` are in
+em because the line box is one em tall: a `Text` with `width = 25` is 25em wide and one em per
 line, which is how text in different containers (`TextStack`, `Bullets`, `Slide`) comes out the
-same size when given the same `wrap`. With a nonzero line `spacing` the paragraph is taller,
+same size when given the same `width`. With a nonzero line `spacing` the paragraph is taller,
 but each line box is still one em; the first line is always the top em of a `Text`.
 
 ### Inline elements and math

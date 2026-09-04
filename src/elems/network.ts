@@ -35,7 +35,7 @@ interface NodeArgs extends GroupArgs {
     ysize?: number
     rounded?: number
     padding?: number
-    wrap?: number
+    width?: number
     justify?: AlignValue
 }
 
@@ -43,12 +43,12 @@ class Node extends Frame {
     id: string | undefined
 
     constructor(args: NodeArgs = {}) {
-        const { children: children0, id, ysize = 0.2, rounded = 0.05, padding = 0.1, wrap, justify = 'center', env, ...attr } = THEME(args, 'Node')
+        const { children: children0, id, ysize = 0.2, rounded = 0.05, padding = 0.1, width, justify = 'center', env, ...attr } = THEME(args, 'Node')
         const [ text_attr, frame_attr ] = prefix_split([ 'text' ], attr)
         const child = check_singleton(children0)
 
         // check for single string child and make text element
-        const inner = is_string(child) ? new Text({ children: [ child ], wrap, justify, env, ...text_attr }) : child
+        const inner = is_string(child) ? new Text({ children: [ child ], width, justify, env, ...text_attr }) : child
 
         // pass to Frame
         super({ children: [ inner ], ysize, rounded, padding, env, ...frame_attr })

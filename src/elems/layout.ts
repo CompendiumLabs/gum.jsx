@@ -276,23 +276,23 @@ function default_measure(c: Element): number {
 
 interface HWrapArgs extends StackArgs {
     padding?: number
-    wrap?: number
+    width?: number  // the row width to wrap at, in units of the row height
     measure?: (c: Element) => number
 }
 
 // like stack but wraps elements to multiple lines/columns
 class HWrap extends VStack {
     constructor(args: HWrapArgs = {}) {
-        const { children: children0, hspacing, vspacing, wrap, justify = 'left', measure: measure0, debug, env, ...attr } = THEME(args, 'HWrap')
+        const { children: children0, hspacing, vspacing, width, justify = 'left', measure: measure0, debug, env, ...attr } = THEME(args, 'HWrap')
         const children = ensure_children(children0)
         const measure = measure0 ?? default_measure
 
         // intersperse spacers if needed and wrap widths
         const items = hspacing > 0 ? intersperse(children, new Spacer({ aspect: hspacing, env })) : children
-        const { rows } = wrapWidths(items, measure, wrap)
+        const { rows } = wrapWidths(items, measure, width)
 
         // make HStack rows
-        const lines = rows.map(row => new HStack({ children: row, align: justify, aspect: wrap, debug, env }))
+        const lines = rows.map(row => new HStack({ children: row, align: justify, aspect: width, debug, env }))
 
         // pass to VStack
         super({ children: lines, spacing: vspacing, even: true, debug, env, ...attr })
@@ -520,5 +520,5 @@ class Absolute extends Element {
 // exports
 //
 
-export { Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute }
+export { computeBoxLayout, Box, Frame, Stack, VStack, HStack, HWrap, Grid, Points, Anchor, Attach, Absolute }
 export type { BoxArgs, StackArgs, HWrapArgs, GridArgs, PointsArgs, AnchorArgs, AttachArgs, AbsoluteArgs }
