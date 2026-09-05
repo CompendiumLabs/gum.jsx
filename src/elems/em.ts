@@ -2,13 +2,13 @@
 // compose them. The math elements build on these with their own spacing rules
 // and styles; the Text* elements with theirs
 
-import { sum, max, merge_limits, join_limits } from '../lib/utils'
+import { sum, max, merge_limits, ensure_pair } from '../lib/utils'
 import { EMPTY_EM, DEFAULT_EM, make_em, text_em, bounds_em, em_bounds, em_aspect, em_rect, hull_overhang, scale_em_spec } from '../lib/em'
 import type { EmSpec, EmMetrics } from '../lib/em'
 import type { TextMetrics } from '../lib/text'
 import type { Attrs, Rect, Limit, Align } from '../lib/types'
 
-import { Context, Element, Group } from './core'
+import { Context, Element, Group, align_frac } from './core'
 
 //
 // elements with metrics
@@ -151,24 +151,28 @@ function layout_em_col(items: WithEm[], { justify = 'center', spacing = 0, ancho
 
     // find outer width
     const width = max(items.map(item => item.em.width)) ?? 0
+    const halign = align_frac(ensure_pair(justify)[0])
 
     // stack top-down while preserving each child's anchor line
     let ybottom = 0
     let yfirst = 0
-    const children = items.map((item, i) => {
+    const rects = items.map((item, i) => {
         const [ ylo, yhi ] = em_bounds(item.em)
         const yanchor = ybottom + (i > 0 ? spacing : 0) - ylo
         if (i == 0) yfirst = yanchor
         ybottom = yanchor + yhi
-        const [ , y0, , y1 ] = em_rect(item.em, 0, yanchor)
-        const rect: Rect = [ 0, y0, width, y1 ]
-        return with_em(item, {}, { rect, align: justify })
+        // Align the layout box, then place its full ink at that scale. Fitting
+        // the ink into a layout-width slot would shrink an overhanging child.
+        const x = halign * (width - item.em.width)
+        return em_rect(item.em, x, yanchor)
     })
+    const children = items.map((item, i) => with_em(item, {}, { rect: rects[i], align: justify }))
 
-    // compute layout metrics
+    // Keep layout spacing independent of ink. These bounds and coordinates
+    // use the column's top-origin frame, so vink is already relative to its top.
+    const { hink, vink, coord } = hull_overhang(rects, width, [ 0, ybottom ])
     const anchor = anchor0 == 'first' ? yfirst : 0.5 * ybottom
-    const metrics: EmMetrics = { width, height: ybottom, anchor }
-    const coord = join_limits({ h: [ 0, width ], v: [ 0, ybottom ] })
+    const metrics: EmMetrics = { width, height: ybottom, anchor, hink, vink }
     const aspect = em_aspect(metrics)
 
     // return layout
