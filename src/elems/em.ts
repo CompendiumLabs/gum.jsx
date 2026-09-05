@@ -18,6 +18,23 @@ type WithEm<E extends Element = Element> = E & {
     em: EmSpec
 }
 
+// A shared, immutable recipe for reconstruction. Placement clones copy its
+// reference; successive patches merge into one record rather than a chain.
+const EM_ADAPTATION = Symbol('em adaptation')
+type EmNormalizer = (spec: Partial<EmSpec>) => EmSpec
+type EmAdaptation = { readonly rebuild: Element['rebuild'], readonly patch: Readonly<Partial<EmSpec>>, readonly normalize: EmNormalizer }
+type AdaptedEm<E extends Element = Element> = WithEm<E> & { [EM_ADAPTATION]?: EmAdaptation }
+
+function rebuild_em(this: AdaptedEm, args: Attrs): Element {
+    const adaptation = this[EM_ADAPTATION]!
+    const out = adaptation.rebuild.call(this, args) as AdaptedEm
+    const em = out.em ?? ensure_em_spec(out)
+    out.em = adaptation.normalize({ ...em, ...adaptation.patch })
+    out[EM_ADAPTATION] = adaptation
+    out.rebuild = rebuild_em
+    return out
+}
+
 // the metrics an element without any gets: a Span's from its text box,
 // anything else a one-em box as wide as its aspect
 function ensure_em_spec(element: Element): EmMetrics {
@@ -27,12 +44,25 @@ function ensure_em_spec(element: Element): EmMetrics {
     return { width: element.spec.aspect ?? width, height, anchor }
 }
 
-// a clone of the element with its metrics patched (a subtype's extra fields
-// pass through make_em untouched)
-function with_em<E extends Element>(element: E, patch: Partial<EmSpec> = {}, args: Attrs = {}): WithEm<E> {
-    const out = element.clone(args) as WithEm<E>
-    const em = (element as WithEm<E>).em ?? make_em(ensure_em_spec(element))
-    out.em = make_em({ ...em, ...patch })
+// Explicit overrides survive reconstruction; unpatched fields are measured
+// again by the constructor. A subtype can supply its own metric defaults.
+function with_em<E extends Element>(element: E, patch: Partial<EmSpec> = {}, args: Attrs = {}, normalize?: EmNormalizer): WithEm<E> {
+    const out = element.clone(args) as AdaptedEm<E>
+    const adaptation = out[EM_ADAPTATION]
+    const em0 = out.em
+    const em = em0 ?? ensure_em_spec(out)
+    const make = normalize ?? adaptation?.normalize ?? make_em
+    out.em = make({ ...em, ...patch })
+
+    const patched = Object.keys(patch).length > 0
+    if (patched || em0 == null || (normalize != null && normalize !== adaptation?.normalize)) {
+        out[EM_ADAPTATION] = {
+            rebuild: adaptation?.rebuild ?? out.rebuild,
+            patch: { ...adaptation?.patch, ...patch },
+            normalize: make,
+        }
+        out.rebuild = rebuild_em
+    }
     return out
 }
 

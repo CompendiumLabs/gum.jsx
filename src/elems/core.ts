@@ -420,7 +420,7 @@ class Element {
     clone(args: Attrs = {}): Element {
         const keys = Object.keys(args)
         const cheap = keys.every(k => PLACE_ATTR_KEYS.includes(k) || (PLACE_SPEC_KEYS.includes(k) && args[k] != null))
-        if (!cheap) return new (this.constructor as any)({ ...this.args, ...args })
+        if (!cheap) return this.rebuild({ ...this.args, ...args })
         const copy: Element = Object.assign(Object.create(Object.getPrototypeOf(this)), this)
         copy.args = { ...this.args, ...args }
         copy.spec = { ...this.spec }
@@ -431,6 +431,12 @@ class Element {
             else delete target[k]
         }
         return copy
+    }
+
+    // Rebuild from the merged constructor args. Adapters can restore their
+    // metadata here; placement-only clones bypass this method entirely.
+    rebuild(args: Attrs): Element {
+        return new (this.constructor as any)(args)
     }
 
     rect(ctx: Context): Rect {

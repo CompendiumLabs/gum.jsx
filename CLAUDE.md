@@ -161,6 +161,17 @@ The library is built around a class hierarchy split across element modules:
 - Has an `attr` object containing SVG attributes (stroke, fill, etc.)
 - Renders to SVG via the `svg(ctx)` method that takes a Context object
 
+`clone` keeps placement changes shallow: it copies `args`, `spec`, and `attr`,
+while sharing children, measurements, and adapter metadata. Other changes call
+`rebuild` with the merged constructor args. That method normally just invokes
+the constructor; `with_em` installs a reconstruction hook on adapted elements
+to reapply explicit metric patches over fresh measurements. Successive patches
+merge into one record, and placement copies share it. Unpatched fields can
+change with text, fonts, or wrapping width; patched numbers remain literal
+overrides. A metric subtype can pass its normalizer as `with_em`'s fourth
+argument to restore its defaults too (`with_math` uses `make_math`). Do not
+deep-copy children or preserve an entire stale metric snapshot in `clone`.
+
 **Group extends Element** (`src/elems/core.ts`) - Container base class
 - Has a `children` array of Elements
 - Supports automatic aspect ratio detection (`aspect: 'auto'`)
