@@ -192,6 +192,14 @@ The library is built around a class hierarchy split across element modules:
 
 ### Context System
 
+Rectangle rounding uses the same `Context.unit` as strokes: `rounded={10}`
+means a radius of ten stroke units, regardless of box aspect or text size.
+`Rect` resolves its scalar or x/y radii in `props(ctx)`; `RoundedRect` resolves
+its per-corner offsets in `data(ctx)` after placement and reduces overlapping
+corners proportionally. Text frames pass rounding through directly; their
+padding and margin still use em. `DEFAULTS.rounded` is the shared boolean
+rounding default. No separate drawing-length or em-context protocol is needed.
+
 The `Context` class handles coordinate system mapping:
 - Maps from logical coordinates (`coord`) to pixel coordinates (`prect`)
 - Handles rotations, aspect ratios, alignments, and expansions

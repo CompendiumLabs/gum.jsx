@@ -1,6 +1,6 @@
 // themes
 
-import { none, black, white } from './const'
+import { DEFAULTS as D, none, black, white } from './const'
 import { map_object } from './utils'
 import type { ThemeName } from './types'
 import { resolveEnv } from './default'
@@ -18,7 +18,7 @@ const BOOLEANS: ThemeLayer = {
         border: 1,
         padding: 0.1,
         margin: 0.1,
-        rounded: 0.05,
+        rounded: D.rounded,
     },
 
     Stack: {
@@ -35,11 +35,11 @@ const BOOLEANS: ThemeLayer = {
     },
 
     Rect: {
-        rounded: 0.05,
+        rounded: D.rounded,
     },
 
     RoundedRect: {
-        rounded: 0.05,
+        rounded: D.rounded,
     },
 
     Graph: {

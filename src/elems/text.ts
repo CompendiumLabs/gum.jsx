@@ -6,7 +6,7 @@ import type { Env } from '../env'
 import { THEME } from '../lib/theme'
 import { none, bold, vtext, maxis } from '../lib/const'
 import { RoundedRect } from './geometry'
-import { check_string, is_scalar, is_string, is_boolean, is_array, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum, max, pad_rect, ensure_pair } from '../lib/utils'
+import { check_string, is_scalar, is_string, is_boolean, compress_whitespace, rect_box, check_singleton, prefix_split, prefix_join, sum, max, pad_rect, ensure_pair } from '../lib/utils'
 import { textMetrics, splitWords } from '../lib/text'
 import type { TextMetrics } from '../lib/text'
 import { wrapWidths } from '../lib/wrap'
@@ -379,18 +379,6 @@ function place_em_child(elem: Element, width: number, justify: AlignValue): Elem
     return with_em(group, { width, height: em.height, anchor: em.anchor, scale: 1 })
 }
 
-// a corner rounding given in em, as the fractions RoundedRect takes
-function em_rounded(rounded: Rounded, width: number, height: number): Rounded {
-    const corner = (r: number | [ number, number ]): [ number, number ] => {
-        const [ rx, ry ] = ensure_pair(r)
-        return [ rx / width, ry / height ]
-    }
-    if (is_boolean(rounded)) return rounded
-    if (is_scalar(rounded)) return corner(rounded)
-    if (is_array(rounded) && rounded.length == 2) return corner(rounded as [ number, number ])
-    return (rounded as [ number, number, number, number ]).map(r => corner(r as number | [ number, number ])) as Rounded
-}
-
 //
 // text line and block
 //
@@ -718,7 +706,7 @@ interface TextBoxArgs extends Omit<GroupArgs, 'aspect'> {
 
 // a box drawn around text (or around one element with metrics, a formula or
 // a column say): `padding` and `margin` are in em, the box is as big as its
-// content plus them, and `rounded` corners are in em too. an `aspect` widens
+// content plus them; `rounded` corners use stroke units. an `aspect` widens
 // (or heightens) the box around the content, which is centered in it, and
 // `hug` tightens a box whose text fits on one line to that line, so a badge
 // in a column does not span it.
@@ -767,10 +755,10 @@ class TextBox extends Group {
         const total_height = box_height + mt + mb
 
         // the background and the frame, drawn inside the margin
-        const rounded = rounded0 === true ? 0.3 : rounded0 === false ? undefined : rounded0
+        const rounded = rounded0 === false ? undefined : rounded0
         const shape_rect: Rect = [ ml, mt, ml + box_width, mt + box_height ]
         const make_shape = (extra: Attrs) => rounded != null
-            ? new RoundedRect({ rounded: em_rounded(rounded, box_width, box_height), rect: shape_rect, env, ...extra })
+            ? new RoundedRect({ rounded, rect: shape_rect, env, ...extra })
             : new Rectangle({ rect: shape_rect, env, ...extra })
         const background = fill != null ? make_shape({ fill, stroke: none, ...fill_attr }) : null
         const frame = (border != null && border !== false) ? make_shape({ stroke_width: border === true ? 1 : border, fill: none, ...border_attr }) : null

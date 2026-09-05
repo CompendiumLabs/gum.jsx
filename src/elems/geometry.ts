@@ -640,7 +640,7 @@ class Spline extends Path {
 //
 
 function parse_rounded(rounded: Rounded): Point[] {
-    if (is_boolean(rounded)) rounded = rounded ? 0.1 : 0
+    if (is_boolean(rounded)) rounded = rounded ? D.rounded : 0
     if (is_scalar(rounded)) {
         rounded = [rounded, rounded, rounded, rounded]
     } else if (is_array(rounded) && rounded.length == 2) {
@@ -651,17 +651,40 @@ function parse_rounded(rounded: Rounded): Point[] {
 }
 
 interface RoundedRectArgs extends ElementArgs {
-    rounded?: Rounded | boolean
+    rounded?: Rounded
     border?: number
 }
 
 // supports different rounded for each corner (contra base Rectangle)
 class RoundedRect extends Path {
+    corners: Point[]
+
     constructor(args: RoundedRectArgs = {}) {
         const { rounded = 0, border = 1, ...attr } = THEME(args, 'RoundedRect')
 
-        // convert to array of arrays
-        const [ rtl, rtr, rbr, rbl ] = parse_rounded(rounded)
+        super({ stroke_width: border, upright: true, ...attr })
+        this.args = args
+        this.corners = parse_rounded(rounded)
+    }
+
+    data(ctx: Context): string {
+        // Rounding uses stroke units, independently of this rectangle's aspect.
+        const [ w, h ] = ctx.mapSize([ 1, 1 ], false).map(abs)
+        const pixels = this.corners.map(([ rx, ry ]) => [
+            Math.max(0, rx * ctx.unit),
+            Math.max(0, ry * ctx.unit),
+        ] as Point)
+
+        // Shrink all corners together if adjacent offsets exceed an edge.
+        // Keep their proportions, and handle a collapsed box without dividing
+        // by zero. CornerCmd makes the final arcs circular in drawing space.
+        const [ tl, tr, br, bl ] = pixels
+        const fit = (edge: number, used: number) => used > 0 ? edge / used : 1
+        const scale = Math.min(1, fit(w, tl[0] + tr[0]), fit(w, bl[0] + br[0]), fit(h, tl[1] + bl[1]), fit(h, tr[1] + br[1]))
+        const corners = pixels.map(([ rx, ry ]) => [ w > 0 ? scale * rx / w : 0, h > 0 ? scale * ry / h : 0 ] as Point)
+
+        // Build the path in normalized coordinates using the resolved offsets.
+        const [ rtl, rtr, rbr, rbl ] = corners
         const [ rtlx, rtly ] = rtl
         const [ rtrx, rtry ] = rtr
         const [ rbrx, rbry ] = rbr
@@ -680,9 +703,7 @@ class RoundedRect extends Path {
             new CornerCmd([1, rtry], [1 - rtrx, 0]),
         ]
 
-        // pass to Path
-        super({ children, stroke_width: border, upright: true, ...attr })
-        this.args = args
+        return children.map(c => c.data(ctx)).join(' ')
     }
 }
 

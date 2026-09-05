@@ -34,7 +34,7 @@ type Direc = Side | Angle | Grad
 type PaddingValue = number | Point
 type Padding = boolean | PaddingValue | [PaddingValue, PaddingValue, PaddingValue, PaddingValue]
 
-// rounded: number, point, or [p0, p1, p2, p3]
+// rectangle rounding in stroke units: number, x/y pair, or four corners
 type RoundedValue = number | Point
 type Rounded = boolean | RoundedValue | [RoundedValue, RoundedValue, RoundedValue, RoundedValue]
 

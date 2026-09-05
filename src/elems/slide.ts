@@ -1,7 +1,7 @@
 // slide elements
 
 import { THEME } from '../lib/theme'
-import { black, white, none } from '../lib/const'
+import { DEFAULTS as D, black, white, none } from '../lib/const'
 import { prefix_split, pad_rect } from '../lib/utils'
 
 import { spec_split, align_frac, is_element, ensure_children, Rectangle, Group } from './core'
@@ -49,17 +49,17 @@ interface TitleBoxArgs extends BoxArgs {
     title_size?: number
     title_fill?: string
     title_offset?: number
-    title_rounded?: number
+    title_rounded?: Rounded
     title_padding?: Padding
 }
 
 class TitleBox extends Box {
     constructor(args: TitleBoxArgs = {}) {
-        const { children, title, title_size = 0.1, title_offset = 0, title_rounded = 0.3, title_padding = [ 0.6, 0.3 ], margin, env, ...attr0 } = THEME(args, 'TitleBox')
+        const { children, title, title_size = 0.1, title_offset = 0, title_rounded = D.rounded, title_padding = [ 0.6, 0.3 ], margin, env, ...attr0 } = THEME(args, 'TitleBox')
         const [ title_attr, attr1 ] = prefix_split(['title'], attr0)
         const [ spec, attr ] = spec_split(attr1)
 
-        // make optional title box; its padding and rounding are in em of the title
+        // make optional title box; padding is in em, rounding in stroke units
         let title_box: TextFrame | null = null
         let title_mask: Element | undefined = undefined
         if (title != null) {
@@ -72,7 +72,7 @@ class TitleBox extends Box {
             // the viewBox
             title_mask = new Group({ children: [
                 new Rectangle({ rect: [ -0.5, -0.5, 1.5, 1.5 ], fill: white, env }),
-                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: [ title_rounded / title_box.em.width, title_rounded / title_box.em.height ], fill: black, env })
+                new RoundedRect({ pos: title_pos, ysize: title_size, aspect: title_box.spec.aspect, rounded: title_rounded, fill: black, env })
             ], fill_rule: 'evenodd' , env})
         }
 
@@ -140,7 +140,7 @@ class Slide extends Group {
 
     constructor(args: SlideArgs = {}) {
         const {
-            children, aspect: aspect0 = 16 / 9, padding = 0.1, margin = 0.05, border = 1, rounded = 0.01,
+            children, aspect: aspect0 = 16 / 9, padding = 0.1, margin = 0.05, border = 1, rounded = D.rounded,
             border_stroke = '#bbb', background, title_size = 0.1, width: width0 = 25, em, gap = 0.5,
             justify = 'left', align = 'center', valign = 'center', overflow: mode = 'shrink', env, ...attr0
         } = THEME(args, 'Slide')

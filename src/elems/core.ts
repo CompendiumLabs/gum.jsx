@@ -818,7 +818,7 @@ class Svg extends Group {
 //
 
 interface RectArgs extends ElementArgs {
-    rounded?: number | Size
+    rounded?: boolean | number | Size
 }
 
 class Rectangle extends Element {
@@ -832,7 +832,7 @@ class Rectangle extends Element {
         this.args = args
 
         // additional props
-        this.rounded = rounded
+        this.rounded = rounded === false ? 0 : rounded === true ? D.rounded : rounded
     }
 
     props(ctx: Context): Attrs {
@@ -843,15 +843,16 @@ class Rectangle extends Element {
         const { prect } = ctx
         let [ x, y, w, h ] = rect_box(prect, true)
 
-        // scale border rounded
+        // Corner radii use the same drawing unit as strokes. A scalar stays
+        // circular; a pair can be elliptical. Clamp each to the available box.
         let rx: number | undefined
         let ry: number | undefined
         if (this.rounded != null) {
-            const s = 0.5 * (w + h)
             if (is_scalar(this.rounded)) {
-                rx = s * this.rounded
+                rx = Math.min(Math.max(0, ctx.unit * this.rounded), 0.5 * Math.min(w, h))
             } else {
-                [ rx, ry ] = mul2(this.rounded, s)
+                rx = Math.min(Math.max(0, ctx.unit * this.rounded[0]), 0.5 * w)
+                ry = Math.min(Math.max(0, ctx.unit * this.rounded[1]), 0.5 * h)
             }
         }
 

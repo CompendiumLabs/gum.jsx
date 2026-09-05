@@ -45,12 +45,12 @@ interface NodeArgs extends GroupArgs {
 
 // a node is a framed label at a position. given an `em` (coordinate units
 // per em, usually from the Network), the box is sized from the label: a
-// TextFrame hugging the text (or an element with metrics) with `padding` and
-// `rounded` in em, and the node is its em height times `em` tall, so every
+// TextFrame hugging the text (or an element with metrics) with `padding`
+// in em, and the node is its em height times `em` tall, so every
 // node in the network shares one text size and a wrapped label makes a
 // taller node rather than smaller text. without one it is a Frame of the
-// given `ysize`, its `padding` and `rounded` fractions of the box, and the
-// text is fit into it
+// given `ysize`, its `padding` a fraction of the box, and the text is fit
+// into it. Rounding uses stroke units in both cases.
 class Node extends Group {
     id: string | undefined
 
@@ -66,12 +66,12 @@ class Node extends Group {
         let ysize = ysize0
         if (sized) {
             const label = is_string(child) ? new Text({ children: [ child ], env, ...text_attr }) : child
-            const frame = new TextFrame({ children: [ label ], padding: padding ?? 0.4, rounded: rounded ?? 0.3, border, fill, width, justify, env, ...attr, ...text_attr })
+            const frame = new TextFrame({ children: [ label ], padding: padding ?? 0.4, rounded: rounded ?? true, border, fill, width, justify, env, ...attr, ...text_attr })
             ysize ??= em! * frame.em.height
             box = frame
         } else {
             const inner = is_string(child) ? new Text({ children: [ child ], width, justify, env, ...text_attr }) : child
-            box = new Frame({ children: [ inner ], padding: padding ?? 0.1, rounded: rounded ?? 0.05, border, fill, env, ...attr })
+            box = new Frame({ children: [ inner ], padding: padding ?? 0.1, rounded: rounded ?? true, border, fill, env, ...attr })
             ysize ??= 0.2
         }
 

@@ -30,8 +30,8 @@ interface BarArgs extends RoundedRectArgs {
 class Bar extends RoundedRect {
     constructor(args: BarArgs = {}) {
         const { direc = 'v', fill = blue, stroke = none, rounded: rounded0 = true, ...attr } = THEME(args, 'Bar')
-        const rounded1: Rounded = direc == 'v' ? [ 0.1, 0.1, 0, 0 ] : [ 0, 0.1, 0.1, 0 ]
-        const rounded = rounded0 == true ? rounded1 : rounded0 == false ? 0 : rounded0
+        const rounded1: Rounded = direc == 'v' ? [ D.rounded, D.rounded, 0, 0 ] : [ 0, D.rounded, D.rounded, 0 ]
+        const rounded = rounded0 === true ? rounded1 : rounded0 === false ? 0 : rounded0
         super({ fill, stroke, rounded, ...attr })
         this.args = args
     }
@@ -495,7 +495,7 @@ function ensure_legendlabel(label: any, attr: Attrs = {}): Element {
 // TODO: have a .badge/.label api for plottable elements
 class Legend extends Frame {
     constructor(args: LegendArgs = {}) {
-        const { children, lines, vspacing = 0.1, hspacing = 0.25, rounded = 0.025, padding = 0.05, fill = white, justify = 'left', debug, env, ...attr0 } = THEME(args, 'Legend')
+        const { children, lines, vspacing = 0.1, hspacing = 0.25, rounded = D.rounded, padding = 0.05, fill = white, justify = 'left', debug, env, ...attr0 } = THEME(args, 'Legend')
         const [ badge_attr, text_attr, attr ] = prefix_split([ 'badge', 'text' ], attr0)
 
         // construct legend badges and labels
